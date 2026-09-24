@@ -1,0 +1,74 @@
+Je veux construire SEAL, un agent IA qui analyse des tokens sur le launchpad pons 
+(Robinhood Chain) et qui EXPLIQUE en langage clair plutôt que de sortir un score isolé.
+
+Je te donne deux documents en pièce jointe :
+- seal-public-whitepaper-en.pdf : le concept produit, à qui ça s'adresse, pourquoi 
+  c'est différent des scanners existants (PonsScan, ponscan.fun, xroot.dev, Blockaid)
+- seal-build-plan-internal-en.pdf : le scope exact du MVP, les features en attente 
+  (Wave 1 et Wave 2), et les coûts estimés
+
+Lis les deux entièrement avant de commencer quoi que ce soit.
+
+## Étape 1 — Recherche technique AVANT tout code
+
+Ne code rien tant que tu n'as pas vérifié et documenté ces points précis :
+
+1. **Robinhood Chain RPC** — endpoint public (rpc.mainnet.chain.robinhood.com), 
+   chain ID, limite exacte de eth_getLogs (documentée à 1000 résultats/appel), 
+   et comment paginer par chunks de blocs pour un backfill complet.
+2. **pons factory** — l'ABI exact du contrat factory, l'event TokenLaunched et 
+   ses paramètres, comment lire graduationStatus et le prix via slot0.
+3. **Blockscout API** — endpoint pour Robinhood Chain, comment récupérer les 
+   holders d'un token et l'historique de transferts, limites du tier gratuit.
+4. **DexScreener API** — comment récupérer prix/volume/liquidité pour un 
+   token pons donné.
+5. **Claude API (Anthropic)** — le SDK à utiliser (@anthropic-ai/sdk), le modèle 
+   à appeler, et une estimation du coût par requête vu le volume de contexte 
+   qu'on va lui donner (vérifie les tarifs actuels sur docs.claude.com).
+
+Pour chacun de ces points, écris ce que tu trouves dans un fichier RESEARCH.md 
+à la racine du projet, avec les sources exactes (URLs, extraits de doc). 
+Si un point n'est pas clair ou pas confirmable, dis-le explicitement plutôt 
+que de supposer.
+
+## Étape 2 — Architecture du projet
+
+Une fois la recherche faite, propose une structure de projet (dossiers, 
+fichiers principaux) et un ARCHITECTURE.md qui explique comment les pièces 
+s'assemblent : pipeline de données → agent de raisonnement → interface.
+
+Structure git attendue :
+- main : uniquement le MVP tel que décrit dans seal-build-plan-internal-en.pdf
+- des branches feat/* séparées pour chaque feature de la Wave 1 et Wave 2 
+  listées dans le doc interne (creator-history, contradiction-detector, 
+  holder-deep-scan, response-cache, telegram-bot, watchlist, 
+  creator-reputation-trend, multi-token-compare)
+
+## Étape 3 — Construire le MVP, dans cet ordre
+
+1. Pipeline de données : une fonction qui prend une adresse de token pons et 
+   retourne l'historique du créateur, la concentration des holders, et l'état 
+   du marché — chacune de ces trois sources dans un module séparé et testable 
+   indépendamment.
+2. L'agent de raisonnement : un prompt qui prend ces trois blocs de données 
+   et produit une explication en langage clair, JAMAIS un score numérique, 
+   JAMAIS une phrase qui ressemble à un conseil d'achat ("safe to buy", etc.). 
+   Le ton doit rester factuel et nuancé — relis le pitch du whitepaper public 
+   pour le calibrer.
+3. Une interface minimale (une page web avec un champ + résultat suffit pour 
+   le MVP).
+4. Disclaimers légaux visibles.
+5. Un README.md qui explique comment lancer le projet en local.
+
+## Contraintes à respecter tout du long
+
+- Rien ne doit être codé sur une supposition non vérifiée — si un détail 
+  technique n'est pas confirmé (ex: comportement exact d'un rate limit), 
+  teste-le en vrai plutôt que de deviner.
+- Chaque appel à une API externe doit avoir une gestion d'erreur propre 
+  (l'API peut timeout, rate-limiter, ou renvoyer une donnée incomplète).
+- Le coût par requête à l'agent de raisonnement doit être visible/loggable 
+  dès le MVP, pas ajouté après coup.
+
+Commence par l'étape 1 (recherche) et montre-moi RESEARCH.md avant de passer 
+à la suite.
