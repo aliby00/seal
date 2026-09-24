@@ -1,0 +1,51 @@
+# --- Secrets : ne JAMAIS commiter ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.vercel
+
+# --- Dépendances ---
+node_modules/
+.pnpm-store/
+
+# --- Build ---
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+
+# --- Tests / outillage ---
+coverage/
+.vitest/
+
+# --- OS / éditeurs ---
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# --- Outils IA / agents : jamais dans le repo ---
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+.claude/
+.claude*/
+.cursor/
+.cursorrules
+.windsurfrules
+.aider*
+.continue/
+.roo/
+.taskmaster/
+.mcp.json
+.github/copilot-instructions.md
+
+# --- Logs ---
+*.log
+npm-debug.log*
+pnpm-debug.log*
