@@ -13,16 +13,22 @@ Plan complet, de zéro à la mise en production. Chaque tâche porte un identifi
 
 ## Phase 0 — Décisions et fondations
 
-### T0.1 ⛔ Trancher les décisions ouvertes
-- [ ] **Modèle Claude** — à 100 requêtes/jour : Haiku 4.5 ≈ 29 $/mois · Sonnet 5 ≈ 57 $ · Opus 5 ≈ 142 $.
-      Le build plan budgète 30 $/mois, ce qui correspond à Haiku 4.5 avec un contexte sous ~6k tokens.
-      Arbitrage qualité de raisonnement vs budget — c'est le cœur du produit.
-- [ ] **RPC** — public (gratuit, mais 429 puis 403 après quelques requêtes rapprochées)
-      vs payant (Alchemy / Dwellir, ≤ 50 $/mois au build plan).
-- [ ] **Nom de domaine** — sert à deux sous-domaines : `seal.xx` (prod) et `staging.seal.xx`.
-- [ ] **Hébergement** — Vercel retenu par défaut (auto-deploy GitHub natif).
-- [ ] **Portée de l'historique créateur au MVP** — fenêtre récente (recommandé) vs historique
-      complet, ce dernier étant de toute façon le sujet de `feat/creator-history`.
+### T0.1 Décisions — tranchées
+
+- [x] **Modèle Claude → `claude-sonnet-5`** (2 $/MTok entrée, 10 $/MTok sortie).
+      Estimation ≈ 57 $/mois à 100 requêtes/jour, soit le double du budget initial de 30 $.
+      Choix assumé : la qualité du raisonnement *est* le produit. On mesure le coût réel
+      via T3.6, et on redescend à Haiku 4.5 (≈ 29 $/mois) si la qualité le permet.
+- [x] **Hébergement → Vercel**, déploiement piloté par GitHub Actions.
+- [x] **URL → sous-domaines `.vercel.app`** pour l'instant, pas de domaine acheté.
+      Production : `seal.vercel.app` · Staging : `seal-staging.vercel.app`
+      (noms définitifs fixés à la création du projet Vercel, selon disponibilité).
+      Le passage à un vrai domaine se fera plus tard sans rien casser : seul l'alias change.
+- [x] **RPC → public au démarrage** (`https://rpc.mainnet.chain.robinhood.com`).
+      Suffisant pour le MVP ; insuffisant pour T4.1 (backfill de 71,7 M blocs) — on bascule
+      sur un RPC payant à ce moment-là.
+- [x] **Historique créateur au MVP → fenêtre récente.** L'historique complet est le sujet
+      de `feat/creator-history` (T4.1), conformément au build plan.
 - [ ] **Version longue du build plan** — `instructions` cite `seal-build-plan-internal-en.pdf`,
       le repo contient `seal-build-plan-condensed.pdf`. Existe-t-il une version non condensée ?
 
@@ -55,7 +61,7 @@ feat/*  ──PR──►  staging  ──PR──►  main
    │               │                 │
 Preview         Pipeline          Pipeline
 éphémère        STAGING           PRODUCTION
-(URL par PR)   staging.seal.xx    seal.xx
+(URL par PR)   seal-staging.vercel.app    seal.vercel.app
 ```
 
 > Extension de la structure git décrite dans `instructions` : `main` reste la production
@@ -100,7 +106,7 @@ de déploiement, pour qu'ils soient littéralement identiques.
 - [ ] Appelle `ci.yml` — si rouge, rien ne se déploie
 - [ ] `vercel pull --environment=preview`
 - [ ] `vercel build` puis `vercel deploy --prebuilt`
-- [ ] `vercel alias <url> staging.seal.xx` — l'URL de staging est stable
+- [ ] `vercel alias <url> seal-staging.vercel.app` — l'URL de staging est stable
 - [ ] Smoke tests contre l'URL déployée : page qui répond, `/api/analyze` sur un token réel,
       une vraie requête Claude de bout en bout
 - [ ] Si les smoke tests échouent → job rouge, l'alias reste sur le déploiement précédent

@@ -7,7 +7,7 @@ feat/*  ──PR──►  staging  ──PR──►  main
    │               │                 │
 Preview         Pipeline          Pipeline
 éphémère        STAGING           PRODUCTION
-(URL par PR)   staging.seal.xx    seal.xx
+(URL par PR)   seal-staging.vercel.app    seal.vercel.app
 ```
 
 | Branche | Rôle | Qui y écrit |
@@ -47,7 +47,7 @@ garde-fous de l'agent, build. **La PR ne peut pas être mergée tant que tout n'
 ### 3. Merge dans `staging` → déploiement automatique
 
 Le workflow `deploy-staging.yml` rejoue le CI, construit, déploie, puis réaligne
-l'alias `staging.seal.xx` sur le nouveau déploiement et lance les smoke tests
+l'alias `seal-staging.vercel.app` sur le nouveau déploiement et lance les smoke tests
 contre l'URL réelle.
 
 Si les smoke tests échouent, l'alias **reste sur le déploiement précédent**.
