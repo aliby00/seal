@@ -114,3 +114,18 @@ pnpm lint
 pnpm test           # unitaires, sans réseau
 pnpm test:guards    # garde-fous de l'agent
 ```
+
+## Activer les déploiements
+
+Les deux workflows de déploiement sont pilotés par une variable de dépôt,
+`DEPLOYMENTS_ENABLED`. Tant qu'elle vaut `false`, le CI tourne normalement sur
+chaque PR mais le job de déploiement est ignoré — aucun échec rouge dû à un
+`VERCEL_TOKEN` absent.
+
+Pour activer, une fois le token posé dans les deux environnements :
+
+```bash
+gh secret set VERCEL_TOKEN --env staging    --repo aliby00/seal
+gh secret set VERCEL_TOKEN --env production --repo aliby00/seal
+gh variable set DEPLOYMENTS_ENABLED --body true --repo aliby00/seal
+```

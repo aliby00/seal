@@ -22,6 +22,10 @@ jobs:
   deploy:
     name: Déployer et vérifier
     needs: ci
+    # Interrupteur général : tant que VERCEL_TOKEN n'est pas posé, le job est
+    # ignoré proprement au lieu d'échouer sur `vercel pull`. Basculer la
+    # variable de dépôt DEPLOYMENTS_ENABLED à "true" pour l'activer.
+    if: vars.DEPLOYMENTS_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
