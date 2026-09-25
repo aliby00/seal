@@ -1,0 +1,65 @@
+name: Deploy · staging
+
+# Déclenché par un merge dans staging. Déploie sur le projet Vercel
+# `seal-staging`, dont l'URL de production sert d'URL de staging.
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # Le CI passe d'abord. S'il est rouge, rien ne se déploie.
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    name: Déployer et vérifier
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: staging
+      url: ${{ steps.deploy.outputs.url }}
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Installer les dépendances
+        run: pnpm install --frozen-lockfile
+
+      - name: Récupérer la configuration Vercel
+        run: pnpm dlx vercel@59 pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      # Le build tourne sur le runner : seul .vercel/output part chez Vercel.
+      # Sans --prebuilt, Vercel reconstruit le même artefact et on paie deux fois.
+      - name: Construire
+        run: pnpm dlx vercel@59 build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Déployer
+        id: deploy
+        run: |
+          url=$(pnpm dlx vercel@59 deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Déployé sur $url"
+          echo "### Staging déployé" >> "$GITHUB_STEP_SUMMARY"
+          echo "$url" >> "$GITHUB_STEP_SUMMARY"
+
+      # Le seul endroit où l'on tape sur l'application réellement en ligne.
+      - name: Smoke tests
+        run: node scripts/smoke.mjs "${{ steps.deploy.outputs.url }}" staging

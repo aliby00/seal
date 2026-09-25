@@ -10,11 +10,11 @@ Preview         Pipeline          Pipeline
 (URL par PR)   URL de prod du projet seal-staging    seal-six-rho.vercel.app
 ```
 
-| Branche | Rôle | Qui y écrit |
-|---|---|---|
-| `main` | Production. Ne reçoit que du release. | Personne directement — uniquement via une PR depuis `staging` |
-| `staging` | Intégration. C'est là que les devs poussent leur travail terminé. | Via PR depuis `feat/*` |
-| `feat/*` | Une feature, une branche. Part toujours de `staging`. | Le dev qui la porte |
+| Branche   | Rôle                                                              | Qui y écrit                                                   |
+| --------- | ----------------------------------------------------------------- | ------------------------------------------------------------- |
+| `main`    | Production. Ne reçoit que du release.                             | Personne directement — uniquement via une PR depuis `staging` |
+| `staging` | Intégration. C'est là que les devs poussent leur travail terminé. | Via PR depuis `feat/*`                                        |
+| `feat/*`  | Une feature, une branche. Part toujours de `staging`.             | Le dev qui la porte                                           |
 
 `main` reste « uniquement le MVP tel que décrit dans le build plan ». Une feature de
 Wave 1 ou 2 entre dans `staging` quand elle est prête à être **testée**, et dans `main`
@@ -83,13 +83,13 @@ rollback automatique sur le déploiement précédent.
 
 Les secrets sont scopés **par GitHub Environment**, jamais au niveau du repo.
 
-| Secret | `staging` | `production` |
-|---|---|---|
-| `ANTHROPIC_API_KEY` | clé dédiée staging | clé dédiée production |
-| `BLOCKSCOUT_API_KEY` | clé dédiée staging | clé dédiée production |
-| `RPC_URL` | endpoint staging | endpoint production |
-| `SEAL_ENV` | `staging` | `production` |
-| `VERCEL_TOKEN` / `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` | ✓ | ✓ |
+| Secret                                                 | `staging`          | `production`          |
+| ------------------------------------------------------ | ------------------ | --------------------- |
+| `ANTHROPIC_API_KEY`                                    | clé dédiée staging | clé dédiée production |
+| `BLOCKSCOUT_API_KEY`                                   | clé dédiée staging | clé dédiée production |
+| `RPC_URL`                                              | endpoint staging   | endpoint production   |
+| `SEAL_ENV`                                             | `staging`          | `production`          |
+| `VERCEL_TOKEN` / `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` | ✓                  | ✓                     |
 
 Les clés sont doublées pour que la dépense de staging ne pollue ni le budget de
 production ni la mesure de coût par requête.

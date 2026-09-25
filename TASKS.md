@@ -17,7 +17,7 @@ Plan complet, de zéro à la mise en production. Chaque tâche porte un identifi
 
 - [x] **Modèle Claude → `claude-sonnet-5`** (2 $/MTok entrée, 10 $/MTok sortie).
       Estimation ≈ 57 $/mois à 100 requêtes/jour, soit le double du budget initial de 30 $.
-      Choix assumé : la qualité du raisonnement *est* le produit. On mesure le coût réel
+      Choix assumé : la qualité du raisonnement _est_ le produit. On mesure le coût réel
       via T3.6, et on redescend à Haiku 4.5 (≈ 29 $/mois) si la qualité le permet.
 - [x] **Hébergement → Vercel**, déploiement piloté par GitHub Actions.
 - [x] **URL → `.vercel.app`**, pas de domaine acheté.
@@ -36,21 +36,24 @@ Plan complet, de zéro à la mise en production. Chaque tâche porte un identifi
       le repo contient `seal-build-plan-condensed.pdf`. Existe-t-il une version non condensée ?
 
 ### T0.2 Comptes et clés
+
 - [ ] Clé API Anthropic — **deux** clés distinctes (staging / production)
 - [ ] Clé Blockscout sur `dev.blockscout.com` — **deux** clés (gratuit : 5 req/s, 100 000 crédits/jour)
 - [ ] Clé RPC si T0.1 tranche « payant » — **deux** clés
-- [ ] Compte Vercel relié à `aliby00/seal`
-- [ ] `.env.example` commité, `.env.local` dans `.gitignore`
+- [x] Projets Vercel créés sur `ali-ben-yezzas-projects` : `seal` (prod) et `seal-staging`.
+      Connexion GitHub volontairement **supprimée** — voir T0.4.
+- [x] `.env.example` commité, `.env.local` et `.vercel/` dans `.gitignore`
 
 > Les clés sont doublées pour que la dépense de staging ne pollue ni le budget de production
 > ni la mesure de coût par requête (T3.6).
 
 ### T0.3 Squelette du repo
-- [ ] `pnpm create next-app` — App Router, TypeScript
-- [ ] `tsconfig` : `strict: true`, `noUncheckedIndexedAccess: true`
-- [ ] Vitest, ESLint, Prettier
-- [ ] `.gitignore`, `.nvmrc` (Node 24), champ `engines` dans `package.json`
-- [ ] Premier commit
+
+- [x] `pnpm create next-app` — App Router, TypeScript
+- [x] `tsconfig` : `strict: true`, `noUncheckedIndexedAccess: true`
+- [x] Vitest, ESLint, Prettier
+- [x] `.gitignore`, `.nvmrc` (Node 24), champ `engines` dans `package.json`
+- [x] Premier commit
 
 ---
 
@@ -71,6 +74,7 @@ Preview         Pipeline          Pipeline
 > et ne reçoit que du release. Les branches `feat/*` partent de `staging`.
 
 ### T0.4 ⛔ Couper l'auto-deploy natif de Vercel
+
 - [x] Connexion GitHub **déconnectée** du projet `seal` (`vercel git disconnect`). Elle était
       active avec `main` comme branche de production : Vercel aurait déployé à chaque push,
       sans attendre les tests.
@@ -84,56 +88,65 @@ Preview         Pipeline          Pipeline
 > vers un déploiement.
 
 ### T0.5 Les deux GitHub Environments
-- [ ] Environment `staging` — branche autorisée : `staging` uniquement, pas de reviewer
-- [ ] Environment `production` — branche autorisée : `main` uniquement, **required reviewer**
-- [ ] Secrets scopés par environnement (jamais au niveau repo) :
+
+- [x] Environment `staging` — branche autorisée : `staging` uniquement, pas de reviewer
+- [x] Environment `production` — branche autorisée : `main` uniquement, **required reviewer** (Ali)
+- [x] Secrets scopés par environnement (jamais au niveau repo) — `VERCEL_TOKEN` reste à poser :
       `ANTHROPIC_API_KEY`, `BLOCKSCOUT_API_KEY`, `RPC_URL`, `SEAL_ENV`,
       `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`
 
 ### T0.6 Protection des branches
+
 - [ ] `main` — PR obligatoire, checks requis, pas de push direct, pas de force-push
 - [ ] `staging` — PR obligatoire, mêmes checks requis
 - [ ] Historique linéaire sur les deux, pour que le commit testé en staging soit
       exactement celui qui part en production
 
 ### T0.7 Workflow `ci.yml` — le socle partagé
+
 Déclenché sur chaque PR et chaque push de `feat/*`. Réutilisé par les deux pipelines
 de déploiement, pour qu'ils soient littéralement identiques.
-- [ ] `pnpm install --frozen-lockfile`
-- [ ] `typecheck`
-- [ ] `lint`
-- [ ] tests unitaires — fixtures figées, **zéro appel réseau réel**
-- [ ] tests de garde-fous de l'agent (voir T3.5)
-- [ ] `build`
-- [ ] cache pnpm + Next
-- [ ] `concurrency` par branche, annulation des runs obsolètes
+
+- [x] `pnpm install --frozen-lockfile`
+- [x] `typecheck`
+- [x] `lint`
+- [x] tests unitaires — fixtures figées, **zéro appel réseau réel**
+- [x] tests de garde-fous de l'agent (voir T3.5)
+- [x] `build`
+- [x] cache pnpm + Next
+- [x] `concurrency` par branche, annulation des runs obsolètes
 
 ### T0.8 Workflow `deploy-staging.yml`
-- [ ] Appelle `ci.yml` — si rouge, rien ne se déploie
-- [ ] `vercel pull --environment=preview`
-- [ ] `vercel build` puis `vercel deploy --prebuilt`
-- [ ] `vercel deploy --prebuilt --prod` **sur le projet `seal-staging`** — son URL de production est l'URL de staging, stable par construction (pas d'alias à gérer)
-- [ ] Smoke tests contre l'URL déployée : page qui répond, `/api/analyze` sur un token réel,
+
+- [x] Appelle `ci.yml` — si rouge, rien ne se déploie
+- [x] `vercel pull --environment=preview`
+- [x] `vercel build` puis `vercel deploy --prebuilt`
+- [x] `vercel deploy --prebuilt --prod` **sur le projet `seal-staging`** — son URL de production est l'URL de staging, stable par construction (pas d'alias à gérer)
+- [x] Smoke tests contre l'URL déployée : page qui répond, `/api/analyze` sur un token réel,
       une vraie requête Claude de bout en bout
-- [ ] Si les smoke tests échouent → job rouge, l'alias reste sur le déploiement précédent
+- [x] Si les smoke tests échouent → job rouge, l'alias reste sur le déploiement précédent
 
 > `--prebuilt` fait tourner le build sur le runner et n'envoie que `.vercel/output`.
 > Sans ce flag, Vercel rebuild le même artefact et la facture CI double.
 
 ### T0.9 Workflow `deploy-production.yml`
+
 Structurellement identique à staging, trois différences seulement.
-- [ ] Appelle `ci.yml` — rejoué sur le commit de merge
-- [ ] Gate `environment: production` → approbation humaine
-- [ ] `vercel pull --environment=production`, `vercel build --prod`, `vercel deploy --prebuilt --prod`
-- [ ] Smoke tests contre l'URL de production
-- [ ] **Rollback automatique** si les smoke tests échouent (`vercel rollback`)
-- [ ] Tag git `v*` + release notes
+
+- [x] Appelle `ci.yml` — rejoué sur le commit de merge
+- [x] Gate `environment: production` → approbation humaine
+- [x] `vercel pull --environment=production`, `vercel build --prod`, `vercel deploy --prebuilt --prod`
+- [x] Smoke tests contre l'URL de production
+- [x] **Rollback automatique** si les smoke tests échouent (`vercel rollback`)
+- [x] Tag git `v*` + release notes
 
 ### T0.10 Rituel de promotion
-- [ ] Documenté dans `CONTRIBUTING.md`
-- [ ] La PR `staging → main` est une PR de release : elle liste ce qui part, rien n'y est ajouté
+
+- [x] Documenté dans `CONTRIBUTING.md`
+- [x] La PR `staging → main` est une PR de release : elle liste ce qui part, rien n'y est ajouté
 
 ### T0.11 ⛔ Validation du squelette
+
 - [ ] Une page « hello » passe `feat/test-pipeline` → `staging` → URL staging vivante
 - [ ] Puis `staging` → `main` → URL production vivante
 - [ ] Un test volontairement cassé **bloque** bien le déploiement
@@ -146,6 +159,7 @@ Structurellement identique à staging, trois différences seulement.
 Étape 1 des `instructions` : rien n'est codé sur une supposition non vérifiée.
 
 ### T1.1 Rédiger les cinq sections vérifiées
+
 - [ ] **RPC Robinhood Chain** — chain ID 4663 / `0x1237`, client `nitro` (Arbitrum Orbit),
       block time mesuré **0,101 s** (~855 800 blocs/jour), chaîne née vers le 3 juillet 2026.
       **Limite `eth_getLogs` = 10 000 logs** (et non 1 000 comme supposé dans `instructions`) :
@@ -173,6 +187,7 @@ Structurellement identique à staging, trois différences seulement.
 > = `liquidity.quote`. Le pipeline à trois modules tient debout.
 
 ### T1.2 Combler les trous, et écrire « non confirmé » là où ça reste ouvert
+
 - [ ] Pagination Blockscout v2 (`next_page_params`) — à tester une fois la clé obtenue
 - [ ] `restrictionsEndBlock` = 26 050 559 alors que le bloc courant est 71,7 M → **non élucidé**,
       hypothèse bloc L1. Ne pas s'en servir tant que ce n'est pas compris.
@@ -182,10 +197,12 @@ Structurellement identique à staging, trois différences seulement.
 - [ ] Combien de générations de factory existent, et comment les énumérer
 
 ### T1.3 Rendre la vérification reproductible
+
 - [ ] `scripts/probe-rpc.ts`, `scripts/probe-blockscout.ts`, `scripts/probe-dexscreener.ts`
 - [ ] Documenter la méthode de mesure du rate limit
 
 ### T1.4 ⛔ Validation
+
 - [ ] Commit et revue de `RESEARCH.md` avant de passer à la Phase 2
 
 ---
@@ -193,9 +210,11 @@ Structurellement identique à staging, trois différences seulement.
 ## Phase 2 — Architecture
 
 ### T2.1 Figer la stack
+
 - [ ] Issue des décisions T0.1
 
 ### T2.2 Arborescence
+
 - [ ] Mettre en place :
 
 ```
@@ -222,6 +241,7 @@ scripts/
 ```
 
 ### T2.3 Contrats de données
+
 - [ ] `CreatorHistory`, `HolderDistribution`, `MarketState`, `TokenReport`
 - [ ] Chaque type porte `completeness: 'full' | 'partial' | 'unavailable'` et `sources[]`
 
@@ -229,10 +249,12 @@ scripts/
 > L'agent doit le savoir pour pouvoir le dire.
 
 ### T2.4 `ARCHITECTURE.md`
+
 - [ ] Pipeline de données → agent de raisonnement → interface
 - [ ] Schéma des flux et traitement des erreurs partielles
 
 ### T2.5 Créer les huit branches `feat/*` depuis `staging`
+
 - [ ] `feat/creator-history`
 - [ ] `feat/contradiction-detector`
 - [ ] `feat/holder-deep-scan`
@@ -247,6 +269,7 @@ scripts/
 ## Phase 3 — Le MVP
 
 ### T3.0 Socle
+
 - [ ] Validation d'environnement zod, fail-fast au démarrage
 - [ ] Client viem sur Robinhood Chain (chaîne 4663 custom)
 - [ ] Wrapper HTTP : timeout, retry exponentiel, respect du `Retry-After`,
@@ -255,6 +278,7 @@ scripts/
 - [ ] Logger structuré JSON
 
 ### T3.1 Module 1 — historique du créateur (`lib/chain/`)
+
 - [ ] Résolution **dynamique** du factory — ne jamais coder l'adresse en dur, elle a déjà changé
 - [ ] `getLogs` chunké, fenêtre **adaptative** : division par deux dès qu'on approche 10 000 logs
 - [ ] `TokenLaunched` filtré par `deployer` (topic2 indexé) → liste des tokens du créateur
@@ -264,6 +288,7 @@ scripts/
 - [ ] Tests sur fixtures de logs réels figées
 
 ### T3.2 Module 2 — concentration des holders (`lib/holders/`)
+
 - [ ] `GET /4663/api/v2/tokens/{addr}/holders` + pagination
 - [ ] Top N, part du top 1 et du top 10, exclusion du pool et des adresses de burn
 - [ ] Historique de transferts pour mesurer l'activité réelle
@@ -271,6 +296,7 @@ scripts/
 - [ ] Dégradation propre : `unavailable` plutôt qu'un crash si Blockscout tombe
 
 ### T3.3 Module 3 — état du marché (`lib/market/`)
+
 - [ ] `GET /token-pairs/v1/robinhood/{token}`
 - [ ] Extraction : prix, liquidité, volume par fenêtre, `txns` buys/sells, `fdv`, `pairCreatedAt`
 - [ ] Croisement volume ↔ nombre de transactions distinctes
@@ -279,10 +305,12 @@ scripts/
 - [ ] Cas « aucune paire indexée » (token trop récent)
 
 ### T3.4 Orchestrateur (`lib/collect.ts`)
+
 - [ ] Les trois modules en parallèle
 - [ ] Un échec partiel ne tue pas l'analyse
 
 ### T3.5 Agent de raisonnement (`lib/agent/`)
+
 - [ ] System prompt en préfixe stable → éligible au prompt caching
 - [ ] Les trois blocs de données + leur `completeness` en entrée
 - [ ] **Garde-fous avec tests automatiques** : aucun score numérique, aucune formulation
@@ -293,20 +321,25 @@ scripts/
 - [ ] Gestion de `stop_reason`, des timeouts, streaming si le modèle retenu le justifie
 
 ### T3.6 Coût par requête ⛔
+
 Contrainte explicite des `instructions` : visible dès le MVP, pas ajouté après coup.
+
 - [ ] Lire `response.usage` — `input_tokens`, `output_tokens`, `cache_read_input_tokens`
 - [ ] Convertir en dollars via une table de tarifs versionnée
 - [ ] Logger par requête + compteur cumulé, avec le label `SEAL_ENV`
 
 ### T3.7 Route API
+
 - [ ] `POST /api/analyze` — validation d'adresse, timeout global, erreurs HTTP propres
 
 ### T3.8 Interface
+
 - [ ] Un champ, un bouton, le résultat
 - [ ] États loading / erreur / données partielles affichées explicitement
 - [ ] Bandeau « STAGING » quand `SEAL_ENV=staging`
 
 ### T3.9 Disclaimers légaux
+
 - [ ] Pas un conseil financier
 - [ ] Pas un audit de contrat
 - [ ] Agent non déterministe
@@ -314,15 +347,18 @@ Contrainte explicite des `instructions` : visible dès le MVP, pas ajouté aprè
 > Les trois viennent directement de la section « Risks We Are Not Hiding » du whitepaper.
 
 ### T3.10 `README.md`
+
 - [ ] Comment lancer en local
 - [ ] Variables d'environnement
 - [ ] Comment obtenir chaque clé
 
 ### T3.11 Brancher le MVP sur les pipelines
+
 - [ ] Ajouter les vrais tests au `ci.yml`
 - [ ] Ajouter les vrais smoke tests aux deux workflows de déploiement
 
 ### T3.12 Recette du MVP
+
 - [ ] Cinq tokens réels testés de bout en bout : un gradué, un abandonné, un tout neuf,
       un très concentré, une adresse invalide
 
@@ -331,19 +367,23 @@ Contrainte explicite des `instructions` : visible dès le MVP, pas ajouté aprè
 ## Phase 4 — Wave 1 (avant lancement)
 
 ### T4.1 `feat/creator-history` — J+1
+
 - [ ] Historique **complet** avec pagination chunkée sur les 71,7 M blocs
 - [ ] RPC payant
 - [ ] Indexation / persistance locale pour ne pas re-scanner à chaque requête
 - [ ] Passage de `completeness: partial` à `full`
 
 ### T4.2 `feat/contradiction-detector` — J+3
+
 - [ ] Règles de détection de signaux divergents, en amont du prompt
 - [ ] Les contradictions sont passées **explicitement** à l'agent plutôt qu'espérées
 
 ### T4.3 `feat/holder-deep-scan` — J+5
+
 - [ ] Détection de clusters de wallets liés : financement commun, timing, graphe de transferts
 
 ### T4.4 `feat/response-cache` — J+7
+
 - [ ] Cache des réponses par (token, tranche de temps)
 - [ ] Répond au risque n°1 du whitepaper (non-déterminisme) **et** fait chuter le coût par requête
 
@@ -352,16 +392,20 @@ Contrainte explicite des `instructions` : visible dès le MVP, pas ajouté aprè
 ## Phase 5 — Wave 2 (en parallèle)
 
 ### T5.1 `feat/telegram-bot` — dès J+1
+
 - [ ] Bot, commande `/scan <addr>`, formatage, rate limit par utilisateur
 
 ### T5.2 `feat/watchlist` — J+2
+
 - [ ] Persistance des tokens suivis, stockage, notion d'utilisateur
 - [ ] ⚠️ **Deux datastores séparés** — staging ne doit jamais écrire dans la base de production
 
 ### T5.3 `feat/creator-reputation-trend` — J+3
+
 - [ ] Comportement du créateur dans le temps, pas seulement un agrégat
 
 ### T5.4 `feat/multi-token-compare` — J+4
+
 - [ ] Comparaison côte à côte, prompt adapté
 
 ---
@@ -369,12 +413,18 @@ Contrainte explicite des `instructions` : visible dès le MVP, pas ajouté aprè
 ## Phase 6 — Pré-lancement
 
 ### T6.1 Relecture juridique des disclaimers
+
 ### T6.2 Rate limiting et anti-abus sur l'API publique
+
 ### T6.3 Monitoring
+
 - [ ] Taux d'erreur par source externe, latence
 - [ ] **Coût journalier réel vs budget**, séparé par environnement
+
 ### T6.4 Analytics minimales
+
 ### T6.5 Décision coin
+
 - [ ] Le whitepaper nomme déjà le conflit d'intérêt — à trancher **avant**, pas après
 
 ---

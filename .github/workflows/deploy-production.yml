@@ -1,0 +1,83 @@
+name: Deploy · production
+
+# Déclenché par un merge dans main. Structurellement identique au staging,
+# à trois différences près : l'environnement production exige une approbation
+# humaine, le déploiement vise le projet `seal`, et un échec des smoke tests
+# déclenche un rollback automatique.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    name: Déployer et vérifier
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # L'approbation se déclenche ici : tant qu'elle n'est pas donnée,
+    # le job ne démarre pas et ne peut même pas lire les secrets de production.
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Installer les dépendances
+        run: pnpm install --frozen-lockfile
+
+      # Mémorise le déploiement actuellement en ligne, pour pouvoir y revenir.
+      - name: Relever le déploiement en cours
+        id: previous
+        run: |
+          url=$(pnpm dlx vercel@59 ls --prod --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null \
+                | grep -oE 'https://[a-zA-Z0-9.-]+\.vercel\.app' | head -1 || true)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Déploiement actuel : ${url:-aucun}"
+
+      - name: Récupérer la configuration Vercel
+        run: pnpm dlx vercel@59 pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Construire
+        run: pnpm dlx vercel@59 build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Déployer
+        id: deploy
+        run: |
+          url=$(pnpm dlx vercel@59 deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "### Production déployée" >> "$GITHUB_STEP_SUMMARY"
+          echo "$url" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Smoke tests
+        id: smoke
+        run: node scripts/smoke.mjs "${{ steps.deploy.outputs.url }}" production
+
+      # Ne s'exécute que si les smoke tests ont échoué : on repromeut l'ancien.
+      - name: Rollback
+        if: failure() && steps.smoke.outcome == 'failure' && steps.previous.outputs.url != ''
+        run: |
+          echo "Smoke tests en échec — retour sur ${{ steps.previous.outputs.url }}"
+          pnpm dlx vercel@59 rollback "${{ steps.previous.outputs.url }}" \
+            --token=${{ secrets.VERCEL_TOKEN }} --yes
+          echo "### ⚠️ Rollback effectué" >> "$GITHUB_STEP_SUMMARY"

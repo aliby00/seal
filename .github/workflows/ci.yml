@@ -1,0 +1,55 @@
+name: CI
+
+# Socle partagé. Appelé directement sur les PR et les branches de feature,
+# et réutilisé par les deux workflows de déploiement — pour que le staging
+# et la production soient contrôlés exactement de la même façon.
+on:
+  pull_request:
+  push:
+    branches: ['feat/**']
+  workflow_call:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Vérifications
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Installer les dépendances
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Format
+        run: pnpm format
+
+      # Aucun appel réseau réel ici : fixtures figées uniquement.
+      - name: Tests unitaires
+        run: pnpm test
+
+      # Les garde-fous de l'agent : jamais de score, jamais de conseil d'achat.
+      - name: Garde-fous de l'agent
+        run: pnpm test:guards
+
+      - name: Build
+        run: pnpm build
