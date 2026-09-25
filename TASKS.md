@@ -298,12 +298,12 @@ scripts/
 
 ### T3.3 Module 3 — état du marché (`lib/market/`)
 
-- [ ] `GET /token-pairs/v1/robinhood/{token}`
-- [ ] Extraction : prix, liquidité, volume par fenêtre, `txns` buys/sells, `fdv`, `pairCreatedAt`
-- [ ] Croisement volume ↔ nombre de transactions distinctes
+- [x] `GET /token-pairs/v1/robinhood/{token}`
+- [x] Extraction : prix, liquidité, volume par fenêtre, `txns` buys/sells, `fdv`, `pairCreatedAt`
+- [x] Croisement volume ↔ nombre de transactions distinctes
       (le signal « aller-retour artificiel » du whitepaper)
-- [ ] Progression de graduation = `pairedPrincipal / 4,2 ETH`
-- [ ] Cas « aucune paire indexée » (token trop récent)
+- [x] Progression de graduation = `pairedPrincipal / 4,2 ETH`
+- [x] Cas « aucune paire indexée » (token trop récent)
 
 ### T3.4 Orchestrateur (`lib/collect.ts`)
 
