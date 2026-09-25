@@ -272,7 +272,7 @@ scripts/
 ### T3.0 Socle
 
 - [x] Validation d'environnement zod, fail-fast au démarrage
-- [ ] Client viem sur Robinhood Chain (chaîne 4663 custom) — fait dans `feat/chain-module`
+- [x] Client JSON-RPC sur Robinhood Chain (chaîne 4663), viem pour l'encodage ABI
 - [x] Wrapper HTTP : timeout, retry exponentiel, respect du `Retry-After`,
       plafond de requêtes par analyse
 - [x] Erreurs typées — chaque appel externe a une gestion propre (contrainte des `instructions`)
@@ -280,13 +280,13 @@ scripts/
 
 ### T3.1 Module 1 — historique du créateur (`lib/chain/`)
 
-- [ ] Résolution **dynamique** du factory — ne jamais coder l'adresse en dur, elle a déjà changé
-- [ ] `getLogs` chunké, fenêtre **adaptative** : division par deux dès qu'on approche 10 000 logs
-- [ ] `TokenLaunched` filtré par `deployer` (topic2 indexé) → liste des tokens du créateur
-- [ ] Pour chaque token : `graduationStatus()` → gradué / abandonné / en cours
-- [ ] Détection de retrait de liquidité et de dump de l'allocation créateur
-- [ ] `completeness: 'partial'` quand la fenêtre est tronquée
-- [ ] Tests sur fixtures de logs réels figées
+- [x] Résolution **dynamique** du factory — ne jamais coder l'adresse en dur, elle a déjà changé
+- [x] `getLogs` chunké, fenêtre **adaptative** : division par deux dès qu'on approche 10 000 logs
+- [x] `TokenLaunched` filtré par `deployer` (topic2 indexé) → liste des tokens du créateur
+- [x] Pour chaque token : `graduationStatus()` → gradué / abandonné / en cours
+- [ ] Détection de retrait de liquidité et de dump de l'allocation créateur — nécessite l'analyse des transferts, reporté à `feat/creator-history`
+- [x] `completeness: 'partial'` quand la fenêtre est tronquée
+- [x] Tests sur fixtures de logs réels figées
 
 ### T3.2 Module 2 — concentration des holders (`lib/holders/`)
 
