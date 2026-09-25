@@ -1,0 +1,25 @@
+[
+  {
+    "chainId": "robinhood",
+    "dexId": "uniswap",
+    "labels": ["v3"],
+    "pairAddress": "0x668942551AffD4Ee3a2E570366aaEF28b56c3A97",
+    "baseToken": {
+      "address": "0x494ddf6f7b4b045ede0abbb9ae86e4d59fa62ec9",
+      "symbol": "TEST"
+    },
+    "priceUsd": "0.000003654",
+    "priceNative": "0.000000001360",
+    "liquidity": { "usd": 3654.24, "base": 998358847, "quote": 0.002235 },
+    "volume": { "m5": 0, "h1": 485.73, "h6": 485.73, "h24": 485.73 },
+    "txns": {
+      "m5": { "buys": 0, "sells": 0 },
+      "h1": { "buys": 4, "sells": 3 },
+      "h6": { "buys": 4, "sells": 3 },
+      "h24": { "buys": 4, "sells": 3 }
+    },
+    "fdv": 3654,
+    "marketCap": 3654,
+    "pairCreatedAt": 1790287702000
+  }
+]
