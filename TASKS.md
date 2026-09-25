@@ -307,51 +307,51 @@ scripts/
 
 ### T3.4 Orchestrateur (`lib/collect.ts`)
 
-- [ ] Les trois modules en parallèle
-- [ ] Un échec partiel ne tue pas l'analyse
+- [x] Les trois modules en parallèle
+- [x] Un échec partiel ne tue pas l'analyse
 
 ### T3.5 Agent de raisonnement (`lib/agent/`)
 
-- [ ] System prompt en préfixe stable → éligible au prompt caching
-- [ ] Les trois blocs de données + leur `completeness` en entrée
-- [ ] **Garde-fous avec tests automatiques** : aucun score numérique, aucune formulation
+- [x] System prompt en préfixe stable → éligible au prompt caching
+- [x] Les trois blocs de données + leur `completeness` en entrée
+- [x] **Garde-fous avec tests automatiques** : aucun score numérique, aucune formulation
       de conseil (« safe to buy », « bon investissement », « je recommande »…).
       Une suite de tests échoue si une phrase interdite sort.
-- [ ] Ton calibré sur le whitepaper : factuel, nuancé, fait ressortir les contradictions
-- [ ] Sortie structurée : ce qui rassure / ce qui mérite attention / là où les signaux divergent
-- [ ] Gestion de `stop_reason`, des timeouts, streaming si le modèle retenu le justifie
+- [x] Ton calibré sur le whitepaper : factuel, nuancé, fait ressortir les contradictions
+- [x] Sortie structurée : ce qui rassure / ce qui mérite attention / là où les signaux divergent
+- [x] Gestion de `stop_reason` et des timeouts (streaming non nécessaire à ce volume de sortie)
 
 ### T3.6 Coût par requête ⛔
 
 Contrainte explicite des `instructions` : visible dès le MVP, pas ajouté après coup.
 
-- [ ] Lire `response.usage` — `input_tokens`, `output_tokens`, `cache_read_input_tokens`
-- [ ] Convertir en dollars via une table de tarifs versionnée
-- [ ] Logger par requête + compteur cumulé, avec le label `SEAL_ENV`
+- [x] Lire `response.usage` — `input_tokens`, `output_tokens`, `cache_read_input_tokens`
+- [x] Convertir en dollars via une table de tarifs versionnée
+- [x] Logger par requête + compteur cumulé, avec le label `SEAL_ENV`
 
 ### T3.7 Route API
 
-- [ ] `POST /api/analyze` — validation d'adresse, timeout global, erreurs HTTP propres
+- [x] `POST /api/analyze` — validation d'adresse, timeout global, erreurs HTTP propres
 
 ### T3.8 Interface
 
-- [ ] Un champ, un bouton, le résultat
-- [ ] États loading / erreur / données partielles affichées explicitement
-- [ ] Bandeau « STAGING » quand `SEAL_ENV=staging`
+- [x] Un champ, un bouton, le résultat
+- [x] États loading / erreur / données partielles affichées explicitement
+- [x] Bandeau « STAGING » quand `SEAL_ENV=staging`
 
 ### T3.9 Disclaimers légaux
 
-- [ ] Pas un conseil financier
-- [ ] Pas un audit de contrat
-- [ ] Agent non déterministe
+- [x] Pas un conseil financier
+- [x] Pas un audit de contrat
+- [x] Agent non déterministe
 
 > Les trois viennent directement de la section « Risks We Are Not Hiding » du whitepaper.
 
 ### T3.10 `README.md`
 
-- [ ] Comment lancer en local
-- [ ] Variables d'environnement
-- [ ] Comment obtenir chaque clé
+- [x] Comment lancer en local
+- [x] Variables d'environnement
+- [x] Comment obtenir chaque clé
 
 ### T3.11 Brancher le MVP sur les pipelines
 
