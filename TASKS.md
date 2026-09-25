@@ -20,10 +20,13 @@ Plan complet, de zéro à la mise en production. Chaque tâche porte un identifi
       Choix assumé : la qualité du raisonnement *est* le produit. On mesure le coût réel
       via T3.6, et on redescend à Haiku 4.5 (≈ 29 $/mois) si la qualité le permet.
 - [x] **Hébergement → Vercel**, déploiement piloté par GitHub Actions.
-- [x] **URL → sous-domaines `.vercel.app`** pour l'instant, pas de domaine acheté.
-      Production : `seal.vercel.app` · Staging : `seal-staging.vercel.app`
-      (noms définitifs fixés à la création du projet Vercel, selon disponibilité).
-      Le passage à un vrai domaine se fera plus tard sans rien casser : seul l'alias change.
+- [x] **URL → `.vercel.app`**, pas de domaine acheté.
+      **Deux projets Vercel distincts** sur le compte `ali-ben-yezzas-projects` (plan Hobby) :
+      `seal` pour la production (`https://seal-six-rho.vercel.app`) et `seal-staging`
+      pour le staging. Chaque projet a sa propre URL de production stable et ses propres
+      variables d'environnement — isolation réelle, et ça ne dépend pas du plan Vercel.
+      C'est le même schéma que `sirius-evm` / `sirius-evm-staging`.
+      Le passage à un vrai domaine plus tard ne changera qu'un réglage de domaine.
 - [x] **RPC → public au démarrage** (`https://rpc.mainnet.chain.robinhood.com`).
       Suffisant pour le MVP ; insuffisant pour T4.1 (backfill de 71,7 M blocs) — on bascule
       sur un RPC payant à ce moment-là.
@@ -68,10 +71,13 @@ Preview         Pipeline          Pipeline
 > et ne reçoit que du release. Les branches `feat/*` partent de `staging`.
 
 ### T0.4 ⛔ Couper l'auto-deploy natif de Vercel
-- [ ] Désactiver le déploiement automatique Git (`vercel.json` → `git.deploymentEnabled: false`,
-      ou « Ignored Build Step »)
-- [ ] `vercel link` → récupérer `VERCEL_ORG_ID` et `VERCEL_PROJECT_ID` dans `.vercel/project.json`
-- [ ] Générer un `VERCEL_TOKEN`
+- [x] Connexion GitHub **déconnectée** du projet `seal` (`vercel git disconnect`). Elle était
+      active avec `main` comme branche de production : Vercel aurait déployé à chaque push,
+      sans attendre les tests.
+- [x] `vercel.json` avec `git.deploymentEnabled: false` en ceinture-bretelles, si la connexion
+      est rétablie un jour.
+- [x] `VERCEL_ORG_ID` et `VERCEL_PROJECT_ID` posés par environnement (projets distincts).
+- [ ] Générer un `VERCEL_TOKEN` et le poser dans les deux environnements
 
 > Piège n°1 : l'intégration Git de Vercel déploie dès le push, **sans attendre le CI**.
 > Sans cette étape, les tests ne gatent rien. GitHub Actions doit être le seul chemin
@@ -106,7 +112,7 @@ de déploiement, pour qu'ils soient littéralement identiques.
 - [ ] Appelle `ci.yml` — si rouge, rien ne se déploie
 - [ ] `vercel pull --environment=preview`
 - [ ] `vercel build` puis `vercel deploy --prebuilt`
-- [ ] `vercel alias <url> seal-staging.vercel.app` — l'URL de staging est stable
+- [ ] `vercel deploy --prebuilt --prod` **sur le projet `seal-staging`** — son URL de production est l'URL de staging, stable par construction (pas d'alias à gérer)
 - [ ] Smoke tests contre l'URL déployée : page qui répond, `/api/analyze` sur un token réel,
       une vraie requête Claude de bout en bout
 - [ ] Si les smoke tests échouent → job rouge, l'alias reste sur le déploiement précédent
