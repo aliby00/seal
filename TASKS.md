@@ -212,11 +212,11 @@ Structurellement identique à staging, trois différences seulement.
 
 ### T2.1 Figer la stack
 
-- [ ] Issue des décisions T0.1
+- [x] Issue des décisions T0.1
 
 ### T2.2 Arborescence
 
-- [ ] Mettre en place :
+- [x] Mettre en place :
 
 ```
 src/
@@ -243,16 +243,16 @@ scripts/
 
 ### T2.3 Contrats de données
 
-- [ ] `CreatorHistory`, `HolderDistribution`, `MarketState`, `TokenReport`
-- [ ] Chaque type porte `completeness: 'full' | 'partial' | 'unavailable'` et `sources[]`
+- [x] `CreatorHistory`, `HolderDistribution`, `MarketState`, `TokenReport`
+- [x] Chaque type porte `completeness: 'full' | 'partial' | 'unavailable'` et `sources[]`
 
 > Indispensable : le whitepaper assume publiquement que la vue peut être partielle.
 > L'agent doit le savoir pour pouvoir le dire.
 
 ### T2.4 `ARCHITECTURE.md`
 
-- [ ] Pipeline de données → agent de raisonnement → interface
-- [ ] Schéma des flux et traitement des erreurs partielles
+- [x] Pipeline de données → agent de raisonnement → interface
+- [x] Schéma des flux et traitement des erreurs partielles
 
 ### T2.5 Créer les huit branches `feat/*` depuis `staging`
 
