@@ -15,7 +15,10 @@
     "format": "prettier --check .",
     "test": "vitest run",
     "test:guards": "vitest run tests/guards",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "probe:rpc": "node --experimental-strip-types scripts/probe-rpc.ts",
+    "probe:dexscreener": "node --experimental-strip-types scripts/probe-dexscreener.ts",
+    "probe:blockscout": "node --experimental-strip-types scripts/probe-blockscout.ts"
   },
   "dependencies": {
     "next": "16.3.6",

@@ -160,25 +160,25 @@ Structurellement identique à staging, trois différences seulement.
 
 ### T1.1 Rédiger les cinq sections vérifiées
 
-- [ ] **RPC Robinhood Chain** — chain ID 4663 / `0x1237`, client `nitro` (Arbitrum Orbit),
+- [x] **RPC Robinhood Chain** — chain ID 4663 / `0x1237`, client `nitro` (Arbitrum Orbit),
       block time mesuré **0,101 s** (~855 800 blocs/jour), chaîne née vers le 3 juillet 2026.
       **Limite `eth_getLogs` = 10 000 logs** (et non 1 000 comme supposé dans `instructions`) :
       `{"code":-32000,"message":"logs matched by query exceeds limit of 10000"}`.
       Aucune limite de plage de blocs observée. Rate limit non documenté → 429 en série puis 403 HTTP.
-- [ ] **pons factory** — ABI `TokenLaunched` vérifiée sur un log réel (7 mots de `data`),
+- [x] **pons factory** — ABI `TokenLaunched` vérifiée sur un log réel (7 mots de `data`),
       topic0 `0xdb51ea9ad51ab453a65a4cb7e60c3cb378c9501bb002609f8f97778fb6c4235a`.
       **Le factory vivant est `0xf4fc0cd27fc8ecf17e55ee4c3f7201897df3eb75`** — celui que les docs
       officielles annoncent comme « actif » (`0xA5aAb3F0…`) **revert**.
       `graduationStatus(address)` selector `0x98d652f1` → `(pairedPrincipal, threshold, graduated)`,
       seuil confirmé à **4,2 ETH**. Uniswap **V3**, pas de bonding curve.
       Supply fixe 1e9, fee de pool 1 %, launch fee 0,0005 ETH, split créateur/protocole 70/30.
-- [ ] **Blockscout** — `https://api.blockscout.com/4663/api/v2/…`, clé **obligatoire**
+- [x] **Blockscout** — `https://api.blockscout.com/4663/api/v2/…`, clé **obligatoire**
       (sinon `HTTP 402`), tier gratuit 5 req/s et 100 000 crédits/jour.
       L'instance publique `robinhoodchain.blockscout.com` est derrière Cloudflare → `403` côté serveur.
-- [ ] **DexScreener** — slug de chaîne **`robinhood`**, `GET /token-pairs/v1/robinhood/{token}`,
+- [x] **DexScreener** — slug de chaîne **`robinhood`**, `GET /token-pairs/v1/robinhood/{token}`,
       sans clé, 300 req/min. Champs : `priceUsd`, `liquidity{usd,base,quote}`, `volume`, `txns`,
       `fdv`, `marketCap`, `priceChange`, `pairCreatedAt`.
-- [ ] **Claude API** — SDK `@anthropic-ai/sdk`. Tarifs relevés : Opus 5 5 $/25 $ par MTok ·
+- [x] **Claude API** — SDK `@anthropic-ai/sdk`. Tarifs relevés : Opus 5 5 $/25 $ par MTok ·
       Sonnet 5 2 $/10 $ · Haiku 4.5 1 $/5 $. Les modèles 4.7+ utilisent un tokenizer
       produisant ~30 % de tokens en plus. Tableau de coût par requête à inclure.
 
@@ -188,8 +188,8 @@ Structurellement identique à staging, trois différences seulement.
 
 ### T1.2 Combler les trous, et écrire « non confirmé » là où ça reste ouvert
 
-- [ ] Pagination Blockscout v2 (`next_page_params`) — à tester une fois la clé obtenue
-- [ ] `restrictionsEndBlock` = 26 050 559 alors que le bloc courant est 71,7 M → **non élucidé**,
+- [ ] Pagination Blockscout v2 (`next_page_params`) — sonde prête (`pnpm probe:blockscout`), en attente d'une clé
+- [x] `restrictionsEndBlock` = 26 050 559 alors que le bloc courant est 71,7 M → **non élucidé**,
       hypothèse bloc L1. Ne pas s'en servir tant que ce n'est pas compris.
 - [ ] Rate limit réel du RPC payant retenu
 - [ ] Concurrents cités par le whitepaper : PonsScan, ponscan.fun, xroot.dev, Blockaid,
@@ -198,8 +198,9 @@ Structurellement identique à staging, trois différences seulement.
 
 ### T1.3 Rendre la vérification reproductible
 
-- [ ] `scripts/probe-rpc.ts`, `scripts/probe-blockscout.ts`, `scripts/probe-dexscreener.ts`
-- [ ] Documenter la méthode de mesure du rate limit
+- [x] `scripts/probe-rpc.ts`, `scripts/probe-blockscout.ts`, `scripts/probe-dexscreener.ts`
+      (`pnpm probe:rpc`, `probe:blockscout`, `probe:dexscreener`)
+- [x] Documenter la méthode de mesure du rate limit
 
 ### T1.4 ⛔ Validation
 
