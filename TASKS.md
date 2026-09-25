@@ -307,8 +307,8 @@ scripts/
 
 ### T3.4 Orchestrateur (`lib/collect.ts`)
 
-- [ ] Les trois modules en parallèle
-- [ ] Un échec partiel ne tue pas l'analyse
+- [x] Les trois modules en parallèle
+- [x] Un échec partiel ne tue pas l'analyse
 
 ### T3.5 Agent de raisonnement (`lib/agent/`)
 
