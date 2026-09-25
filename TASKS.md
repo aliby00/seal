@@ -271,12 +271,12 @@ scripts/
 
 ### T3.0 Socle
 
-- [ ] Validation d'environnement zod, fail-fast au démarrage
-- [ ] Client viem sur Robinhood Chain (chaîne 4663 custom)
-- [ ] Wrapper HTTP : timeout, retry exponentiel, respect du `Retry-After`,
+- [x] Validation d'environnement zod, fail-fast au démarrage
+- [ ] Client viem sur Robinhood Chain (chaîne 4663 custom) — fait dans `feat/chain-module`
+- [x] Wrapper HTTP : timeout, retry exponentiel, respect du `Retry-After`,
       plafond de requêtes par analyse
-- [ ] Erreurs typées — chaque appel externe a une gestion propre (contrainte des `instructions`)
-- [ ] Logger structuré JSON
+- [x] Erreurs typées — chaque appel externe a une gestion propre (contrainte des `instructions`)
+- [x] Logger structuré JSON
 
 ### T3.1 Module 1 — historique du créateur (`lib/chain/`)
 
