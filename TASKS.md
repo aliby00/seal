@@ -290,11 +290,11 @@ scripts/
 
 ### T3.2 Module 2 — concentration des holders (`lib/holders/`)
 
-- [ ] `GET /4663/api/v2/tokens/{addr}/holders` + pagination
-- [ ] Top N, part du top 1 et du top 10, exclusion du pool et des adresses de burn
-- [ ] Historique de transferts pour mesurer l'activité réelle
-- [ ] Budget de requêtes respectant 5 req/s
-- [ ] Dégradation propre : `unavailable` plutôt qu'un crash si Blockscout tombe
+- [x] `GET /4663/api/v2/tokens/{addr}/holders` + pagination
+- [x] Top N, part du top 1 et du top 10, exclusion du pool et des adresses de burn
+- [ ] Historique de transferts pour mesurer l'activité réelle — `distinctTraders` reste à câbler
+- [x] Budget de requêtes respectant 5 req/s
+- [x] Dégradation propre : `unavailable` plutôt qu'un crash si Blockscout tombe
 
 ### T3.3 Module 3 — état du marché (`lib/market/`)
 
