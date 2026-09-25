@@ -331,27 +331,27 @@ Contrainte explicite des `instructions` : visible dès le MVP, pas ajouté aprè
 
 ### T3.7 Route API
 
-- [ ] `POST /api/analyze` — validation d'adresse, timeout global, erreurs HTTP propres
+- [x] `POST /api/analyze` — validation d'adresse, timeout global, erreurs HTTP propres
 
 ### T3.8 Interface
 
-- [ ] Un champ, un bouton, le résultat
-- [ ] États loading / erreur / données partielles affichées explicitement
-- [ ] Bandeau « STAGING » quand `SEAL_ENV=staging`
+- [x] Un champ, un bouton, le résultat
+- [x] États loading / erreur / données partielles affichées explicitement
+- [x] Bandeau « STAGING » quand `SEAL_ENV=staging`
 
 ### T3.9 Disclaimers légaux
 
-- [ ] Pas un conseil financier
-- [ ] Pas un audit de contrat
-- [ ] Agent non déterministe
+- [x] Pas un conseil financier
+- [x] Pas un audit de contrat
+- [x] Agent non déterministe
 
 > Les trois viennent directement de la section « Risks We Are Not Hiding » du whitepaper.
 
 ### T3.10 `README.md`
 
-- [ ] Comment lancer en local
-- [ ] Variables d'environnement
-- [ ] Comment obtenir chaque clé
+- [x] Comment lancer en local
+- [x] Variables d'environnement
+- [x] Comment obtenir chaque clé
 
 ### T3.11 Brancher le MVP sur les pipelines
 

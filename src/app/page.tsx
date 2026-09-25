@@ -1,14 +1,11 @@
+import { AnalyzeForm } from './AnalyzeForm';
+import { Disclaimer } from './components/Disclaimer';
+
 const ENV = process.env.SEAL_ENV ?? 'development';
 
 export default function Home() {
   return (
-    <main
-      style={{
-        maxWidth: '44rem',
-        margin: '0 auto',
-        padding: '4rem 1.25rem',
-      }}
-    >
+    <main style={{ maxWidth: '44rem', margin: '0 auto', padding: '4rem 1.25rem' }}>
       {ENV !== 'production' && (
         <p
           style={{
@@ -29,13 +26,12 @@ export default function Home() {
 
       <h1 style={{ margin: '0 0 0.75rem', fontSize: '2rem', letterSpacing: '-0.02em' }}>SEAL</h1>
 
-      <p style={{ margin: '0 0 2rem', color: 'var(--muted)' }}>
+      <p style={{ margin: '0 0 2.5rem', color: 'var(--muted)' }}>
         L&apos;agent qui explique, là où les autres se contentent de noter.
       </p>
 
-      <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.9rem' }}>
-        Squelette en place. Le pipeline de données et l&apos;agent de raisonnement arrivent ensuite.
-      </p>
+      <AnalyzeForm />
+      <Disclaimer />
     </main>
   );
 }
