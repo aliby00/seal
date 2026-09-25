@@ -7,14 +7,14 @@ feat/*  ──PR──►  staging  ──PR──►  main
    │               │                 │
 Preview         Pipeline          Pipeline
 éphémère        STAGING           PRODUCTION
-(URL par PR)   seal-staging.vercel.app    seal.vercel.app
+(URL par PR)   URL de prod du projet seal-staging    seal-six-rho.vercel.app
 ```
 
-| Branche | Rôle | Qui y écrit |
-|---|---|---|
-| `main` | Production. Ne reçoit que du release. | Personne directement — uniquement via une PR depuis `staging` |
-| `staging` | Intégration. C'est là que les devs poussent leur travail terminé. | Via PR depuis `feat/*` |
-| `feat/*` | Une feature, une branche. Part toujours de `staging`. | Le dev qui la porte |
+| Branche   | Rôle                                                              | Qui y écrit                                                   |
+| --------- | ----------------------------------------------------------------- | ------------------------------------------------------------- |
+| `main`    | Production. Ne reçoit que du release.                             | Personne directement — uniquement via une PR depuis `staging` |
+| `staging` | Intégration. C'est là que les devs poussent leur travail terminé. | Via PR depuis `feat/*`                                        |
+| `feat/*`  | Une feature, une branche. Part toujours de `staging`.             | Le dev qui la porte                                           |
 
 `main` reste « uniquement le MVP tel que décrit dans le build plan ». Une feature de
 Wave 1 ou 2 entre dans `staging` quand elle est prête à être **testée**, et dans `main`
@@ -47,7 +47,7 @@ garde-fous de l'agent, build. **La PR ne peut pas être mergée tant que tout n'
 ### 3. Merge dans `staging` → déploiement automatique
 
 Le workflow `deploy-staging.yml` rejoue le CI, construit, déploie, puis réaligne
-l'alias `seal-staging.vercel.app` sur le nouveau déploiement et lance les smoke tests
+déploie sur le projet Vercel `seal-staging`, dont l'URL de production est stable, puis lance les smoke tests
 contre l'URL réelle.
 
 Si les smoke tests échouent, l'alias **reste sur le déploiement précédent**.
@@ -83,13 +83,13 @@ rollback automatique sur le déploiement précédent.
 
 Les secrets sont scopés **par GitHub Environment**, jamais au niveau du repo.
 
-| Secret | `staging` | `production` |
-|---|---|---|
-| `ANTHROPIC_API_KEY` | clé dédiée staging | clé dédiée production |
-| `BLOCKSCOUT_API_KEY` | clé dédiée staging | clé dédiée production |
-| `RPC_URL` | endpoint staging | endpoint production |
-| `SEAL_ENV` | `staging` | `production` |
-| `VERCEL_TOKEN` / `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` | ✓ | ✓ |
+| Secret                                                 | `staging`          | `production`          |
+| ------------------------------------------------------ | ------------------ | --------------------- |
+| `ANTHROPIC_API_KEY`                                    | clé dédiée staging | clé dédiée production |
+| `BLOCKSCOUT_API_KEY`                                   | clé dédiée staging | clé dédiée production |
+| `RPC_URL`                                              | endpoint staging   | endpoint production   |
+| `SEAL_ENV`                                             | `staging`          | `production`          |
+| `VERCEL_TOKEN` / `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` | ✓                  | ✓                     |
 
 Les clés sont doublées pour que la dépense de staging ne pollue ni le budget de
 production ni la mesure de coût par requête.
@@ -113,4 +113,19 @@ pnpm typecheck
 pnpm lint
 pnpm test           # unitaires, sans réseau
 pnpm test:guards    # garde-fous de l'agent
+```
+
+## Activer les déploiements
+
+Les deux workflows de déploiement sont pilotés par une variable de dépôt,
+`DEPLOYMENTS_ENABLED`. Tant qu'elle vaut `false`, le CI tourne normalement sur
+chaque PR mais le job de déploiement est ignoré — aucun échec rouge dû à un
+`VERCEL_TOKEN` absent.
+
+Pour activer, une fois le token posé dans les deux environnements :
+
+```bash
+gh secret set VERCEL_TOKEN --env staging    --repo aliby00/seal
+gh secret set VERCEL_TOKEN --env production --repo aliby00/seal
+gh variable set DEPLOYMENTS_ENABLED --body true --repo aliby00/seal
 ```
