@@ -312,22 +312,22 @@ scripts/
 
 ### T3.5 Agent de raisonnement (`lib/agent/`)
 
-- [ ] System prompt en préfixe stable → éligible au prompt caching
-- [ ] Les trois blocs de données + leur `completeness` en entrée
-- [ ] **Garde-fous avec tests automatiques** : aucun score numérique, aucune formulation
+- [x] System prompt en préfixe stable → éligible au prompt caching
+- [x] Les trois blocs de données + leur `completeness` en entrée
+- [x] **Garde-fous avec tests automatiques** : aucun score numérique, aucune formulation
       de conseil (« safe to buy », « bon investissement », « je recommande »…).
       Une suite de tests échoue si une phrase interdite sort.
-- [ ] Ton calibré sur le whitepaper : factuel, nuancé, fait ressortir les contradictions
-- [ ] Sortie structurée : ce qui rassure / ce qui mérite attention / là où les signaux divergent
-- [ ] Gestion de `stop_reason`, des timeouts, streaming si le modèle retenu le justifie
+- [x] Ton calibré sur le whitepaper : factuel, nuancé, fait ressortir les contradictions
+- [x] Sortie structurée : ce qui rassure / ce qui mérite attention / là où les signaux divergent
+- [x] Gestion de `stop_reason` et des timeouts (streaming non nécessaire à ce volume de sortie)
 
 ### T3.6 Coût par requête ⛔
 
 Contrainte explicite des `instructions` : visible dès le MVP, pas ajouté après coup.
 
-- [ ] Lire `response.usage` — `input_tokens`, `output_tokens`, `cache_read_input_tokens`
-- [ ] Convertir en dollars via une table de tarifs versionnée
-- [ ] Logger par requête + compteur cumulé, avec le label `SEAL_ENV`
+- [x] Lire `response.usage` — `input_tokens`, `output_tokens`, `cache_read_input_tokens`
+- [x] Convertir en dollars via une table de tarifs versionnée
+- [x] Logger par requête + compteur cumulé, avec le label `SEAL_ENV`
 
 ### T3.7 Route API
 
