@@ -28,6 +28,16 @@ pnpm dev                     # http://localhost:3000
 | `RPC_URL`            | non         | défaut `https://rpc.mainnet.chain.robinhood.com` (public, rate-limité)                     |
 | `SEAL_ENV`           | non         | `development` \| `staging` \| `production`                                                 |
 
+### Trois modes, du gratuit au payant
+
+| Configuration       | Ce que tu obtiens                             | Coût             |
+| ------------------- | --------------------------------------------- | ---------------- |
+| aucune clé          | les faits restitués, sans être croisés        | 0                |
+| `GROQ_API_KEY`      | un vrai raisonnement, ~14 analyses/jour       | 0                |
+| `ANTHROPIC_API_KEY` | la meilleure qualité, sans plafond journalier | ~0,019 $/analyse |
+
+Groq est choisi en premier quand les deux clés sont là : on ne dépense pas par défaut.
+
 ### Essayer sans dépenser un centime
 
 **Aucune clé n'est obligatoire.** Le pipeline de données est entièrement gratuit — RPC

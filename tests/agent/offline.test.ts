@@ -95,18 +95,13 @@ describe('offlineExplanation', () => {
   });
 });
 
-describe('explain sans clé API', () => {
+describe('explain sans aucune clé', () => {
   it('bascule en hors-ligne au lieu de lever', async () => {
-    const previous = process.env.ANTHROPIC_API_KEY;
-    delete process.env.ANTHROPIC_API_KEY;
-    try {
-      const result = await explain(report());
-      expect(result.offline).toBe(true);
-      expect(result.cost.costUsd).toBe(0);
-      expect(result.violations).toHaveLength(0);
-      expect(result.text).toMatch(/sans l'agent de raisonnement/);
-    } finally {
-      if (previous !== undefined) process.env.ANTHROPIC_API_KEY = previous;
-    }
+    const result = await explain(report(), { env: {} });
+    expect(result.offline).toBe(true);
+    expect(result.cost.costUsd).toBe(0);
+    expect(result.cost.priced).toBe(true);
+    expect(result.violations).toHaveLength(0);
+    expect(result.text).toMatch(/sans l'agent de raisonnement/);
   });
 });
