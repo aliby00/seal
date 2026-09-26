@@ -19,6 +19,16 @@ export const PRICING: Record<string, ModelPricing> = {
   'claude-opus-5': { input: 5, output: 25, cacheRead: 0.5, cacheWrite5m: 6.25 },
   'claude-sonnet-5': { input: 2, output: 10, cacheRead: 0.2, cacheWrite5m: 2.5 },
   'claude-haiku-4-5': { input: 1, output: 5, cacheRead: 0.1, cacheWrite5m: 1.25 },
+
+  // Groq, tier gratuit. Le coût est connu et vaut zéro — ce n'est pas la même
+  // chose qu'un modèle absent de la table, dont le coût est simplement inconnu.
+  'llama-3.3-70b-versatile': { input: 0, output: 0, cacheRead: 0, cacheWrite5m: 0 },
+  'llama-3.1-8b-instant': { input: 0, output: 0, cacheRead: 0, cacheWrite5m: 0 },
+  'openai/gpt-oss-120b': { input: 0, output: 0, cacheRead: 0, cacheWrite5m: 0 },
+  'openai/gpt-oss-20b': { input: 0, output: 0, cacheRead: 0, cacheWrite5m: 0 },
+
+  // Mode hors-ligne : aucun appel, donc aucun coût.
+  offline: { input: 0, output: 0, cacheRead: 0, cacheWrite5m: 0 },
 };
 
 export type Usage = {

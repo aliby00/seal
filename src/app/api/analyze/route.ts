@@ -18,6 +18,8 @@ export type AnalyzeResponse = {
   sources: { name: string; note?: string }[];
   costUsd: number;
   collectedAt: string;
+  /** Vrai si la restitution vient du mode hors-ligne, sans appel au modèle. */
+  offline: boolean;
 };
 
 function errorResponse(status: number, message: string, detail?: string) {
@@ -70,6 +72,7 @@ export async function POST(request: Request): Promise<Response> {
       ),
       costUsd: explanation.cost.costUsd,
       collectedAt: report.collectedAt,
+      offline: explanation.offline,
     };
 
     log.info('analyse servie', { token, ms: Date.now() - started, costUsd: body.costUsd });

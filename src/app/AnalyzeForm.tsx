@@ -115,11 +115,29 @@ export function AnalyzeForm() {
               ))}
           </p>
 
+          {state.result.offline && (
+            <p
+              style={{
+                margin: '0 0 1rem',
+                padding: '0.5rem 0.75rem',
+                border: '1px dashed var(--line)',
+                borderRadius: '8px',
+                color: 'var(--muted)',
+                fontSize: '0.8125rem',
+              }}
+            >
+              Mode hors-ligne : les faits sont restitués sans être croisés par l&apos;agent de
+              raisonnement.
+            </p>
+          )}
+
           <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{state.result.explanation}</div>
 
           <p style={{ marginTop: '1.5rem', color: 'var(--muted)', fontSize: '0.75rem' }}>
-            Analysé le {new Date(state.result.collectedAt).toLocaleString('fr-FR')} · coût de cette
-            requête : {state.result.costUsd.toFixed(4)} $
+            Analysé le {new Date(state.result.collectedAt).toLocaleString('fr-FR')} ·{' '}
+            {state.result.offline
+              ? 'aucun coût : aucun appel au modèle'
+              : `coût de cette requête : ${state.result.costUsd.toFixed(4)} $`}
           </p>
         </article>
       )}

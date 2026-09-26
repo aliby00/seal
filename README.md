@@ -28,9 +28,29 @@ pnpm dev                     # http://localhost:3000
 | `RPC_URL`            | non         | défaut `https://rpc.mainnet.chain.robinhood.com` (public, rate-limité)                     |
 | `SEAL_ENV`           | non         | `development` \| `staging` \| `production`                                                 |
 
-Sans `BLOCKSCOUT_API_KEY`, l'application fonctionne : le bloc « détenteurs » est simplement
-marqué indisponible et l'explication le signale. C'est volontaire — une source manquante ne
-doit pas empêcher l'analyse.
+### Trois modes, du gratuit au payant
+
+| Configuration       | Ce que tu obtiens                             | Coût             |
+| ------------------- | --------------------------------------------- | ---------------- |
+| aucune clé          | les faits restitués, sans être croisés        | 0                |
+| `GROQ_API_KEY`      | un vrai raisonnement, ~14 analyses/jour       | 0                |
+| `ANTHROPIC_API_KEY` | la meilleure qualité, sans plafond journalier | ~0,019 $/analyse |
+
+Groq est choisi en premier quand les deux clés sont là : on ne dépense pas par défaut.
+
+### Essayer sans dépenser un centime
+
+**Aucune clé n'est obligatoire.** Le pipeline de données est entièrement gratuit — RPC
+public de Robinhood Chain, DexScreener sans clé, Blockscout en tier gratuit. Seule
+l'explication produite par le modèle est facturée.
+
+Sans `ANTHROPIC_API_KEY`, l'application bascule en **mode hors-ligne** : elle restitue les
+faits relevés sans les croiser, et le dit explicitement dans la réponse. Tout le reste —
+lecture de la chaîne, concentration, marché, interface, déploiement — fonctionne
+normalement. C'est le moyen d'essayer SEAL de bout en bout pour zéro euro.
+
+Sans `BLOCKSCOUT_API_KEY`, le bloc « détenteurs » est marqué indisponible et l'explication
+le signale. Une source manquante n'empêche jamais l'analyse.
 
 ## Commandes
 
