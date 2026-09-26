@@ -78,6 +78,13 @@ jobs:
           echo "### Production déployée" >> "$GITHUB_STEP_SUMMARY"
           echo "$url" >> "$GITHUB_STEP_SUMMARY"
 
+      # `vercel deploy --prod` n'a pas suffi à promouvoir le déploiement sur le
+      # domaine de production : l'ancien restait servi et les smoke tests
+      # voyaient un 404. On promeut explicitement plutôt que de compter sur un
+      # comportement implicite.
+      - name: Promouvoir sur le domaine de production
+        run: $VERCEL promote "${{ steps.deploy.outputs.url }}" --token=${{ secrets.VERCEL_TOKEN }}
+
       - name: Smoke tests
         id: smoke
         run: node scripts/smoke.mjs "${{ vars.PUBLIC_URL }}" production
