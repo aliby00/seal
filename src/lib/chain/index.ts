@@ -1,7 +1,12 @@
 import type { Address } from 'viem';
 import type { CreatorHistory, LaunchedToken, TokenOutcome } from '../contracts';
 import type { RequestBudget } from '../http';
-import { discoverActiveFactories, decodeTokenLaunched, TOKEN_LAUNCHED_TOPIC } from './factory';
+import {
+  discoverActiveFactories,
+  decodeTokenLaunched,
+  TOKEN_LAUNCHED_TOPIC,
+  type TokenLaunch,
+} from './factory';
 import { getLogsChunked } from './logs';
 import { fetchGraduationStatus, type GraduationStatus } from './graduation';
 import { createRpcClient, DEFAULT_RPC_URL, type RpcClient } from './rpc';
@@ -26,6 +31,28 @@ export function classifyOutcome(
 /** `deployer` est le topic2 : une adresse est padée à 32 octets pour servir de filtre. */
 export function addressTopic(address: string): string {
   return `0x${address.toLowerCase().replace(/^0x/, '').padStart(64, '0')}`;
+}
+
+/**
+ * Retrouve le lancement d'un token donné.
+ *
+ * C'est le point d'entrée réel du pipeline : on ne connaît au départ que
+ * l'adresse du token, pas celle de son créateur. Elle se lit dans le
+ * `TokenLaunched` de ce token — topic1 est le token, topic2 le deployer.
+ */
+export async function findLaunchOf(
+  rpc: RpcClient,
+  token: Address,
+  latestBlock: number,
+  lookbackBlocks = 5_000_000,
+): Promise<TokenLaunch | undefined> {
+  const { logs } = await getLogsChunked(
+    rpc,
+    { topics: [TOKEN_LAUNCHED_TOPIC, addressTopic(token)] },
+    { fromBlock: Math.max(0, latestBlock - lookbackBlocks), toBlock: latestBlock, maxLogs: 1 },
+  );
+  const first = logs[0];
+  return first ? decodeTokenLaunched(first) : undefined;
 }
 
 export type FetchCreatorHistoryOptions = {

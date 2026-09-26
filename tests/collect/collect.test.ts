@@ -87,3 +87,80 @@ describe('collect', () => {
     expect(report.collectedAt).toBe('2026-09-25T00:00:00.000Z');
   });
 });
+
+describe("résolution du créateur depuis l'adresse du token", () => {
+  const TOPIC = '0xdb51ea9ad51ab453a65a4cb7e60c3cb378c9501bb002609f8f97778fb6c4235a';
+  const DEPLOYER = '0xe06289fde414ee521aba50db0cf0a60816faa523';
+  const DATA =
+    '0x0000000000000000000000000bd7d308f8e1639fab988df18a8011f41eacad73' +
+    '000000000000000000000000668942551affd4ee3a2e570366aaef28b56c3a97' +
+    '0000000000000000000000000000000000000000000000000000000000000000'.repeat(4) +
+    '00000000000000000000000000000000000000000000000000005af3107a4000';
+
+  function launchLog(token: string) {
+    return {
+      address: '0xf4fc0cd27fc8ecf17e55ee4c3f7201897df3eb75',
+      topics: [
+        TOPIC,
+        `0x000000000000000000000000${token.slice(2)}`,
+        `0x000000000000000000000000${DEPLOYER.slice(2)}`,
+        '0x0000000000000000000000001f7d7550b1b028f7571e69a784071f0205fd2efa',
+      ],
+      data: DATA,
+      blockNumber: '0x1000',
+      transactionHash: '0xabc',
+      logIndex: '0x0',
+    };
+  }
+
+  // Le bug corrigé : on filtrait TokenLaunched sur l'adresse du TOKEN comme si
+  // c'était celle du DEPLOYER, ce qui ne renvoyait évidemment jamais rien.
+  it("interroge l'historique avec le deployer, pas avec le token", async () => {
+    const topicsSeen: unknown[][] = [];
+    vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('robinhood.com')) {
+        const body = JSON.parse(String(init?.body ?? '{}')) as {
+          method: string;
+          params: [{ topics?: unknown[] }];
+        };
+        if (body.method === 'eth_blockNumber') {
+          return new Response(JSON.stringify({ result: '0x1100' }), { status: 200 });
+        }
+        if (body.method === 'eth_getLogs') {
+          topicsSeen.push(body.params[0].topics ?? []);
+          return new Response(JSON.stringify({ result: [launchLog(TOKEN)] }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ result: '0x' }), { status: 200 });
+      }
+      return new Response('[]', { status: 200 });
+    });
+
+    const report = await collect(TOKEN, { now: at });
+
+    const padded = (a: string) => `0x000000000000000000000000${a.slice(2)}`;
+    const filters = topicsSeen.map((t) => JSON.stringify(t));
+    // Une requête cherche le lancement du token…
+    expect(filters.some((f) => f.includes(padded(TOKEN)))).toBe(true);
+    // …et une autre l'historique du deployer qu'on en a tiré.
+    expect(filters.some((f) => f.includes(padded(DEPLOYER)))).toBe(true);
+    expect(report.creator.data.creator.toLowerCase()).toBe(DEPLOYER);
+  });
+
+  it('le signale proprement si le lancement est introuvable', async () => {
+    vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('robinhood.com')) {
+        const body = JSON.parse(String(init?.body ?? '{}')) as { method: string };
+        if (body.method === 'eth_blockNumber') {
+          return new Response(JSON.stringify({ result: '0x1100' }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ result: [] }), { status: 200 });
+      }
+      return new Response('[]', { status: 200 });
+    });
+    const report = await collect(TOKEN, { now: at });
+    expect(report.creator.completeness).toBe('unavailable');
+    expect(report.creator.sources[0]?.note).toMatch(/introuvable/);
+  });
+});

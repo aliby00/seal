@@ -1,5 +1,5 @@
 import { isAddress, type Address } from 'viem';
-import { fetchCreatorHistory, fetchGraduationStatus, createRpcClient } from './chain';
+import { createRpcClient, fetchCreatorHistory, fetchGraduationStatus, findLaunchOf } from './chain';
 import { combineCompleteness, type Completeness } from './contracts';
 import type { CreatorHistory, HolderDistribution, MarketState, TokenReport } from './contracts';
 import { NotFoundError, SealError } from './errors';
@@ -71,22 +71,51 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
 
   // La chaîne d'abord : elle donne le créateur, le pool et l'état de graduation,
   // dont le module marché a besoin pour calculer la progression.
-  const chain = await settled(
-    fetchCreatorHistoryForToken(address, { ...options, budget, rpcUrl: options.rpcUrl }),
-    (error) =>
-      failed('robinhood-rpc', collectedAt, error, {
-        creator: '0x',
-        tokens: [],
-        counts: { launched: 0, graduated: 0, abandoned: 0, liquidityPulled: 0 },
-        scannedRange: { fromBlock: 0, toBlock: 0 },
-      }) as CreatorHistory,
+  //
+  // On ne connaît au départ que l'adresse du token. Le créateur se lit dans le
+  // `TokenLaunched` de ce token — il faut donc le retrouver AVANT de pouvoir
+  // interroger l'historique du créateur. Filtrer les lancements sur l'adresse
+  // du token au lieu de celle du deployer ne renvoie évidemment jamais rien.
+  const launch = await settled(
+    (async () => {
+      const latest = Number(await rpc.call<string>('eth_blockNumber', []));
+      return findLaunchOf(rpc, address, latest, options.lookbackBlocks);
+    })(),
+    () => undefined,
   );
 
-  const launch = chain.data.tokens.find((t) => t.address.toLowerCase() === address.toLowerCase());
+  const chain = launch
+    ? await settled(
+        fetchCreatorHistory(launch.deployer, {
+          rpcUrl: options.rpcUrl,
+          budget,
+          lookbackBlocks: options.lookbackBlocks,
+          now,
+        }),
+        (error) =>
+          failed('robinhood-rpc', collectedAt, error, {
+            creator: launch.deployer,
+            tokens: [],
+            counts: { launched: 0, graduated: 0, abandoned: 0, liquidityPulled: 0 },
+            scannedRange: { fromBlock: 0, toBlock: 0 },
+          }) as CreatorHistory,
+      )
+    : (failed(
+        'robinhood-rpc',
+        collectedAt,
+        new Error('lancement introuvable sur la fenêtre observée'),
+        {
+          creator: '0x',
+          tokens: [],
+          counts: { launched: 0, graduated: 0, abandoned: 0, liquidityPulled: 0 },
+          scannedRange: { fromBlock: 0, toBlock: 0 },
+        },
+      ) as CreatorHistory);
+
   const graduation = await settled(
     (async () => {
       if (!launch) return undefined;
-      const status = await fetchGraduationStatus(rpc, address, address);
+      const status = await fetchGraduationStatus(rpc, launch.factory, address);
       return status
         ? {
             thresholdEth: status.thresholdEth,
@@ -147,17 +176,4 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
   });
 
   return { token: address, collectedAt, creator: chain, holders, market, completeness };
-}
-
-/** Le créateur d'un token se lit dans son propre `TokenLaunched`. */
-async function fetchCreatorHistoryForToken(
-  token: Address,
-  options: CollectOptions & { budget: RequestBudget },
-): Promise<CreatorHistory> {
-  return fetchCreatorHistory(token, {
-    rpcUrl: options.rpcUrl,
-    budget: options.budget,
-    lookbackBlocks: options.lookbackBlocks,
-    now: options.now,
-  });
 }
