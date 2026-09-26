@@ -1,17 +1,18 @@
-import Anthropic from '@anthropic-ai/sdk';
 import type { TokenReport } from '../contracts';
 import { UpstreamError } from '../errors';
 import { log } from '../logger';
-import { computeCost, type CostBreakdown, type Usage } from './cost';
+import { computeCost, type CostBreakdown } from './cost';
+import { resolveProvider, type Provider } from './providers';
 import { findViolations } from './guardrails';
 import { offlineExplanation } from './offline';
 import { SYSTEM_PROMPT, renderReport } from './prompt';
 
 export type ReasonOptions = {
-  apiKey?: string;
   model?: string;
   maxTokens?: number;
-  client?: Pick<Anthropic['messages'], 'create'>;
+  /** Injecté par les tests, ou pour forcer un fournisseur précis. */
+  provider?: Provider;
+  env?: Record<string, string | undefined>;
 };
 
 export type Explanation = {
@@ -21,49 +22,40 @@ export type Explanation = {
   violations: ReturnType<typeof findViolations>;
   /** Vrai quand la restitution vient du mode hors-ligne, sans appel au modèle. */
   offline: boolean;
+  /** Quel fournisseur a produit le texte. `undefined` en hors-ligne. */
+  provider?: string;
 };
 
 export const DEFAULT_MODEL = 'claude-sonnet-5';
 
 export function buildRequest(report: TokenReport, model: string, maxTokens: number) {
-  return {
-    model,
-    max_tokens: maxTokens,
-    // Préfixe stable placé en premier et marqué pour le cache : les données du
-    // token changent à chaque requête, le system prompt non.
-    system: [
-      {
-        type: 'text' as const,
-        text: SYSTEM_PROMPT,
-        cache_control: { type: 'ephemeral' as const },
-      },
-    ],
-    messages: [{ role: 'user' as const, content: renderReport(report) }],
-  };
+  return { system: SYSTEM_PROMPT, user: renderReport(report), model, maxTokens };
 }
 
 /**
  * Produit l'explication en langage clair.
  *
- * La sortie est passée aux garde-fous avant d'être rendue : un score ou une
- * formulation de conseil qui passerait malgré le prompt est une violation du
- * produit, pas un détail de style. On préfère échouer bruyamment.
+ * Le fournisseur est résolu depuis l'environnement : Groq s'il y a une clé
+ * gratuite, sinon Anthropic, sinon rien — et dans ce dernier cas on restitue
+ * les faits hors-ligne plutôt que d'échouer.
+ *
+ * La sortie passe par les garde-fous quel que soit le fournisseur. Un score ou
+ * une formulation de conseil est une violation du produit, pas un défaut de
+ * modèle : relâcher la vérification parce que le texte vient d'ailleurs n'aurait
+ * aucun sens.
  */
 export async function explain(
   report: TokenReport,
   options: ReasonOptions = {},
 ): Promise<Explanation> {
-  const model = options.model ?? process.env.ANTHROPIC_MODEL ?? DEFAULT_MODEL;
   const maxTokens = options.maxTokens ?? 1500;
-  const apiKey = options.apiKey ?? process.env.ANTHROPIC_API_KEY;
+  const resolved = options.provider
+    ? { provider: options.provider, model: options.model ?? DEFAULT_MODEL }
+    : resolveProvider(options.env);
 
-  // Sans clé, on ne plante pas : on restitue les faits sans les croiser, et on
-  // le dit. Le pipeline de données est gratuit ; seule l'explication coûte.
-  // Refuser de répondre reviendrait à rendre le produit inutilisable pour qui
-  // veut simplement l'essayer.
-  if (!apiKey && !options.client) {
+  if (!resolved) {
     const text = offlineExplanation(report);
-    log.info('restitution hors-ligne', { reason: 'ANTHROPIC_API_KEY absente', costUsd: 0 });
+    log.info('restitution hors-ligne', { reason: 'aucun fournisseur configuré', costUsd: 0 });
     return {
       text,
       cost: computeCost('offline', {}),
@@ -72,41 +64,30 @@ export async function explain(
     };
   }
 
-  const client = options.client ?? new Anthropic({ apiKey }).messages;
+  const { provider } = resolved;
+  const model = options.model ?? resolved.model;
+  const result = await provider.complete(buildRequest(report, model, maxTokens));
 
-  const response = (await client.create(buildRequest(report, model, maxTokens))) as {
-    content: { type: string; text?: string }[];
-    usage?: Usage;
-    stop_reason?: string;
-  };
-
-  if (response.stop_reason === 'refusal') {
-    throw new UpstreamError('anthropic', 'la requête a été refusée par le modèle');
-  }
-
-  const text = response.content
-    .filter((block) => block.type === 'text')
-    .map((block) => block.text ?? '')
-    .join('')
-    .trim();
-
-  const cost = computeCost(model, response.usage ?? {});
+  const text = result.text.trim();
+  const cost = computeCost(model, result.usage);
   const violations = findViolations(text);
 
   // Le coût est loggué à chaque requête, pas agrégé après coup.
   log.info('requête agent', {
+    provider: provider.name,
     model,
     inputTokens: cost.inputTokens,
     outputTokens: cost.outputTokens,
     cacheReadTokens: cost.cacheReadTokens,
     costUsd: cost.costUsd,
     priced: cost.priced,
+    stopReason: result.stopReason,
     violations: violations.length,
   });
 
   if (text.length === 0) {
-    throw new UpstreamError('anthropic', 'réponse vide du modèle');
+    throw new UpstreamError('anthropic', `${provider.name} : réponse vide du modèle`);
   }
 
-  return { text, cost, violations, offline: false };
+  return { text, cost, violations, offline: false, provider: provider.name };
 }

@@ -79,13 +79,15 @@ describe('renderReport', () => {
 describe('buildRequest', () => {
   const request = buildRequest(report, 'claude-sonnet-5', 1500);
 
-  it('place le system prompt en préfixe stable et marqué pour le cache', () => {
-    expect(request.system[0]!.text).toBe(SYSTEM_PROMPT);
-    expect(request.system[0]!.cache_control).toEqual({ type: 'ephemeral' });
+  it('sépare le préfixe stable des données du token', () => {
+    expect(request.system).toBe(SYSTEM_PROMPT);
+    expect(request.user).toContain(report.token);
   });
 
+  // Régression invisible : une donnée de token dans le system prompt casserait
+  // le prompt caching sans rien casser d'apparent.
   it('ne met aucune donnée de token dans le system prompt', () => {
-    expect(request.system[0]!.text).not.toContain(report.token);
+    expect(request.system).not.toContain(report.token);
   });
 });
 
@@ -99,13 +101,11 @@ describe('le system prompt interdit explicitement', () => {
   });
 });
 
-function fakeClient(text: string, usage = { input_tokens: 6000, output_tokens: 700 }) {
+/** Fournisseur simulé : on contrôle le texte rendu et les tokens consommés. */
+function fakeProvider(text: string, usage = { input_tokens: 6000, output_tokens: 700 }) {
   return {
-    create: vi.fn(async () => ({
-      content: [{ type: 'text', text }],
-      usage,
-      stop_reason: 'end_turn',
-    })),
+    name: 'anthropic' as const,
+    complete: vi.fn(async () => ({ text, usage, stopReason: 'end_turn' })),
   };
 }
 
@@ -113,7 +113,7 @@ describe('explain', () => {
   it('renvoie le texte et son coût', async () => {
     const result = await explain(report, {
       model: 'claude-sonnet-5',
-      client: fakeClient('Les signaux ne racontent pas la même histoire.') as never,
+      provider: fakeProvider('Les signaux ne racontent pas la même histoire.'),
     });
     expect(result.text).toContain('signaux');
     expect(result.cost.costUsd).toBeCloseTo(0.019, 4);
@@ -125,7 +125,7 @@ describe('explain', () => {
   it('signale une sortie qui contient un score', async () => {
     const result = await explain(report, {
       model: 'claude-sonnet-5',
-      client: fakeClient('Ce token obtient 8/10.') as never,
+      provider: fakeProvider('Ce token obtient 8/10.'),
     });
     expect(result.violations.map((v) => v.kind)).toContain('score');
   });
@@ -133,23 +133,35 @@ describe('explain', () => {
   it('signale une sortie qui ressemble à un conseil', async () => {
     const result = await explain(report, {
       model: 'claude-sonnet-5',
-      client: fakeClient('This is safe to buy.') as never,
+      provider: fakeProvider('This is safe to buy.'),
     });
     expect(result.violations.map((v) => v.kind)).toContain('advice');
   });
 
   it('lève sur une réponse vide', async () => {
     await expect(
-      explain(report, { model: 'claude-sonnet-5', client: fakeClient('   ') as never }),
+      explain(report, { model: 'claude-sonnet-5', provider: fakeProvider('   ') as never }),
     ).rejects.toBeInstanceOf(UpstreamError);
   });
 
-  it('lève si le modèle refuse la requête', async () => {
-    const client = {
-      create: vi.fn(async () => ({ content: [], usage: {}, stop_reason: 'refusal' })),
+  it('laisse remonter un refus du modèle', async () => {
+    const refusing = {
+      name: 'anthropic' as const,
+      complete: vi.fn(async (): Promise<never> => {
+        throw new UpstreamError('anthropic', 'la requête a été refusée par le modèle');
+      }),
     };
     await expect(
-      explain(report, { model: 'claude-sonnet-5', client: client as never }),
+      explain(report, { model: 'claude-sonnet-5', provider: refusing }),
     ).rejects.toBeInstanceOf(UpstreamError);
+  });
+
+  it('indique quel fournisseur a produit le texte', async () => {
+    const result = await explain(report, {
+      model: 'claude-sonnet-5',
+      provider: fakeProvider('Les signaux divergent.'),
+    });
+    expect(result.provider).toBe('anthropic');
+    expect(result.offline).toBe(false);
   });
 });
