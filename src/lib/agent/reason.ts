@@ -4,6 +4,7 @@ import { UpstreamError } from '../errors';
 import { log } from '../logger';
 import { computeCost, type CostBreakdown, type Usage } from './cost';
 import { findViolations } from './guardrails';
+import { offlineExplanation } from './offline';
 import { SYSTEM_PROMPT, renderReport } from './prompt';
 
 export type ReasonOptions = {
@@ -18,6 +19,8 @@ export type Explanation = {
   cost: CostBreakdown;
   /** Violations détectées dans la sortie. Non vide = la sortie a été refusée. */
   violations: ReturnType<typeof findViolations>;
+  /** Vrai quand la restitution vient du mode hors-ligne, sans appel au modèle. */
+  offline: boolean;
 };
 
 export const DEFAULT_MODEL = 'claude-sonnet-5';
@@ -52,10 +55,24 @@ export async function explain(
 ): Promise<Explanation> {
   const model = options.model ?? process.env.ANTHROPIC_MODEL ?? DEFAULT_MODEL;
   const maxTokens = options.maxTokens ?? 1500;
+  const apiKey = options.apiKey ?? process.env.ANTHROPIC_API_KEY;
 
-  const client =
-    options.client ??
-    new Anthropic({ apiKey: options.apiKey ?? process.env.ANTHROPIC_API_KEY }).messages;
+  // Sans clé, on ne plante pas : on restitue les faits sans les croiser, et on
+  // le dit. Le pipeline de données est gratuit ; seule l'explication coûte.
+  // Refuser de répondre reviendrait à rendre le produit inutilisable pour qui
+  // veut simplement l'essayer.
+  if (!apiKey && !options.client) {
+    const text = offlineExplanation(report);
+    log.info('restitution hors-ligne', { reason: 'ANTHROPIC_API_KEY absente', costUsd: 0 });
+    return {
+      text,
+      cost: computeCost('offline', {}),
+      violations: findViolations(text),
+      offline: true,
+    };
+  }
+
+  const client = options.client ?? new Anthropic({ apiKey }).messages;
 
   const response = (await client.create(buildRequest(report, model, maxTokens))) as {
     content: { type: string; text?: string }[];
@@ -91,5 +108,5 @@ export async function explain(
     throw new UpstreamError('anthropic', 'réponse vide du modèle');
   }
 
-  return { text, cost, violations };
+  return { text, cost, violations, offline: false };
 }
