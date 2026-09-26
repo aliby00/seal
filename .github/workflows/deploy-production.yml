@@ -16,6 +16,11 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # pnpm 12 refuse par défaut d'exécuter les scripts de build des dépendances
+  # (ERR_PNPM_IGNORED_BUILDS). La CLI Vercel dépend d'esbuild, qui en a besoin.
+  VERCEL: pnpm dlx --allow-build=esbuild vercel@59
+
 jobs:
   ci:
     uses: ./.github/workflows/ci.yml
@@ -33,7 +38,7 @@ jobs:
     # le job ne démarre pas et ne peut même pas lire les secrets de production.
     environment:
       name: production
-      url: ${{ steps.deploy.outputs.url }}
+      url: ${{ vars.PUBLIC_URL }}
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -54,34 +59,34 @@ jobs:
       - name: Relever le déploiement en cours
         id: previous
         run: |
-          url=$(pnpm dlx vercel@59 ls --prod --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null \
+          url=$($VERCEL ls --prod --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null \
                 | grep -oE 'https://[a-zA-Z0-9.-]+\.vercel\.app' | head -1 || true)
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "Déploiement actuel : ${url:-aucun}"
 
       - name: Récupérer la configuration Vercel
-        run: pnpm dlx vercel@59 pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        run: $VERCEL pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Construire
-        run: pnpm dlx vercel@59 build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: $VERCEL build --prod --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Déployer
         id: deploy
         run: |
-          url=$(pnpm dlx vercel@59 deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          url=$($VERCEL deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "### Production déployée" >> "$GITHUB_STEP_SUMMARY"
           echo "$url" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Smoke tests
         id: smoke
-        run: node scripts/smoke.mjs "${{ steps.deploy.outputs.url }}" production
+        run: node scripts/smoke.mjs "${{ vars.PUBLIC_URL }}" production
 
       # Ne s'exécute que si les smoke tests ont échoué : on repromeut l'ancien.
       - name: Rollback
         if: failure() && steps.smoke.outcome == 'failure' && steps.previous.outputs.url != ''
         run: |
           echo "Smoke tests en échec — retour sur ${{ steps.previous.outputs.url }}"
-          pnpm dlx vercel@59 rollback "${{ steps.previous.outputs.url }}" \
+          $VERCEL rollback "${{ steps.previous.outputs.url }}" \
             --token=${{ secrets.VERCEL_TOKEN }} --yes
           echo "### ⚠️ Rollback effectué" >> "$GITHUB_STEP_SUMMARY"
