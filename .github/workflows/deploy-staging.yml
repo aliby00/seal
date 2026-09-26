@@ -35,7 +35,7 @@ jobs:
     timeout-minutes: 20
     environment:
       name: staging
-      url: ${{ steps.deploy.outputs.url }}
+      url: ${{ vars.PUBLIC_URL }}
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -66,9 +66,10 @@ jobs:
           url=$($VERCEL deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "Déployé sur $url"
+          echo "URL publique : ${{ vars.PUBLIC_URL }}"
           echo "### Staging déployé" >> "$GITHUB_STEP_SUMMARY"
           echo "$url" >> "$GITHUB_STEP_SUMMARY"
 
       # Le seul endroit où l'on tape sur l'application réellement en ligne.
       - name: Smoke tests
-        run: node scripts/smoke.mjs "${{ steps.deploy.outputs.url }}" staging
+        run: node scripts/smoke.mjs "${{ vars.PUBLIC_URL }}" staging

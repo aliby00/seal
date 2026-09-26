@@ -81,7 +81,18 @@ rollback automatique sur le déploiement précédent.
 
 ## Environnements et secrets
 
-Les secrets sont scopés **par GitHub Environment**, jamais au niveau du repo.
+Il y a **deux endroits distincts**, et les confondre est le piège classique :
+
+| Où                      | À quoi ça sert              | Qui le lit                                            |
+| ----------------------- | --------------------------- | ----------------------------------------------------- |
+| **GitHub Environments** | faire tourner le pipeline   | les workflows : build, deploy, smoke tests            |
+| **Variables Vercel**    | faire tourner l'application | le code en production : `/api/analyze`, `/api/health` |
+
+Une clé posée seulement dans GitHub ne sera **pas** vue par l'application déployée.
+`ANTHROPIC_API_KEY`, `BLOCKSCOUT_API_KEY`, `RPC_URL` et `SEAL_ENV` doivent exister
+des deux côtés — côté Vercel avec `vercel env add <NOM> production`.
+
+Les secrets GitHub sont scopés **par Environment**, jamais au niveau du repo.
 
 | Secret                                                 | `staging`          | `production`          |
 | ------------------------------------------------------ | ------------------ | --------------------- |
