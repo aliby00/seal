@@ -1,6 +1,9 @@
 # --- Secrets : ne JAMAIS commiter ---
-.env
-.env.*
+# `.env*` est écrit exactement ainsi volontairement : c'est la ligne que
+# `vercel link` ajoute sinon en fin de fichier à chaque exécution, où elle
+# passerait APRÈS la négation ci-dessous et la neutraliserait. En la déclarant
+# ici, Vercel la trouve déjà présente et laisse le fichier tranquille.
+.env*
 !.env.example
 *.pem
 *.key
