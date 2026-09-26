@@ -38,7 +38,7 @@ jobs:
     # le job ne démarre pas et ne peut même pas lire les secrets de production.
     environment:
       name: production
-      url: ${{ steps.deploy.outputs.url }}
+      url: ${{ vars.PUBLIC_URL }}
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -80,7 +80,7 @@ jobs:
 
       - name: Smoke tests
         id: smoke
-        run: node scripts/smoke.mjs "${{ steps.deploy.outputs.url }}" production
+        run: node scripts/smoke.mjs "${{ vars.PUBLIC_URL }}" production
 
       # Ne s'exécute que si les smoke tests ont échoué : on repromeut l'ancien.
       - name: Rollback
