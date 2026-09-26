@@ -49,3 +49,4 @@ GEMINI.md
 *.log
 npm-debug.log*
 pnpm-debug.log*
+.env*
