@@ -150,6 +150,8 @@ export async function fetchCreatorHistory(
     fromBlock: Number.isFinite(earliestLaunch) ? earliestLaunch : scanned.fromBlock,
     toBlock: scanned.toBlock,
   };
+  // Un échec ici donne une Map vide, donc `null` par token plus bas : on ne
+  // prétend pas avoir observé une absence de vente alors qu'on n'a pas regardé.
   const [sold, pulled] = await Promise.all([
     detectCreatorSales(rpc, creator, pairs, window).catch(() => new Map<string, boolean>()),
     detectLiquidityRemovals(rpc, pairs, window).catch(() => new Map<string, boolean>()),
@@ -181,6 +183,9 @@ export async function fetchCreatorHistory(
     creatorDumped: tokens.filter((t) => t.creatorDumped === true).length,
   };
 
+  // `truncated` couvre désormais aussi l'arrêt sur rate limit : la fenêtre
+  // réellement couverte est dans scannedRange, et elle peut être bien plus
+  // courte que demandée.
   const partial = truncated || scanned.fromBlock > 0;
 
   return {

@@ -1,3 +1,5 @@
+import { RateLimitError } from '../errors';
+import { BudgetExhaustedError } from '../http';
 import { LogQueryTooBroadError, type RpcClient } from './rpc';
 
 /**
@@ -97,6 +99,14 @@ export async function getLogsChunked(
       // La fenêtre a tenu : on élargit prudemment plutôt que de rester timide.
       span = Math.min(initialSpan, Math.floor(span * 1.5));
     } catch (error) {
+      // Un rate limit ou un budget épuisé en cours de route ne doit pas faire
+      // perdre ce qui a déjà été collecté. Une fenêtre courte mais réelle vaut
+      // mieux qu'une source déclarée indisponible : l'appelant marquera la vue
+      // comme tronquée, et l'agent le dira.
+      if (error instanceof RateLimitError || error instanceof BudgetExhaustedError) {
+        truncated = true;
+        break;
+      }
       if (!(error instanceof LogQueryTooBroadError)) throw error;
 
       if (span <= minSpan) {
