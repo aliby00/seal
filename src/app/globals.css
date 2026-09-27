@@ -773,7 +773,7 @@
   position: absolute;
   inset: -15%;
   background: url('/images/seal-cloud-volume.svg') center / cover;
-  animation: cloud-current 24s ease-in-out infinite alternate;
+  animation: cloud-current 8s ease-in-out -2s infinite alternate;
   will-change: transform;
 }
 .ambient-clouds {
@@ -783,7 +783,7 @@
   mask-image: radial-gradient(ellipse at 50% 65%, #000 10%, transparent 65%);
   mix-blend-mode: screen;
   opacity: 0.26;
-  animation: cloud-current 38s ease-in-out infinite alternate-reverse;
+  animation: cloud-current 12s ease-in-out -4s infinite alternate-reverse;
   will-change: transform;
   pointer-events: none;
 }
