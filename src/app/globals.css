@@ -662,7 +662,9 @@
   --copy-opacity: 1;
   --copy-shift: 0px;
   --mist-opacity: 0;
-  --mist-shift: 28%;
+  --mist-shift: 16%;
+  --mist-scale: 0.7;
+  --mist-spread: 0%;
   position: relative;
   isolation: isolate;
   background: #090c0b;
@@ -743,8 +745,7 @@
   inset: 0;
   background: url('/images/seal-mountain-mist.webp') center / cover;
   transform: scale(var(--camera-scale));
-  transform-origin: 50% 64%;
-
+  transform-origin: 50% 58%;
   will-change: transform;
 }
 .scene-shade {
@@ -761,13 +762,30 @@
 }
 .valley-mist {
   position: absolute;
-  inset: -20%;
-  background:
-    radial-gradient(ellipse at 35% 75%, #c0c8ca 0%, #b3bec4aa 22%, transparent 58%),
-    radial-gradient(ellipse at 80% 90%, #d0d5d6 0%, transparent 65%);
+  inset: -25%;
   opacity: var(--mist-opacity);
-  transform: translateY(var(--mist-shift));
+  transform: translateY(var(--mist-shift)) scale(var(--mist-scale));
+  transform-origin: 50% 58%;
   pointer-events: none;
+  will-change: transform, opacity;
+}
+.valley-mist::before,
+.valley-mist::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 26% 56%, #c1cbcd 0%, #a9b9c4bb 17%, transparent 44%),
+    radial-gradient(ellipse at 62% 72%, #d0d7d8dd 0%, #a8bac199 20%, transparent 48%),
+    radial-gradient(ellipse at 48% 40%, #becbcd99 0%, transparent 38%);
+  filter: blur(18px);
+  transform: translateX(calc(-1 * var(--mist-spread)));
+}
+.valley-mist::after {
+  background:
+    radial-gradient(ellipse at 75% 48%, #c8d2d3 0%, #a9bcc3aa 20%, transparent 48%),
+    radial-gradient(ellipse at 42% 82%, #bbc9cddd 0%, transparent 46%);
+  transform: translateX(var(--mist-spread)) scale(1.15);
 }
 .entrance-copy {
   position: absolute;
