@@ -33,11 +33,11 @@ export async function POST(request: Request): Promise<Response> {
   try {
     ({ token } = (await request.json()) as { token?: unknown });
   } catch {
-    return errorResponse(400, 'Corps de requête illisible');
+    return errorResponse(400, 'Unreadable request body');
   }
 
   if (typeof token !== 'string' || !isAddress(token)) {
-    return errorResponse(400, 'Adresse de token invalide');
+    return errorResponse(400, 'Invalid token address');
   }
 
   try {
@@ -59,7 +59,7 @@ export async function POST(request: Request): Promise<Response> {
       });
       return errorResponse(
         502,
-        "L'analyse produite ne respectait pas les contraintes de formulation. Réessayez.",
+        'The generated analysis did not meet the wording requirements. Please try again.',
       );
     }
 
@@ -84,6 +84,6 @@ export async function POST(request: Request): Promise<Response> {
       return errorResponse(status, error.message);
     }
     log.error('analyse en échec', { token, error: String(error) });
-    return errorResponse(500, "L'analyse n'a pas pu aboutir");
+    return errorResponse(500, 'The analysis could not be completed');
   }
 }

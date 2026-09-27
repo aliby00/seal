@@ -26,7 +26,7 @@ export function createAnthropicProvider(apiKey: string, client?: Anthropic['mess
       })) as Anthropic.Message;
 
       if (response.stop_reason === 'refusal') {
-        throw new UpstreamError('anthropic', 'la requête a été refusée par le modèle');
+        throw new UpstreamError('anthropic', 'the model refused the request');
       }
 
       const usage = response.usage;

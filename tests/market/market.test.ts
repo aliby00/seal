@@ -82,7 +82,7 @@ describe('token sans paire indexée', () => {
   });
 
   it('explique pourquoi dans la source', () => {
-    expect(state.sources[0]?.note).toMatch(/trop récent/);
+    expect(state.sources[0]?.note).toMatch(/too recent/);
   });
 });
 

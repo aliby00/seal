@@ -11,7 +11,14 @@ export type Holder = {
 
 export type HolderDistributionData = {
   token: string;
-  totalSupply: string;
+  /**
+   * Somme des soldes des détenteurs RÉELLEMENT récupérés, pool et burn exclus.
+   *
+   * Ce n'est PAS l'offre totale du token : on ne lit qu'une page de détenteurs.
+   * Le nom `totalSupply` laissait croire le contraire et pouvait faire afficher
+   * un chiffre faux.
+   */
+  countedSupply: string;
   /** Nombre total de détenteurs, `null` si la source ne le donne pas. */
   holderCount: number | null;
   /** Les plus gros détenteurs, pool et burn exclus du calcul des parts. */

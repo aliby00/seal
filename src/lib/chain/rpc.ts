@@ -12,22 +12,43 @@ import { request, type RequestBudget } from '../http';
 export const ROBINHOOD_CHAIN_ID = 4663;
 export const DEFAULT_RPC_URL = 'https://rpc.mainnet.chain.robinhood.com';
 
+export type RpcRequest = { method: string; params: unknown[] };
+
+/** Résultat d'un appel groupé : succès ou erreur, par requête. */
+export type BatchOutcome<T> = { ok: true; value: T } | { ok: false; error: string };
+
 export type RpcClient = {
   call<T>(method: string, params: unknown[]): Promise<T>;
+  /**
+   * Envoie plusieurs appels en une seule requête HTTP.
+   *
+   * Vérifié sur Robinhood Chain : le batch JSON-RPC est supporté. C'est ce qui
+   * rend un historique profond envisageable — sans lui, lire l'état de
+   * graduation de 40 tokens coûte 40 allers-retours sur un RPC public qui
+   * répond 403 après une rafale.
+   *
+   * Chaque entrée réussit ou échoue indépendamment : un token dont l'appel
+   * revert ne doit pas faire échouer les 39 autres.
+   */
+  callBatch<T>(requests: RpcRequest[]): Promise<BatchOutcome<T>[]>;
 };
 
 type JsonRpcResponse<T> = {
+  id?: number;
   result?: T;
   error?: { code: number; message: string };
 };
+
+/** Au-delà, certains nœuds refusent la requête entière. Valeur prudente. */
+export const MAX_BATCH_SIZE = 20;
 
 /** Les trois façons dont `eth_getLogs` refuse de répondre. Mesurées, pas supposées. */
 export class LogQueryTooBroadError extends Error {
   constructor(readonly reason: 'too-many-results' | 'timeout') {
     super(
       reason === 'too-many-results'
-        ? 'eth_getLogs : plus de résultats que la limite du nœud'
-        : 'eth_getLogs : la requête a expiré côté nœud',
+        ? 'eth_getLogs : results exceed the node limit'
+        : 'eth_getLogs : request timed out at the node',
     );
     this.name = 'LogQueryTooBroadError';
   }
@@ -47,7 +68,52 @@ export function classifyLogError(message: string): LogQueryTooBroadError | undef
 }
 
 export function createRpcClient(url: string = DEFAULT_RPC_URL, budget?: RequestBudget): RpcClient {
+  async function post(payload: unknown): Promise<Response> {
+    return request(url, {
+      source: 'robinhood-rpc',
+      budget,
+      init: {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      },
+    });
+  }
+
   return {
+    async callBatch<T>(requests: RpcRequest[]): Promise<BatchOutcome<T>[]> {
+      if (requests.length === 0) return [];
+
+      const results: BatchOutcome<T>[] = [];
+      for (let offset = 0; offset < requests.length; offset += MAX_BATCH_SIZE) {
+        const slice = requests.slice(offset, offset + MAX_BATCH_SIZE);
+        const response = await post(
+          slice.map((r, i) => ({ jsonrpc: '2.0', id: offset + i, ...r })),
+        );
+        const body = (await response.json()) as JsonRpcResponse<T>[] | JsonRpcResponse<T>;
+
+        if (!Array.isArray(body)) {
+          // Le nœud a répondu à un batch par un objet : erreur globale.
+          throw new UpstreamError(
+            'robinhood-rpc',
+            `batch : ${body.error?.message ?? 'réponse inattendue'}`,
+          );
+        }
+
+        // L'ordre des réponses n'est pas garanti par la spec : on réaligne sur les id.
+        const byId = new Map(body.map((entry) => [entry.id, entry]));
+        for (let i = 0; i < slice.length; i += 1) {
+          const entry = byId.get(offset + i);
+          if (!entry || entry.error) {
+            results.push({ ok: false, error: entry?.error?.message ?? 'réponse absente' });
+          } else {
+            results.push({ ok: true, value: entry.result as T });
+          }
+        }
+      }
+      return results;
+    },
+
     async call<T>(method: string, params: unknown[]): Promise<T> {
       const response = await request(url, {
         source: 'robinhood-rpc',
@@ -70,7 +136,7 @@ export function createRpcClient(url: string = DEFAULT_RPC_URL, budget?: RequestB
       }
 
       if (body.result === undefined) {
-        throw new UpstreamError('robinhood-rpc', `${method} : réponse sans résultat`);
+        throw new UpstreamError('robinhood-rpc', `${method} : response without a result`);
       }
       return body.result;
     },

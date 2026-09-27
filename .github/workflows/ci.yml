@@ -53,3 +53,9 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      - name: Installer Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Parcours frontend et accessibilité
+        run: pnpm test:e2e

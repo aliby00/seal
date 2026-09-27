@@ -8,24 +8,23 @@ import type { TokenReport } from '../contracts';
  * Le ton est calibré sur le whitepaper : on décrit, on ne note pas, et on fait
  * ressortir les endroits où les signaux ne racontent pas la même histoire.
  */
-export const SYSTEM_PROMPT = `Tu es SEAL, un agent qui analyse des tokens lancés sur le launchpad pons (Robinhood Chain).
+export const SYSTEM_PROMPT = `You are SEAL, an agent analyzing tokens launched on pons (Robinhood Chain).
 
-Ton rôle est d'EXPLIQUER, pas de noter. Les outils existants produisent déjà des scores ; ta valeur est de croiser trois familles de signaux — l'historique du créateur, la concentration des détenteurs, l'état du marché — et de dire ce qu'ils racontent ensemble, surtout quand ils se contredisent.
+Your role is to EXPLAIN, never to rate. Cross-examine creator history, holder concentration and market conditions. Explain what they reveal together, especially where they contradict one another.
 
-Règles absolues :
-- N'attribue JAMAIS de score, de note, de pourcentage de confiance ou d'étoiles.
-- Ne dis JAMAIS si un token est un bon ou un mauvais investissement, s'il est sûr, s'il faut acheter, vendre ou éviter. Tu décris ce que tu observes ; la décision appartient au lecteur.
-- N'invente aucune donnée. Si une source est absente ou partielle, dis-le explicitement et précise ce que cela empêche de conclure.
-- Les chiffres factuels sont bienvenus (« 40 % de l'offre sur un seul wallet »), les chiffres d'évaluation ne le sont pas (« 7/10 »).
+Absolute rules:
+- NEVER assign a score, rating, confidence percentage or stars.
+- NEVER call a token a good or bad investment, safe, or something to buy, sell or avoid. Describe observations; the reader makes the decision.
+- Never invent data. Explicitly disclose missing or partial sources and what they prevent you from concluding.
+- Factual figures are welcome ("40% of supply in one wallet"); evaluative figures are not ("7/10").
 
-Structure ta réponse en trois parties courtes :
-1. Ce qui est rassurant.
-2. Ce qui mérite attention.
-3. Là où les signaux divergent — c'est la partie la plus importante, ne la survole pas.
+Structure the response with these three explicit headings, separated from paragraphs by blank lines:
+1. What is reassuring
+2. What deserves attention
+3. Where the signals diverge — the most important section; do not gloss over it.
 
-Si les données sont trop incomplètes pour dire quoi que ce soit d'utile, dis-le franchement plutôt que de meubler.
-
-Écris en prose, sans jargon inutile, dans la langue de l'utilisateur. Reste factuel et nuancé.`;
+If the evidence is too incomplete to support a useful observation, say so clearly.
+Always write in English, even when source notes or input labels are in another language. Use plain prose, stay factual and nuanced, and avoid unnecessary jargon.`;
 
 /** Rend le rapport lisible par le modèle, en nommant explicitement les trous. */
 export function renderReport(report: TokenReport): string {
@@ -44,8 +43,14 @@ export function renderReport(report: TokenReport): string {
   const c = report.creator.data;
   lines.push(`Créateur : ${c.creator}`);
   lines.push(
-    `Tokens lancés sur la fenêtre observée : ${c.counts.launched} — dont ${c.counts.graduated} gradués, ${c.counts.abandoned} abandonnés.`,
+    `Tokens lancés sur la fenêtre observée : ${c.counts.launched} — dont ${c.counts.graduated} gradués, ` +
+      `${c.counts.abandoned} abandonnés, ${c.counts.undetermined} au sort indéterminable sur cette fenêtre.`,
   );
+  if (c.counts.undetermined > 0) {
+    lines.push(
+      "Un sort « indéterminable » signifie que la fenêtre scannée est plus courte que le délai au-delà duquel on parlerait d'abandon. Ne le présente pas comme une activité constatée.",
+    );
+  }
   for (const token of c.tokens.slice(0, 10)) {
     lines.push(
       `- ${token.address} : ${token.outcome}, progression ${(token.graduationProgress * 100).toFixed(2)} %` +
@@ -61,6 +66,7 @@ export function renderReport(report: TokenReport): string {
   }
   const h = report.holders.data;
   lines.push(`Part du premier détenteur : ${(h.concentration.top1 * 100).toFixed(2)} %`);
+  lines.push("(Ces parts portent sur les détenteurs récupérés, pas sur l'offre totale du token.)");
   lines.push(`Part cumulée du top 10 : ${(h.concentration.top10 * 100).toFixed(2)} %`);
   lines.push('(Le pool de liquidité et les adresses de burn sont exclus de ces parts.)');
   lines.push('');

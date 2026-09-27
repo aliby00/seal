@@ -15,7 +15,14 @@ function report(overrides: Partial<TokenReport> = {}): TokenReport {
       data: {
         creator: '0xE062',
         tokens: [],
-        counts: { launched: 3, graduated: 2, abandoned: 1, liquidityPulled: 0 },
+        counts: {
+          launched: 3,
+          graduated: 2,
+          abandoned: 1,
+          undetermined: 0,
+          liquidityPulled: 0,
+          creatorDumped: 0,
+        },
         scannedRange: { fromBlock: 66_000_000, toBlock: 71_000_000 },
       },
     },
@@ -24,7 +31,7 @@ function report(overrides: Partial<TokenReport> = {}): TokenReport {
       sources: [{ name: 'blockscout', fetchedAt: 'x', note: 'aucune clé API' }],
       data: {
         token: '0x494d',
-        totalSupply: '0',
+        countedSupply: '0',
         holderCount: null,
         top: [],
         concentration: { top1: 0, top10: 0 },
@@ -56,8 +63,8 @@ describe('offlineExplanation', () => {
 
   // Le point le plus important : elle ne doit jamais se faire passer pour l'agent.
   it("annonce d'emblée qu'elle ne croise pas les signaux", () => {
-    expect(text).toMatch(/sans l'agent de raisonnement/);
-    expect(text).toMatch(/sans les croiser/);
+    expect(text).toMatch(/without the reasoning agent/);
+    expect(text).toMatch(/without cross-examining/);
   });
 
   it("respecte les mêmes garde-fous que l'agent", () => {
@@ -65,21 +72,21 @@ describe('offlineExplanation', () => {
   });
 
   it('restitue les faits du créateur avec la fenêtre observée', () => {
-    expect(text).toContain('3 tokens lancés');
-    expect(text).toMatch(/blocs 66000000 à 71000000/);
+    expect(text).toContain('3 tokens launched');
+    expect(text).toMatch(/blocks 66000000 to 71000000/);
   });
 
   it("dit pourquoi une source manque au lieu de l'omettre", () => {
-    expect(text).toMatch(/non mesurée \(aucune clé API\)/);
+    expect(text).toMatch(/not measured \(aucune clé API\)/);
   });
 
   it("donne le volume rapporté au nombre d'échanges", () => {
-    expect(text).toMatch(/7 échanges/);
-    expect(text).toMatch(/69\.39 USD par échange/);
+    expect(text).toMatch(/7 trades/);
+    expect(text).toMatch(/69\.39 USD per trade/);
   });
 
-  it('signale explicitement une vue partielle', () => {
-    expect(text).toMatch(/vue partielle/);
+  it('signale explicitement une partial view', () => {
+    expect(text).toMatch(/partial view/);
   });
 
   it('reste lisible quand tout manque', () => {
@@ -91,7 +98,7 @@ describe('offlineExplanation', () => {
       }),
     );
     expect(isCompliant(empty)).toBe(true);
-    expect(empty).toMatch(/n'a pas pu être lu/);
+    expect(empty).toMatch(/could not be read/);
   });
 });
 
@@ -102,6 +109,6 @@ describe('explain sans aucune clé', () => {
     expect(result.cost.costUsd).toBe(0);
     expect(result.cost.priced).toBe(true);
     expect(result.violations).toHaveLength(0);
-    expect(result.text).toMatch(/sans l'agent de raisonnement/);
+    expect(result.text).toMatch(/without the reasoning agent/);
   });
 });

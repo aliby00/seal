@@ -1,30 +1,56 @@
 import type { Address } from 'viem';
 import type { CreatorHistory, LaunchedToken, TokenOutcome } from '../contracts';
 import type { RequestBudget } from '../http';
-import {
-  discoverActiveFactories,
-  decodeTokenLaunched,
-  TOKEN_LAUNCHED_TOPIC,
-  type TokenLaunch,
-} from './factory';
+import { decodeTokenLaunched, TOKEN_LAUNCHED_TOPIC, type TokenLaunch } from './factory';
 import { getLogsChunked } from './logs';
-import { fetchGraduationStatus, type GraduationStatus } from './graduation';
+import {
+  fetchBlockTimestamps,
+  fetchGraduationStatusBatch,
+  type GraduationStatus,
+} from './graduation';
+import { detectCreatorSales, detectLiquidityRemovals } from './behavior';
 import { createRpcClient, DEFAULT_RPC_URL, type RpcClient } from './rpc';
 
 export * from './rpc';
 export * from './logs';
 export * from './factory';
 export * from './graduation';
+export * from './behavior';
 
 /** Sans activité depuis ~30 jours et sous le seuil : on parle d'abandon. */
 export const ABANDON_AFTER_BLOCKS = 26_000_000;
 
+/**
+ * Profondeur scannée par défaut : un peu plus que le seuil d'abandon, pour que
+ * la classification puisse réellement trancher. À 0,101 s par bloc, c'est
+ * environ 35 jours.
+ *
+ * C'était impossible avant le batch JSON-RPC : lire l'état de graduation de
+ * chaque token coûtait un aller-retour, et le RPC public coupe à 403 bien
+ * avant. Un appel groupé par lot de 20 change l'ordre de grandeur.
+ */
+export const DEFAULT_LOOKBACK_BLOCKS = 30_000_000;
+
+/**
+ * Détermine le sort d'un token.
+ *
+ * `observedBlocks` est la profondeur réellement scannée. Si elle est plus
+ * courte que le seuil d'abandon, aucun token trouvé ne peut être assez vieux
+ * pour être qualifié d'abandonné — et répondre « actif » serait affirmer
+ * quelque chose qu'on n'a pas observé. On répond alors `undetermined`.
+ *
+ * C'était un bug réel : avec une fenêtre de 5 M blocs (5,8 jours) et un seuil
+ * à 26 M (30 jours), la branche `abandoned` était mathématiquement morte et
+ * tout ressortait « actif ».
+ */
 export function classifyOutcome(
   status: GraduationStatus | null,
   blocksSinceLaunch: number,
+  observedBlocks = Number.POSITIVE_INFINITY,
 ): TokenOutcome {
   if (status?.graduated) return 'graduated';
   if (blocksSinceLaunch > ABANDON_AFTER_BLOCKS) return 'abandoned';
+  if (observedBlocks < ABANDON_AFTER_BLOCKS) return 'undetermined';
   return 'active';
 }
 
@@ -59,7 +85,11 @@ export type FetchCreatorHistoryOptions = {
   rpcUrl?: string;
   budget?: RequestBudget;
   client?: RpcClient;
-  /** Fenêtre scannée par le MVP. L'historique complet est le sujet de feat/creator-history. */
+  /**
+   * Profondeur scannée. Le défaut couvre le seuil d'abandon (30 jours), ce qui
+   * rend la classification `abandoned` réellement atteignable — avec 5 M blocs
+   * elle était mathématiquement morte.
+   */
   lookbackBlocks?: number;
   now?: () => Date;
 };
@@ -70,14 +100,17 @@ export async function fetchCreatorHistory(
 ): Promise<CreatorHistory> {
   const rpc = options.client ?? createRpcClient(options.rpcUrl ?? DEFAULT_RPC_URL, options.budget);
   const fetchedAt = (options.now ?? (() => new Date()))().toISOString();
-  const lookback = options.lookbackBlocks ?? 5_000_000;
+  const lookback = options.lookbackBlocks ?? DEFAULT_LOOKBACK_BLOCKS;
 
   const latestHex = await rpc.call<string>('eth_blockNumber', []);
   const latest = Number(latestHex);
 
   // L'adresse du factory se découvre, elle ne se copie pas d'une documentation.
-  // La découverte confirme que le launchpad est bien actif sur la fenêtre observée.
-  await discoverActiveFactories(rpc, latest, lookback);
+  // Note : `discoverActiveFactories` n'est pas appelée ici. Le factory qui a
+  // émis chaque log est porté par le log lui-même, et c'est forcément celui
+  // qui connaît le token. La découverte reste exportée pour l'énumération des
+  // générations de factory (#13) — l'appeler ici coûtait un eth_getLogs
+  // chunké sur toute la fenêtre pour un résultat qu'on jetait.
 
   const { logs, truncated, scanned } = await getLogsChunked(
     rpc,
@@ -86,32 +119,73 @@ export async function fetchCreatorHistory(
   );
 
   const launches = logs.map(decodeTokenLaunched);
-  const tokens: LaunchedToken[] = [];
 
-  for (const launch of launches) {
-    // Le factory qui a émis le log est forcément celui qui connaît ce token :
-    // interroger un autre reverterait, comme le fait celui de la documentation.
-    const status = await fetchGraduationStatus(rpc, launch.factory, launch.token);
-    tokens.push({
+  // Un seul aller-retour par lot de 20, au lieu d'un par token.
+  const factory = launches[0]?.factory;
+  const [statuses, timestamps] = await Promise.all([
+    factory
+      ? fetchGraduationStatusBatch(
+          rpc,
+          factory,
+          launches.map((l) => l.token),
+        )
+      : Promise.resolve<(GraduationStatus | null)[]>([]),
+    fetchBlockTimestamps(
+      rpc,
+      launches.map((l) => l.blockNumber),
+    ),
+  ]);
+
+  // Deux requêtes pour tous les tokens à la fois, pas deux par token :
+  // eth_getLogs accepte une liste d'adresses.
+  const pairs = launches.map((l) => ({ token: l.token, pool: l.pool }));
+  // Rien ne peut arriver à un token avant son lancement : la fenêtre part du
+  // plus ancien lancement observé, pas du début de la plage scannée. Sur un
+  // créateur récent, ça divise le coût par plus de dix.
+  const earliestLaunch = launches.reduce(
+    (min, l) => Math.min(min, l.blockNumber),
+    Number.POSITIVE_INFINITY,
+  );
+  const window = {
+    fromBlock: Number.isFinite(earliestLaunch) ? earliestLaunch : scanned.fromBlock,
+    toBlock: scanned.toBlock,
+  };
+  // Un échec ici donne une Map vide, donc `null` par token plus bas : on ne
+  // prétend pas avoir observé une absence de vente alors qu'on n'a pas regardé.
+  const [sold, pulled] = await Promise.all([
+    detectCreatorSales(rpc, creator, pairs, window).catch(() => new Map<string, boolean>()),
+    detectLiquidityRemovals(rpc, pairs, window).catch(() => new Map<string, boolean>()),
+  ]);
+
+  const tokens: LaunchedToken[] = launches.map((launch, i) => {
+    const status = statuses[i] ?? null;
+    const key = launch.token.toLowerCase();
+    return {
       address: launch.token,
       pool: launch.pool,
       launchedAtBlock: launch.blockNumber,
-      launchedAt: null,
-      outcome: classifyOutcome(status, latest - launch.blockNumber),
+      launchedAt: timestamps[i] ?? null,
+      outcome: classifyOutcome(status, latest - launch.blockNumber, lookback),
       graduationProgress: status?.progress ?? 0,
-      // Indéterminables sans analyse des transferts : `feat/creator-history`.
-      liquidityPulled: null,
-      creatorDumped: null,
-    });
-  }
+      // `false` signifie « rien observé sur la fenêtre », pas « certainement
+      // pas arrivé ». La complétude du bloc porte déjà cette nuance.
+      liquidityPulled: pulled.get(key) ?? null,
+      creatorDumped: sold.get(key) ?? null,
+    };
+  });
 
   const counts = {
     launched: tokens.length,
     graduated: tokens.filter((t) => t.outcome === 'graduated').length,
     abandoned: tokens.filter((t) => t.outcome === 'abandoned').length,
+    undetermined: tokens.filter((t) => t.outcome === 'undetermined').length,
     liquidityPulled: tokens.filter((t) => t.liquidityPulled === true).length,
+    creatorDumped: tokens.filter((t) => t.creatorDumped === true).length,
   };
 
+  // `truncated` couvre désormais aussi l'arrêt sur rate limit : la fenêtre
+  // réellement couverte est dans scannedRange, et elle peut être bien plus
+  // courte que demandée.
   const partial = truncated || scanned.fromBlock > 0;
 
   return {
@@ -122,7 +196,7 @@ export async function fetchCreatorHistory(
         fetchedAt,
         ...(partial
           ? {
-              note: `fenêtre scannée : blocs ${scanned.fromBlock} à ${scanned.toBlock} — historique antérieur non couvert`,
+              note: `scanned range: blocks ${scanned.fromBlock} to ${scanned.toBlock} — earlier history not covered`,
             }
           : {}),
       },

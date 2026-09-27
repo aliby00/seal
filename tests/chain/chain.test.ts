@@ -11,6 +11,7 @@ import {
   type RawLog,
   type RpcClient,
 } from '../../src/lib/chain';
+import { RateLimitError } from '../../src/lib/errors';
 
 describe('classifyLogError — les trois refus du nœud', () => {
   it('reconnaît le dépassement de limite', () => {
@@ -107,6 +108,9 @@ function fakeNode(opts: {
 }): { rpc: RpcClient; calls: { from: number; to: number }[] } {
   const calls: { from: number; to: number }[] = [];
   const rpc: RpcClient = {
+    async callBatch() {
+      throw new Error('non utilisé dans ce test');
+    },
     async call<T>(_method: string, params: unknown[]): Promise<T> {
       const filter = (params as [{ fromBlock: string; toBlock: string }])[0];
       const from = Number(filter.fromBlock);
@@ -221,6 +225,9 @@ describe('getLogsChunked', () => {
 
   it("laisse remonter une erreur qui n'est pas un refus de fenêtre", async () => {
     const rpc: RpcClient = {
+      async callBatch(): Promise<never> {
+        throw new Error('panne réseau');
+      },
       async call(): Promise<never> {
         throw new Error('panne réseau');
       },
@@ -234,5 +241,91 @@ describe('getLogsChunked', () => {
 describe('constantes', () => {
   it('chain ID vérifié en direct', () => {
     expect(ROBINHOOD_CHAIN_ID).toBe(4663);
+  });
+});
+
+describe('classifyOutcome et la fenêtre observée', () => {
+  const young = toGraduationStatus(1n, 4_200_000_000_000_000_000n, false);
+
+  // Le bug corrigé : avec une fenêtre de 5 M blocs (5,8 jours) et un seuil
+  // d'abandon à 26 M (30 jours), aucun token trouvé ne pouvait être assez
+  // vieux. La branche `abandoned` était morte et tout ressortait « actif ».
+  it('refuse de dire « actif » quand la fenêtre est trop courte pour trancher', () => {
+    expect(classifyOutcome(young, 1_000, 5_000_000)).toBe('undetermined');
+  });
+
+  it('dit « actif » quand la fenêtre permet réellement de le constater', () => {
+    expect(classifyOutcome(young, 1_000, 40_000_000)).toBe('active');
+  });
+
+  it('dit « abandonné » au-delà du seuil, si la fenêtre le couvre', () => {
+    expect(classifyOutcome(young, 30_000_000, 40_000_000)).toBe('abandoned');
+  });
+
+  it('gradué prime, quelle que soit la fenêtre', () => {
+    const graduated = toGraduationStatus(5n, 4n, true);
+    expect(classifyOutcome(graduated, 1_000, 1_000)).toBe('graduated');
+  });
+
+  it('sans fenêtre précisée, ne bride pas la classification', () => {
+    expect(classifyOutcome(young, 1_000)).toBe('active');
+  });
+});
+
+describe('getLogsChunked face à un rate limit', () => {
+  // Perdre tout ce qui a été collecté parce que le nœud coupe en route est
+  // pire que rendre une fenêtre courte : l'appelant marque la vue tronquée et
+  // l'agent le dit. C'est le comportement observé en production, où l'IP de
+  // Vercel est coupée après une poignée de requêtes.
+  it('garde ce qui a été collecté et signale la troncature', async () => {
+    let calls = 0;
+    const rpc: RpcClient = {
+      async callBatch(): Promise<never> {
+        throw new Error('non utilisé');
+      },
+      async call<T>(_method: string, params: unknown[]): Promise<T> {
+        calls += 1;
+        if (calls > 2) throw new RateLimitError('robinhood-rpc');
+        const filter = (params as [{ fromBlock: string; toBlock: string }])[0];
+        const block = Number(filter.toBlock);
+        return [
+          {
+            address: '0xf4fc',
+            topics: ['0xtopic'],
+            data: '0x',
+            blockNumber: `0x${block.toString(16)}`,
+            transactionHash: `0x${block}`,
+            logIndex: '0x0',
+          },
+        ] as unknown as T;
+      },
+    };
+
+    const result = await getLogsChunked(
+      rpc,
+      { topics: [] },
+      {
+        fromBlock: 0,
+        toBlock: 1_000_000,
+        initialSpan: 100_000,
+      },
+    );
+
+    expect(result.logs.length).toBeGreaterThan(0);
+    expect(result.truncated).toBe(true);
+  });
+
+  it("laisse remonter une erreur qui n'est ni un refus ni un rate limit", async () => {
+    const rpc: RpcClient = {
+      async callBatch(): Promise<never> {
+        throw new Error('non utilisé');
+      },
+      async call(): Promise<never> {
+        throw new Error('panne réseau');
+      },
+    };
+    await expect(
+      getLogsChunked(rpc, { topics: [] }, { fromBlock: 0, toBlock: 10 }),
+    ).rejects.toThrow(/panne réseau/);
   });
 });

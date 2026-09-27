@@ -5,7 +5,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'SEAL',
   description:
-    "L'agent qui explique, là où les autres se contentent de noter. Analyse de tokens sur le launchpad pons (Robinhood Chain).",
+    'Understand pons tokens on Robinhood Chain through evidence, context and plain-language analysis. No scores.',
 };
 
 export const viewport: Viewport = {
@@ -15,7 +15,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="fr">
+    <html lang="en">
       <body>{children}</body>
     </html>
   );

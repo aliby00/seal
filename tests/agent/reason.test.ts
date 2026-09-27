@@ -16,7 +16,14 @@ const report: TokenReport = {
     data: {
       creator: '0xE06289fde414EE521aBA50Db0Cf0a60816FAA523',
       tokens: [],
-      counts: { launched: 3, graduated: 2, abandoned: 1, liquidityPulled: 0 },
+      counts: {
+        launched: 3,
+        graduated: 2,
+        abandoned: 1,
+        undetermined: 0,
+        liquidityPulled: 0,
+        creatorDumped: 0,
+      },
       scannedRange: { fromBlock: 60_000_000, toBlock: 72_000_000 },
     },
   },
@@ -27,7 +34,7 @@ const report: TokenReport = {
     ],
     data: {
       token: '0x494d',
-      totalSupply: '0',
+      countedSupply: '0',
       holderCount: null,
       top: [],
       concentration: { top1: 0, top10: 0 },
@@ -92,12 +99,15 @@ describe('buildRequest', () => {
 });
 
 describe('le system prompt interdit explicitement', () => {
+  it('requires English even when source notes use another language', () => {
+    expect(SYSTEM_PROMPT).toContain('Always write in English');
+  });
   it('les scores', () => {
-    expect(SYSTEM_PROMPT).toMatch(/JAMAIS de score/);
+    expect(SYSTEM_PROMPT).toMatch(/NEVER assign a score/);
   });
 
   it("les conseils d'achat", () => {
-    expect(SYSTEM_PROMPT).toMatch(/bon ou un mauvais investissement/);
+    expect(SYSTEM_PROMPT).toMatch(/good or bad investment/);
   });
 });
 

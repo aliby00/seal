@@ -7,6 +7,23 @@ import { createBudget, type RequestBudget } from './http';
 import { fetchHolderDistribution } from './holders';
 import { fetchMarketState } from './market';
 import { log } from './logger';
+import { TtlCache } from './cache';
+
+/**
+ * L'historique d'un créateur est la partie chère de l'analyse — 30 M blocs
+ * scannés — et la plus lente à changer. Le marché, lui, bouge à la minute et
+ * n'est jamais mis en cache.
+ *
+ * Cinq minutes : assez pour que plusieurs tokens du même créateur analysés
+ * d'affilée ne rescannent pas, assez court pour qu'un nouveau lancement
+ * apparaisse vite.
+ */
+const CREATOR_HISTORY_TTL_MS = 5 * 60_000;
+
+export const creatorHistoryCache = new TtlCache<CreatorHistory>({
+  ttlMs: CREATOR_HISTORY_TTL_MS,
+  maxEntries: 200,
+});
 
 /**
  * Orchestrateur du pipeline de données.
@@ -20,7 +37,13 @@ import { log } from './logger';
 export type CollectOptions = {
   rpcUrl?: string;
   blockscoutApiKey?: string;
-  /** Plafond de requêtes externes pour une analyse, toutes sources confondues. */
+  /**
+   * Plafond de requêtes externes pour une analyse, toutes sources confondues.
+   *
+   * Mesuré : ~80 requêtes pour un créateur à 3 lancements sur 30 M blocs,
+   * signaux de comportement inclus. 150 laisse de la marge sans permettre
+   * qu'une seule analyse épuise un quota journalier.
+   */
   maxRequests?: number;
   lookbackBlocks?: number;
   now?: () => Date;
@@ -41,7 +64,7 @@ function failed<T>(
       ? `${error.kind} : ${error.message}`
       : error instanceof Error
         ? error.message
-        : 'échec inconnu';
+        : 'unknown failure';
   log.warn('source indisponible', { source: name, note });
   return { completeness: 'unavailable', sources: [{ name, fetchedAt, note }], data };
 }
@@ -60,13 +83,13 @@ async function settled<T>(promise: Promise<T>, fallback: (error: unknown) => T):
  */
 export async function collect(token: string, options: CollectOptions = {}): Promise<TokenReport> {
   if (!isAddress(token)) {
-    throw new NotFoundError('robinhood-rpc', `adresse invalide : ${token}`);
+    throw new NotFoundError('robinhood-rpc', `invalid address: ${token}`);
   }
 
   const address = token as Address;
   const now = options.now ?? (() => new Date());
   const collectedAt = now().toISOString();
-  const budget: RequestBudget = createBudget(options.maxRequests ?? 60);
+  const budget: RequestBudget = createBudget(options.maxRequests ?? 150);
   const rpc = createRpcClient(options.rpcUrl, budget);
 
   // La chaîne d'abord : elle donne le créateur, le pool et l'état de graduation,
@@ -84,30 +107,56 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     () => undefined,
   );
 
+  // La clé porte la profondeur : deux analyses avec des fenêtres différentes
+  // ne décrivent pas le même historique et ne doivent pas se partager une entrée.
+  const cacheKey = `${launch?.deployer.toLowerCase()}:${options.lookbackBlocks ?? 'default'}`;
+  let historyFromCache = false;
+
   const chain = launch
     ? await settled(
-        fetchCreatorHistory(launch.deployer, {
-          rpcUrl: options.rpcUrl,
-          budget,
-          lookbackBlocks: options.lookbackBlocks,
-          now,
-        }),
+        creatorHistoryCache
+          .resolve(cacheKey, () =>
+            fetchCreatorHistory(launch.deployer, {
+              rpcUrl: options.rpcUrl,
+              budget,
+              lookbackBlocks: options.lookbackBlocks,
+              now,
+            }),
+          )
+          .then(({ value, cached }) => {
+            historyFromCache = cached;
+            return value;
+          }),
         (error) =>
           failed('robinhood-rpc', collectedAt, error, {
             creator: launch.deployer,
             tokens: [],
-            counts: { launched: 0, graduated: 0, abandoned: 0, liquidityPulled: 0 },
+            counts: {
+              launched: 0,
+              graduated: 0,
+              abandoned: 0,
+              undetermined: 0,
+              liquidityPulled: 0,
+              creatorDumped: 0,
+            },
             scannedRange: { fromBlock: 0, toBlock: 0 },
           }) as CreatorHistory,
       )
     : (failed(
         'robinhood-rpc',
         collectedAt,
-        new Error('lancement introuvable sur la fenêtre observée'),
+        new Error('launch not found within the observed range'),
         {
           creator: '0x',
           tokens: [],
-          counts: { launched: 0, graduated: 0, abandoned: 0, liquidityPulled: 0 },
+          counts: {
+            launched: 0,
+            graduated: 0,
+            abandoned: 0,
+            undetermined: 0,
+            liquidityPulled: 0,
+            creatorDumped: 0,
+          },
           scannedRange: { fromBlock: 0, toBlock: 0 },
         },
       ) as CreatorHistory);
@@ -138,7 +187,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
       (error) =>
         failed('blockscout', collectedAt, error, {
           token: address,
-          totalSupply: '0',
+          countedSupply: '0',
           holderCount: null,
           top: [],
           concentration: { top1: 0, top10: 0 },
@@ -173,6 +222,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     token: address,
     completeness,
     requests: budget.spent,
+    creatorHistoryCached: historyFromCache,
   });
 
   return { token: address, collectedAt, creator: chain, holders, market, completeness };
