@@ -199,6 +199,9 @@ test('mountain entrance advances with native scroll, reveals the app, and revers
     .locator('.scroll-journey')
     .evaluate((element) => element.clientHeight - window.innerHeight);
   await page.evaluate((y) => window.scrollTo(0, y), distance * 0.5);
+  await expect(page.locator('.mountain-scene')).toHaveCount(1);
+  await expect(page.locator('.world-background > .mountain-scene')).toHaveCount(1);
+  await expect(page.locator('.analysis-world')).toHaveCSS('opacity', '1');
   await expect
     .poll(() =>
       page

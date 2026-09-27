@@ -658,12 +658,11 @@
 /* Immersive entrance: native scroll, one continuous passage into the product. */
 .immersive-root {
   --camera-scale: 1;
-  --scene-opacity: 1;
+  --reading-shade: 0;
   --copy-opacity: 1;
   --copy-shift: 0px;
   --mist-opacity: 0;
   --mist-shift: 28%;
-  --app-opacity: 1;
   position: relative;
   isolation: isolate;
   background: #090c0b;
@@ -672,9 +671,8 @@
   position: fixed;
   z-index: -1;
   inset: 0;
-  background:
-    linear-gradient(90deg, #0c1217ed 5%, #0c1217b8 55%, #0c121766),
-    url('/images/seal-mountain-mist.webp') center / cover;
+  overflow: hidden;
+  background: #090c0b;
   pointer-events: none;
 }
 .world-nav {
@@ -746,14 +744,20 @@
   background: url('/images/seal-mountain-mist.webp') center / cover;
   transform: scale(var(--camera-scale));
   transform-origin: 50% 64%;
-  opacity: var(--scene-opacity);
+
   will-change: transform;
 }
 .scene-shade {
   position: absolute;
   inset: 0;
   background: linear-gradient(180deg, #060c0ab3 0%, #060c0a55 31%, transparent 60%, #05090880 100%);
-  opacity: var(--copy-opacity);
+}
+.world-background::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #071017b8;
+  opacity: var(--reading-shade);
 }
 .valley-mist {
   position: absolute;
@@ -850,7 +854,7 @@
   z-index: 2;
   min-height: 100svh;
   padding: 0 5.5% 80px;
-  opacity: var(--app-opacity);
+  opacity: 1;
   scroll-margin-top: 0;
 }
 .analysis-world:focus {
@@ -1172,9 +1176,6 @@
   background: #11181ded;
 }
 @media (max-width: 540px) {
-  .world-background {
-    background-image: linear-gradient(#0c1217bf, #0c1217d9), url('/images/seal-mountain-mist.webp');
-  }
   .analysis-world .analysis-workspace form {
     padding: 20px 16px;
   }
