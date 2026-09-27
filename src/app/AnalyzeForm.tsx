@@ -9,11 +9,11 @@ import { AnalysisReport } from './components/AnalysisReport';
 
 const EXAMPLE_TOKEN = '0xd0c538e01a22ebf8502b4dc3a92026cec870cec6';
 const errors: Record<number, string> = {
-  400: 'Cette adresse n’est pas valide. Vérifiez qu’elle commence par 0x, suivi de 40 caractères hexadécimaux.',
-  404: 'Ce token n’a pas été trouvé. Vérifiez son adresse et son lancement sur pons, sur Robinhood Chain.',
-  429: 'Le quota de requêtes est atteint. Patientez un instant avant de réessayer.',
-  502: 'Une source externe ou la génération de l’explication n’a pas abouti. Vous pouvez réessayer.',
-  500: 'L’analyse a rencontré un problème inattendu. Réessayez dans quelques instants.',
+  400: 'Invalid address. Use 0x followed by 40 hexadecimal characters.',
+  404: 'Token not found. Check its address and that it launched on pons, on Robinhood Chain.',
+  429: 'The request limit has been reached. Wait a moment, then try again.',
+  502: 'A data source or the explanation could not be reached. Please try again.',
+  500: 'Something interrupted the analysis. Please try again shortly.',
 };
 type State =
   | { status: 'idle' }
@@ -31,7 +31,7 @@ function Loading() {
     <div className="loading-state" role="status">
       <div className="loading-top">
         <h2>
-          Lecture des données publiques
+          Reading public data
           <span className="loading-dots" aria-hidden="true">
             …
           </span>
@@ -40,11 +40,11 @@ function Loading() {
           {elapsed} s
         </span>
       </div>
-      <p>Historique sur la chaîne · Détenteurs via Blockscout · Marché via DexScreener</p>
+      <p>On-chain history · Holders via Blockscout · Market via DexScreener</p>
       <p className="loading-caption">
         {elapsed < 15
-          ? 'L’analyse prend généralement entre 2 et 15 secondes. Les sources sont consultées, puis les observations sont rassemblées.'
-          : 'La réponse prend plus de temps que prévu. Une source peut être lente ou incomplète ; ses limites seront indiquées.'}
+          ? 'Analysis usually takes 2–15 seconds. Sources are consulted, then their observations are brought together.'
+          : 'This is taking longer than expected. A source may be slow or incomplete; its limitations will be shown.'}
       </p>
     </div>
   );
@@ -61,9 +61,7 @@ export function AnalyzeForm() {
   async function analyze() {
     const address = token.trim();
     if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
-      setValidation(
-        'Saisissez une adresse commençant par 0x, suivie de 40 caractères hexadécimaux.',
-      );
+      setValidation('Enter an address starting with 0x, followed by 40 hexadecimal characters.');
       input.current?.focus();
       return;
     }
@@ -85,7 +83,7 @@ export function AnalyzeForm() {
           status: 'error',
           message:
             errors[response.status] ??
-            'Le service est momentanément indisponible. Réessayez dans quelques instants.',
+            'The service is temporarily unavailable. Please try again shortly.',
           retry: response.status !== 400 && response.status !== 404,
         });
         return;
@@ -96,8 +94,8 @@ export function AnalyzeForm() {
       setState({
         status: 'error',
         message: controller.signal.aborted
-          ? 'La réponse a pris trop de temps. Vous pouvez relancer l’analyse.'
-          : 'La connexion a été interrompue. Vérifiez votre connexion, puis réessayez.',
+          ? 'The response took too long. You can retry the analysis.'
+          : 'The connection was interrupted. Check your connection, then try again.',
         retry: true,
       });
     } finally {
@@ -107,94 +105,83 @@ export function AnalyzeForm() {
   }
 
   return (
-    <section className="analysis-workspace" aria-label="Analyser un token">
-      <div className="research-desk">
-        <div className="research-main">
-          <div className="workspace-intro">
-            <p className="scene-eyebrow">
-              <span className="research-cross" aria-hidden="true">
-                +
-              </span>{' '}
-              Pons / Robinhood Chain
-            </p>
-            <h2 id="workspace-title">
-              Un token.
-              <br />
-              <span>Toute sa nuance.</span>
-            </h2>
-            <p>
-              Une adresse suffit pour examiner le créateur, les détenteurs et le marché. SEAL
-              rapproche les faits et explique là où ils se contredisent.
-            </p>
-          </div>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              void analyze();
-            }}
-            noValidate
-          >
-            <div className="query-heading">
-              <span>Nouvelle lecture</span>
-              <span aria-hidden="true">↗</span>
-            </div>
-            <label htmlFor="token" className="input-label">
-              L’adresse du token
-            </label>
-            <div className="input-row">
-              <Input
-                ref={input}
-                id="token"
-                name="token"
-                value={token}
-                onChange={(event) => {
-                  setToken(event.target.value);
-                  setValidation('');
-                }}
-                placeholder="0x…"
-                spellCheck={false}
-                autoComplete="off"
-                autoCapitalize="none"
-                disabled={state.status === 'loading'}
-                aria-invalid={Boolean(validation)}
-                aria-describedby={validation ? 'token-error token-help' : 'token-help'}
-              />
-              <Button type="submit" disabled={state.status === 'loading'}>
-                {state.status === 'loading' ? 'Analyse en cours…' : 'Lire l’analyse'}
-                <span aria-hidden="true">↗</span>
-              </Button>
-            </div>
-            {validation && (
-              <p id="token-error" role="alert" className="validation-message">
-                {validation}
-              </p>
-            )}
-            <div className="form-caption">
-              <p id="token-help">Lecture publique. Aucun portefeuille à connecter.</p>
-              <button
-                type="button"
-                className="text-link"
-                disabled={state.status === 'loading'}
-                onClick={() => {
-                  setToken(EXAMPLE_TOKEN);
-                  setValidation('');
-                  input.current?.focus();
-                }}
-              >
-                Utiliser un exemple <span aria-hidden="true">↗</span>
-              </button>
-            </div>
-          </form>
-          <div className="research-footnote">
-            <span aria-hidden="true">↳</span>
-            <p>
-              Un raisonnement, pas une note.
-              <br />
-              <span>Les sources et leurs limites accompagnent chaque lecture.</span>
-            </p>
-          </div>
+    <section className="analysis-workspace" aria-label="Analyze a token">
+      <div className="analysis-entry">
+        <div className="workspace-intro">
+          <p className="analysis-kicker">
+            <span aria-hidden="true">✳</span> Independent token research
+          </p>
+          <h2 id="workspace-title">
+            A token is more
+            <br />
+            than <em>a ticker.</em>
+          </h2>
+          <p>
+            Understand the history, the holders and the market.
+            <br />
+            One address. An explanation you can actually read.
+          </p>
         </div>
-        <SourceStudy />
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void analyze();
+          }}
+          noValidate
+        >
+          <label htmlFor="token" className="input-label composer-label">
+            Token address
+          </label>
+          <div className="input-row composer-row">
+            <Input
+              ref={input}
+              id="token"
+              name="token"
+              value={token}
+              onChange={(event) => {
+                setToken(event.target.value);
+                setValidation('');
+              }}
+              placeholder="Paste a pons token address · 0x…"
+              spellCheck={false}
+              autoComplete="off"
+              autoCapitalize="none"
+              disabled={state.status === 'loading'}
+              aria-invalid={Boolean(validation)}
+              aria-describedby={validation ? 'token-error token-help' : 'token-help'}
+            />
+            <Button type="submit" disabled={state.status === 'loading'}>
+              {state.status === 'loading' ? 'Analyzing…' : 'Analyze token'}
+              <span aria-hidden="true">↑</span>
+            </Button>
+          </div>
+          {validation && (
+            <p id="token-error" role="alert" className="validation-message">
+              {validation}
+            </p>
+          )}
+          <div className="form-caption">
+            <p id="token-help">Public data. No wallet connection.</p>
+            <button
+              type="button"
+              className="text-link"
+              disabled={state.status === 'loading'}
+              onClick={() => {
+                setToken(EXAMPLE_TOKEN);
+                setValidation('');
+                input.current?.focus();
+              }}
+            >
+              Try an example <span aria-hidden="true">↗</span>
+            </button>
+          </div>
+        </form>
+        <div className="source-signatures" aria-label="Research sources">
+          <span>ROBINHOOD CHAIN</span>
+          <span>BLOCKSCOUT</span>
+          <span>DEXSCREENER</span>
+        </div>
+        <p className="entry-principle">Evidence and context. Never a score.</p>
       </div>
       {state.status === 'loading' && <Loading />}
       <div
@@ -205,17 +192,18 @@ export function AnalyzeForm() {
       >
         {state.status === 'error' && (
           <div className="error-state" role="alert">
-            <h2>L’analyse n’a pas abouti.</h2>
+            <h2>The analysis could not be completed.</h2>
             <p>{state.message}</p>
             {state.retry && (
               <Button variant="ghost" type="button" onClick={() => void analyze()}>
-                Réessayer <span aria-hidden="true">↗</span>
+                Try again <span aria-hidden="true">↗</span>
               </Button>
             )}
           </div>
         )}
         {state.status === 'done' && <AnalysisReport result={state.result} />}
       </div>
+      <SourceStudy />
     </section>
   );
 }

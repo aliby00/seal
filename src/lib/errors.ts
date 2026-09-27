@@ -32,7 +32,7 @@ export class TimeoutError extends SealError {
     source: SourceName,
     readonly timeoutMs: number,
   ) {
-    super(source, `${source} : délai de ${timeoutMs} ms dépassé`);
+    super(source, `${source} : request timed out after ${timeoutMs} ms`);
   }
 }
 
@@ -48,8 +48,8 @@ export class RateLimitError extends SealError {
     super(
       source,
       retryAfterSeconds === undefined
-        ? `${source} : quota dépassé`
-        : `${source} : quota dépassé, réessayer dans ${retryAfterSeconds} s`,
+        ? `${source} : request limit reached`
+        : `${source} : request limit reached, retry in ${retryAfterSeconds} s`,
     );
   }
 }
@@ -62,7 +62,7 @@ export class IncompleteDataError extends SealError {
     source: SourceName,
     readonly detail: string,
   ) {
-    super(source, `${source} : donnée incomplète — ${detail}`);
+    super(source, `${source} : incomplete data — ${detail}`);
   }
 }
 
@@ -74,7 +74,7 @@ export class NotFoundError extends SealError {
     source: SourceName,
     readonly what: string,
   ) {
-    super(source, `${source} : ${what} introuvable`);
+    super(source, `${source} : ${what} not found`);
   }
 }
 

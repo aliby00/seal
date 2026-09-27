@@ -122,7 +122,7 @@ export async function fetchCreatorHistory(
         fetchedAt,
         ...(partial
           ? {
-              note: `fenêtre scannée : blocs ${scanned.fromBlock} à ${scanned.toBlock} — historique antérieur non couvert`,
+              note: `scanned range: blocks ${scanned.fromBlock} to ${scanned.toBlock} — earlier history not covered`,
             }
           : {}),
       },

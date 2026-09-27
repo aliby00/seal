@@ -1,106 +1,77 @@
 'use client';
-
 import { useState } from 'react';
 
-const readings = [
+const perspectives = [
   {
-    name: 'La chaîne',
+    name: 'Creator',
     provider: 'Robinhood RPC',
-    title: 'Reconstituer le contexte.',
-    text: 'Les lancements du créateur, dans la fenêtre de blocs disponible. Un historique borné reste un historique borné.',
-    kind: 'chain',
+    title: 'Before this token, there was a history.',
+    text: 'Previous launches and their outcomes provide context. SEAL reads the available block range and makes the boundaries of that history explicit.',
+    detail: 'Launch history · Graduation · Observed outcomes',
   },
   {
-    name: 'Les détenteurs',
+    name: 'Holders',
     provider: 'Blockscout',
-    title: 'Comprendre la répartition.',
-    text: 'Qui détient l’offre, en distinguant le pool et les adresses de burn. Une concentration se lit avec son contexte.',
-    kind: 'holders',
+    title: 'Ownership needs a closer look.',
+    text: 'SEAL examines how supply is distributed, separating liquidity pools and burn addresses from holders. Concentration is an observation to explain, not a verdict.',
+    detail: 'Supply distribution · Pool exclusions · Coverage limits',
   },
   {
-    name: 'Le marché',
+    name: 'Market',
     provider: 'DexScreener',
-    title: 'Remettre l’activité en perspective.',
-    text: 'Liquidité, volume et transactions. Une activité visible ne suffit pas à expliquer ce qui se passe derrière.',
-    kind: 'market',
+    title: 'Activity is only part of the story.',
+    text: 'Liquidity, volume and transactions are read together. SEAL looks at what they support, what they leave unanswered and where they contradict other observations.',
+    detail: 'Liquidity · Trading activity · Cross-source context',
   },
 ] as const;
 
-/** A methodology illustration, never a representation of a token's data. */
 export function SourceStudy() {
   const [selected, setSelected] = useState(0);
-  const reading = readings[selected] ?? readings[0];
+  const item = perspectives[selected] ?? perspectives[0];
   return (
-    <aside className="source-study" aria-label="Comment SEAL croise les sources">
-      <div className="study-heading">
-        <span>Le principe de lecture</span>
-        <span aria-hidden="true">↗</span>
+    <section id="method" className="perspectives" aria-labelledby="perspectives-title">
+      <div className="perspectives-heading">
+        <p className="eyebrow">Behind the analysis</p>
+        <h2 id="perspectives-title">
+          Different angles.
+          <br />
+          <em>A clearer picture.</em>
+        </h2>
+        <p>Three public sources. Read together, with their limitations in view.</p>
       </div>
-      <div className="study-illustration" aria-hidden="true" data-source={reading.kind}>
-        <div className="study-orbit orbit-one" />
-        <div className="study-orbit orbit-two" />
-        <div className="evidence-sheet sheet-back">
-          <span>03 / MARCHÉ</span>
-          <div className="sheet-ledger">
-            <i />
-            <i />
-            <i />
-            <i />
-          </div>
-        </div>
-        <div className="evidence-sheet sheet-middle">
-          <span>02 / DÉTENTEURS</span>
-          <div className="sheet-ledger">
-            <i />
-            <i />
-            <i />
-          </div>
-        </div>
-        <div className="evidence-sheet sheet-front">
-          <div className="sheet-top">
+      <div className="perspective-feature">
+        <div className="lens-scene" aria-hidden="true" data-angle={selected}>
+          <div className="lens-shadow" />
+          <div className="lens lens-back" />
+          <div className="lens lens-middle" />
+          <div className="lens lens-front">
             <span>SEAL</span>
-            <span>NOTE DE LECTURE</span>
           </div>
-          <div className="sheet-title">
-            Les faits,
-            <br />
-            <em>mis en relation.</em>
-          </div>
-          <div className="sheet-lines">
-            <i />
-            <i />
-            <i />
-          </div>
-          <div className="sheet-annotation">
-            <span>↳</span> Convergences.
-            <br />
-            Limites. Contradictions.
-          </div>
-          <div className="sheet-bottom">TROIS SOURCES / UNE EXPLICATION</div>
+          <span className="lens-caption">CONTEXT THROUGH CONNECTION</span>
         </div>
-        <span className="study-coordinate coordinate-left">DONNÉES PUBLIQUES</span>
-        <span className="study-coordinate coordinate-right">LECTURE CROISÉE</span>
+        <div className="perspective-content">
+          <div className="perspective-controls" role="group" aria-label="Explore sources">
+            {perspectives.map((p, i) => (
+              <button
+                key={p.name}
+                type="button"
+                aria-pressed={selected === i}
+                aria-controls="source-study-detail"
+                onClick={() => setSelected(i)}
+              >
+                {p.name}
+              </button>
+            ))}
+          </div>
+          <div id="source-study-detail" aria-live="polite">
+            <p className="perspective-provider">{item.provider}</p>
+            <h3>{item.title}</h3>
+            <p>{item.text}</p>
+            <p className="perspective-detail">{item.detail}</p>
+          </div>
+          <span className="method-caption">Method illustration · no token data displayed</span>
+        </div>
       </div>
-      <div className="study-selector" role="group" aria-label="Explorer les sources">
-        {readings.map((item, index) => (
-          <button
-            key={item.kind}
-            type="button"
-            aria-pressed={selected === index}
-            aria-controls="source-study-detail"
-            onClick={() => setSelected(index)}
-          >
-            <span>0{index + 1}</span>
-            {item.name}
-          </button>
-        ))}
-      </div>
-      <div className="study-detail" id="source-study-detail" aria-live="polite">
-        <div className="study-provider">{reading.provider}</div>
-        <h3>{reading.title}</h3>
-        <p>{reading.text}</p>
-      </div>
-      <p className="study-caption">Illustration de la méthode · aucune donnée de token affichée</p>
-    </aside>
+    </section>
   );
 }

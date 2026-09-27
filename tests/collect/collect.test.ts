@@ -161,6 +161,6 @@ describe("résolution du créateur depuis l'adresse du token", () => {
     });
     const report = await collect(TOKEN, { now: at });
     expect(report.creator.completeness).toBe('unavailable');
-    expect(report.creator.sources[0]?.note).toMatch(/introuvable/);
+    expect(report.creator.sources[0]?.note).toMatch(/not found/);
   });
 });

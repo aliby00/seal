@@ -179,22 +179,30 @@ Le paysage de production est dans `public/images/`, avec sa provenance et son
 prompt dans le README de ce dossier. Aucune capture de référence ou de test
 n’est embarquée dans le front.
 
-## Intérieur : bureau de recherche
+## Intérieur : recherche centrée, interface anglaise
 
-L’extérieur validé est conservé. Les ancres d’entrée et le logo utilisent un
-scroll fluide natif, instantané si la réduction des animations est demandée ;
-la cible reçoit le focus et le formulaire garde son état lors des allers-retours.
+La saisie devient le centre de l’interface : titre court, compositeur arrondi,
+adresse lisible et action intégrée. La composition précédente en deux colonnes
+et l’illustration de feuilles ont été retirées. Le paysage validé reste commun
+à l’entrée et à la plateforme.
 
-La composition intérieure associe une saisie à une illustration de documents de
-recherche. Les trois boutons de sources permettent d’explorer le rôle de chacune,
-sans inventer de données ni de statut de disponibilité. L’illustration est signalée
-comme telle ; ses documents sont décoratifs pour les lecteurs d’écran.
-L’animation d’entrée dure moins de deux secondes et les changements de source
-animent seulement la position des documents. Aucun mouvement perpétuel, aucune
-bibliothèque supplémentaire. La réduction des animations désactive ces effets.
+[Perplexity](https://www.perplexity.ai/) sert de référence pour la primauté de la
+recherche, [Mercury](https://mercury.com/) pour le volume et les interactions,
+[Nocturnis](https://try-nocturnis.framer.website/) pour l’espace et le fond immersif.
+La prose conserve une hiérarchie éditoriale inspirée de Paradigm et Every.
 
-La composition en deux colonnes et les interactions détaillées s’inspirent de
-[Mercury](https://mercury.com/) et de [Nocturnis](https://try-nocturnis.framer.website/).
-L’approche éditoriale reste liée à Paradigm, Every et Stratechery ; les sources
-restent rattachées au rapport entier. Le résultat garde une surface neutre claire
-ou sombre selon le système, avec les limites avant l’explication.
+La section des sources associe une sculpture de lentilles en CSS à trois choix
+interactifs : Creator, Holders, Market. La sélection change le point de vue de
+l’illustration et explique l’apport de chaque source. Ce visuel ne représente
+aucune donnée réelle et ne sert ni de jauge ni de score. Pas de bibliothèque
+supplémentaire. Les mouvements sont désactivés avec prefers-reduced-motion.
+
+Toute l’interface est en anglais : navigation, formulaire, chargement, erreurs,
+rapport, complétude, sources, coûts et limites. Les textes de restitution hors
+ligne et les notes internes de sources sont traduits. Le prompt demande
+explicitement une réponse anglaise, sans modifier le contrat JSON. Les anciens
+titres français restent reconnus pour la mise en forme de réponses existantes.
+
+Les ancres et le logo gardent un scroll fluide natif, un accès clavier et la
+conservation de la saisie lors des allers-retours. Le rapport reste intégral,
+avec les limites avant la prose, sur une surface neutre adaptée au thème système.

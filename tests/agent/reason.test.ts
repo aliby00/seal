@@ -92,12 +92,15 @@ describe('buildRequest', () => {
 });
 
 describe('le system prompt interdit explicitement', () => {
+  it('requires English even when source notes use another language', () => {
+    expect(SYSTEM_PROMPT).toContain('Always write in English');
+  });
   it('les scores', () => {
-    expect(SYSTEM_PROMPT).toMatch(/JAMAIS de score/);
+    expect(SYSTEM_PROMPT).toMatch(/NEVER assign a score/);
   });
 
   it("les conseils d'achat", () => {
-    expect(SYSTEM_PROMPT).toMatch(/bon ou un mauvais investissement/);
+    expect(SYSTEM_PROMPT).toMatch(/good or bad investment/);
   });
 });
 

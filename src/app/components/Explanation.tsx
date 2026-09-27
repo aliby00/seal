@@ -10,13 +10,14 @@ export function Explanation({ text, offline }: { text: string; offline: boolean 
       .replace(/\*\*/g, '')
       .replace(/[:.—–\s]+$/, '');
     const knownHeading =
-      /^(ce qui (?:est rassurant|rassure|mérite attention)|là où les signaux divergent(?:\s*[—–-].*)?)$/i.test(
+      /^(what is reassuring|what deserves attention|where the signals diverge(?:\s*[—–-].*)?|ce qui (?:est rassurant|rassure|mérite attention)|là où les signaux divergent(?:\s*[—–-].*)?)$/i.test(
         heading,
       );
     if (knownHeading) {
       sections.push({
         heading,
-        divergent: !offline && /^là où les signaux divergent/i.test(heading),
+        divergent:
+          !offline && /^(?:where the signals diverge|là où les signaux divergent)/i.test(heading),
         paragraphs: rest.length ? [rest.join('\n')] : [],
       });
     } else {

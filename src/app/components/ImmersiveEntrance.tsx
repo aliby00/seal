@@ -92,22 +92,22 @@ export function ImmersiveEntrance({
       }}
     >
       <a href="#analysis" className="skip-link">
-        Aller à l’analyse
+        Skip to analysis
       </a>
       <div className="world-background" aria-hidden="true" />
       <header className="world-nav">
-        <a href="#entrance" className="world-brand" aria-label="SEAL, accueil">
+        <a href="#entrance" className="world-brand" aria-label="SEAL, home">
           <span className="brand-glyph" aria-hidden="true">
             ✳
           </span>{' '}
           SEAL
         </a>
-        <nav aria-label="Navigation principale">
-          <a href="#method">La méthode</a>
-          <a href="https://github.com/aliby00/seal">Le projet ↗</a>
+        <nav aria-label="Main navigation">
+          <a href="#method">How it works</a>
+          <a href="https://github.com/aliby00/seal">About SEAL ↗</a>
         </nav>
         <a className="nav-enter" href="#analysis">
-          Ouvrir SEAL <span aria-hidden="true">↗</span>
+          Open SEAL <span aria-hidden="true">↗</span>
         </a>
       </header>
       <main>
@@ -122,25 +122,25 @@ export function ImmersiveEntrance({
             <div className="scene-shade" aria-hidden="true" />
             <div className="valley-mist" aria-hidden="true" />
             <div ref={copy} className="entrance-copy">
-              <p className="scene-eyebrow">Lire les signaux. Comprendre les nuances.</p>
+              <p className="scene-eyebrow">Read the signals. Understand the context.</p>
               <h1 id="entrance-title">
-                Chaque token cache
+                Every token has
                 <br />
-                <em>une autre histoire.</em>
+                <em>another story.</em>
               </h1>
               <p className="entrance-description">
-                Une adresse de token pons. Trois sources publiques.
+                One pons token address. Three public sources.
                 <br />
-                Une explication de ce qu’elles racontent ensemble.
+                An explanation of what they reveal together.
               </p>
               <a href="#analysis" className="entrance-cta">
-                Entrer dans SEAL <span aria-hidden="true">↗</span>
+                Enter SEAL <span aria-hidden="true">↗</span>
               </a>
             </div>
             <div className="journey-caption">
-              <span>01 — LE CONTEXTE</span>
+              <span>01 — THE CONTEXT</span>
               <a href="#analysis">
-                Défiler pour explorer <span aria-hidden="true">↓</span>
+                Scroll to explore <span aria-hidden="true">↓</span>
               </a>
               <span>PONS / ROBINHOOD CHAIN</span>
             </div>
@@ -157,11 +157,11 @@ export function ImmersiveEntrance({
           <div className="world-content">
             <div className="workspace-edition">
               <span className="workspace-location">
-                SEAL <span aria-hidden="true">/</span> Espace de recherche
+                SEAL <span aria-hidden="true">/</span> Research workspace
               </span>
               <span>
                 {environment !== 'production'
-                  ? `Environnement : ${environment}`
+                  ? `Environment: ${environment}`
                   : 'Pons / Robinhood Chain'}
               </span>
             </div>
@@ -173,8 +173,8 @@ export function ImmersiveEntrance({
         <a className="world-brand" href="#entrance">
           SEAL
         </a>
-        <p>Les faits. Le contexte. À vous de lire.</p>
-        <a href="#analysis">Ouvrir l’analyse ↗</a>
+        <p>The facts. The context. Your perspective.</p>
+        <a href="#analysis">Open analysis ↗</a>
       </footer>
     </div>
   );
