@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 
 /** Scroll stays native; only decorative transforms follow its position. */
 export function ImmersiveEntrance({
@@ -10,7 +10,6 @@ export function ImmersiveEntrance({
   children: ReactNode;
   environment: string;
 }) {
-  const [engaged, setEngaged] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const journey = useRef<HTMLElement>(null);
   const copy = useRef<HTMLDivElement>(null);
@@ -29,19 +28,22 @@ export function ImmersiveEntrance({
       const p = reduced.matches
         ? 0
         : clamp(-section.getBoundingClientRect().top / Math.max(1, distance));
-      element.style.setProperty('--camera-scale', String(1 + p * 1.1));
-      element.style.setProperty('--scene-opacity', String(1 - clamp((p - 0.55) / 0.45)));
-      element.style.setProperty('--copy-opacity', String(1 - clamp(p / 0.3)));
-      element.style.setProperty('--copy-shift', `${-p * 70}px`);
-      element.style.setProperty('--mist-opacity', String(Math.sin(p * Math.PI) * 0.65));
-      element.style.setProperty('--mist-shift', `${(1 - p) * 28}%`);
-      element.style.setProperty(
-        '--app-opacity',
-        String(reduced.matches ? 1 : clamp((p - 0.7) / 0.3)),
-      );
+      // Finish the camera movement before the reading surface enters the viewport.
+      // One fixed photograph remains in place throughout the entire page.
+      const cameraDistance = Math.max(distance - window.innerHeight, window.innerHeight * 0.2);
+      const camera = reduced.matches
+        ? 0
+        : clamp(-section.getBoundingClientRect().top / cameraDistance);
+      const easedCamera = camera * camera * (3 - 2 * camera);
+      element.style.setProperty('--camera-scale', String(1 + easedCamera * 0.75));
+      element.style.setProperty('--reading-shade', String(reduced.matches ? 0.65 : easedCamera));
+      element.style.setProperty('--copy-opacity', String(1 - clamp(camera / 0.75)));
+      element.style.setProperty('--copy-shift', `${-camera * 45}px`);
+      element.style.setProperty('--mist-opacity', String(Math.sin(camera * Math.PI) * 0.12));
+      element.style.setProperty('--mist-shift', `${(1 - camera) * 18}%`);
       element.dataset.entered = String(p > 0.92);
       element.dataset.travelling = String(window.scrollY > 50);
-      if (copy.current) copy.current.inert = !reduced.matches && p > 0.25;
+      if (copy.current) copy.current.inert = !reduced.matches && camera > 0.75;
     }
     function schedule() {
       if (!frame) frame = requestAnimationFrame(paint);
@@ -94,7 +96,11 @@ export function ImmersiveEntrance({
       <a href="#analysis" className="skip-link">
         Skip to analysis
       </a>
-      <div className="world-background" aria-hidden="true" />
+      <div className="world-background" aria-hidden="true">
+        <div className="mountain-scene" />
+        <div className="scene-shade" />
+        <div className="valley-mist" />
+      </div>
       <main>
         <section
           ref={journey}
@@ -103,9 +109,6 @@ export function ImmersiveEntrance({
           aria-labelledby="entrance-title"
         >
           <div className="journey-stage">
-            <div className="mountain-scene" aria-hidden="true" />
-            <div className="scene-shade" aria-hidden="true" />
-            <div className="valley-mist" aria-hidden="true" />
             <div ref={copy} className="entrance-copy">
               <p className="scene-eyebrow">Read the signals. Understand the context.</p>
               <h1 id="entrance-title">
@@ -133,8 +136,6 @@ export function ImmersiveEntrance({
         </section>
         <section
           id="analysis"
-          onFocusCapture={() => setEngaged(true)}
-          style={engaged ? { opacity: 1 } : undefined}
           className="analysis-world"
           aria-labelledby="workspace-title"
           tabIndex={-1}
