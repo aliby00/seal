@@ -7,6 +7,23 @@ import { createBudget, type RequestBudget } from './http';
 import { fetchHolderDistribution } from './holders';
 import { fetchMarketState } from './market';
 import { log } from './logger';
+import { TtlCache } from './cache';
+
+/**
+ * L'historique d'un créateur est la partie chère de l'analyse — 30 M blocs
+ * scannés — et la plus lente à changer. Le marché, lui, bouge à la minute et
+ * n'est jamais mis en cache.
+ *
+ * Cinq minutes : assez pour que plusieurs tokens du même créateur analysés
+ * d'affilée ne rescannent pas, assez court pour qu'un nouveau lancement
+ * apparaisse vite.
+ */
+const CREATOR_HISTORY_TTL_MS = 5 * 60_000;
+
+export const creatorHistoryCache = new TtlCache<CreatorHistory>({
+  ttlMs: CREATOR_HISTORY_TTL_MS,
+  maxEntries: 200,
+});
 
 /**
  * Orchestrateur du pipeline de données.
@@ -90,14 +107,26 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     () => undefined,
   );
 
+  // La clé porte la profondeur : deux analyses avec des fenêtres différentes
+  // ne décrivent pas le même historique et ne doivent pas se partager une entrée.
+  const cacheKey = `${launch?.deployer.toLowerCase()}:${options.lookbackBlocks ?? 'default'}`;
+  let historyFromCache = false;
+
   const chain = launch
     ? await settled(
-        fetchCreatorHistory(launch.deployer, {
-          rpcUrl: options.rpcUrl,
-          budget,
-          lookbackBlocks: options.lookbackBlocks,
-          now,
-        }),
+        creatorHistoryCache
+          .resolve(cacheKey, () =>
+            fetchCreatorHistory(launch.deployer, {
+              rpcUrl: options.rpcUrl,
+              budget,
+              lookbackBlocks: options.lookbackBlocks,
+              now,
+            }),
+          )
+          .then(({ value, cached }) => {
+            historyFromCache = cached;
+            return value;
+          }),
         (error) =>
           failed('robinhood-rpc', collectedAt, error, {
             creator: launch.deployer,
@@ -193,6 +222,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     token: address,
     completeness,
     requests: budget.spent,
+    creatorHistoryCached: historyFromCache,
   });
 
   return { token: address, collectedAt, creator: chain, holders, market, completeness };
