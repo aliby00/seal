@@ -35,12 +35,20 @@ export function ImmersiveEntrance({
         ? 0
         : clamp(-section.getBoundingClientRect().top / cameraDistance);
       const easedCamera = camera * camera * (3 - 2 * camera);
-      element.style.setProperty('--camera-scale', String(1 + easedCamera * 0.75));
-      element.style.setProperty('--reading-shade', String(reduced.matches ? 0.65 : easedCamera));
+      element.style.setProperty('--camera-scale', String(1 + easedCamera * 1.65));
+      element.style.setProperty(
+        '--reading-shade',
+        String(reduced.matches ? 0.65 : clamp((camera - 0.45) / 0.55)),
+      );
       element.style.setProperty('--copy-opacity', String(1 - clamp(camera / 0.75)));
       element.style.setProperty('--copy-shift', `${-camera * 45}px`);
-      element.style.setProperty('--mist-opacity', String(Math.sin(camera * Math.PI) * 0.12));
-      element.style.setProperty('--mist-shift', `${(1 - camera) * 18}%`);
+      element.style.setProperty(
+        '--mist-opacity',
+        String(Math.pow(Math.sin(camera * Math.PI), 1.4) * 0.82),
+      );
+      element.style.setProperty('--mist-scale', String(0.7 + easedCamera * 2.6));
+      element.style.setProperty('--mist-spread', `${easedCamera * 22}%`);
+      element.style.setProperty('--mist-shift', `${(0.5 - camera) * 32}%`);
       element.dataset.entered = String(p > 0.92);
       element.dataset.travelling = String(window.scrollY > 50);
       if (copy.current) copy.current.inert = !reduced.matches && camera > 0.75;
