@@ -106,7 +106,20 @@ export function ImmersiveEntrance({
         Skip to analysis
       </a>
       <div className="world-background" aria-hidden="true">
-        <div className="mountain-scene" />
+        <div className="mountain-scene">
+          <svg
+            className="valley-water"
+            viewBox="0 0 1536 1024"
+            preserveAspectRatio="xMidYMid slice"
+            focusable="false"
+          >
+            <g className="water-flow">
+              <path d="M754 652 Q786 674 768 684 T793 719 Q775 730 811 738 T796 763 Q770 775 797 785 L813 797 L805 817" />
+              <path d="M1327 520 Q1316 550 1318 573 T1303 627 Q1292 649 1288 673 T1268 720 L1255 753" />
+              <path d="M790 796 L795 817 M811 799 L814 825" />
+            </g>
+          </svg>
+        </div>
         <div className="scene-shade" />
         <div className="ambient-clouds" />
         <div className="valley-mist">

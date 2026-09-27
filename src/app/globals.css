@@ -760,6 +760,28 @@
   background: #071017b8;
   opacity: var(--reading-shade);
 }
+.valley-water {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  inset: 0;
+  pointer-events: none;
+}
+.water-flow {
+  fill: none;
+  stroke: #d5e6e8;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 18 22 9 29;
+  opacity: 0.38;
+  filter: blur(2.5px);
+  animation: water-flow 1.6s linear infinite;
+}
+@keyframes water-flow {
+  to {
+    stroke-dashoffset: -78;
+  }
+}
 .valley-mist {
   position: absolute;
   inset: -25%;
@@ -773,7 +795,7 @@
   position: absolute;
   inset: -15%;
   background: url('/images/seal-cloud-volume.svg') center / cover;
-  animation: cloud-current 8s ease-in-out -2s infinite alternate;
+  animation: cloud-current 4s ease-in-out -1s infinite alternate;
   will-change: transform;
 }
 .ambient-clouds {
@@ -782,8 +804,8 @@
   background: url('/images/seal-cloud-volume.svg') center / cover;
   mask-image: radial-gradient(ellipse at 50% 65%, #000 10%, transparent 65%);
   mix-blend-mode: screen;
-  opacity: 0.26;
-  animation: cloud-current 12s ease-in-out -4s infinite alternate-reverse;
+  opacity: 0.4;
+  animation: cloud-current 6s ease-in-out -2s infinite alternate-reverse;
   will-change: transform;
   pointer-events: none;
 }
@@ -1160,10 +1182,12 @@
     opacity: 1;
     will-change: auto;
   }
+  .valley-water,
   .valley-mist,
   .ambient-clouds {
     display: none;
   }
+  .water-flow,
   .cloud-current,
   .ambient-clouds {
     animation: none;
