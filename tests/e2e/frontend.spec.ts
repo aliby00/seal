@@ -293,6 +293,8 @@ test('source study exposes each method using accessible controls', async ({ page
     'true',
   );
   await expect(page.locator('#source-study-detail')).toContainText('Blockscout');
+  await expect(page.locator('.reading-sheet')).toContainText('Who holds the supply');
+  await expect(page.locator('.method-boundary')).toContainText('incomplete holder data');
   await page.keyboard.press('Tab');
   await page.keyboard.press('Enter');
   await expect(page.locator('#source-study-detail')).toContainText('DexScreener');
