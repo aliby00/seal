@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { AnalyzeResponse } from './api/analyze/route';
+import { SourceStudy } from './components/SourceStudy';
 import { AnalysisReport } from './components/AnalysisReport';
 
 const EXAMPLE_TOKEN = '0xd0c538e01a22ebf8502b4dc3a92026cec870cec6';
@@ -107,60 +108,94 @@ export function AnalyzeForm() {
 
   return (
     <section className="analysis-workspace" aria-label="Analyser un token">
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          void analyze();
-        }}
-        noValidate
-      >
-        <label htmlFor="token" className="input-label">
-          L’adresse du token
-        </label>
-        <div className="input-row">
-          <Input
-            ref={input}
-            id="token"
-            name="token"
-            value={token}
-            onChange={(event) => {
-              setToken(event.target.value);
-              setValidation('');
+      <div className="research-desk">
+        <div className="research-main">
+          <div className="workspace-intro">
+            <p className="scene-eyebrow">
+              <span className="research-cross" aria-hidden="true">
+                +
+              </span>{' '}
+              Pons / Robinhood Chain
+            </p>
+            <h2 id="workspace-title">
+              Un token.
+              <br />
+              <span>Toute sa nuance.</span>
+            </h2>
+            <p>
+              Une adresse suffit pour examiner le créateur, les détenteurs et le marché. SEAL
+              rapproche les faits et explique là où ils se contredisent.
+            </p>
+          </div>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void analyze();
             }}
-            placeholder="0x…"
-            spellCheck={false}
-            autoComplete="off"
-            autoCapitalize="none"
-            disabled={state.status === 'loading'}
-            aria-invalid={Boolean(validation)}
-            aria-describedby={validation ? 'token-error token-help' : 'token-help'}
-          />
-          <Button type="submit" disabled={state.status === 'loading'}>
-            {state.status === 'loading' ? 'Analyse en cours…' : 'Lire l’analyse'}
-            <span aria-hidden="true">↗</span>
-          </Button>
-        </div>
-        {validation && (
-          <p id="token-error" role="alert" className="validation-message">
-            {validation}
-          </p>
-        )}
-        <div className="form-caption">
-          <p id="token-help">Lecture publique. Aucun portefeuille à connecter.</p>
-          <button
-            type="button"
-            className="text-link"
-            disabled={state.status === 'loading'}
-            onClick={() => {
-              setToken(EXAMPLE_TOKEN);
-              setValidation('');
-              input.current?.focus();
-            }}
+            noValidate
           >
-            Utiliser un exemple <span aria-hidden="true">↗</span>
-          </button>
+            <div className="query-heading">
+              <span>Nouvelle lecture</span>
+              <span aria-hidden="true">↗</span>
+            </div>
+            <label htmlFor="token" className="input-label">
+              L’adresse du token
+            </label>
+            <div className="input-row">
+              <Input
+                ref={input}
+                id="token"
+                name="token"
+                value={token}
+                onChange={(event) => {
+                  setToken(event.target.value);
+                  setValidation('');
+                }}
+                placeholder="0x…"
+                spellCheck={false}
+                autoComplete="off"
+                autoCapitalize="none"
+                disabled={state.status === 'loading'}
+                aria-invalid={Boolean(validation)}
+                aria-describedby={validation ? 'token-error token-help' : 'token-help'}
+              />
+              <Button type="submit" disabled={state.status === 'loading'}>
+                {state.status === 'loading' ? 'Analyse en cours…' : 'Lire l’analyse'}
+                <span aria-hidden="true">↗</span>
+              </Button>
+            </div>
+            {validation && (
+              <p id="token-error" role="alert" className="validation-message">
+                {validation}
+              </p>
+            )}
+            <div className="form-caption">
+              <p id="token-help">Lecture publique. Aucun portefeuille à connecter.</p>
+              <button
+                type="button"
+                className="text-link"
+                disabled={state.status === 'loading'}
+                onClick={() => {
+                  setToken(EXAMPLE_TOKEN);
+                  setValidation('');
+                  input.current?.focus();
+                }}
+              >
+                Utiliser un exemple <span aria-hidden="true">↗</span>
+              </button>
+            </div>
+          </form>
+          <div className="research-footnote">
+            <span aria-hidden="true">↳</span>
+            <p>
+              Un raisonnement, pas une note.
+              <br />
+              <span>Les sources et leurs limites accompagnent chaque lecture.</span>
+            </p>
+          </div>
         </div>
-      </form>
+        <SourceStudy />
+      </div>
       {state.status === 'loading' && <Loading />}
       <div
         aria-live="polite"

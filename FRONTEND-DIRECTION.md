@@ -178,3 +178,23 @@ Le scroll demeure natif et réversible ; les liens donnent un accès direct, et
 Le paysage de production est dans `public/images/`, avec sa provenance et son
 prompt dans le README de ce dossier. Aucune capture de référence ou de test
 n’est embarquée dans le front.
+
+## Intérieur : bureau de recherche
+
+L’extérieur validé est conservé. Les ancres d’entrée et le logo utilisent un
+scroll fluide natif, instantané si la réduction des animations est demandée ;
+la cible reçoit le focus et le formulaire garde son état lors des allers-retours.
+
+La composition intérieure associe une saisie à une illustration de documents de
+recherche. Les trois boutons de sources permettent d’explorer le rôle de chacune,
+sans inventer de données ni de statut de disponibilité. L’illustration est signalée
+comme telle ; ses documents sont décoratifs pour les lecteurs d’écran.
+L’animation d’entrée dure moins de deux secondes et les changements de source
+animent seulement la position des documents. Aucun mouvement perpétuel, aucune
+bibliothèque supplémentaire. La réduction des animations désactive ces effets.
+
+La composition en deux colonnes et les interactions détaillées s’inspirent de
+[Mercury](https://mercury.com/) et de [Nocturnis](https://try-nocturnis.framer.website/).
+L’approche éditoriale reste liée à Paradigm, Every et Stratechery ; les sources
+restent rattachées au rapport entier. Le résultat garde une surface neutre claire
+ou sombre selon le système, avec les limites avant l’explication.

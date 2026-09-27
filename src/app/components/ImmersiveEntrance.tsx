@@ -62,7 +62,35 @@ export function ImmersiveEntrance({
   }, []);
 
   return (
-    <div ref={root} className="immersive-root">
+    <div
+      ref={root}
+      className="immersive-root"
+      onClick={(event) => {
+        if (
+          event.defaultPrevented ||
+          event.button !== 0 ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.altKey
+        )
+          return;
+        const anchor = (event.target as HTMLElement).closest<HTMLAnchorElement>('a[href^="#"]');
+        if (!anchor) return;
+        const target = document.getElementById(anchor.hash.slice(1));
+        if (!target) return;
+        event.preventDefault();
+        if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+        target.focus({ preventScroll: true });
+        target.scrollIntoView({
+          behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+            ? 'instant'
+            : 'smooth',
+          block: 'start',
+        });
+        window.history.replaceState(null, '', anchor.hash);
+      }}
+    >
       <a href="#analysis" className="skip-link">
         Aller à l’analyse
       </a>
@@ -128,30 +156,14 @@ export function ImmersiveEntrance({
         >
           <div className="world-content">
             <div className="workspace-edition">
-              <span>02 — LA LECTURE</span>
+              <span className="workspace-location">
+                SEAL <span aria-hidden="true">/</span> Espace de recherche
+              </span>
               <span>
                 {environment !== 'production'
                   ? `Environnement : ${environment}`
                   : 'Pons / Robinhood Chain'}
               </span>
-            </div>
-            <div className="workspace-intro">
-              <p className="scene-eyebrow">SEAL / Analyse de token</p>
-              <h2 id="workspace-title">
-                Comprendre un token.
-                <br />
-                <span>Au-delà des apparences.</span>
-              </h2>
-              <p>
-                Collez une adresse pons. SEAL croise les faits publics et explique ce qui se
-                confirme, ce qui manque et ce qui se contredit. Une lecture argumentée, jamais un
-                score.
-              </p>
-              <div className="source-trail" aria-label="Les trois lectures de SEAL">
-                <span>01 / La chaîne</span>
-                <span>02 / Les détenteurs</span>
-                <span>03 / Le marché</span>
-              </div>
             </div>
             {children}
           </div>

@@ -239,3 +239,48 @@ test('reduced motion keeps a static entrance and direct keyboard access to the a
   await expect(page.locator('.analysis-world')).toHaveCSS('opacity', '1');
   await expect(page.getByLabel('L’adresse du token', { exact: true })).toBeVisible();
 });
+
+test('entry links and logo scroll in both directions without losing the address', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Entrer dans SEAL' }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        Math.abs(document.getElementById('analysis')!.getBoundingClientRect().top),
+      ),
+    )
+    .toBeLessThan(2);
+  await expect(page.locator('#analysis')).toBeFocused();
+  await page.getByLabel('L’adresse du token', { exact: true }).fill(token);
+  await page.getByRole('link', { name: 'SEAL, accueil' }).click();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(2);
+  await page.getByRole('link', { name: 'Ouvrir SEAL' }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        Math.abs(document.getElementById('analysis')!.getBoundingClientRect().top),
+      ),
+    )
+    .toBeLessThan(2);
+  await expect(page.getByLabel('L’adresse du token', { exact: true })).toHaveValue(token);
+});
+
+test('source study exposes each method using accessible controls', async ({ page }) => {
+  await page.goto('/#analysis');
+  const controls = page.getByRole('group', { name: 'Explorer les sources' });
+  await controls.getByRole('button', { name: '02 Les détenteurs' }).click();
+  await expect(controls.getByRole('button', { name: '02 Les détenteurs' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(page.locator('#source-study-detail')).toContainText('Blockscout');
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#source-study-detail')).toContainText('DexScreener');
+  await expect(
+    page.getByText('Illustration de la méthode · aucune donnée de token affichée'),
+  ).toBeVisible();
+  await accessible(page);
+});
