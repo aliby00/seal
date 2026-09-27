@@ -191,11 +191,20 @@ recherche, [Mercury](https://mercury.com/) pour le volume et les interactions,
 [Nocturnis](https://try-nocturnis.framer.website/) pour l’espace et le fond immersif.
 La prose conserve une hiérarchie éditoriale inspirée de Paradigm et Every.
 
-La section des sources associe une sculpture de lentilles en CSS à trois choix
-interactifs : Creator, Holders, Market. La sélection change le point de vue de
-l’illustration et explique l’apport de chaque source. Ce visuel ne représente
-aucune donnée réelle et ne sert ni de jauge ni de score. Pas de bibliothèque
-supplémentaire. Les mouvements sont désactivés avec prefers-reduced-motion.
+La section des sources se déroule en trois scènes liées au scroll : historique du
+créateur dans une ambiance nocturne, structure des détenteurs en lumière de jour,
+marché dans une ambiance pluvieuse. Le même paysage est conservé ; des couches de
+teinte, de nuages et de pluie changent progressivement avec la position de lecture.
+Les illustrations sont des orbites SVG, des plans CSS superposés et des ondes SVG.
+Elles reprennent le langage de la référence Mercury fournie, sans importer sa
+vidéo. Ce sont des illustrations de méthode, jamais des données ou des scores.
+
+La grande barre fixe a été supprimée. Le logo et le lien d’entrée ne restent
+qu’en haut de l’accueil ; deux petits raccourcis dans un coin permettent de
+revenir en haut ou à la saisie. Les mouvements sont pilotés par le scroll natif,
+réversibles et figés avec prefers-reduced-motion. Aucun mouvement perpétuel ni
+bibliothèque supplémentaire. Les panneaux de lecture conservent leur contraste
+indépendamment de la météo décorative.
 
 Toute l’interface est en anglais : navigation, formulaire, chargement, erreurs,
 rapport, complétude, sources, coûts et limites. Les textes de restitution hors

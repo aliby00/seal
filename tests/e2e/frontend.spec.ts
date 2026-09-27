@@ -267,18 +267,49 @@ test('entry links and logo scroll in both directions without losing the address'
   await expect(page.getByLabel('Token address', { exact: true })).toHaveValue(token);
 });
 
-test('source study exposes each method using accessible controls', async ({ page }) => {
+test('weather chapters change the same landscape and reverse with scroll', async ({ page }) => {
   await page.goto('/#analysis');
-  const controls = page.getByRole('group', { name: 'Explore sources' });
-  await controls.getByRole('button', { name: 'Holders' }).click();
-  await expect(controls.getByRole('button', { name: 'Holders' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-  await expect(page.locator('#source-study-detail')).toContainText('Blockscout');
-  await page.keyboard.press('Tab');
-  await page.keyboard.press('Enter');
-  await expect(page.locator('#source-study-detail')).toContainText('DexScreener');
-  await expect(page.getByText('Method illustration · no token data displayed')).toBeVisible();
-  await accessible(page);
+  await expect(page.locator('.world-nav')).toHaveCSS('position', 'absolute');
+  const root = page.locator('.immersive-root');
+  for (const [chapter, property] of [
+    ['creator', '--weather-night'],
+    ['holders', '--weather-day'],
+    ['market', '--weather-rain'],
+  ] as const) {
+    await page
+      .locator(`#chapter-${chapter}`)
+      .evaluate((el) => el.scrollIntoView({ block: 'start', behavior: 'instant' }));
+    await expect
+      .poll(() =>
+        root.evaluate(
+          (el, prop) => Number((el as HTMLElement).style.getPropertyValue(prop)),
+          property,
+        ),
+      )
+      .toBeGreaterThan(0.95);
+    await accessible(page);
+  }
+  await page
+    .locator('#chapter-creator')
+    .evaluate((el) => el.scrollIntoView({ block: 'start', behavior: 'instant' }));
+  await expect
+    .poll(() =>
+      root.evaluate((el) => Number((el as HTMLElement).style.getPropertyValue('--weather-rain'))),
+    )
+    .toBe(0);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect
+    .poll(() =>
+      page
+        .locator('#chapter-creator')
+        .evaluate((el) => parseFloat((el as HTMLElement).style.getPropertyValue('--tech-turn'))),
+    )
+    .toBeCloseTo(63);
+  const angle = await page
+    .locator('#chapter-creator')
+    .evaluate((el) => (el as HTMLElement).style.getPropertyValue('--tech-turn'));
+  await page.evaluate(() => window.scrollBy(0, 200));
+  await expect(page.locator('#chapter-creator')).toHaveCSS('--tech-turn', angle);
+  await page.getByRole('link', { name: 'Back to top', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(2);
 });
