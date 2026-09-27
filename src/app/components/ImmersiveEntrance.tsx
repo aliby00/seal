@@ -28,30 +28,27 @@ export function ImmersiveEntrance({
       const p = reduced.matches
         ? 0
         : clamp(-section.getBoundingClientRect().top / Math.max(1, distance));
-      // Finish the camera movement before the reading surface enters the viewport.
+      // Keep advancing until the form enters the viewport, including the handoff.
       // One fixed photograph remains in place throughout the entire page.
-      const cameraDistance = Math.max(distance - window.innerHeight, window.innerHeight * 0.2);
+      const cameraDistance = Math.max(distance + window.innerHeight * 0.5, 1);
       const camera = reduced.matches
         ? 0
         : clamp(-section.getBoundingClientRect().top / cameraDistance);
       const easedCamera = camera * camera * (3 - 2 * camera);
-      element.style.setProperty('--camera-scale', String(1 + easedCamera * 1.65));
-      element.style.setProperty(
-        '--reading-shade',
-        String(reduced.matches ? 0.65 : clamp((camera - 0.45) / 0.55)),
-      );
-      element.style.setProperty('--copy-opacity', String(1 - clamp(camera / 0.75)));
-      element.style.setProperty('--copy-shift', `${-camera * 45}px`);
+      element.style.setProperty('--camera-scale', String(1 + easedCamera * 2.6));
+      element.style.setProperty('--reading-shade', String(reduced.matches ? 0.65 : clamp(p / 0.7)));
+      element.style.setProperty('--copy-opacity', String(1 - clamp(p / 0.3)));
+      element.style.setProperty('--copy-shift', `${-clamp(p / 0.3) * 45}px`);
       element.style.setProperty(
         '--mist-opacity',
-        String(Math.pow(Math.sin(camera * Math.PI), 1.4) * 0.82),
+        String(Math.pow(Math.sin(clamp(p / 0.8) * Math.PI), 1.4) * 0.82),
       );
       element.style.setProperty('--mist-scale', String(0.7 + easedCamera * 2.6));
       element.style.setProperty('--mist-spread', `${easedCamera * 22}%`);
       element.style.setProperty('--mist-shift', `${(0.5 - camera) * 32}%`);
       element.dataset.entered = String(p > 0.92);
       element.dataset.travelling = String(window.scrollY > 50);
-      if (copy.current) copy.current.inert = !reduced.matches && camera > 0.75;
+      if (copy.current) copy.current.inert = !reduced.matches && p > 0.3;
     }
     function schedule() {
       if (!frame) frame = requestAnimationFrame(paint);

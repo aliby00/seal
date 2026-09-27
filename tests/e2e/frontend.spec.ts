@@ -211,7 +211,21 @@ test('mountain entrance advances with native scroll, reveals the app, and revers
         ),
     )
     .toBeGreaterThan(1.1);
+  const scaleBeforeHandoff = await page
+    .locator('.immersive-root')
+    .evaluate((element) =>
+      Number((element as HTMLElement).style.getPropertyValue('--camera-scale')),
+    );
   await page.evaluate((y) => window.scrollTo(0, y), distance + 10);
+  await expect
+    .poll(() =>
+      page
+        .locator('.immersive-root')
+        .evaluate((element) =>
+          Number((element as HTMLElement).style.getPropertyValue('--camera-scale')),
+        ),
+    )
+    .toBeGreaterThan(scaleBeforeHandoff + 0.5);
   await expect(page.locator('.analysis-world')).toHaveCSS('opacity', '1');
   await expect(page.getByLabel('Token address', { exact: true })).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 0));
