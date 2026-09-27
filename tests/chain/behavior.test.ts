@@ -24,7 +24,7 @@ function nodeReturning(logs: RawLog[]): RpcClient {
     async call<T>(): Promise<T> {
       return logs as unknown as T;
     },
-    async callBatch<T>(): Promise<never[]> {
+    async callBatch(): Promise<never[]> {
       throw new Error('non utilisé');
     },
   } as unknown as RpcClient;
