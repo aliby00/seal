@@ -2,6 +2,71 @@ import { decodeFunctionResult, encodeFunctionData, parseAbiItem, type Address } 
 import { UpstreamError } from '../errors';
 import type { RpcClient } from './rpc';
 
+/** Encode l'appel `graduationStatus(token)`, réutilisable en batch. */
+export function encodeGraduationCall(token: Address): string {
+  return encodeFunctionData({
+    abi: [GRADUATION_STATUS],
+    functionName: 'graduationStatus',
+    args: [token],
+  });
+}
+
+/** Décode une réponse brute d'eth_call. `null` si vide ou revert. */
+export function decodeGraduationResult(raw: string | undefined): GraduationStatus | null {
+  if (!raw || raw === '0x') return null;
+  try {
+    const [pairedPrincipal, threshold, graduated] = decodeFunctionResult({
+      abi: [GRADUATION_STATUS],
+      functionName: 'graduationStatus',
+      data: raw as `0x${string}`,
+    }) as unknown as [bigint, bigint, boolean];
+    return toGraduationStatus(pairedPrincipal, threshold, graduated);
+  } catch {
+    // Une réponse inattendue vaut « inconnu », pas une panne de l'analyse.
+    return null;
+  }
+}
+
+/**
+ * Lit l'état de graduation de plusieurs tokens en une seule requête HTTP.
+ *
+ * C'est ce qui rend un historique profond praticable : sans batch, 40 tokens
+ * coûtent 40 allers-retours sur un RPC public qui répond 403 après une rafale.
+ * Un token dont l'appel revert donne `null` sans faire échouer les autres.
+ */
+export async function fetchGraduationStatusBatch(
+  rpc: RpcClient,
+  factory: Address,
+  tokens: readonly Address[],
+): Promise<(GraduationStatus | null)[]> {
+  if (tokens.length === 0) return [];
+  const outcomes = await rpc.callBatch<string>(
+    tokens.map((token) => ({
+      method: 'eth_call',
+      params: [{ to: factory, data: encodeGraduationCall(token) }, 'latest'],
+    })),
+  );
+  return outcomes.map((outcome) => (outcome.ok ? decodeGraduationResult(outcome.value) : null));
+}
+
+/** Horodatages de blocs, groupés. Sert à remplir `launchedAt`. */
+export async function fetchBlockTimestamps(
+  rpc: RpcClient,
+  blockNumbers: readonly number[],
+): Promise<(string | null)[]> {
+  if (blockNumbers.length === 0) return [];
+  const outcomes = await rpc.callBatch<{ timestamp?: string } | null>(
+    blockNumbers.map((n) => ({
+      method: 'eth_getBlockByNumber',
+      params: [`0x${n.toString(16)}`, false],
+    })),
+  );
+  return outcomes.map((outcome) => {
+    if (!outcome.ok || !outcome.value?.timestamp) return null;
+    return new Date(Number(outcome.value.timestamp) * 1000).toISOString();
+  });
+}
+
 /**
  * `graduationStatus(address)` — vérifié en direct sur le factory vivant.
  * Selector `0x98d652f1`. Le seuil renvoyé valait 4,2 ETH lors de la mesure,

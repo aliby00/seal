@@ -3,7 +3,11 @@ import type { CreatorHistory, LaunchedToken, TokenOutcome } from '../contracts';
 import type { RequestBudget } from '../http';
 import { decodeTokenLaunched, TOKEN_LAUNCHED_TOPIC, type TokenLaunch } from './factory';
 import { getLogsChunked } from './logs';
-import { fetchGraduationStatus, type GraduationStatus } from './graduation';
+import {
+  fetchBlockTimestamps,
+  fetchGraduationStatusBatch,
+  type GraduationStatus,
+} from './graduation';
 import { createRpcClient, DEFAULT_RPC_URL, type RpcClient } from './rpc';
 
 export * from './rpc';
@@ -13,6 +17,17 @@ export * from './graduation';
 
 /** Sans activité depuis ~30 jours et sous le seuil : on parle d'abandon. */
 export const ABANDON_AFTER_BLOCKS = 26_000_000;
+
+/**
+ * Profondeur scannée par défaut : un peu plus que le seuil d'abandon, pour que
+ * la classification puisse réellement trancher. À 0,101 s par bloc, c'est
+ * environ 35 jours.
+ *
+ * C'était impossible avant le batch JSON-RPC : lire l'état de graduation de
+ * chaque token coûtait un aller-retour, et le RPC public coupe à 403 bien
+ * avant. Un appel groupé par lot de 20 change l'ordre de grandeur.
+ */
+export const DEFAULT_LOOKBACK_BLOCKS = 30_000_000;
 
 /**
  * Détermine le sort d'un token.
@@ -68,7 +83,11 @@ export type FetchCreatorHistoryOptions = {
   rpcUrl?: string;
   budget?: RequestBudget;
   client?: RpcClient;
-  /** Fenêtre scannée par le MVP. L'historique complet est le sujet de feat/creator-history. */
+  /**
+   * Profondeur scannée. Le défaut couvre le seuil d'abandon (30 jours), ce qui
+   * rend la classification `abandoned` réellement atteignable — avec 5 M blocs
+   * elle était mathématiquement morte.
+   */
   lookbackBlocks?: number;
   now?: () => Date;
 };
@@ -79,7 +98,7 @@ export async function fetchCreatorHistory(
 ): Promise<CreatorHistory> {
   const rpc = options.client ?? createRpcClient(options.rpcUrl ?? DEFAULT_RPC_URL, options.budget);
   const fetchedAt = (options.now ?? (() => new Date()))().toISOString();
-  const lookback = options.lookbackBlocks ?? 5_000_000;
+  const lookback = options.lookbackBlocks ?? DEFAULT_LOOKBACK_BLOCKS;
 
   const latestHex = await rpc.call<string>('eth_blockNumber', []);
   const latest = Number(latestHex);
@@ -98,24 +117,37 @@ export async function fetchCreatorHistory(
   );
 
   const launches = logs.map(decodeTokenLaunched);
-  const tokens: LaunchedToken[] = [];
 
-  for (const launch of launches) {
-    // Le factory qui a émis le log est forcément celui qui connaît ce token :
-    // interroger un autre reverterait, comme le fait celui de la documentation.
-    const status = await fetchGraduationStatus(rpc, launch.factory, launch.token);
-    tokens.push({
+  // Un seul aller-retour par lot de 20, au lieu d'un par token.
+  const factory = launches[0]?.factory;
+  const [statuses, timestamps] = await Promise.all([
+    factory
+      ? fetchGraduationStatusBatch(
+          rpc,
+          factory,
+          launches.map((l) => l.token),
+        )
+      : Promise.resolve<(GraduationStatus | null)[]>([]),
+    fetchBlockTimestamps(
+      rpc,
+      launches.map((l) => l.blockNumber),
+    ),
+  ]);
+
+  const tokens: LaunchedToken[] = launches.map((launch, i) => {
+    const status = statuses[i] ?? null;
+    return {
       address: launch.token,
       pool: launch.pool,
       launchedAtBlock: launch.blockNumber,
-      launchedAt: null,
+      launchedAt: timestamps[i] ?? null,
       outcome: classifyOutcome(status, latest - launch.blockNumber, lookback),
       graduationProgress: status?.progress ?? 0,
-      // Indéterminables sans analyse des transferts : `feat/creator-history`.
+      // Indéterminables sans analyse des transferts.
       liquidityPulled: null,
       creatorDumped: null,
-    });
-  }
+    };
+  });
 
   const counts = {
     launched: tokens.length,

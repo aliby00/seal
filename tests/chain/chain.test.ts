@@ -107,6 +107,9 @@ function fakeNode(opts: {
 }): { rpc: RpcClient; calls: { from: number; to: number }[] } {
   const calls: { from: number; to: number }[] = [];
   const rpc: RpcClient = {
+    async callBatch() {
+      throw new Error('non utilisé dans ce test');
+    },
     async call<T>(_method: string, params: unknown[]): Promise<T> {
       const filter = (params as [{ fromBlock: string; toBlock: string }])[0];
       const from = Number(filter.fromBlock);
@@ -221,6 +224,9 @@ describe('getLogsChunked', () => {
 
   it("laisse remonter une erreur qui n'est pas un refus de fenêtre", async () => {
     const rpc: RpcClient = {
+      async callBatch(): Promise<never> {
+        throw new Error('panne réseau');
+      },
       async call(): Promise<never> {
         throw new Error('panne réseau');
       },
