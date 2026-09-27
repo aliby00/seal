@@ -221,7 +221,7 @@ test('mountain entrance advances with native scroll, reveals the app, and revers
         ),
     )
     .toBe(1);
-  await page.getByRole('link', { name: 'Open SEAL' }).click();
+  await page.getByRole('link', { name: 'Enter SEAL' }).click();
   await expect(page.locator('.analysis-world')).toHaveCSS('opacity', '1');
 });
 
@@ -254,9 +254,9 @@ test('entry links and logo scroll in both directions without losing the address'
     .toBeLessThan(2);
   await expect(page.locator('#analysis')).toBeFocused();
   await page.getByLabel('Token address', { exact: true }).fill(token);
-  await page.getByRole('link', { name: 'SEAL, home' }).click();
+  await page.getByRole('link', { name: 'SEAL', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(2);
-  await page.getByRole('link', { name: 'Open SEAL' }).click();
+  await page.getByRole('link', { name: 'Enter SEAL' }).click();
   await expect
     .poll(() =>
       page.evaluate(() =>

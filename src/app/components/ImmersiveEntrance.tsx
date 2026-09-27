@@ -95,21 +95,6 @@ export function ImmersiveEntrance({
         Skip to analysis
       </a>
       <div className="world-background" aria-hidden="true" />
-      <header className="world-nav">
-        <a href="#entrance" className="world-brand" aria-label="SEAL, home">
-          <span className="brand-glyph" aria-hidden="true">
-            ✳
-          </span>{' '}
-          SEAL
-        </a>
-        <nav aria-label="Main navigation">
-          <a href="#method">How it works</a>
-          <a href="https://github.com/aliby00/seal">About SEAL ↗</a>
-        </nav>
-        <a className="nav-enter" href="#analysis">
-          Open SEAL <span aria-hidden="true">↗</span>
-        </a>
-      </header>
       <main>
         <section
           ref={journey}

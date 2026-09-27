@@ -859,7 +859,7 @@
 .world-content {
   max-width: 1160px;
   margin: auto;
-  padding-top: 132px;
+  padding-top: 52px;
 }
 .workspace-edition {
   display: flex;
@@ -1059,7 +1059,7 @@
     padding: 0 22px 44px;
   }
   .world-content {
-    padding-top: 104px;
+    padding-top: 32px;
   }
   .workspace-edition {
     font-size: 9px;
