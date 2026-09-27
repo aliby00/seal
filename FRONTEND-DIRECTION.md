@@ -159,23 +159,22 @@ Les captures sont enregistrées sous `/tmp`, jamais dans le dépôt.
 
 ## Révision immersive demandée après la recette locale
 
-La nouvelle direction remplace l'accueil éditorial par deux scènes. La première
-est un paysage original entre deux montagnes ; le scroll avance vers un passage
-central et ouvre la deuxième scène sur l'image tramée fournie par l'utilisateur.
-Le formulaire réel apparaît dans ce même décor, avec une composition sobre inspirée
-de [Nocturnis](https://try-nocturnis.framer.website/).
+L’entrée et la plateforme partagent désormais le même paysage naturel : deux
+massifs, une vallée et une nappe de brume. Le scroll rapproche doucement le point
+de vue, puis révèle le formulaire dans ce même univers. Aucune porte lumineuse,
+aucun masque rectangulaire, aucun logo géant collé sur le paysage.
 
-L'observation de [Mercury](https://mercury.com/) à plusieurs positions de scroll
-confirme une scène épinglée et une avancée vers l'ordinateur, pilotée chez eux par
-une vidéo (`hero-scrub-lg.mp4`). SEAL reproduit le principe d'avancée et de passage
-avec des transforms et un masque CSS, sans reprendre cette vidéo ni ajouter de
-bibliothèque d'animation. Il ne s'agit pas d'une copie image par image de la vidéo.
+L’observation de [Mercury](https://mercury.com/) confirme une scène épinglée et une
+avancée vers l’ordinateur pilotée par une vidéo (`hero-scrub-lg.mp4`). SEAL reprend
+le principe de progression au scroll avec des transforms et des fondus CSS, sans
+reprendre cette vidéo ni ajouter de bibliothèque d’animation.
 
-Les couleurs du paysage et de l'image sont décoratives. Les données restent sur
-un panneau neutre qui suit le thème système, avec complétude avant prose et aucune
-couleur d'évaluation. Le scroll demeure natif et réversible, les liens permettent
-d'ouvrir directement l'analyse, et `prefers-reduced-motion` retire la traversée.
+La plateforme présente directement l’analyse de token pons : chaîne, détenteurs,
+marché, puis champ d’adresse. Les données restent sur un panneau neutre suivant
+le thème système, avec complétude avant prose et aucune couleur d’évaluation.
+Le scroll demeure natif et réversible ; les liens donnent un accès direct, et
+`prefers-reduced-motion` retire la traversée.
 
-Les deux assets de production sont dans `public/images/`, avec leur provenance et
-le prompt de génération dans le README de ce dossier. Aucune capture des sites de
-référence ou des tests n'est embarquée dans le front.
+Le paysage de production est dans `public/images/`, avec sa provenance et son
+prompt dans le README de ce dossier. Aucune capture de référence ou de test
+n’est embarquée dans le front.

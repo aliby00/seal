@@ -661,10 +661,8 @@
   --scene-opacity: 1;
   --copy-opacity: 1;
   --copy-shift: 0px;
-  --portal-x: 49%;
-  --portal-top: 44%;
-  --portal-bottom: 44%;
-  --portal-opacity: 0;
+  --mist-opacity: 0;
+  --mist-shift: 28%;
   --app-opacity: 1;
   position: relative;
   isolation: isolate;
@@ -675,13 +673,8 @@
   z-index: -1;
   inset: 0;
   background:
-    linear-gradient(
-      90deg,
-      rgba(5, 10, 8, 0.94) 0%,
-      rgba(5, 10, 8, 0.8) 34%,
-      rgba(5, 10, 8, 0.2) 78%
-    ),
-    url('/images/seal-atmosphere.webp') center 48% / cover;
+    linear-gradient(90deg, #0c1217ed 5%, #0c1217b8 55%, #0c121766),
+    url('/images/seal-mountain-mist.webp') center / cover;
   pointer-events: none;
 }
 .world-nav {
@@ -744,15 +737,15 @@
   top: 0;
   height: 100svh;
   overflow: hidden;
-  background: #090c0b;
+  background: transparent;
   color: #f5f6f2;
 }
 .mountain-scene {
   position: absolute;
   inset: 0;
-  background: url('/images/seal-mountain-passage.webp') center / cover;
+  background: url('/images/seal-mountain-mist.webp') center / cover;
   transform: scale(var(--camera-scale));
-  transform-origin: 50% var(--gate-center, 52%);
+  transform-origin: 50% 64%;
   opacity: var(--scene-opacity);
   will-change: transform;
 }
@@ -762,20 +755,15 @@
   background: linear-gradient(180deg, #060c0ab3 0%, #060c0a55 31%, transparent 60%, #05090880 100%);
   opacity: var(--copy-opacity);
 }
-.portal-world {
+.valley-mist {
   position: absolute;
-  inset: 0;
+  inset: -20%;
   background:
-    linear-gradient(
-      90deg,
-      rgba(5, 10, 8, 0.94) 0%,
-      rgba(5, 10, 8, 0.8) 34%,
-      rgba(5, 10, 8, 0.2) 78%
-    ),
-    url('/images/seal-atmosphere.webp') center 48% / cover;
-  clip-path: inset(var(--portal-top) var(--portal-x) var(--portal-bottom));
-  opacity: var(--portal-opacity);
-  will-change: clip-path;
+    radial-gradient(ellipse at 35% 75%, #c0c8ca 0%, #b3bec4aa 22%, transparent 58%),
+    radial-gradient(ellipse at 80% 90%, #d0d5d6 0%, transparent 65%);
+  opacity: var(--mist-opacity);
+  transform: translateY(var(--mist-shift));
+  pointer-events: none;
 }
 .entrance-copy {
   position: absolute;
@@ -886,12 +874,12 @@
   color: #c4cec5;
 }
 .workspace-intro {
-  padding: 88px 0 36px;
+  padding: 65px 0 32px;
   color: #f0f3ed;
 }
 .workspace-intro h2 {
   font:
-    400 clamp(36px, 4.7vw, 66px)/1.08 Arial,
+    400 clamp(36px, 4.3vw, 60px)/1.08 Arial,
     Helvetica,
     sans-serif;
   letter-spacing: -0.065em;
@@ -900,7 +888,7 @@
 .workspace-intro h2 span {
   color: #f0f3ed;
 }
-.workspace-intro > p:last-child {
+.workspace-intro > p:not(.scene-eyebrow) {
   font:
     13px/1.9 'Courier New',
     monospace;
@@ -1084,14 +1072,10 @@
   .workspace-intro h2 {
     font-size: 39px;
   }
-  .workspace-intro > p:last-child {
+  .workspace-intro > p:not(.scene-eyebrow) {
     font-size: 12px;
   }
-  .world-background,
-  .portal-world {
-    background-image:
-      linear-gradient(90deg, #060c09ed, #060c09a6), url('/images/seal-atmosphere.webp');
-  }
+
   .analysis-world .reading-notes {
     margin-top: 62px;
     padding: 24px 20px;
@@ -1127,7 +1111,7 @@
     opacity: 1;
     will-change: auto;
   }
-  .portal-world {
+  .valley-mist {
     display: none;
   }
   .entrance-copy,
@@ -1155,4 +1139,57 @@
 }
 .immersive-root .skip-link {
   z-index: 20;
+}
+
+.workspace-intro > p:not(.scene-eyebrow) {
+  max-width: 540px;
+  font-family: Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.8;
+}
+.workspace-intro h2 span {
+  font-family: Georgia, serif;
+  font-style: italic;
+}
+.source-trail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  margin-top: 28px;
+  color: #c4cec5;
+  font:
+    10px/1.8 'Courier New',
+    monospace;
+}
+.analysis-world .analysis-workspace form {
+  max-width: 720px;
+  padding: 28px;
+  background: #11181de8;
+  border: 1px solid #ffffff30;
+  backdrop-filter: blur(16px);
+}
+.analysis-world .reading-notes {
+  background: #11181ded;
+}
+@media (max-width: 540px) {
+  .world-background {
+    background-image: linear-gradient(#0c1217bf, #0c1217d9), url('/images/seal-mountain-mist.webp');
+  }
+  .analysis-world .analysis-workspace form {
+    padding: 20px 16px;
+  }
+  .workspace-intro {
+    padding-top: 38px;
+  }
+  .workspace-intro h2 {
+    font-size: 36px;
+  }
+  .source-trail {
+    gap: 8px 16px;
+  }
+}
+
+/* Interacting with the product always restores full reading contrast. */
+.analysis-world:focus-within {
+  opacity: 1;
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 /** Scroll stays native; only decorative transforms follow its position. */
 export function ImmersiveEntrance({
@@ -10,6 +10,7 @@ export function ImmersiveEntrance({
   children: ReactNode;
   environment: string;
 }) {
+  const [engaged, setEngaged] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const journey = useRef<HTMLElement>(null);
   const copy = useRef<HTMLDivElement>(null);
@@ -28,34 +29,15 @@ export function ImmersiveEntrance({
       const p = reduced.matches
         ? 0
         : clamp(-section.getBoundingClientRect().top / Math.max(1, distance));
-      const scale = Math.pow(60, p);
-      const width = element.clientWidth;
-      const height = section.firstElementChild?.clientHeight ?? window.innerHeight;
-      // Align the opening to the doorway in the 1536 × 1024 landscape,
-      // including the different object-cover crop on a portrait viewport.
-      const cover = Math.max(width / 1536, height / 1024);
-      const center = height / 2 + 16 * cover;
-      element.style.setProperty('--camera-scale', String(scale));
-      element.style.setProperty('--gate-center', `${center}px`);
-      element.style.setProperty('--scene-opacity', String(1 - clamp((p - 0.94) / 0.06)));
-      element.style.setProperty('--copy-opacity', String(1 - clamp(p / 0.22)));
-      element.style.setProperty('--copy-shift', `${-p * 100}px`);
-      element.style.setProperty(
-        '--portal-x',
-        `${Math.max(0, 50 - ((16 * cover * scale) / width) * 100)}%`,
-      );
-      element.style.setProperty(
-        '--portal-top',
-        `${Math.max(0, ((center - 52 * cover * scale) / height) * 100)}%`,
-      );
-      element.style.setProperty(
-        '--portal-bottom',
-        `${Math.max(0, ((height - center - 52 * cover * scale) / height) * 100)}%`,
-      );
-      element.style.setProperty('--portal-opacity', String(clamp((p - 0.16) / 0.12)));
+      element.style.setProperty('--camera-scale', String(1 + p * 1.1));
+      element.style.setProperty('--scene-opacity', String(1 - clamp((p - 0.55) / 0.45)));
+      element.style.setProperty('--copy-opacity', String(1 - clamp(p / 0.3)));
+      element.style.setProperty('--copy-shift', `${-p * 70}px`);
+      element.style.setProperty('--mist-opacity', String(Math.sin(p * Math.PI) * 0.65));
+      element.style.setProperty('--mist-shift', `${(1 - p) * 28}%`);
       element.style.setProperty(
         '--app-opacity',
-        String(reduced.matches ? 1 : clamp((p - 0.93) / 0.065)),
+        String(reduced.matches ? 1 : clamp((p - 0.7) / 0.3)),
       );
       element.dataset.entered = String(p > 0.92);
       element.dataset.travelling = String(window.scrollY > 50);
@@ -110,18 +92,18 @@ export function ImmersiveEntrance({
           <div className="journey-stage">
             <div className="mountain-scene" aria-hidden="true" />
             <div className="scene-shade" aria-hidden="true" />
-            <div className="portal-world" aria-hidden="true" />
+            <div className="valley-mist" aria-hidden="true" />
             <div ref={copy} className="entrance-copy">
-              <p className="scene-eyebrow">Au-delà des apparences</p>
+              <p className="scene-eyebrow">Lire les signaux. Comprendre les nuances.</p>
               <h1 id="entrance-title">
                 Chaque token cache
                 <br />
                 <em>une autre histoire.</em>
               </h1>
               <p className="entrance-description">
-                Traversez les données.
+                Une adresse de token pons. Trois sources publiques.
                 <br />
-                Découvrez ce qu’elles racontent ensemble.
+                Une explication de ce qu’elles racontent ensemble.
               </p>
               <a href="#analysis" className="entrance-cta">
                 Entrer dans SEAL <span aria-hidden="true">↗</span>
@@ -138,6 +120,8 @@ export function ImmersiveEntrance({
         </section>
         <section
           id="analysis"
+          onFocusCapture={() => setEngaged(true)}
+          style={engaged ? { opacity: 1 } : undefined}
           className="analysis-world"
           aria-labelledby="workspace-title"
           tabIndex={-1}
@@ -152,19 +136,22 @@ export function ImmersiveEntrance({
               </span>
             </div>
             <div className="workspace-intro">
-              <p className="scene-eyebrow">L’intelligence, entre les lignes.</p>
+              <p className="scene-eyebrow">SEAL / Analyse de token</p>
               <h2 id="workspace-title">
-                Les mêmes données.
+                Comprendre un token.
                 <br />
-                <span>Une autre lecture.</span>
+                <span>Au-delà des apparences.</span>
               </h2>
               <p>
-                Le créateur. Les détenteurs. Le marché.
-                <br />
-                SEAL relie les signaux et explique leurs contradictions.
-                <br />
-                Une analyse en prose. Jamais une note.
+                Collez une adresse pons. SEAL croise les faits publics et explique ce qui se
+                confirme, ce qui manque et ce qui se contredit. Une lecture argumentée, jamais un
+                score.
               </p>
+              <div className="source-trail" aria-label="Les trois lectures de SEAL">
+                <span>01 / La chaîne</span>
+                <span>02 / Les détenteurs</span>
+                <span>03 / Le marché</span>
+              </div>
             </div>
             {children}
           </div>

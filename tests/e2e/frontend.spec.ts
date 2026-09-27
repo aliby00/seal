@@ -207,7 +207,7 @@ test('mountain entrance advances with native scroll, reveals the app, and revers
           Number((element as HTMLElement).style.getPropertyValue('--camera-scale')),
         ),
     )
-    .toBeGreaterThan(3);
+    .toBeGreaterThan(1.1);
   await page.evaluate((y) => window.scrollTo(0, y), distance + 10);
   await expect(page.locator('.analysis-world')).toHaveCSS('opacity', '1');
   await expect(page.getByLabel('L’adresse du token', { exact: true })).toBeVisible();
@@ -231,7 +231,7 @@ test('reduced motion keeps a static entrance and direct keyboard access to the a
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
   await expect(page.locator('.mountain-scene')).toHaveCSS('transform', 'none');
-  await expect(page.locator('.portal-world')).toBeHidden();
+  await expect(page.locator('.valley-mist')).toBeHidden();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('link', { name: 'Aller à l’analyse' })).toBeFocused();
   await page.keyboard.press('Enter');
