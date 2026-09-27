@@ -729,7 +729,7 @@
   margin-left: 24px;
 }
 .scroll-journey {
-  height: 260svh;
+  height: 420svh;
   position: relative;
 }
 .journey-stage {
@@ -1054,7 +1054,7 @@
     padding: 9px 13px;
   }
   .scroll-journey {
-    height: 230svh;
+    height: 360svh;
   }
   .entrance-copy {
     top: 19%;
