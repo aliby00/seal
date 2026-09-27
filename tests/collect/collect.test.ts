@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { collect } from '../../src/lib/collect';
+import { collect, creatorHistoryCache } from '../../src/lib/collect';
 import { NotFoundError } from '../../src/lib/errors';
 
 const TOKEN = '0x494ddf6f7b4b045ede0abbb9ae86e4d59fa62ec9';
@@ -162,5 +162,82 @@ describe("résolution du créateur depuis l'adresse du token", () => {
     const report = await collect(TOKEN, { now: at });
     expect(report.creator.completeness).toBe('unavailable');
     expect(report.creator.sources[0]?.note).toMatch(/not found/);
+  });
+});
+
+describe("cache de l'historique du créateur", () => {
+  const TOPIC = '0xdb51ea9ad51ab453a65a4cb7e60c3cb378c9501bb002609f8f97778fb6c4235a';
+  const DEPLOYER = '0xe06289fde414ee521aba50db0cf0a60816faa523';
+  const DATA =
+    '0x0000000000000000000000000bd7d308f8e1639fab988df18a8011f41eacad73' +
+    '000000000000000000000000668942551affd4ee3a2e570366aaef28b56c3a97' +
+    '0000000000000000000000000000000000000000000000000000000000000000'.repeat(4) +
+    '00000000000000000000000000000000000000000000000000005af3107a4000';
+
+  function node() {
+    let rpcCalls = 0;
+    vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (!url.includes('robinhood.com')) return new Response('[]', { status: 200 });
+      rpcCalls += 1;
+      const raw = JSON.parse(String(init?.body ?? '{}')) as
+        { method: string } | { id: number; method: string }[];
+      if (Array.isArray(raw)) {
+        return new Response(JSON.stringify(raw.map((r) => ({ id: r.id, result: '0x' }))), {
+          status: 200,
+        });
+      }
+      if (raw.method === 'eth_blockNumber') {
+        return new Response(JSON.stringify({ result: '0x1100' }), { status: 200 });
+      }
+      if (raw.method === 'eth_getLogs') {
+        return new Response(
+          JSON.stringify({
+            result: [
+              {
+                address: '0xf4fc0cd27fc8ecf17e55ee4c3f7201897df3eb75',
+                topics: [
+                  TOPIC,
+                  `0x000000000000000000000000${TOKEN.slice(2)}`,
+                  `0x000000000000000000000000${DEPLOYER.slice(2)}`,
+                  '0x0000000000000000000000001f7d7550b1b028f7571e69a784071f0205fd2efa',
+                ],
+                data: DATA,
+                blockNumber: '0x1000',
+                transactionHash: '0xabc',
+                logIndex: '0x0',
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response(JSON.stringify({ result: '0x' }), { status: 200 });
+    });
+    return () => rpcCalls;
+  }
+
+  it("évite de rescanner l'historique pour un second token du même créateur", async () => {
+    creatorHistoryCache.clear();
+    const calls = node();
+
+    await collect(TOKEN, { now: at });
+    const afterFirst = calls();
+
+    await collect(TOKEN, { now: at });
+    const afterSecond = calls();
+
+    // La seconde analyse refait le marché et la recherche du lancement, mais
+    // pas le scan de l'historique — c'est la partie chère.
+    expect(afterSecond - afterFirst).toBeLessThan(afterFirst);
+    expect(creatorHistoryCache.stats().hits).toBeGreaterThan(0);
+  });
+
+  it('ne partage pas une entrée entre deux profondeurs différentes', async () => {
+    creatorHistoryCache.clear();
+    node();
+    await collect(TOKEN, { now: at, lookbackBlocks: 1_000_000 });
+    await collect(TOKEN, { now: at, lookbackBlocks: 5_000_000 });
+    expect(creatorHistoryCache.size).toBe(2);
   });
 });
