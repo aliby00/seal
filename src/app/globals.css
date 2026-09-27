@@ -763,12 +763,37 @@
 .valley-mist {
   position: absolute;
   inset: -25%;
-  background: url('/images/seal-cloud-volume.svg') center / cover;
   opacity: var(--mist-opacity);
   transform: translateY(var(--mist-shift)) scale(var(--mist-scale));
   transform-origin: 50% 58%;
   pointer-events: none;
   will-change: transform, opacity;
+}
+.cloud-current {
+  position: absolute;
+  inset: -15%;
+  background: url('/images/seal-cloud-volume.svg') center / cover;
+  animation: cloud-current 24s ease-in-out infinite alternate;
+  will-change: transform;
+}
+.ambient-clouds {
+  position: absolute;
+  inset: 20% -20% -25%;
+  background: url('/images/seal-cloud-volume.svg') center / cover;
+  mask-image: radial-gradient(ellipse at 50% 65%, #000 10%, transparent 65%);
+  mix-blend-mode: screen;
+  opacity: 0.26;
+  animation: cloud-current 38s ease-in-out infinite alternate-reverse;
+  will-change: transform;
+  pointer-events: none;
+}
+@keyframes cloud-current {
+  from {
+    transform: translate3d(-6%, 2%, 0) scale(1.02);
+  }
+  to {
+    transform: translate3d(6%, -3%, 0) scale(1.12);
+  }
 }
 .valley-mist::before,
 .valley-mist::after {
@@ -1135,8 +1160,14 @@
     opacity: 1;
     will-change: auto;
   }
-  .valley-mist {
+  .valley-mist,
+  .ambient-clouds {
     display: none;
+  }
+  .cloud-current,
+  .ambient-clouds {
+    animation: none;
+    will-change: auto;
   }
   .entrance-copy,
   .journey-caption {

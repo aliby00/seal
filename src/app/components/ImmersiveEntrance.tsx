@@ -108,7 +108,10 @@ export function ImmersiveEntrance({
       <div className="world-background" aria-hidden="true">
         <div className="mountain-scene" />
         <div className="scene-shade" />
-        <div className="valley-mist" />
+        <div className="ambient-clouds" />
+        <div className="valley-mist">
+          <div className="cloud-current" />
+        </div>
       </div>
       <main>
         <section
