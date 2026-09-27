@@ -16,7 +16,14 @@ const report: TokenReport = {
     data: {
       creator: '0xE06289fde414EE521aBA50Db0Cf0a60816FAA523',
       tokens: [],
-      counts: { launched: 3, graduated: 2, abandoned: 1, undetermined: 0, liquidityPulled: 0 },
+      counts: {
+        launched: 3,
+        graduated: 2,
+        abandoned: 1,
+        undetermined: 0,
+        liquidityPulled: 0,
+        creatorDumped: 0,
+      },
       scannedRange: { fromBlock: 60_000_000, toBlock: 72_000_000 },
     },
   },

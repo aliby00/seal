@@ -8,12 +8,14 @@ import {
   fetchGraduationStatusBatch,
   type GraduationStatus,
 } from './graduation';
+import { detectCreatorSales, detectLiquidityRemovals } from './behavior';
 import { createRpcClient, DEFAULT_RPC_URL, type RpcClient } from './rpc';
 
 export * from './rpc';
 export * from './logs';
 export * from './factory';
 export * from './graduation';
+export * from './behavior';
 
 /** Sans activité depuis ~30 jours et sous le seuil : on parle d'abandon. */
 export const ABANDON_AFTER_BLOCKS = 26_000_000;
@@ -134,8 +136,28 @@ export async function fetchCreatorHistory(
     ),
   ]);
 
+  // Deux requêtes pour tous les tokens à la fois, pas deux par token :
+  // eth_getLogs accepte une liste d'adresses.
+  const pairs = launches.map((l) => ({ token: l.token, pool: l.pool }));
+  // Rien ne peut arriver à un token avant son lancement : la fenêtre part du
+  // plus ancien lancement observé, pas du début de la plage scannée. Sur un
+  // créateur récent, ça divise le coût par plus de dix.
+  const earliestLaunch = launches.reduce(
+    (min, l) => Math.min(min, l.blockNumber),
+    Number.POSITIVE_INFINITY,
+  );
+  const window = {
+    fromBlock: Number.isFinite(earliestLaunch) ? earliestLaunch : scanned.fromBlock,
+    toBlock: scanned.toBlock,
+  };
+  const [sold, pulled] = await Promise.all([
+    detectCreatorSales(rpc, creator, pairs, window).catch(() => new Map<string, boolean>()),
+    detectLiquidityRemovals(rpc, pairs, window).catch(() => new Map<string, boolean>()),
+  ]);
+
   const tokens: LaunchedToken[] = launches.map((launch, i) => {
     const status = statuses[i] ?? null;
+    const key = launch.token.toLowerCase();
     return {
       address: launch.token,
       pool: launch.pool,
@@ -143,9 +165,10 @@ export async function fetchCreatorHistory(
       launchedAt: timestamps[i] ?? null,
       outcome: classifyOutcome(status, latest - launch.blockNumber, lookback),
       graduationProgress: status?.progress ?? 0,
-      // Indéterminables sans analyse des transferts.
-      liquidityPulled: null,
-      creatorDumped: null,
+      // `false` signifie « rien observé sur la fenêtre », pas « certainement
+      // pas arrivé ». La complétude du bloc porte déjà cette nuance.
+      liquidityPulled: pulled.get(key) ?? null,
+      creatorDumped: sold.get(key) ?? null,
     };
   });
 
@@ -155,6 +178,7 @@ export async function fetchCreatorHistory(
     abandoned: tokens.filter((t) => t.outcome === 'abandoned').length,
     undetermined: tokens.filter((t) => t.outcome === 'undetermined').length,
     liquidityPulled: tokens.filter((t) => t.liquidityPulled === true).length,
+    creatorDumped: tokens.filter((t) => t.creatorDumped === true).length,
   };
 
   const partial = truncated || scanned.fromBlock > 0;

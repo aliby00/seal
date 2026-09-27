@@ -15,7 +15,14 @@ function report(overrides: Partial<TokenReport> = {}): TokenReport {
       data: {
         creator: '0xE062',
         tokens: [],
-        counts: { launched: 3, graduated: 2, abandoned: 1, undetermined: 0, liquidityPulled: 0 },
+        counts: {
+          launched: 3,
+          graduated: 2,
+          abandoned: 1,
+          undetermined: 0,
+          liquidityPulled: 0,
+          creatorDumped: 0,
+        },
         scannedRange: { fromBlock: 66_000_000, toBlock: 71_000_000 },
       },
     },
