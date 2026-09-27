@@ -6,3 +6,6 @@ pnpm-lock.yaml
 # Généré par Next à chaque build : le formater crée une divergence
 # entre ce qui est commité et ce que le build produit.
 next-env.d.ts
+
+playwright-report
+test-results

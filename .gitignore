@@ -53,3 +53,7 @@ GEMINI.md
 npm-debug.log*
 pnpm-debug.log*
 .env*
+
+# Browser tests: screenshots and reports remain local
+/playwright-report/
+/test-results/

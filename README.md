@@ -96,3 +96,27 @@ Chaque module se teste indépendamment, sur des fixtures capturées en direct.
 Le coût de chaque requête au modèle est calculé depuis `response.usage` et loggué — pas
 estimé. Sur Sonnet 5, une analyse typique revient à environ **0,019 $**, soit ~57 $/mois à
 100 requêtes par jour.
+
+## Frontend
+
+Le front utilise Tailwind CSS et les primitives Button/Input shadcn/ui adaptées
+à une palette neutre. Le thème suit `prefers-color-scheme`. L'accent est réservé
+aux interactions ; la complétude et les limites utilisent la typographie et les filets.
+Les sources sont globales au rapport, sans citations par phrase. La rubrique de
+divergences est mise en valeur lorsqu'elle est explicitement titrée dans la prose ;
+le front n'infère jamais une qualification depuis la position d'un paragraphe.
+
+Pour vérifier le parcours dans Chromium (réponses API simulées, aucun appel au modèle) :
+
+```bash
+pnpm exec playwright install chromium
+pnpm build
+pnpm test:e2e
+```
+
+Les tests couvrent desktop et mobile 375 px, clair et sombre, validation, attente,
+complétude, mode hors-ligne, erreurs et nouvelles tentatives, ainsi que les contrôles
+d'accessibilité automatisés axe. Ils tournent également dans le CI. Les captures
+et rapports sont écrits dans `/tmp`, jamais commités.
+
+Voir [FRONTEND-DIRECTION.md](FRONTEND-DIRECTION.md) pour les références et les choix.

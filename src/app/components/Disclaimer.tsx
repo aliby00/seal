@@ -1,37 +1,25 @@
-/**
- * Les trois avertissements viennent de la section « Risks We Are Not Hiding »
- * du whitepaper. Ils sont affichés, pas repliés derrière un lien : le document
- * public en fait un argument, pas une précaution juridique.
- */
 export function Disclaimer() {
   return (
-    <section
-      aria-label="Avertissements"
-      style={{
-        marginTop: '3rem',
-        paddingTop: '1.5rem',
-        borderTop: '1px solid var(--line)',
-        color: 'var(--muted)',
-        fontSize: '0.8125rem',
-        lineHeight: 1.7,
-      }}
-    >
-      <p style={{ margin: '0 0 0.75rem' }}>
-        <strong>Ce n&apos;est pas un conseil financier.</strong> SEAL décrit ce qu&apos;il observe
-        dans des données publiques. Il ne dit pas si un token est un bon ou un mauvais
-        investissement, et n&apos;attribue aucune note.
-      </p>
-      <p style={{ margin: '0 0 0.75rem' }}>
-        <strong>Ce n&apos;est pas un audit de contrat.</strong> L&apos;analyse porte sur des signaux
-        de comportement — créateur, détenteurs, marché — pas sur le bytecode. Elle reste
-        complémentaire des outils qui vérifient la logique du contrat, pas leur remplaçante.
-      </p>
-      <p style={{ margin: 0 }}>
-        <strong>L&apos;agent n&apos;est pas déterministe.</strong> Deux lectures du même token à
-        quelques minutes d&apos;intervalle peuvent être formulées différemment. C&apos;est le
-        contrepoids assumé d&apos;une explication face à un score, parfaitement reproductible mais
-        muet sur la nuance.
-      </p>
+    <section className="disclaimers" aria-labelledby="limits-title">
+      <div className="section-heading">
+        <span className="eyebrow">Les limites, au grand jour</span>
+        <h2 id="limits-title">Ce que cette lecture ne promet pas.</h2>
+      </div>
+      <div className="disclaimer-list">
+        <p>
+          <strong>Ce n’est pas un conseil financier.</strong> SEAL décrit les données publiques
+          qu’il observe. Il ne recommande aucun achat ni aucune vente et n’attribue aucune note.
+        </p>
+        <p>
+          <strong>Ce n’est pas un audit de contrat.</strong> L’analyse porte sur les comportements
+          du créateur, des détenteurs et du marché, pas sur le bytecode du contrat.
+        </p>
+        <p>
+          <strong>L’agent n’est pas déterministe.</strong> Deux lectures du même token peuvent
+          différer dans leur formulation. L’explication doit toujours être lue avec ses sources et
+          ses limites.
+        </p>
+      </div>
     </section>
   );
 }
