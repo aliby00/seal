@@ -137,10 +137,10 @@ describe('fetchGraduationStatusBatch', () => {
       async call<T>(): Promise<T> {
         throw new Error('non utilisé');
       },
-      async callBatch() {
+      async callBatch<T>() {
         return [
           { ok: false as const, error: 'execution reverted' },
-          { ok: true as const, value: '0x' },
+          { ok: true as const, value: '0x' as T },
         ];
       },
     };
@@ -167,9 +167,9 @@ describe('fetchBlockTimestamps', () => {
       async call<T>(): Promise<T> {
         throw new Error('non utilisé');
       },
-      async callBatch() {
+      async callBatch<T>() {
         return [
-          { ok: true as const, value: { timestamp: '0x6aa2b8af' } },
+          { ok: true as const, value: { timestamp: '0x6aa2b8af' } as T },
           { ok: false as const, error: 'absent' },
         ];
       },
