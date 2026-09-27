@@ -120,3 +120,10 @@ d'accessibilité automatisés axe. Ils tournent également dans le CI. Les captu
 et rapports sont écrits dans `/tmp`, jamais commités.
 
 Voir [FRONTEND-DIRECTION.md](FRONTEND-DIRECTION.md) pour les références et les choix.
+
+L'entrée immersive utilise un paysage original et l'image fournie pour le fond de
+l'analyse. Le scroll natif pilote une avancée vers un passage, puis révèle le
+formulaire ; aucun événement wheel/touch n'est intercepté. « Ouvrir SEAL » et le
+lien d'évitement donnent un accès direct. Avec `prefers-reduced-motion`, l'entrée
+reste statique. La provenance des visuels et le prompt sont dans
+[public/images/README.md](public/images/README.md).

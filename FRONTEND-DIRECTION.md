@@ -156,3 +156,26 @@ erreurs par code et nouvelle tentative, complétude, mode hors-ligne, date et co
 Les tests navigateur utilisent des réponses interceptées, sans appel aux services
 on-chain ni au modèle, et vérifient les parcours ainsi que l'accessibilité AA.
 Les captures sont enregistrées sous `/tmp`, jamais dans le dépôt.
+
+## Révision immersive demandée après la recette locale
+
+La nouvelle direction remplace l'accueil éditorial par deux scènes. La première
+est un paysage original entre deux montagnes ; le scroll avance vers un passage
+central et ouvre la deuxième scène sur l'image tramée fournie par l'utilisateur.
+Le formulaire réel apparaît dans ce même décor, avec une composition sobre inspirée
+de [Nocturnis](https://try-nocturnis.framer.website/).
+
+L'observation de [Mercury](https://mercury.com/) à plusieurs positions de scroll
+confirme une scène épinglée et une avancée vers l'ordinateur, pilotée chez eux par
+une vidéo (`hero-scrub-lg.mp4`). SEAL reproduit le principe d'avancée et de passage
+avec des transforms et un masque CSS, sans reprendre cette vidéo ni ajouter de
+bibliothèque d'animation. Il ne s'agit pas d'une copie image par image de la vidéo.
+
+Les couleurs du paysage et de l'image sont décoratives. Les données restent sur
+un panneau neutre qui suit le thème système, avec complétude avant prose et aucune
+couleur d'évaluation. Le scroll demeure natif et réversible, les liens permettent
+d'ouvrir directement l'analyse, et `prefers-reduced-motion` retire la traversée.
+
+Les deux assets de production sont dans `public/images/`, avec leur provenance et
+le prompt de génération dans le README de ce dossier. Aucune capture des sites de
+référence ou des tests n'est embarquée dans le front.

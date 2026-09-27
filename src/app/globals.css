@@ -654,3 +654,505 @@
 .explanation p + p {
   margin-top: 24px;
 }
+
+/* Immersive entrance: native scroll, one continuous passage into the product. */
+.immersive-root {
+  --camera-scale: 1;
+  --scene-opacity: 1;
+  --copy-opacity: 1;
+  --copy-shift: 0px;
+  --portal-x: 49%;
+  --portal-top: 44%;
+  --portal-bottom: 44%;
+  --portal-opacity: 0;
+  --app-opacity: 1;
+  position: relative;
+  isolation: isolate;
+  background: #090c0b;
+}
+.world-background {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(5, 10, 8, 0.94) 0%,
+      rgba(5, 10, 8, 0.8) 34%,
+      rgba(5, 10, 8, 0.2) 78%
+    ),
+    url('/images/seal-atmosphere.webp') center 48% / cover;
+  pointer-events: none;
+}
+.world-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  width: 100%;
+  height: 104px;
+  padding: 0 5.5%;
+  color: #f5f6f2;
+  background: linear-gradient(#080d0b80, transparent);
+}
+.world-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 13px;
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-decoration: none;
+}
+.brand-glyph {
+  font:
+    38px/1 Georgia,
+    serif;
+}
+.world-nav nav {
+  display: flex;
+  gap: 38px;
+  font-size: 13px;
+}
+.world-nav a {
+  padding: 10px 0;
+}
+.world-nav a:hover,
+.world-footer a:hover {
+  color: #b9d4c0;
+}
+.world-nav .nav-enter {
+  border: 1px solid #ffffff55;
+  padding: 10px 19px;
+  font-size: 12px;
+  border-radius: 3px;
+  background: #ffffff0a;
+}
+.nav-enter span {
+  margin-left: 24px;
+}
+.scroll-journey {
+  height: 260svh;
+  position: relative;
+}
+.journey-stage {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  overflow: hidden;
+  background: #090c0b;
+  color: #f5f6f2;
+}
+.mountain-scene {
+  position: absolute;
+  inset: 0;
+  background: url('/images/seal-mountain-passage.webp') center / cover;
+  transform: scale(var(--camera-scale));
+  transform-origin: 50% var(--gate-center, 52%);
+  opacity: var(--scene-opacity);
+  will-change: transform;
+}
+.scene-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #060c0ab3 0%, #060c0a55 31%, transparent 60%, #05090880 100%);
+  opacity: var(--copy-opacity);
+}
+.portal-world {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(5, 10, 8, 0.94) 0%,
+      rgba(5, 10, 8, 0.8) 34%,
+      rgba(5, 10, 8, 0.2) 78%
+    ),
+    url('/images/seal-atmosphere.webp') center 48% / cover;
+  clip-path: inset(var(--portal-top) var(--portal-x) var(--portal-bottom));
+  opacity: var(--portal-opacity);
+  will-change: clip-path;
+}
+.entrance-copy {
+  position: absolute;
+  top: 14%;
+  left: 0;
+  width: 100%;
+  padding: 0 24px;
+  text-align: center;
+  opacity: var(--copy-opacity);
+  transform: translateY(var(--copy-shift));
+}
+.entrance-copy[inert] {
+  visibility: hidden;
+}
+.scene-eyebrow {
+  font:
+    10px/1.8 'Courier New',
+    monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+}
+.entrance-copy h1 {
+  font:
+    400 clamp(42px, 5.4vw, 78px)/1.06 Arial,
+    Helvetica,
+    sans-serif;
+  letter-spacing: -0.065em;
+  margin: 22px auto 21px;
+}
+.entrance-copy h1 em {
+  font:
+    italic 400 1.05em/1.1 Georgia,
+    serif;
+  letter-spacing: -0.055em;
+}
+.entrance-description {
+  font-size: 14px;
+  line-height: 1.7;
+  color: #e1e6df;
+}
+.entrance-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  border: 1px solid #ffffff66;
+  background: #08120dc9;
+  border-radius: 3px;
+  margin-top: 24px;
+  padding: 12px 21px;
+  font-size: 12px;
+  color: #fff;
+  backdrop-filter: blur(12px);
+}
+.entrance-cta:hover {
+  background: #bdd7c5;
+  color: #142018;
+}
+.journey-caption {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  position: absolute;
+  left: 5.5%;
+  right: 5.5%;
+  bottom: 35px;
+  font:
+    10px/1.8 'Courier New',
+    monospace;
+  letter-spacing: 0.08em;
+  opacity: var(--copy-opacity);
+}
+.journey-caption a {
+  display: flex;
+  gap: 20px;
+  color: #fff;
+}
+.immersive-root[data-entered='true'] .journey-caption {
+  visibility: hidden;
+}
+.analysis-world {
+  position: relative;
+  margin-top: -100svh;
+  z-index: 2;
+  min-height: 100svh;
+  padding: 0 5.5% 80px;
+  opacity: var(--app-opacity);
+  scroll-margin-top: 0;
+}
+.analysis-world:focus {
+  outline: none;
+}
+.world-content {
+  max-width: 1160px;
+  margin: auto;
+  padding-top: 132px;
+}
+.workspace-edition {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 26px;
+  border-bottom: 1px solid #c3d3c033;
+  font:
+    10px/1.8 'Courier New',
+    monospace;
+  letter-spacing: 0.07em;
+  color: #c4cec5;
+}
+.workspace-intro {
+  padding: 88px 0 36px;
+  color: #f0f3ed;
+}
+.workspace-intro h2 {
+  font:
+    400 clamp(36px, 4.7vw, 66px)/1.08 Arial,
+    Helvetica,
+    sans-serif;
+  letter-spacing: -0.065em;
+  margin: 25px 0 29px;
+}
+.workspace-intro h2 span {
+  color: #f0f3ed;
+}
+.workspace-intro > p:last-child {
+  font:
+    13px/1.9 'Courier New',
+    monospace;
+  color: #c4cec5;
+}
+.analysis-world .analysis-workspace form {
+  max-width: 640px;
+  color: #f0f3ed;
+}
+.analysis-world .input-label {
+  font:
+    11px/1.7 'Courier New',
+    monospace;
+  margin-bottom: 13px;
+}
+.analysis-world .input-row input {
+  color: #fff;
+  background: #09100be8;
+  border-color: #78877c;
+  border-radius: 0;
+}
+.analysis-world .input-row input::placeholder {
+  color: #b0bab2;
+}
+.analysis-world .input-row button {
+  background: #c4dacb;
+  color: #12231a;
+  border-radius: 0;
+  font-size: 12px;
+  min-width: 158px;
+}
+.analysis-world .input-row button:hover {
+  background: #e1eee5;
+}
+.analysis-world .form-caption {
+  color: #c4cec5;
+  font-size: 11px;
+}
+.analysis-world .text-link {
+  color: #daebe0;
+}
+.analysis-world .validation-message {
+  border-color: #eee;
+}
+.analysis-world :focus-visible,
+.world-nav :focus-visible,
+.entrance-copy :focus-visible {
+  outline-color: #c4dacb;
+}
+.analysis-world .report,
+.analysis-world .loading-state,
+.analysis-world .error-state {
+  background: var(--background);
+  color: var(--foreground);
+  padding: 36px;
+  border: 1px solid var(--border);
+}
+.analysis-world .report :focus-visible {
+  outline-color: var(--ring);
+}
+.analysis-world .reading-notes {
+  background: var(--background);
+  color: var(--foreground);
+  margin-top: 100px;
+  padding: 38px;
+  border: 1px solid var(--border);
+}
+.analysis-world .method {
+  margin: 0;
+  border-top: none;
+  padding-top: 0;
+}
+.analysis-world .disclaimers {
+  margin-top: 42px;
+}
+.world-footer {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding: 28px 5.5%;
+  border-top: 1px solid #c3d3c033;
+  color: #c4cec5;
+  font:
+    11px/1.8 'Courier New',
+    monospace;
+  background: #070b09e8;
+}
+.world-footer .world-brand {
+  font:
+    16px Arial,
+    sans-serif;
+  letter-spacing: 0.15em;
+}
+@media (max-width: 800px) {
+  .world-nav {
+    height: 84px;
+    padding: 0 26px;
+  }
+  .world-nav nav {
+    gap: 22px;
+  }
+  .nav-enter span {
+    margin-left: 10px;
+  }
+  .entrance-copy {
+    top: 18%;
+  }
+  .analysis-world {
+    padding-left: 26px;
+    padding-right: 26px;
+  }
+  .workspace-intro {
+    padding-top: 65px;
+  }
+  .analysis-world .report,
+  .analysis-world .reading-notes {
+    padding: 26px;
+  }
+}
+@media (max-width: 540px) {
+  .world-nav {
+    padding: 0 22px;
+    gap: 12px;
+  }
+  .world-brand {
+    font-size: 16px;
+    gap: 8px;
+  }
+  .brand-glyph {
+    font-size: 29px;
+  }
+  .world-nav nav {
+    display: none;
+  }
+  .world-nav .nav-enter {
+    font-size: 11px;
+    padding: 9px 13px;
+  }
+  .scroll-journey {
+    height: 230svh;
+  }
+  .entrance-copy {
+    top: 19%;
+    padding: 0 16px;
+  }
+  .entrance-copy h1 {
+    font-size: 43px;
+    line-height: 1.08;
+  }
+  .entrance-description {
+    font-size: 12px;
+  }
+  .entrance-cta {
+    margin-top: 20px;
+  }
+  .journey-caption {
+    left: 22px;
+    right: 22px;
+    bottom: 25px;
+    font-size: 9px;
+  }
+  .journey-caption > span:last-child {
+    display: none;
+  }
+  .analysis-world {
+    padding: 0 22px 44px;
+  }
+  .world-content {
+    padding-top: 104px;
+  }
+  .workspace-edition {
+    font-size: 9px;
+    gap: 8px;
+  }
+  .workspace-intro {
+    padding-top: 66px;
+    padding-bottom: 32px;
+  }
+  .workspace-intro h2 {
+    font-size: 39px;
+  }
+  .workspace-intro > p:last-child {
+    font-size: 12px;
+  }
+  .world-background,
+  .portal-world {
+    background-image:
+      linear-gradient(90deg, #060c09ed, #060c09a6), url('/images/seal-atmosphere.webp');
+  }
+  .analysis-world .reading-notes {
+    margin-top: 62px;
+    padding: 24px 20px;
+  }
+  .analysis-world .report {
+    margin-left: -10px;
+    margin-right: -10px;
+    padding: 24px 18px;
+  }
+  .analysis-world .loading-state,
+  .analysis-world .error-state {
+    padding: 22px;
+  }
+  .world-footer {
+    flex-wrap: wrap;
+    padding: 26px 22px;
+    gap: 18px;
+  }
+  .world-footer p {
+    width: calc(100% - 80px);
+    font-size: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scroll-journey {
+    height: 100svh;
+  }
+  .journey-stage {
+    position: relative;
+  }
+  .mountain-scene {
+    transform: none;
+    opacity: 1;
+    will-change: auto;
+  }
+  .portal-world {
+    display: none;
+  }
+  .entrance-copy,
+  .journey-caption {
+    opacity: 1;
+    transform: none;
+  }
+  .analysis-world {
+    margin-top: 0;
+    opacity: 1;
+  }
+}
+
+.immersive-root[data-travelling='true'] .world-nav {
+  background: #080e0be8;
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid #c3d3c026;
+}
+.analysis-world .reading-notes {
+  --foreground: #eee;
+  --muted-foreground: #bcc5bc;
+  --border: #485248;
+  background: #090f0bed;
+  color: var(--foreground);
+}
+.immersive-root .skip-link {
+  z-index: 20;
+}

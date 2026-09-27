@@ -1,49 +1,15 @@
 import { AnalyzeForm } from './AnalyzeForm';
 import { Disclaimer } from './components/Disclaimer';
+import { ImmersiveEntrance } from './components/ImmersiveEntrance';
 
 // The environment label follows the deployment, including promoted builds.
 export const dynamic = 'force-dynamic';
 
 export default function Home() {
-  const environment = process.env.SEAL_ENV ?? 'development';
   return (
-    <div className="site-shell">
-      <a href="#analysis" className="skip-link">
-        Aller à l’analyse
-      </a>
-      <header className="masthead">
-        <a href="/" className="wordmark" aria-label="SEAL, accueil">
-          seal<span aria-hidden="true">.</span>
-        </a>
-        <span className="masthead-caption">Une lecture de la chaîne.</span>
-        <nav aria-label="Navigation principale">
-          <a href="#method">La méthode</a>
-          <a href="https://github.com/aliby00/seal">
-            Le projet <span aria-hidden="true">↗</span>
-          </a>
-        </nav>
-      </header>
-      <main id="analysis">
-        <div className="edition-line">
-          <span>Pons / Robinhood Chain</span>
-          {environment !== 'production' ? (
-            <span>Environnement : {environment}</span>
-          ) : (
-            <span>Analyse de tokens</span>
-          )}
-        </div>
-        <section className="hero" aria-labelledby="hero-title">
-          <p className="eyebrow">Les faits. Leur contexte.</p>
-          <h1 id="hero-title">
-            Derrière un token,
-            <br /> <em>une histoire à lire.</em>
-          </h1>
-          <p className="hero-description">
-            SEAL croise le créateur, les détenteurs et le marché pour expliquer ce que les signaux
-            racontent. Une analyse en prose, jamais une note.
-          </p>
-        </section>
-        <AnalyzeForm />
+    <ImmersiveEntrance environment={process.env.SEAL_ENV ?? 'development'}>
+      <AnalyzeForm />
+      <div className="reading-notes">
         <section id="method" className="method" aria-labelledby="method-title">
           <div className="section-heading">
             <span className="eyebrow">La méthode</span>
@@ -80,12 +46,7 @@ export default function Home() {
           </p>
         </section>
         <Disclaimer />
-      </main>
-      <footer className="site-footer">
-        <span className="footer-brand">seal.</span>
-        <p>Des données publiques. Une lecture qui s’explique.</p>
-        <a href="#analysis">Retour à l’analyse ↑</a>
-      </footer>
-    </div>
+      </div>
+    </ImmersiveEntrance>
   );
 }

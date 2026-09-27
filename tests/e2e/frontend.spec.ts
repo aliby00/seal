@@ -186,3 +186,56 @@ test('slow response is explained, reduced motion is respected, timeout allows re
   await page.getByRole('button', { name: 'Réessayer' }).click();
   await expect(page.getByRole('article')).toBeVisible();
 });
+
+test('mountain entrance advances with native scroll, reveals the app, and reverses', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await expect(
+    page.getByRole('heading', { name: 'Chaque token cache une autre histoire.' }),
+  ).toBeVisible();
+  await accessible(page);
+  const distance = await page
+    .locator('.scroll-journey')
+    .evaluate((element) => element.clientHeight - window.innerHeight);
+  await page.evaluate((y) => window.scrollTo(0, y), distance * 0.5);
+  await expect
+    .poll(() =>
+      page
+        .locator('.immersive-root')
+        .evaluate((element) =>
+          Number((element as HTMLElement).style.getPropertyValue('--camera-scale')),
+        ),
+    )
+    .toBeGreaterThan(3);
+  await page.evaluate((y) => window.scrollTo(0, y), distance + 10);
+  await expect(page.locator('.analysis-world')).toHaveCSS('opacity', '1');
+  await expect(page.getByLabel('L’adresse du token', { exact: true })).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect
+    .poll(() =>
+      page
+        .locator('.immersive-root')
+        .evaluate((element) =>
+          Number((element as HTMLElement).style.getPropertyValue('--camera-scale')),
+        ),
+    )
+    .toBe(1);
+  await page.getByRole('link', { name: 'Ouvrir SEAL' }).click();
+  await expect(page.locator('.analysis-world')).toHaveCSS('opacity', '1');
+});
+
+test('reduced motion keeps a static entrance and direct keyboard access to the analysis', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await expect(page.locator('.mountain-scene')).toHaveCSS('transform', 'none');
+  await expect(page.locator('.portal-world')).toBeHidden();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('link', { name: 'Aller à l’analyse' })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#analysis')).toBeFocused();
+  await expect(page.locator('.analysis-world')).toHaveCSS('opacity', '1');
+  await expect(page.getByLabel('L’adresse du token', { exact: true })).toBeVisible();
+});

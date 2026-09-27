@@ -1,0 +1,8 @@
+# SEAL — visual assets
+
+- `seal-atmosphere.webp`: image supplied by the user in the design revision, converted to lossless WebP. Used as the full background of the analysis scene. Source is the provided image, not a screenshot of another website.
+- `seal-mountain-passage.webp`: original landscape generated with the built-in image generation tool, then encoded as WebP (quality 90) for delivery. No external image host or runtime image-generation API is used.
+
+## Generation prompt
+
+Use case: stylized-concept. Asset type: ultra-wide immersive website opening background, landscape 1536x1024 or wider. Create a cinematic photoreal mountain pass for SEAL, an on-chain research website. Two monumental rugged dark basalt mountains flank the left and right edges, the viewer stands on a rocky ledge looking directly into a deep central chasm. A narrow vertical architectural opening made of faint pale mint light stands in the distant center at exactly 50% horizontal and 58% vertical, embedded between the cliffs, like a mysterious minimal glass doorway to another world. Layered mist and cloud flowing between peaks, dusk sky, charcoal black rock, desaturated forest and mineral green, silver mist. Majestic, premium art direction, intricate natural rock detail, subtle analog grain, tranquil and enigmatic. Wide-angle symmetrical composition with deep perspective leading into the central doorway, large quiet dark sky in the upper third for white website headline overlay. Door is small in the environment, about 10 percent of image width. No buildings, no people, no computer, no furniture, no text, no letters, no logos, no watermark. This is an original landscape, not a screenshot or interface. Save the generated asset and return its filesystem path.
