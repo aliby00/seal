@@ -20,7 +20,13 @@ import { log } from './logger';
 export type CollectOptions = {
   rpcUrl?: string;
   blockscoutApiKey?: string;
-  /** Plafond de requêtes externes pour une analyse, toutes sources confondues. */
+  /**
+   * Plafond de requêtes externes pour une analyse, toutes sources confondues.
+   *
+   * Mesuré : ~80 requêtes pour un créateur à 3 lancements sur 30 M blocs,
+   * signaux de comportement inclus. 150 laisse de la marge sans permettre
+   * qu'une seule analyse épuise un quota journalier.
+   */
   maxRequests?: number;
   lookbackBlocks?: number;
   now?: () => Date;
@@ -66,7 +72,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
   const address = token as Address;
   const now = options.now ?? (() => new Date());
   const collectedAt = now().toISOString();
-  const budget: RequestBudget = createBudget(options.maxRequests ?? 60);
+  const budget: RequestBudget = createBudget(options.maxRequests ?? 150);
   const rpc = createRpcClient(options.rpcUrl, budget);
 
   // La chaîne d'abord : elle donne le créateur, le pool et l'état de graduation,
@@ -102,6 +108,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
               abandoned: 0,
               undetermined: 0,
               liquidityPulled: 0,
+              creatorDumped: 0,
             },
             scannedRange: { fromBlock: 0, toBlock: 0 },
           }) as CreatorHistory,
@@ -113,7 +120,14 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
         {
           creator: '0x',
           tokens: [],
-          counts: { launched: 0, graduated: 0, abandoned: 0, undetermined: 0, liquidityPulled: 0 },
+          counts: {
+            launched: 0,
+            graduated: 0,
+            abandoned: 0,
+            undetermined: 0,
+            liquidityPulled: 0,
+            creatorDumped: 0,
+          },
           scannedRange: { fromBlock: 0, toBlock: 0 },
         },
       ) as CreatorHistory);

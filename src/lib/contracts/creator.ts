@@ -39,6 +39,8 @@ export type CreatorHistoryData = {
     /** Tokens dont le sort n'a pas pu être établi sur la fenêtre observée. */
     undetermined: number;
     liquidityPulled: number;
+    /** Tokens pour lesquels une vente du créateur vers le pool a été observée. */
+    creatorDumped: number;
   };
   /**
    * Fenêtre de blocs réellement scannée. Si elle ne remonte pas à la genèse,
