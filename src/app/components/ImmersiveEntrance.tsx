@@ -35,15 +35,19 @@ export function ImmersiveEntrance({
         ? 0
         : clamp(-section.getBoundingClientRect().top / cameraDistance);
       const easedCamera = camera * camera * (3 - 2 * camera);
-      element.style.setProperty('--camera-scale', String(1 + easedCamera * 2.6));
+      element.style.setProperty('--camera-scale', String(1 + easedCamera * 4.5));
       element.style.setProperty('--reading-shade', String(reduced.matches ? 0.65 : clamp(p / 0.7)));
       element.style.setProperty('--copy-opacity', String(1 - clamp(p / 0.3)));
       element.style.setProperty('--copy-shift', `${-clamp(p / 0.3) * 45}px`);
+      // Enter an opaque cloud bank, then emerge as the workspace arrives.
+      const enterCloud = clamp((p - 0.15) / 0.3);
+      const leaveCloud = clamp((p - 0.62) / 0.25);
+      const smooth = (value: number) => value * value * (3 - 2 * value);
       element.style.setProperty(
         '--mist-opacity',
-        String(Math.pow(Math.sin(clamp(p / 0.8) * Math.PI), 1.4) * 0.82),
+        String(smooth(enterCloud) * (1 - smooth(leaveCloud))),
       );
-      element.style.setProperty('--mist-scale', String(0.7 + easedCamera * 2.6));
+      element.style.setProperty('--mist-scale', String(0.8 + easedCamera * 4.2));
       element.style.setProperty('--mist-spread', `${easedCamera * 22}%`);
       element.style.setProperty('--mist-shift', `${(0.5 - camera) * 32}%`);
       element.dataset.entered = String(p > 0.92);
