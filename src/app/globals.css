@@ -763,6 +763,7 @@
 .valley-mist {
   position: absolute;
   inset: -25%;
+  background: url('/images/seal-cloud-volume.svg') center / cover;
   opacity: var(--mist-opacity);
   transform: translateY(var(--mist-shift)) scale(var(--mist-scale));
   transform-origin: 50% 58%;
@@ -779,6 +780,7 @@
     radial-gradient(ellipse at 62% 72%, #d0d7d8dd 0%, #a8bac199 20%, transparent 48%),
     radial-gradient(ellipse at 48% 40%, #becbcd99 0%, transparent 38%);
   filter: blur(18px);
+  opacity: 0.3;
   transform: translateX(calc(-1 * var(--mist-spread)));
 }
 .valley-mist::after {
