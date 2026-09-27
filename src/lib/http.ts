@@ -30,7 +30,7 @@ export class BudgetExhaustedError extends Error {
     readonly source: SourceName,
     readonly max: number,
   ) {
-    super(`${source} : budget de ${max} requêtes épuisé pour cette analyse`);
+    super(`${source} : request budget of ${max} exhausted for this analysis`);
     this.name = 'BudgetExhaustedError';
   }
 }
@@ -80,7 +80,7 @@ async function once(url: string, options: FetchOptions): Promise<Response> {
     if (error instanceof Error && error.name === 'AbortError') {
       throw new TimeoutError(source, timeoutMs);
     }
-    throw new UpstreamError(source, 'requête réseau échouée', undefined, error);
+    throw new UpstreamError(source, 'network request failed', undefined, error);
   } finally {
     clearTimeout(timer);
   }
@@ -107,7 +107,7 @@ export async function request(url: string, options: FetchOptions): Promise<Respo
         throw new RateLimitError(source, parseRetryAfter(response.headers.get('retry-after')));
       }
       if (response.status >= 500) {
-        throw new UpstreamError(source, `statut ${response.status}`, response.status);
+        throw new UpstreamError(source, `HTTP status ${response.status}`, response.status);
       }
       return response;
     } catch (error) {
@@ -128,6 +128,6 @@ export async function requestJson<T>(url: string, options: FetchOptions): Promis
   try {
     return (await response.json()) as T;
   } catch (error) {
-    throw new UpstreamError(options.source, 'réponse JSON illisible', response.status, error);
+    throw new UpstreamError(options.source, 'unreadable JSON response', response.status, error);
   }
 }

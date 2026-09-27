@@ -86,7 +86,7 @@ export async function explain(
   });
 
   if (text.length === 0) {
-    throw new UpstreamError('anthropic', `${provider.name} : réponse vide du modèle`);
+    throw new UpstreamError('anthropic', `${provider.name} : empty model response`);
   }
 
   return { text, cost, violations, offline: false, provider: provider.name };

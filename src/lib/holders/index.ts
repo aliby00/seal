@@ -111,7 +111,7 @@ export async function fetchHolderDistribution(
         {
           name: 'blockscout',
           fetchedAt,
-          note: 'aucune clé API — Blockscout renvoie 402 sans clé, même sur le tier gratuit',
+          note: 'no API key — Blockscout returns 402 without a key, including on the free tier',
         },
       ],
       data: emptyDistribution(token),
@@ -130,7 +130,7 @@ export async function fetchHolderDistribution(
       { source: 'blockscout', budget: options.budget },
     );
     if (!Array.isArray(page.items)) {
-      throw new IncompleteDataError('blockscout', 'champ `items` absent de la réponse');
+      throw new IncompleteDataError('blockscout', 'response missing the `items` field');
     }
     collected.push(...page.items);
     pages += 1;
@@ -150,9 +150,7 @@ export async function fetchHolderDistribution(
       {
         name: 'blockscout',
         fetchedAt,
-        ...(truncated
-          ? { note: `${maxPages} pages parcourues — détenteurs suivants non couverts` }
-          : {}),
+        ...(truncated ? { note: `${maxPages} pages read — remaining holders not covered` } : {}),
       },
     ],
     data,

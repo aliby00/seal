@@ -26,8 +26,8 @@ export class LogQueryTooBroadError extends Error {
   constructor(readonly reason: 'too-many-results' | 'timeout') {
     super(
       reason === 'too-many-results'
-        ? 'eth_getLogs : plus de résultats que la limite du nœud'
-        : 'eth_getLogs : la requête a expiré côté nœud',
+        ? 'eth_getLogs : results exceed the node limit'
+        : 'eth_getLogs : request timed out at the node',
     );
     this.name = 'LogQueryTooBroadError';
   }
@@ -70,7 +70,7 @@ export function createRpcClient(url: string = DEFAULT_RPC_URL, budget?: RequestB
       }
 
       if (body.result === undefined) {
-        throw new UpstreamError('robinhood-rpc', `${method} : réponse sans résultat`);
+        throw new UpstreamError('robinhood-rpc', `${method} : response without a result`);
       }
       return body.result;
     },

@@ -41,7 +41,7 @@ function failed<T>(
       ? `${error.kind} : ${error.message}`
       : error instanceof Error
         ? error.message
-        : 'échec inconnu';
+        : 'unknown failure';
   log.warn('source indisponible', { source: name, note });
   return { completeness: 'unavailable', sources: [{ name, fetchedAt, note }], data };
 }
@@ -60,7 +60,7 @@ async function settled<T>(promise: Promise<T>, fallback: (error: unknown) => T):
  */
 export async function collect(token: string, options: CollectOptions = {}): Promise<TokenReport> {
   if (!isAddress(token)) {
-    throw new NotFoundError('robinhood-rpc', `adresse invalide : ${token}`);
+    throw new NotFoundError('robinhood-rpc', `invalid address: ${token}`);
   }
 
   const address = token as Address;
@@ -103,7 +103,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     : (failed(
         'robinhood-rpc',
         collectedAt,
-        new Error('lancement introuvable sur la fenêtre observée'),
+        new Error('launch not found within the observed range'),
         {
           creator: '0x',
           tokens: [],

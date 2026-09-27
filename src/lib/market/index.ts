@@ -72,7 +72,7 @@ export function toMarketState(
         {
           name: 'dexscreener',
           fetchedAt,
-          note: 'aucune paire indexée — token probablement trop récent',
+          note: 'no indexed pair — the token may be too recent',
         },
       ],
       data: {
@@ -119,7 +119,7 @@ export function toMarketState(
       {
         name: 'dexscreener',
         fetchedAt,
-        ...(complete ? {} : { note: 'prix ou liquidité absents de la réponse' }),
+        ...(complete ? {} : { note: 'price or liquidity missing from the response' }),
       },
     ],
     data,
@@ -139,7 +139,7 @@ export async function fetchMarketState(
 
   if (body === null) throw new NotFoundError('dexscreener', `token ${token}`);
   if (!Array.isArray(body)) {
-    throw new UpstreamError('dexscreener', 'réponse inattendue : tableau attendu');
+    throw new UpstreamError('dexscreener', 'unexpected response: expected an array');
   }
 
   return toMarketState(token, body as DexScreenerPair[], options);
