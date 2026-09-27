@@ -39,39 +39,6 @@ export function ImmersiveEntrance({
         '--app-opacity',
         String(reduced.matches ? 1 : clamp((p - 0.7) / 0.3)),
       );
-      const chapters = Array.from(element.querySelectorAll<HTMLElement>('[data-weather]'));
-      let night = 0,
-        day = 0,
-        rain = 0;
-      chapters.forEach((chapter, index) => {
-        const rect = chapter.getBoundingClientRect();
-        const progress = clamp((window.innerHeight * 0.8 - rect.top) / (window.innerHeight * 0.65));
-        if (index === 0) night = progress;
-        if (index === 1) day = progress;
-        if (index === 2) rain = progress;
-        const travel = reduced.matches
-          ? 0.35
-          : clamp((window.innerHeight - rect.top) / (window.innerHeight + rect.height));
-        chapter.style.setProperty('--tech-turn', `${travel * 180}deg`);
-        chapter.style.setProperty('--tech-shift', `${travel * 45}px`);
-        for (let ring = 0; ring < 3; ring++) {
-          chapter.style.setProperty(
-            `--orbit-${ring}`,
-            String(Math.max(0.08, Math.abs(Math.cos(travel * Math.PI + (ring * Math.PI) / 3)))),
-          );
-        }
-      });
-      element.style.setProperty('--weather-night', String(night * (1 - day)));
-      element.style.setProperty('--weather-day', String(day * (1 - rain)));
-      element.style.setProperty('--weather-rain', String(rain));
-      element.style.setProperty(
-        '--weather-drift',
-        `${reduced.matches ? 0 : window.scrollY * 0.035}px`,
-      );
-      element.style.setProperty(
-        '--rain-travel',
-        `${reduced.matches ? 0 : window.scrollY * 0.45}px`,
-      );
       element.dataset.entered = String(p > 0.92);
       element.dataset.travelling = String(window.scrollY > 50);
       if (copy.current) copy.current.inert = !reduced.matches && p > 0.25;
@@ -81,7 +48,6 @@ export function ImmersiveEntrance({
     }
     const resize = new ResizeObserver(schedule);
     resize.observe(section);
-    resize.observe(element);
     window.addEventListener('scroll', schedule, { passive: true });
     window.addEventListener('resize', schedule);
     reduced.addEventListener('change', schedule);
@@ -128,19 +94,7 @@ export function ImmersiveEntrance({
       <a href="#analysis" className="skip-link">
         Skip to analysis
       </a>
-      <div className="world-background" aria-hidden="true">
-        <div className="weather-night" />
-        <div className="weather-day" />
-        <div className="weather-rain" />
-        <div className="weather-clouds" />
-        <div className="rain-streaks" />
-      </div>
-      <nav className="corner-navigation" aria-label="Quick navigation">
-        <a href="#entrance" aria-label="Back to top">
-          ↑
-        </a>
-        <a href="#analysis">Analyze ↗</a>
-      </nav>
+      <div className="world-background" aria-hidden="true" />
       <header className="world-nav">
         <a href="#entrance" className="world-brand" aria-label="SEAL, home">
           <span className="brand-glyph" aria-hidden="true">
