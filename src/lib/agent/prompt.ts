@@ -43,8 +43,14 @@ export function renderReport(report: TokenReport): string {
   const c = report.creator.data;
   lines.push(`Créateur : ${c.creator}`);
   lines.push(
-    `Tokens lancés sur la fenêtre observée : ${c.counts.launched} — dont ${c.counts.graduated} gradués, ${c.counts.abandoned} abandonnés.`,
+    `Tokens lancés sur la fenêtre observée : ${c.counts.launched} — dont ${c.counts.graduated} gradués, ` +
+      `${c.counts.abandoned} abandonnés, ${c.counts.undetermined} au sort indéterminable sur cette fenêtre.`,
   );
+  if (c.counts.undetermined > 0) {
+    lines.push(
+      "Un sort « indéterminable » signifie que la fenêtre scannée est plus courte que le délai au-delà duquel on parlerait d'abandon. Ne le présente pas comme une activité constatée.",
+    );
+  }
   for (const token of c.tokens.slice(0, 10)) {
     lines.push(
       `- ${token.address} : ${token.outcome}, progression ${(token.graduationProgress * 100).toFixed(2)} %` +
@@ -60,6 +66,7 @@ export function renderReport(report: TokenReport): string {
   }
   const h = report.holders.data;
   lines.push(`Part du premier détenteur : ${(h.concentration.top1 * 100).toFixed(2)} %`);
+  lines.push("(Ces parts portent sur les détenteurs récupérés, pas sur l'offre totale du token.)");
   lines.push(`Part cumulée du top 10 : ${(h.concentration.top10 * 100).toFixed(2)} %`);
   lines.push('(Le pool de liquidité et les adresses de burn sont exclus de ces parts.)');
   lines.push('');

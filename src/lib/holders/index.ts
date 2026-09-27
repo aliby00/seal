@@ -80,7 +80,7 @@ export function computeDistribution(
 
   return {
     token,
-    totalSupply: circulating.toString(),
+    countedSupply: circulating.toString(),
     holderCount: null,
     top: holders.slice(0, topN),
     concentration: {
@@ -160,7 +160,7 @@ export async function fetchHolderDistribution(
 function emptyDistribution(token: string): HolderDistributionData {
   return {
     token,
-    totalSupply: '0',
+    countedSupply: '0',
     holderCount: null,
     top: [],
     concentration: { top1: 0, top10: 0 },

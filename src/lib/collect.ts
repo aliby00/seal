@@ -96,7 +96,13 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
           failed('robinhood-rpc', collectedAt, error, {
             creator: launch.deployer,
             tokens: [],
-            counts: { launched: 0, graduated: 0, abandoned: 0, liquidityPulled: 0 },
+            counts: {
+              launched: 0,
+              graduated: 0,
+              abandoned: 0,
+              undetermined: 0,
+              liquidityPulled: 0,
+            },
             scannedRange: { fromBlock: 0, toBlock: 0 },
           }) as CreatorHistory,
       )
@@ -107,7 +113,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
         {
           creator: '0x',
           tokens: [],
-          counts: { launched: 0, graduated: 0, abandoned: 0, liquidityPulled: 0 },
+          counts: { launched: 0, graduated: 0, abandoned: 0, undetermined: 0, liquidityPulled: 0 },
           scannedRange: { fromBlock: 0, toBlock: 0 },
         },
       ) as CreatorHistory);
@@ -138,7 +144,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
       (error) =>
         failed('blockscout', collectedAt, error, {
           token: address,
-          totalSupply: '0',
+          countedSupply: '0',
           holderCount: null,
           top: [],
           concentration: { top1: 0, top10: 0 },

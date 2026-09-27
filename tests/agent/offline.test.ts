@@ -15,7 +15,7 @@ function report(overrides: Partial<TokenReport> = {}): TokenReport {
       data: {
         creator: '0xE062',
         tokens: [],
-        counts: { launched: 3, graduated: 2, abandoned: 1, liquidityPulled: 0 },
+        counts: { launched: 3, graduated: 2, abandoned: 1, undetermined: 0, liquidityPulled: 0 },
         scannedRange: { fromBlock: 66_000_000, toBlock: 71_000_000 },
       },
     },
@@ -24,7 +24,7 @@ function report(overrides: Partial<TokenReport> = {}): TokenReport {
       sources: [{ name: 'blockscout', fetchedAt: 'x', note: 'aucune clé API' }],
       data: {
         token: '0x494d',
-        totalSupply: '0',
+        countedSupply: '0',
         holderCount: null,
         top: [],
         concentration: { top1: 0, top10: 0 },

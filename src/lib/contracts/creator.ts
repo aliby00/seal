@@ -2,12 +2,18 @@ import type { Sourced } from './completeness';
 
 /** Ce qu'est devenu un token après son lancement. */
 export type TokenOutcome =
-  /** Le seuil de 4,2 ETH a été atteint. Ne dit rien de la qualité. */
+  /** Le seuil de graduation a été atteint. Ne dit rien de la qualité. */
   | 'graduated'
-  /** Encore sous le seuil, activité récente. */
+  /** Sous le seuil, lancé assez récemment pour qu'on ne puisse pas parler d'abandon. */
   | 'active'
-  /** Sous le seuil, plus d'activité depuis longtemps. */
-  | 'abandoned';
+  /** Sous le seuil, et inactif depuis assez longtemps pour le dire. */
+  | 'abandoned'
+  /**
+   * La fenêtre observée est trop courte pour trancher entre `active` et
+   * `abandoned`. Dire « actif » par défaut serait une affirmation qu'on ne
+   * peut pas soutenir.
+   */
+  | 'undetermined';
 
 export type LaunchedToken = {
   address: string;
@@ -30,6 +36,8 @@ export type CreatorHistoryData = {
     launched: number;
     graduated: number;
     abandoned: number;
+    /** Tokens dont le sort n'a pas pu être établi sur la fenêtre observée. */
+    undetermined: number;
     liquidityPulled: number;
   };
   /**
