@@ -1,12 +1,7 @@
 import type { Address } from 'viem';
 import type { CreatorHistory, LaunchedToken, TokenOutcome } from '../contracts';
 import type { RequestBudget } from '../http';
-import {
-  discoverActiveFactories,
-  decodeTokenLaunched,
-  TOKEN_LAUNCHED_TOPIC,
-  type TokenLaunch,
-} from './factory';
+import { decodeTokenLaunched, TOKEN_LAUNCHED_TOPIC, type TokenLaunch } from './factory';
 import { getLogsChunked } from './logs';
 import { fetchGraduationStatus, type GraduationStatus } from './graduation';
 import { createRpcClient, DEFAULT_RPC_URL, type RpcClient } from './rpc';
@@ -19,12 +14,26 @@ export * from './graduation';
 /** Sans activité depuis ~30 jours et sous le seuil : on parle d'abandon. */
 export const ABANDON_AFTER_BLOCKS = 26_000_000;
 
+/**
+ * Détermine le sort d'un token.
+ *
+ * `observedBlocks` est la profondeur réellement scannée. Si elle est plus
+ * courte que le seuil d'abandon, aucun token trouvé ne peut être assez vieux
+ * pour être qualifié d'abandonné — et répondre « actif » serait affirmer
+ * quelque chose qu'on n'a pas observé. On répond alors `undetermined`.
+ *
+ * C'était un bug réel : avec une fenêtre de 5 M blocs (5,8 jours) et un seuil
+ * à 26 M (30 jours), la branche `abandoned` était mathématiquement morte et
+ * tout ressortait « actif ».
+ */
 export function classifyOutcome(
   status: GraduationStatus | null,
   blocksSinceLaunch: number,
+  observedBlocks = Number.POSITIVE_INFINITY,
 ): TokenOutcome {
   if (status?.graduated) return 'graduated';
   if (blocksSinceLaunch > ABANDON_AFTER_BLOCKS) return 'abandoned';
+  if (observedBlocks < ABANDON_AFTER_BLOCKS) return 'undetermined';
   return 'active';
 }
 
@@ -76,8 +85,11 @@ export async function fetchCreatorHistory(
   const latest = Number(latestHex);
 
   // L'adresse du factory se découvre, elle ne se copie pas d'une documentation.
-  // La découverte confirme que le launchpad est bien actif sur la fenêtre observée.
-  await discoverActiveFactories(rpc, latest, lookback);
+  // Note : `discoverActiveFactories` n'est pas appelée ici. Le factory qui a
+  // émis chaque log est porté par le log lui-même, et c'est forcément celui
+  // qui connaît le token. La découverte reste exportée pour l'énumération des
+  // générations de factory (#13) — l'appeler ici coûtait un eth_getLogs
+  // chunké sur toute la fenêtre pour un résultat qu'on jetait.
 
   const { logs, truncated, scanned } = await getLogsChunked(
     rpc,
@@ -97,7 +109,7 @@ export async function fetchCreatorHistory(
       pool: launch.pool,
       launchedAtBlock: launch.blockNumber,
       launchedAt: null,
-      outcome: classifyOutcome(status, latest - launch.blockNumber),
+      outcome: classifyOutcome(status, latest - launch.blockNumber, lookback),
       graduationProgress: status?.progress ?? 0,
       // Indéterminables sans analyse des transferts : `feat/creator-history`.
       liquidityPulled: null,
@@ -109,6 +121,7 @@ export async function fetchCreatorHistory(
     launched: tokens.length,
     graduated: tokens.filter((t) => t.outcome === 'graduated').length,
     abandoned: tokens.filter((t) => t.outcome === 'abandoned').length,
+    undetermined: tokens.filter((t) => t.outcome === 'undetermined').length,
     liquidityPulled: tokens.filter((t) => t.liquidityPulled === true).length,
   };
 

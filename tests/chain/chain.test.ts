@@ -236,3 +236,31 @@ describe('constantes', () => {
     expect(ROBINHOOD_CHAIN_ID).toBe(4663);
   });
 });
+
+describe('classifyOutcome et la fenêtre observée', () => {
+  const young = toGraduationStatus(1n, 4_200_000_000_000_000_000n, false);
+
+  // Le bug corrigé : avec une fenêtre de 5 M blocs (5,8 jours) et un seuil
+  // d'abandon à 26 M (30 jours), aucun token trouvé ne pouvait être assez
+  // vieux. La branche `abandoned` était morte et tout ressortait « actif ».
+  it('refuse de dire « actif » quand la fenêtre est trop courte pour trancher', () => {
+    expect(classifyOutcome(young, 1_000, 5_000_000)).toBe('undetermined');
+  });
+
+  it('dit « actif » quand la fenêtre permet réellement de le constater', () => {
+    expect(classifyOutcome(young, 1_000, 40_000_000)).toBe('active');
+  });
+
+  it('dit « abandonné » au-delà du seuil, si la fenêtre le couvre', () => {
+    expect(classifyOutcome(young, 30_000_000, 40_000_000)).toBe('abandoned');
+  });
+
+  it('gradué prime, quelle que soit la fenêtre', () => {
+    const graduated = toGraduationStatus(5n, 4n, true);
+    expect(classifyOutcome(graduated, 1_000, 1_000)).toBe('graduated');
+  });
+
+  it('sans fenêtre précisée, ne bride pas la classification', () => {
+    expect(classifyOutcome(young, 1_000)).toBe('active');
+  });
+});
