@@ -11,6 +11,7 @@ import {
   type RawLog,
   type RpcClient,
 } from '../../src/lib/chain';
+import { RateLimitError } from '../../src/lib/errors';
 
 describe('classifyLogError — les trois refus du nœud', () => {
   it('reconnaît le dépassement de limite', () => {
@@ -268,5 +269,63 @@ describe('classifyOutcome et la fenêtre observée', () => {
 
   it('sans fenêtre précisée, ne bride pas la classification', () => {
     expect(classifyOutcome(young, 1_000)).toBe('active');
+  });
+});
+
+describe('getLogsChunked face à un rate limit', () => {
+  // Perdre tout ce qui a été collecté parce que le nœud coupe en route est
+  // pire que rendre une fenêtre courte : l'appelant marque la vue tronquée et
+  // l'agent le dit. C'est le comportement observé en production, où l'IP de
+  // Vercel est coupée après une poignée de requêtes.
+  it('garde ce qui a été collecté et signale la troncature', async () => {
+    let calls = 0;
+    const rpc: RpcClient = {
+      async callBatch(): Promise<never> {
+        throw new Error('non utilisé');
+      },
+      async call<T>(_method: string, params: unknown[]): Promise<T> {
+        calls += 1;
+        if (calls > 2) throw new RateLimitError('robinhood-rpc');
+        const filter = (params as [{ fromBlock: string; toBlock: string }])[0];
+        const block = Number(filter.toBlock);
+        return [
+          {
+            address: '0xf4fc',
+            topics: ['0xtopic'],
+            data: '0x',
+            blockNumber: `0x${block.toString(16)}`,
+            transactionHash: `0x${block}`,
+            logIndex: '0x0',
+          },
+        ] as unknown as T;
+      },
+    };
+
+    const result = await getLogsChunked(
+      rpc,
+      { topics: [] },
+      {
+        fromBlock: 0,
+        toBlock: 1_000_000,
+        initialSpan: 100_000,
+      },
+    );
+
+    expect(result.logs.length).toBeGreaterThan(0);
+    expect(result.truncated).toBe(true);
+  });
+
+  it("laisse remonter une erreur qui n'est ni un refus ni un rate limit", async () => {
+    const rpc: RpcClient = {
+      async callBatch(): Promise<never> {
+        throw new Error('non utilisé');
+      },
+      async call(): Promise<never> {
+        throw new Error('panne réseau');
+      },
+    };
+    await expect(
+      getLogsChunked(rpc, { topics: [] }, { fromBlock: 0, toBlock: 10 }),
+    ).rejects.toThrow(/panne réseau/);
   });
 });
