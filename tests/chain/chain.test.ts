@@ -329,3 +329,70 @@ describe('getLogsChunked face à un rate limit', () => {
     ).rejects.toThrow(/panne réseau/);
   });
 });
+
+describe('classifyLogError reads the span the node allows', () => {
+  // Real message captured from Robinhood Chain on 2026-10-02.
+  const REAL =
+    'query spans 859987 blocks (77681607 to 78541593), but only 30000 are allowed ' +
+    'for this request; narrow the block range, or add an address filter';
+
+  it('extracts the maximum span instead of guessing', () => {
+    const error = classifyLogError(REAL);
+    expect(error?.reason).toBe('range-too-wide');
+    expect(error?.maxSpan).toBe(30_000);
+  });
+
+  it('handles the address-filtered variant too', () => {
+    const error = classifyLogError(
+      'query spans 25999984 blocks (52541910 to 78541893), but only 10000000 are allowed',
+    );
+    expect(error?.maxSpan).toBe(10_000_000);
+  });
+
+  it('still recognises a range error with no number given', () => {
+    expect(classifyLogError('narrow the block range')?.reason).toBe('range-too-wide');
+  });
+
+  it('does not confuse it with the result-count limit', () => {
+    expect(classifyLogError('logs matched by query exceeds limit of 10000')?.reason).toBe(
+      'too-many-results',
+    );
+  });
+});
+
+describe('getLogsChunked uses the announced span', () => {
+  // Without this, a 500k start against a 30k ceiling burns five refused requests
+  // before the first accepted one — and the RPC cuts the caller off after ~nine.
+  it('jumps straight to the allowed span rather than halving', async () => {
+    const spans: number[] = [];
+    const rpc: RpcClient = {
+      async callBatch(): Promise<never> {
+        throw new Error('unused');
+      },
+      async call<T>(_method: string, params: unknown[]): Promise<T> {
+        const filter = (params as [{ fromBlock: string; toBlock: string }])[0];
+        const span = Number(filter.toBlock) - Number(filter.fromBlock) + 1;
+        spans.push(span);
+        if (span > 30_000) {
+          throw classifyLogError(`query spans ${span} blocks, but only 30000 are allowed`);
+        }
+        return [] as unknown as T;
+      },
+    };
+
+    await getLogsChunked(
+      rpc,
+      { topics: [] },
+      {
+        fromBlock: 0,
+        toBlock: 200_000,
+        initialSpan: 500_000,
+      },
+    );
+
+    // One refused attempt, then straight to the stated ceiling.
+    expect(spans[0]).toBeGreaterThan(30_000);
+    expect(spans[1]).toBeLessThanOrEqual(30_000);
+    expect(spans.filter((s) => s > 30_000)).toHaveLength(1);
+  });
+});
