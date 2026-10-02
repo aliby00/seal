@@ -45,7 +45,16 @@ export type GetLogsResult = {
   scanned: { fromBlock: number; toBlock: number };
 };
 
-const DEFAULT_INITIAL_SPAN = 500_000;
+/**
+ * Initial window size.
+ *
+ * Measured on Robinhood Chain: a query WITHOUT an address filter is capped at
+ * 30,000 blocks; with an address filter, at 10,000,000. Creator-history queries
+ * filter by topic, not by address, so the first cap applies. Starting at 500,000
+ * cost five refused requests before the first accepted one — on an RPC that cuts
+ * the caller off after a handful.
+ */
+const DEFAULT_INITIAL_SPAN = 30_000;
 const DEFAULT_MIN_SPAN = 1_000;
 const DEFAULT_MAX_LOGS = 5_000;
 
@@ -75,6 +84,9 @@ export async function getLogsChunked(
   const logs: RawLog[] = [];
   let cursor = toBlock;
   let span = initialSpan;
+  // Once the node states a ceiling, remember it: widening back past it would
+  // get refused again on the very next window, and the scan would oscillate.
+  let ceiling = Number.POSITIVE_INFINITY;
   let truncated = false;
   let lowestScanned = toBlock;
 
@@ -96,8 +108,8 @@ export async function getLogsChunked(
       }
 
       cursor = windowStart - 1;
-      // La fenêtre a tenu : on élargit prudemment plutôt que de rester timide.
-      span = Math.min(initialSpan, Math.floor(span * 1.5));
+      // The window held: widen cautiously, but never past a stated ceiling.
+      span = Math.min(initialSpan, ceiling, Math.floor(span * 1.5));
     } catch (error) {
       // Un rate limit ou un budget épuisé en cours de route ne doit pas faire
       // perdre ce qui a déjà été collecté. Une fenêtre courte mais réelle vaut
@@ -108,6 +120,17 @@ export async function getLogsChunked(
         break;
       }
       if (!(error instanceof LogQueryTooBroadError)) throw error;
+
+      // When the node states the span it accepts, jump straight to it instead
+      // of halving blindly.
+      if (error.maxSpan !== undefined && error.maxSpan > 0) {
+        ceiling = Math.min(ceiling, error.maxSpan);
+        const announced = Math.max(minSpan, ceiling);
+        if (announced < span) {
+          span = announced;
+          continue;
+        }
+      }
 
       if (span <= minSpan) {
         // Même la plus petite fenêtre est refusée : on s'arrête là et on le dit.

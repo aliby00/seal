@@ -55,6 +55,24 @@ Le brief supposait « 1000 résultats par appel ». **C'est faux.** Réponse exa
 - **Aucune limite de plage de blocs observée** ✅ — une requête `fromBlock: 0x0, toBlock: latest`
   est acceptée ; elle n'échoue pas sur l'étendue.
 
+**Deux plafonds de plage de blocs** (mesurés le 2 octobre 2026, resserrés depuis la
+première campagne) :
+
+```json
+{ "error": { "message": "query spans 859987 blocks (...), but only 30000 are allowed
+   for this request; narrow the block range, or add an address filter" } }
+```
+
+| Requête               | Plage maximale       |
+| --------------------- | -------------------- |
+| sans filtre d'adresse | **30 000 blocs**     |
+| avec filtre d'adresse | **10 000 000 blocs** |
+
+Les requêtes d'historique de créateur filtrent par _topic_ et non par adresse : c'est
+donc le plafond de 30 000 qui s'applique. Le nœud **annonce lui-même** la valeur dans
+son message — la lire évite de dichotomiser à l'aveugle, ce qui coûtait cinq requêtes
+refusées avant la première acceptée, sur un RPC qui coupe l'appelant après une poignée.
+
 **Un second mode d'échec existe**, observé lors d'une réexécution de la sonde : sur une
 requête couvrant toute la chaîne, le nœud peut répondre avant d'avoir compté les résultats :
 
