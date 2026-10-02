@@ -44,11 +44,17 @@ export const MAX_BATCH_SIZE = 20;
 
 /** Les trois façons dont `eth_getLogs` refuse de répondre. Mesurées, pas supposées. */
 export class LogQueryTooBroadError extends Error {
-  constructor(readonly reason: 'too-many-results' | 'timeout') {
+  constructor(
+    readonly reason: 'too-many-results' | 'timeout' | 'range-too-wide',
+    /** Maximum span the node accepts, when it states one in its message. */
+    readonly maxSpan?: number,
+  ) {
     super(
       reason === 'too-many-results'
         ? 'eth_getLogs : results exceed the node limit'
-        : 'eth_getLogs : request timed out at the node',
+        : reason === 'range-too-wide'
+          ? `eth_getLogs : block range too wide${maxSpan ? ` (max ${maxSpan} blocks)` : ''}`
+          : 'eth_getLogs : request timed out at the node',
     );
     this.name = 'LogQueryTooBroadError';
   }
@@ -61,6 +67,20 @@ export class LogQueryTooBroadError extends Error {
 export function classifyLogError(message: string): LogQueryTooBroadError | undefined {
   const lower = message.toLowerCase();
   if (lower.includes('exceeds limit')) return new LogQueryTooBroadError('too-many-results');
+
+  // The node states its own maximum in the message:
+  //   "query spans 859987 blocks (…), but only 30000 are allowed for this request"
+  // Reading it beats halving blindly — starting at 500k for a 30k ceiling burns
+  // five refused requests before the first accepted one, on an RPC that cuts the
+  // caller off after about nine.
+  const allowed = /only (\d+) (?:are|is) allowed/.exec(lower);
+  if (allowed?.[1]) {
+    return new LogQueryTooBroadError('range-too-wide', Number(allowed[1]));
+  }
+  if (lower.includes('block range') || lower.includes('narrow the block range')) {
+    return new LogQueryTooBroadError('range-too-wide');
+  }
+
   if (lower.includes('timed out') || lower.includes('timeout')) {
     return new LogQueryTooBroadError('timeout');
   }
