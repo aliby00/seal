@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="SEAL">
+<rect x="14" y="14" width="100" height="100" rx="14" fill="#b9d4c0"/>
+<rect x="25" y="25" width="78" height="78" rx="7" fill="none" stroke="#090c0b" stroke-width="4.5"/>
+<path d="M 78 48 A 13.5 13.5 0 1 0 64 62 A 13.5 13.5 0 1 1 50 76" fill="none" stroke="#090c0b" stroke-width="10" stroke-linecap="round"/>
+</svg>
