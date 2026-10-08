@@ -3,7 +3,9 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['.next/**', 'node_modules/**', 'next-env.d.ts'] },
+  // `brand/` est un projet Remotion autonome : il a son propre tsconfig,
+  // ses propres dépendances et sa propre commande de vérification.
+  { ignores: ['.next/**', 'node_modules/**', 'next-env.d.ts', 'brand/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

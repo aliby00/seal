@@ -57,3 +57,8 @@ pnpm-debug.log*
 # Browser tests: screenshots and reports remain local
 /playwright-report/
 /test-results/
+
+# --- Rendus de marque : sorties de build, on ne versionne que les sources ---
+brand/web/
+brand/video/stills/
+brand/**/*.mp4
