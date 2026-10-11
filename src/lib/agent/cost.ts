@@ -5,8 +5,10 @@
  * raisonnement doit être visible/loggable dès le MVP, pas ajouté après coup ».
  * Sans ça, l'arbitrage Sonnet 5 contre Haiku 4.5 resterait théorique.
  *
- * Tarifs relevés le 25/09/2026 sur platform.claude.com, en dollars par million
- * de tokens. Ils sont versionnés ici plutôt que devinés à l'exécution.
+ * Tarifs relevés le 25/09/2026 puis le 11/10/2026 sur platform.claude.com, en
+ * dollars par million de tokens. Ils sont versionnés ici plutôt que devinés à
+ * l'exécution. Haiku 5.5 est au tarif des prompts sous 100 000 tokens : une
+ * analyse SEAL en pèse ~7 000.
  */
 export type ModelPricing = {
   input: number;
@@ -16,6 +18,12 @@ export type ModelPricing = {
 };
 
 export const PRICING: Record<string, ModelPricing> = {
+  // Génération 5.5 — celle que le routage par palier utilise (voir models.ts).
+  'claude-fable-5-1': { input: 10, output: 50, cacheRead: 0.25, cacheWrite5m: 12.5 },
+  'claude-opus-5-5': { input: 4, output: 20, cacheRead: 0.2, cacheWrite5m: 5 },
+  'claude-sonnet-5-5': { input: 2, output: 10, cacheRead: 0.1, cacheWrite5m: 2.5 },
+  'claude-haiku-5-5': { input: 0.1, output: 0.5, cacheRead: 0.01, cacheWrite5m: 0.125 },
+
   'claude-opus-5': { input: 5, output: 25, cacheRead: 0.5, cacheWrite5m: 6.25 },
   'claude-sonnet-5': { input: 2, output: 10, cacheRead: 0.2, cacheWrite5m: 2.5 },
   'claude-haiku-4-5': { input: 1, output: 5, cacheRead: 0.1, cacheWrite5m: 1.25 },
