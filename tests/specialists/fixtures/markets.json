@@ -177,9 +177,9 @@
     "hook": "0x0000000000000000000000000000000000000000",
     "blockNumber": 86100773,
     "transactionHash": "0xa188a935d6eb5c102adbb230520cdb29df876bdc97aaff51076d8ed22d95d22f",
-    "token": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
-    "name": "WETH",
-    "symbol": "WETH"
+    "token": "0xd58387abfe21c72203cbed48e4409bbb34571326",
+    "name": "Rubricat",
+    "symbol": "RBCAT"
   },
   {
     "id": "0xa9722521b1d2a16b3a9259a63b9eed07f0977a24cafb7cd7fd3801e6ef0662f3",
@@ -216,8 +216,8 @@
     "hook": "0xe0ac4aabcaccbd716be0ac2f2c8f9fe4bb31ca80",
     "blockNumber": 86100854,
     "transactionHash": "0xcad615d6c35713909afbea78eb78a63644d832ef186459002878a9f1faad2c8b",
-    "token": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
-    "name": "WETH",
-    "symbol": "WETH"
+    "token": "0xd58387abfe21c72203cbed48e4409bbb34571326",
+    "name": "Rubricat",
+    "symbol": "RBCAT"
   }
 ]
