@@ -62,5 +62,5 @@ pnpm-debug.log*
 brand/web/
 brand/video/stills/
 brand/**/*.mp4
-brand/v2/video/out/
-brand/v2/video/stills2/
+brand/v3/video/out/
+brand/v3/video/stills/
