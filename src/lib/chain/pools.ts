@@ -1,0 +1,213 @@
+import { decodeEventLog, parseAbiItem, type Address } from 'viem';
+import { addressTopic } from './index';
+import { getLogsChunked, type GetLogsOptions, type RawLog } from './logs';
+import type { RpcClient } from './rpc';
+
+/**
+ * Les marchés Uniswap v4 de Robinhood Chain, lus à la source.
+ *
+ * Un marché v4 naît d'un `Initialize` émis par le PoolManager — il n'y a pas
+ * de contrat de pool, juste un identifiant. Le hook, c'est-à-dire le rulebook
+ * du marché, est dans ce même événement. D'où cet index : c'est lui qui permet
+ * de dire « ce rulebook porte déjà 28 marchés », ce qu'aucune lecture d'un
+ * marché isolé ne peut dire.
+ *
+ * Vérifié le 11/10/2026 : 174 `Initialize` sur les 30 000 derniers blocs
+ * (~50 minutes), code présent à l'adresse, signature recalculée par keccak.
+ */
+export const POOL_MANAGER: Address = '0x8366a39cc670b4001a1121b8f6a443a643e40951';
+
+export const INITIALIZE = parseAbiItem(
+  'event Initialize(bytes32 indexed id, address indexed currency0, address indexed currency1, uint24 fee, int24 tickSpacing, address hooks, uint160 sqrtPriceX96, int24 tick)',
+);
+
+export const INITIALIZE_TOPIC =
+  '0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438';
+
+/** La monnaie native s'écrit 0x0 en v4. */
+export const NATIVE = '0x0000000000000000000000000000000000000000';
+
+/**
+ * WETH de Robinhood Chain. Relevé le 11/10/2026 : 10 marchés sur 167 cotés
+ * contre cette adresse, dont le `symbol()` répond WETH. Sans elle, ces
+ * marchés étaient indexés comme si leur token était… WETH.
+ */
+export const WETH = '0x0bd7d308f8e1639fab988df18a8011f41eacad73';
+
+export const QUOTE_CURRENCIES: readonly string[] = [NATIVE, WETH];
+
+export type V4Market = {
+  id: string;
+  currency0: string;
+  currency1: string;
+  fee: number;
+  tickSpacing: number;
+  hook: string;
+  blockNumber: number;
+  transactionHash: string;
+};
+
+export function decodeInitialize(log: RawLog): V4Market {
+  const decoded = decodeEventLog({
+    abi: [INITIALIZE],
+    data: log.data as `0x${string}`,
+    topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+  });
+  const a = decoded.args as unknown as {
+    id: string;
+    currency0: string;
+    currency1: string;
+    fee: number;
+    tickSpacing: number;
+    hooks: string;
+  };
+  return {
+    id: a.id.toLowerCase(),
+    currency0: a.currency0.toLowerCase(),
+    currency1: a.currency1.toLowerCase(),
+    fee: Number(a.fee),
+    tickSpacing: Number(a.tickSpacing),
+    hook: a.hooks.toLowerCase(),
+    blockNumber: Number(log.blockNumber),
+    transactionHash: log.transactionHash,
+  };
+}
+
+/** Tous les marchés créés sur une fenêtre. Sans filtre d'adresse de token : plafond à 30 000 blocs par requête. */
+export async function scanMarkets(
+  rpc: RpcClient,
+  range: Pick<GetLogsOptions, 'fromBlock' | 'toBlock'> & Partial<GetLogsOptions>,
+): Promise<{
+  markets: V4Market[];
+  truncated: boolean;
+  scanned: { fromBlock: number; toBlock: number };
+}> {
+  const { logs, truncated, scanned } = await getLogsChunked(
+    rpc,
+    { address: POOL_MANAGER, topics: [INITIALIZE_TOPIC] },
+    range,
+  );
+  return { markets: logs.map(decodeInitialize), truncated, scanned };
+}
+
+/**
+ * Les marchés d'un token donné. Le token peut être `currency0` ou `currency1` :
+ * deux requêtes, parce qu'un filtre de topics ne sait pas exprimer « l'un ou
+ * l'autre » entre deux positions.
+ */
+export async function findMarketsOf(
+  rpc: RpcClient,
+  token: string,
+  range: Pick<GetLogsOptions, 'fromBlock' | 'toBlock'>,
+): Promise<V4Market[]> {
+  const topic = addressTopic(token);
+  // Filtré par adresse, le nœud accepte des fenêtres bien plus larges.
+  const options = { ...range, initialSpan: 10_000_000, maxLogs: 50 };
+  const [as0, as1] = await Promise.all([
+    getLogsChunked(
+      rpc,
+      { address: POOL_MANAGER, topics: [INITIALIZE_TOPIC, null, topic] },
+      options,
+    ),
+    getLogsChunked(
+      rpc,
+      { address: POOL_MANAGER, topics: [INITIALIZE_TOPIC, null, null, topic] },
+      options,
+    ),
+  ]);
+  return [...as0.logs, ...as1.logs]
+    .map(decodeInitialize)
+    .sort((a, b) => a.blockNumber - b.blockNumber);
+}
+
+/** Le côté « token » d'un marché : celui qui n'est pas la monnaie de cotation. */
+export function tokenSide(market: V4Market, quote: readonly string[] = QUOTE_CURRENCIES): string {
+  const quotes = new Set(quote.map((q) => q.toLowerCase()));
+  if (quotes.has(market.currency0) && !quotes.has(market.currency1)) return market.currency1;
+  return market.currency0 === NATIVE ? market.currency1 : market.currency0;
+}
+
+/**
+ * Ce qui est arrivé à un marché ensuite. `harmed` = la liquidité a été retirée
+ * ou le créateur a vendu son allocation — des faits, observés après coup. C'est
+ * ce qui permet de rejouer un agent sur le passé et de compter ce qu'il aurait
+ * vu venir.
+ */
+export type MarketOutcome = 'harmed' | 'unharmed' | 'unknown';
+
+export type IndexedMarket = V4Market & {
+  token: string;
+  name?: string | null;
+  symbol?: string | null;
+  outcome?: MarketOutcome;
+};
+
+/**
+ * Index inter-marchés, en mémoire et sérialisable.
+ *
+ * Pas de base de données : l'index se reconstruit depuis la chaîne, qui reste
+ * la seule source de vérité. Le JSON produit par `toJSON` sert de cache entre
+ * deux exécutions, pas de référence.
+ */
+export class MarketIndex {
+  private readonly byId = new Map<string, IndexedMarket>();
+  private readonly byHook = new Map<string, Set<string>>();
+  private readonly byToken = new Map<string, Set<string>>();
+
+  constructor(markets: readonly IndexedMarket[] = []) {
+    for (const market of markets) this.add(market);
+  }
+
+  add(market: IndexedMarket): void {
+    if (this.byId.has(market.id)) return;
+    this.byId.set(market.id, market);
+    const push = (map: Map<string, Set<string>>, key: string) => {
+      const set = map.get(key) ?? new Set<string>();
+      set.add(market.id);
+      map.set(key, set);
+    };
+    push(this.byHook, market.hook);
+    push(this.byToken, market.token);
+  }
+
+  get size(): number {
+    return this.byId.size;
+  }
+
+  all(): IndexedMarket[] {
+    return [...this.byId.values()].sort((a, b) => a.blockNumber - b.blockNumber);
+  }
+
+  get(id: string): IndexedMarket | undefined {
+    return this.byId.get(id.toLowerCase());
+  }
+
+  onHook(hook: string): IndexedMarket[] {
+    return [...(this.byHook.get(hook.toLowerCase()) ?? [])]
+      .map((id) => this.byId.get(id))
+      .filter((m): m is IndexedMarket => m !== undefined);
+  }
+
+  ofToken(token: string): IndexedMarket[] {
+    return [...(this.byToken.get(token.toLowerCase()) ?? [])]
+      .map((id) => this.byId.get(id))
+      .filter((m): m is IndexedMarket => m !== undefined);
+  }
+
+  /** Les rulebooks les plus réutilisés. L'adresse nulle (pas de hook) est exclue : ce n'est pas un rulebook. */
+  topHooks(limit = 10): { hook: string; markets: number }[] {
+    return [...this.byHook.entries()]
+      .filter(([hook]) => hook !== NATIVE)
+      .map(([hook, ids]) => ({ hook, markets: ids.size }))
+      .sort((a, b) => b.markets - a.markets)
+      .slice(0, limit);
+  }
+
+  toJSON(): IndexedMarket[] {
+    return this.all();
+  }
+
+  static fromJSON(markets: readonly IndexedMarket[]): MarketIndex {
+    return new MarketIndex(markets);
+  }
+}
