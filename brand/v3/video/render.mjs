@@ -14,7 +14,7 @@ for (const id of ids) {
     codec: 'h264',
     crf: 20,
     pixelFormat: 'yuv420p',
-    outputLocation: `${'out'}/seal-${id.toLowerCase()}.mp4`,
+    outputLocation: `out/seal-${id.toLowerCase()}.mp4`,
     concurrency: 6,
   });
   console.log('ok', id, ((Date.now() - t0) / 1000).toFixed(0) + 's');
