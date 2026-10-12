@@ -189,31 +189,71 @@ test('slow response is explained, reduced motion is respected, timeout allows re
   await expect(page.getByRole('article')).toBeVisible();
 });
 
-test('scanner entrance: real permission masks on the belt, entry link reaches the app', async ({
+test('mountain entrance advances with native scroll, reveals the app, and reverses', async ({
   page,
 }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'See what a market carries.' })).toBeVisible();
-  await expect(page.locator('.scanner-arch .strip')).toHaveCount(14);
-  await expect(page.locator('.curtain-list li')).toHaveCount(14);
-  await expect(page.locator('.scanner-window .bag').first()).toBeAttached();
+  await expect(page.getByRole('heading', { name: 'Every token has another story.' })).toBeVisible();
   await accessible(page);
+  const distance = await page
+    .locator('.scroll-journey')
+    .evaluate((element) => element.clientHeight - window.innerHeight);
+  await page.evaluate((y) => window.scrollTo(0, y), distance * 0.5);
+  await expect(page.locator('.mountain-scene')).toHaveCount(1);
+  await expect(page.locator('.world-background > .mountain-scene')).toHaveCount(1);
+  await expect(page.locator('.analysis-world')).toHaveCSS('opacity', '1');
+  await expect
+    .poll(() =>
+      page
+        .locator('.immersive-root')
+        .evaluate((element) =>
+          Number((element as HTMLElement).style.getPropertyValue('--camera-scale')),
+        ),
+    )
+    .toBeGreaterThan(1.1);
+  const scaleBeforeHandoff = await page
+    .locator('.immersive-root')
+    .evaluate((element) =>
+      Number((element as HTMLElement).style.getPropertyValue('--camera-scale')),
+    );
+  await page.evaluate((y) => window.scrollTo(0, y), distance + 10);
+  await expect
+    .poll(() =>
+      page
+        .locator('.immersive-root')
+        .evaluate((element) =>
+          Number((element as HTMLElement).style.getPropertyValue('--camera-scale')),
+        ),
+    )
+    .toBeGreaterThan(scaleBeforeHandoff + 0.5);
+  await expect(page.locator('.analysis-world')).toHaveCSS('opacity', '1');
+  await expect(page.getByLabel('Token address', { exact: true })).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect
+    .poll(() =>
+      page
+        .locator('.immersive-root')
+        .evaluate((element) =>
+          Number((element as HTMLElement).style.getPropertyValue('--camera-scale')),
+        ),
+    )
+    .toBe(1);
   await page.getByRole('link', { name: 'Enter SEAL' }).click();
-  await expect(page.locator('#analysis')).toBeFocused();
-  await expect(page.getByLabel('Token address', { exact: true })).toBeInViewport();
+  await expect(page.locator('.analysis-world')).toHaveCSS('opacity', '1');
 });
 
-test('reduced motion stops the belt and keeps direct keyboard access to the analysis', async ({
+test('reduced motion keeps a static entrance and direct keyboard access to the analysis', async ({
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
-  await expect(page.locator('.belt-track').first()).toHaveCSS('animation-name', 'none');
-  await expect(page.locator('.beam').first()).toHaveCSS('animation-name', 'none');
+  await expect(page.locator('.mountain-scene')).toHaveCSS('transform', 'none');
+  await expect(page.locator('.valley-mist')).toBeHidden();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('link', { name: 'Skip to analysis' })).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.locator('#analysis')).toBeFocused();
+  await expect(page.locator('.analysis-world')).toHaveCSS('opacity', '1');
   await expect(page.getByLabel('Token address', { exact: true })).toBeVisible();
 });
 
@@ -222,13 +262,25 @@ test('entry links and logo scroll in both directions without losing the address'
 }) => {
   await page.goto('/');
   await page.getByRole('link', { name: 'Enter SEAL' }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        Math.abs(document.getElementById('analysis')!.getBoundingClientRect().top),
+      ),
+    )
+    .toBeLessThan(2);
   await expect(page.locator('#analysis')).toBeFocused();
-  await expect(page.getByLabel('Token address', { exact: true })).toBeInViewport();
   await page.getByLabel('Token address', { exact: true }).fill(token);
   await page.getByRole('link', { name: 'SEAL', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(2);
   await page.getByRole('link', { name: 'Enter SEAL' }).click();
-  await expect(page.getByLabel('Token address', { exact: true })).toBeInViewport();
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        Math.abs(document.getElementById('analysis')!.getBoundingClientRect().top),
+      ),
+    )
+    .toBeLessThan(2);
   await expect(page.getByLabel('Token address', { exact: true })).toHaveValue(token);
 });
 
