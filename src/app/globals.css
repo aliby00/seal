@@ -1861,3 +1861,104 @@
     transition: none;
   }
 }
+
+/* Logo : l'arche du scanner et son rideau de 14 lanières (brand/v3). Le cadre
+   prend la couleur du texte, le rideau garde l'orange de la marque. */
+:root {
+  --seal-curtain: #f2801c;
+}
+.brand-arch .frame,
+.kicker-arch .frame,
+.loading-arch .frame {
+  fill: currentColor;
+}
+.brand-arch .strip,
+.kicker-arch .strip,
+.loading-arch .strip {
+  fill: var(--seal-curtain);
+}
+.world-brand {
+  gap: 12px;
+  color: #f5f6f2;
+}
+.brand-arch {
+  width: 34px;
+  height: 34px;
+}
+.brand-word {
+  height: 16px;
+  width: auto;
+  fill: currentColor;
+}
+.world-nav .world-brand:hover {
+  color: #f5f6f2;
+}
+.world-footer .world-brand .brand-arch {
+  width: 26px;
+  height: 26px;
+}
+.world-footer .world-brand .brand-word {
+  height: 12px;
+}
+.kicker-arch {
+  width: 1.6em;
+  height: 1.6em;
+  flex: none;
+  vertical-align: -0.45em;
+}
+.reading-sheet-header > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.loading-arch {
+  width: 44px;
+  height: 44px;
+  color: var(--foreground);
+}
+.loading-arch .strip {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+  animation: curtain-scan 1.4s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 70ms);
+}
+@keyframes curtain-scan {
+  50% {
+    transform: scaleY(0.35);
+  }
+}
+/* Le rideau descend à mesure que l'on avance vers SEAL. */
+.curtain-progress {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 3px;
+  height: 18px;
+}
+.curtain-progress > span {
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--seal-curtain);
+  transform-origin: 50% 0;
+  transform: scaleY(clamp(0.28, calc(var(--journey, 0) * 18 - var(--i) * 0.9), 1));
+  transition: transform 0.2s ease-out;
+}
+@media (max-width: 640px) {
+  .world-nav nav a:not(.nav-enter) {
+    display: none;
+  }
+  .brand-word {
+    height: 13px;
+  }
+  .curtain-progress {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading-arch .strip {
+    animation: none;
+  }
+  .curtain-progress > span {
+    transition: none;
+  }
+}

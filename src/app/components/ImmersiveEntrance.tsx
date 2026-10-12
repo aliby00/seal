@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
+import { Arch, Wordmark } from './brand';
 
 /** Scroll stays native; only decorative transforms follow its position. */
 export function ImmersiveEntrance({
@@ -37,6 +38,7 @@ export function ImmersiveEntrance({
       const easedCamera = camera * camera * (3 - 2 * camera);
       element.style.setProperty('--camera-scale', String(1 + easedCamera * 4.5));
       element.style.setProperty('--reading-shade', String(reduced.matches ? 0.65 : clamp(p / 0.7)));
+      element.style.setProperty('--journey', String(p));
       element.style.setProperty('--copy-opacity', String(1 - clamp(p / 0.3)));
       element.style.setProperty('--copy-shift', `${-clamp(p / 0.3) * 45}px`);
       // Enter an opaque cloud bank, then emerge as the workspace arrives.
@@ -126,6 +128,18 @@ export function ImmersiveEntrance({
           <div className="cloud-current" />
         </div>
       </div>
+      <header className="world-nav">
+        <a className="world-brand" href="#entrance" aria-label="SEAL">
+          <Arch className="brand-arch" strips={5} />
+          <Wordmark className="brand-word" />
+        </a>
+        <nav aria-label="Sections">
+          <a href="#method">Method</a>
+          <a href="#analysis" className="nav-enter">
+            Analyze <span aria-hidden="true">↗</span>
+          </a>
+        </nav>
+      </header>
       <main>
         <section
           ref={journey}
@@ -153,6 +167,11 @@ export function ImmersiveEntrance({
             <div className="journey-caption">
               <span>01 — THE CONTEXT</span>
               <a href="#analysis">
+                <span className="curtain-progress" aria-hidden="true">
+                  {Array.from({ length: 14 }, (_, i) => (
+                    <span key={i} style={{ '--i': i } as CSSProperties} />
+                  ))}
+                </span>
                 Scroll to explore <span aria-hidden="true">↓</span>
               </a>
               <span>PONS / ROBINHOOD CHAIN</span>
@@ -181,9 +200,10 @@ export function ImmersiveEntrance({
         </section>
       </main>
       <footer className="world-footer">
-        <a className="world-brand" href="#entrance">
-          SEAL
-        </a>
+        <span className="world-brand" aria-hidden="true">
+          <Arch className="brand-arch" strips={5} />
+          <Wordmark className="brand-word" />
+        </span>
         <p>The facts. The context. Your perspective.</p>
         <a href="#analysis">Open analysis ↗</a>
       </footer>
