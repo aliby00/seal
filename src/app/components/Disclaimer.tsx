@@ -1,6 +1,6 @@
 export function Disclaimer() {
   return (
-    <section className="disclaimers" aria-labelledby="limits-title">
+    <section id="limits" className="disclaimers" aria-labelledby="limits-title">
       <div className="section-heading">
         <span className="eyebrow">Know the limits</span>
         <h2 id="limits-title">A perspective. Not a promise.</h2>

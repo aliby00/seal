@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import type { AnalyzeResponse } from './api/analyze/route';
 import { SourceStudy } from './components/SourceStudy';
 import { AnalysisReport } from './components/AnalysisReport';
+import { Xray } from './components/brand';
 
 const EXAMPLE_TOKEN = '0xd0c538e01a22ebf8502b4dc3a92026cec870cec6';
 const errors: Record<number, string> = {
@@ -29,6 +30,10 @@ function Loading() {
   }, []);
   return (
     <div className="loading-state" role="status">
+      <div className="loading-scan" aria-hidden="true">
+        <Xray mask={0} />
+        <div className="beam" />
+      </div>
       <div className="loading-top">
         <h2>
           Reading public data
@@ -109,17 +114,16 @@ export function AnalyzeForm() {
       <div className="analysis-entry">
         <div className="workspace-intro">
           <p className="analysis-kicker">
-            <span aria-hidden="true">✳</span> Independent token research
+            <span aria-hidden="true" className="status-dot" /> Checkpoint · independent research
           </p>
           <h2 id="workspace-title">
-            A token is more
+            Put a token
             <br />
-            than <em>a ticker.</em>
+            <em>through.</em>
           </h2>
           <p>
-            Understand the history, the holders and the market.
-            <br />
-            One address. An explanation you can actually read.
+            Its history, its holders, its market. One address in; an explanation you can actually
+            read comes out.
           </p>
         </div>
         <form
