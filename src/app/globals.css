@@ -812,7 +812,7 @@
   position: absolute;
   inset: 0;
   width: 200%;
-  background: url('/images/seal-cloud-volume.svg') 0 50% / 50% 100% repeat-x;
+  background: url('/images/seal-cloud-volume.svg') 0 50% / 100% 100% repeat-x;
   will-change: transform;
   animation: cloud-wind 24s linear infinite;
 }
@@ -1960,5 +1960,57 @@
   }
   .curtain-progress > span {
     transition: none;
+  }
+}
+
+/* La porte : l'arche du logo, à l'échelle du paysage. */
+.immersive-root {
+  --gate-open: 0;
+  --gate-scale: 1;
+  --gate-opacity: 1;
+  --gate-glow: 0.35;
+}
+.valley-gate {
+  position: absolute;
+  left: 50%;
+  top: 13svh;
+  width: min(80vw, 112svh);
+  height: 92svh;
+  transform: translateX(-50%) scale(var(--gate-scale));
+  transform-origin: 50% 62%;
+  opacity: var(--gate-opacity);
+  filter: drop-shadow(0 0 22px rgba(242, 128, 28, 0.22)) drop-shadow(0 30px 60px #04080799);
+  will-change: transform, opacity;
+}
+.gate-frame {
+  opacity: 0.94;
+}
+.gate-edge {
+  fill: none;
+  stroke: #eef1ec;
+  stroke-width: 1.5px;
+  opacity: 0.55;
+}
+.gate-light {
+  opacity: var(--gate-glow);
+  mix-blend-mode: screen;
+}
+.gate-strip {
+  fill: var(--seal-curtain);
+  opacity: 0.5;
+  transform-box: view-box;
+  transform: translateX(calc(var(--gate-open) * var(--side) * 40px));
+}
+@media (max-width: 640px) {
+  .valley-gate {
+    top: 12svh;
+    width: 96vw;
+    height: 86svh;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .valley-gate {
+    transform: translateX(-50%);
+    will-change: auto;
   }
 }

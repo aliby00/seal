@@ -3,6 +3,65 @@
 import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 import { Arch, Wordmark } from './brand';
 
+/**
+ * La porte : l'arche du logo à l'échelle du paysage. Au défilement, son rideau
+ * de 14 lanières s'écarte derrière les piliers, puis on la traverse et l'on
+ * entre dans les nuages.
+ */
+function Gate() {
+  const W = 78,
+    x0 = 11,
+    y0 = 4,
+    H = 96,
+    t = 4,
+    r = W / 2,
+    ri = r - t,
+    cy = y0 + r;
+  const frame = `M${x0} ${y0 + H} V${cy} A${r} ${r} 0 0 1 ${x0 + W} ${cy} V${y0 + H} H${x0 + W - t} V${cy} A${ri} ${ri} 0 0 0 ${x0 + t} ${cy} V${y0 + H} Z`;
+  const opening = `M${x0 + t} ${y0 + H} V${cy} A${ri} ${ri} 0 0 1 ${x0 + W - t} ${cy} V${y0 + H} Z`;
+  const pitch = (2 * ri - 4) / 14;
+  return (
+    <svg className="valley-gate" viewBox="0 0 100 100" preserveAspectRatio="none" focusable="false">
+      <defs>
+        <clipPath id="gate-opening">
+          <path d={opening} />
+        </clipPath>
+        <radialGradient id="gate-light" cx="50%" cy="62%" r="60%">
+          <stop offset="0" stopColor="#f4f1ea" stopOpacity="0.9" />
+          <stop offset="0.55" stopColor="#c9d3d4" stopOpacity="0.35" />
+          <stop offset="1" stopColor="#c9d3d4" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id="gate-stone" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#1d2523" />
+          <stop offset="0.5" stopColor="#3a4542" />
+          <stop offset="1" stopColor="#151b19" />
+        </linearGradient>
+      </defs>
+      <path className="gate-light" d={opening} fill="url(#gate-light)" />
+      <g clipPath="url(#gate-opening)">
+        {Array.from({ length: 14 }, (_, i) => {
+          const x = x0 + t + 2 + pitch * i + pitch * 0.3;
+          const dx = x + pitch * 0.2 - 50;
+          const top = cy - Math.sqrt(Math.max(0, ri * ri - dx * dx)) + 1;
+          return (
+            <rect
+              key={i}
+              className="gate-strip"
+              style={{ '--side': i < 7 ? -1 : 1, '--i': i } as CSSProperties}
+              x={x}
+              y={top}
+              width={pitch * 0.22}
+              height={y0 + H - top}
+            />
+          );
+        })}
+      </g>
+      <path className="gate-frame" d={frame} fill="url(#gate-stone)" />
+      <path className="gate-edge" d={opening} vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
 /** Scroll stays native; only decorative transforms follow its position. */
 export function ImmersiveEntrance({
   children,
@@ -52,6 +111,13 @@ export function ImmersiveEntrance({
       element.style.setProperty('--mist-scale', String(0.8 + easedCamera * 4.2));
       element.style.setProperty('--mist-spread', `${easedCamera * 22}%`);
       element.style.setProperty('--mist-shift', `${(0.5 - camera) * 32}%`);
+      // The gate: its curtain parts, then the camera passes through it into the cloud.
+      const open = smooth(clamp((p - 0.04) / 0.26));
+      const through = clamp((p - 0.18) / 0.42);
+      element.style.setProperty('--gate-open', String(open));
+      element.style.setProperty('--gate-scale', String(1 + through * through * 7));
+      element.style.setProperty('--gate-opacity', String(1 - smooth(clamp((p - 0.42) / 0.2))));
+      element.style.setProperty('--gate-glow', String(0.35 + 0.65 * open));
       element.dataset.entered = String(p > 0.92);
       element.dataset.travelling = String(window.scrollY > 50);
       if (copy.current) copy.current.inert = !reduced.matches && p > 0.3;
@@ -124,6 +190,7 @@ export function ImmersiveEntrance({
         </div>
         <div className="scene-shade" />
         <div className="ambient-clouds" />
+        <Gate />
         <div className="valley-mist">
           <div className="cloud-current" />
         </div>
