@@ -812,7 +812,7 @@
   position: absolute;
   inset: 0;
   width: 200%;
-  background: url('/images/seal-cloud-volume.svg') 0 50% / 50% 100% repeat-x;
+  background: url('/images/seal-cloud-volume.svg') 0 50% / 100% 100% repeat-x;
   will-change: transform;
   animation: cloud-wind 24s linear infinite;
 }
@@ -1859,5 +1859,185 @@
 @media (prefers-reduced-motion: reduce) {
   .analysis-world .analysis-entry form {
     transition: none;
+  }
+}
+
+/* Logo : l'arche du scanner et son rideau de 14 lanières (brand/v3). Le cadre
+   prend la couleur du texte, le rideau garde l'orange de la marque. */
+:root {
+  --seal-curtain: #f2801c;
+}
+.brand-arch .frame,
+.kicker-arch .frame,
+.loading-arch .frame {
+  fill: currentColor;
+}
+.brand-arch .strip,
+.kicker-arch .strip,
+.loading-arch .strip {
+  fill: var(--seal-curtain);
+}
+.world-brand {
+  gap: 12px;
+  color: #f5f6f2;
+}
+.brand-arch {
+  width: 34px;
+  height: 34px;
+}
+.brand-word {
+  height: 16px;
+  width: auto;
+  fill: currentColor;
+}
+.world-nav .world-brand:hover {
+  color: #f5f6f2;
+}
+.world-footer .world-brand .brand-arch {
+  width: 26px;
+  height: 26px;
+}
+.world-footer .world-brand .brand-word {
+  height: 12px;
+}
+.kicker-arch {
+  width: 1.6em;
+  height: 1.6em;
+  flex: none;
+  vertical-align: -0.45em;
+}
+.reading-sheet-header > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.loading-arch {
+  width: 44px;
+  height: 44px;
+  color: var(--foreground);
+}
+.loading-arch .strip {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+  animation: curtain-scan 1.4s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 70ms);
+}
+@keyframes curtain-scan {
+  50% {
+    transform: scaleY(0.35);
+  }
+}
+/* Le rideau descend à mesure que l'on avance vers SEAL. */
+.curtain-progress {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 3px;
+  height: 18px;
+}
+.curtain-progress > span {
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--seal-curtain);
+  transform-origin: 50% 0;
+  transform: scaleY(clamp(0.28, calc(var(--journey, 0) * 18 - var(--i) * 0.9), 1));
+  transition: transform 0.2s ease-out;
+}
+@media (max-width: 640px) {
+  .world-nav nav a:not(.nav-enter) {
+    display: none;
+  }
+  .brand-word {
+    height: 13px;
+  }
+  .curtain-progress {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading-arch .strip {
+    animation: none;
+  }
+  .curtain-progress > span {
+    transition: none;
+  }
+}
+
+/* La porte : l'arche du logo, au loin dans la vallée, là où avance la caméra. */
+.immersive-root {
+  --gate-open: 0;
+  --gate-scale: 1;
+  --gate-opacity: 1;
+  --gate-y: 67%;
+  --gate-h: 19svh;
+}
+.mountain-scene {
+  transform-origin: 50% var(--gate-y);
+}
+.gate-anchor {
+  position: absolute;
+  inset: 0;
+  transform: scale(calc(var(--camera-scale) * var(--gate-scale)));
+  transform-origin: 50% var(--gate-y);
+  opacity: var(--gate-opacity);
+  pointer-events: none;
+}
+.immersive-root[data-gate='passed'] .gate-anchor {
+  visibility: hidden;
+}
+.valley-gate {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--gate-y) - var(--gate-h) * 0.55);
+  height: var(--gate-h);
+  width: calc(var(--gate-h) * 100 / 120);
+  transform: translateX(-50%);
+  overflow: visible;
+  filter: drop-shadow(0 0 6px rgba(242, 128, 28, 0.35));
+}
+.gate-halo {
+  position: absolute;
+  left: 50%;
+  top: var(--gate-y);
+  width: calc(var(--gate-h) * 2.4);
+  height: calc(var(--gate-h) * 1.8);
+  transform: translate(-50%, -55%);
+  background: radial-gradient(
+    ellipse at 50% 55%,
+    rgba(246, 241, 230, 0.4),
+    rgba(242, 128, 28, 0.12) 38%,
+    transparent 70%
+  );
+}
+.gate-fog {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--gate-y) + var(--gate-h) * 0.3);
+  width: calc(var(--gate-h) * 3.2);
+  height: calc(var(--gate-h) * 0.5);
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at 50% 50%, #cfd8d9cc, #a9b9c466 45%, transparent 72%);
+}
+.gate-rim {
+  fill: none;
+  stroke: #f6e3c8;
+  stroke-width: 0.7;
+  opacity: 0.7;
+}
+.gate-strip {
+  opacity: 0.85;
+  transform-box: view-box;
+  transform: translateX(calc(var(--gate-open) * var(--side) * 32px))
+    skewX(calc(var(--gate-open) * var(--side) * -6deg));
+}
+@media (max-width: 640px) {
+  .immersive-root {
+    --gate-h: 17svh;
+    --gate-y: 66%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gate-anchor {
+    transform: none;
   }
 }

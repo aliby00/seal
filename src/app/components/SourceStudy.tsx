@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { Arch } from './brand';
 
 const perspectives = [
   {
@@ -102,7 +103,9 @@ export function SourceStudy() {
           </div>
           <div className="reading-sheet" key={item.name}>
             <div className="reading-sheet-header">
-              <span>✳ SEAL</span>
+              <span>
+                <Arch className="kicker-arch" strips={5} /> SEAL
+              </span>
               <span>A REASONED READING</span>
             </div>
             <p className="sheet-eyebrow">02 — Put the facts in context</p>
