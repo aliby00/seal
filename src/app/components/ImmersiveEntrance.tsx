@@ -4,60 +4,78 @@ import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 import { Arch, Wordmark } from './brand';
 
 /**
- * La porte : l'arche du logo à l'échelle du paysage. Au défilement, son rideau
- * de 14 lanières s'écarte derrière les piliers, puis on la traverse et l'on
- * entre dans les nuages.
+ * La porte : l'arche du logo, au loin dans la vallée, là où la caméra avance.
+ * Au défilement, elle grandit, son rideau de 14 lanières s'écarte derrière
+ * les piliers, puis on la traverse et l'on entre dans les nuages.
  */
 function Gate() {
-  const W = 78,
-    x0 = 11,
-    y0 = 4,
-    H = 96,
-    t = 4,
+  // viewBox 100 × 120 : une porte, plus haute que large.
+  const x0 = 14,
+    W = 72,
+    t = 7,
+    y0 = 10,
+    base = 112,
     r = W / 2,
     ri = r - t,
     cy = y0 + r;
-  const frame = `M${x0} ${y0 + H} V${cy} A${r} ${r} 0 0 1 ${x0 + W} ${cy} V${y0 + H} H${x0 + W - t} V${cy} A${ri} ${ri} 0 0 0 ${x0 + t} ${cy} V${y0 + H} Z`;
-  const opening = `M${x0 + t} ${y0 + H} V${cy} A${ri} ${ri} 0 0 1 ${x0 + W - t} ${cy} V${y0 + H} Z`;
-  const pitch = (2 * ri - 4) / 14;
+  const frame = `M${x0} ${base} V${cy} A${r} ${r} 0 0 1 ${x0 + W} ${cy} V${base} H${x0 + W - t} V${cy} A${ri} ${ri} 0 0 0 ${x0 + t} ${cy} V${base} Z`;
+  const opening = `M${x0 + t} ${base} V${cy} A${ri} ${ri} 0 0 1 ${x0 + W - t} ${cy} V${base} Z`;
+  const rim = `M${x0 + t} ${base} V${cy} A${ri} ${ri} 0 0 1 ${x0 + W - t} ${cy} V${base}`;
+  const pitch = (2 * ri - 3) / 14;
   return (
-    <svg className="valley-gate" viewBox="0 0 100 100" preserveAspectRatio="none" focusable="false">
+    <svg className="valley-gate" viewBox="0 0 100 120" focusable="false">
       <defs>
         <clipPath id="gate-opening">
           <path d={opening} />
         </clipPath>
-        <radialGradient id="gate-light" cx="50%" cy="62%" r="60%">
-          <stop offset="0" stopColor="#f4f1ea" stopOpacity="0.9" />
-          <stop offset="0.55" stopColor="#c9d3d4" stopOpacity="0.35" />
-          <stop offset="1" stopColor="#c9d3d4" stopOpacity="0" />
-        </radialGradient>
+        <linearGradient id="gate-light" x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0" stopColor="#f6f1e6" stopOpacity="0.95" />
+          <stop offset="0.45" stopColor="#dfe4df" stopOpacity="0.7" />
+          <stop offset="1" stopColor="#b9c6c8" stopOpacity="0.45" />
+        </linearGradient>
         <linearGradient id="gate-stone" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#1d2523" />
-          <stop offset="0.5" stopColor="#3a4542" />
-          <stop offset="1" stopColor="#151b19" />
+          <stop offset="0" stopColor="#141a18" />
+          <stop offset="0.12" stopColor="#36413e" />
+          <stop offset="0.5" stopColor="#252e2b" />
+          <stop offset="0.88" stopColor="#36413e" />
+          <stop offset="1" stopColor="#101614" />
+        </linearGradient>
+        <linearGradient id="gate-strip" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#ffb873" />
+          <stop offset="0.6" stopColor="#f2801c" />
+          <stop offset="1" stopColor="#f2801c" stopOpacity="0.35" />
         </linearGradient>
       </defs>
-      <path className="gate-light" d={opening} fill="url(#gate-light)" />
+      <path d={opening} fill="url(#gate-light)" />
       <g clipPath="url(#gate-opening)">
         {Array.from({ length: 14 }, (_, i) => {
-          const x = x0 + t + 2 + pitch * i + pitch * 0.3;
-          const dx = x + pitch * 0.2 - 50;
-          const top = cy - Math.sqrt(Math.max(0, ri * ri - dx * dx)) + 1;
+          const x = x0 + t + 1.5 + pitch * i + pitch * 0.32;
+          const dx = x + pitch * 0.18 - 50;
+          const top = cy - Math.sqrt(Math.max(0, ri * ri - dx * dx)) + 1.5;
           return (
             <rect
               key={i}
               className="gate-strip"
-              style={{ '--side': i < 7 ? -1 : 1, '--i': i } as CSSProperties}
+              style={{ '--side': i < 7 ? -1 : 1 } as CSSProperties}
               x={x}
               y={top}
-              width={pitch * 0.22}
-              height={y0 + H - top}
+              width={pitch * 0.36}
+              height={base - 4 - top}
+              rx={pitch * 0.18}
+              fill="url(#gate-strip)"
             />
           );
         })}
       </g>
-      <path className="gate-frame" d={frame} fill="url(#gate-stone)" />
-      <path className="gate-edge" d={opening} vectorEffect="non-scaling-stroke" />
+      <path d={frame} fill="url(#gate-stone)" />
+      <path className="gate-rim" d={rim} />
+      {/* Clé de voûte et socles. */}
+      <path
+        d={`M${50 - 4} ${y0 - 1.5} H${50 + 4} L${50 + 3} ${y0 + t + 1} H${50 - 3} Z`}
+        fill="#3e4946"
+      />
+      <rect x={x0 - 2} y={base - 4} width={t + 4} height={5} rx={0.8} fill="#2c3532" />
+      <rect x={x0 + W - t - 2} y={base - 4} width={t + 4} height={5} rx={0.8} fill="#2c3532" />
     </svg>
   );
 }
@@ -111,13 +129,14 @@ export function ImmersiveEntrance({
       element.style.setProperty('--mist-scale', String(0.8 + easedCamera * 4.2));
       element.style.setProperty('--mist-spread', `${easedCamera * 22}%`);
       element.style.setProperty('--mist-shift', `${(0.5 - camera) * 32}%`);
-      // The gate: its curtain parts, then the camera passes through it into the cloud.
-      const open = smooth(clamp((p - 0.04) / 0.26));
-      const through = clamp((p - 0.18) / 0.42);
+      // The gate waits far down the valley, where the camera heads. It grows with
+      // the camera, its curtain parts, then the camera passes through into the cloud.
+      const open = smooth(clamp((p - 0.06) / 0.22));
+      const through = clamp((p - 0.14) / 0.36);
       element.style.setProperty('--gate-open', String(open));
-      element.style.setProperty('--gate-scale', String(1 + through * through * 7));
-      element.style.setProperty('--gate-opacity', String(1 - smooth(clamp((p - 0.42) / 0.2))));
-      element.style.setProperty('--gate-glow', String(0.35 + 0.65 * open));
+      element.style.setProperty('--gate-scale', String(1 + through * through * 8));
+      element.style.setProperty('--gate-opacity', String(1 - smooth(clamp((p - 0.4) / 0.16))));
+      element.dataset.gate = p > 0.56 ? 'passed' : 'ahead';
       element.dataset.entered = String(p > 0.92);
       element.dataset.travelling = String(window.scrollY > 50);
       if (copy.current) copy.current.inert = !reduced.matches && p > 0.3;
@@ -190,7 +209,11 @@ export function ImmersiveEntrance({
         </div>
         <div className="scene-shade" />
         <div className="ambient-clouds" />
-        <Gate />
+        <div className="gate-anchor">
+          <div className="gate-halo" />
+          <Gate />
+          <div className="gate-fog" />
+        </div>
         <div className="valley-mist">
           <div className="cloud-current" />
         </div>
