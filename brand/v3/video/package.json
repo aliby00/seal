@@ -5,7 +5,7 @@
   "scripts": {
     "studio": "remotion studio src/index.ts",
     "stills": "node stills.mjs",
-    "render": "node render.mjs Reveal Reveal-9x16 Live Live-9x16 Shapes Shapes-9x16 Compose Compose-9x16"
+    "render": "node render.mjs Reveal Reveal-9x16 Live Live-9x16 Shapes Shapes-9x16 Compose Compose-9x16 Hype Hype-9x16 Countdown-7 Countdown-7-9x16 Countdown-5 Countdown-5-9x16 Countdown-3 Countdown-3-9x16 Countdown-1 Countdown-1-9x16 Launch Launch-9x16"
   },
   "dependencies": {
     "@remotion/cli": "^4.0.360",
