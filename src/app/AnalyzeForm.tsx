@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import type { AnalyzeResponse } from './api/analyze/route';
 import { SourceStudy } from './components/SourceStudy';
 import { AnalysisReport } from './components/AnalysisReport';
+import { Arch } from './components/brand';
 
 const EXAMPLE_TOKEN = '0xd0c538e01a22ebf8502b4dc3a92026cec870cec6';
 const errors: Record<number, string> = {
@@ -29,6 +30,7 @@ function Loading() {
   }, []);
   return (
     <div className="loading-state" role="status">
+      <Arch className="loading-arch" />
       <div className="loading-top">
         <h2>
           Reading public data
@@ -109,7 +111,7 @@ export function AnalyzeForm() {
       <div className="analysis-entry">
         <div className="workspace-intro">
           <p className="analysis-kicker">
-            <span aria-hidden="true">✳</span> Independent token research
+            <Arch className="kicker-arch" strips={5} /> Independent token research
           </p>
           <h2 id="workspace-title">
             A token is more
