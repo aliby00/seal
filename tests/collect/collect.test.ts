@@ -57,6 +57,7 @@ describe('collect', () => {
       dexscreener: [
         {
           pairAddress: '0xPOOL',
+          baseToken: { address: TOKEN },
           priceUsd: '0.001',
           liquidity: { usd: 1000, quote: 0.5 },
         },

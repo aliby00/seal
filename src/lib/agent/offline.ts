@@ -11,16 +11,24 @@ export function offlineExplanation(report: TokenReport): string {
     'This account is produced without the reasoning agent: it lists the observed facts without cross-examining or interpreting them.',
   ];
   const { creator, holders, market } = report;
+  const creatorNote = creator.sources[0]?.note;
   if (creator.completeness === 'unavailable') {
-    parts.push('Creator history could not be read.');
+    // Say why: "not a pons launch" and "the node did not answer" are different facts.
+    parts.push(
+      creatorNote?.startsWith('not a pons launch')
+        ? 'Creator history: this token was not launched through pons, so there is no launch record to read a creator history from.'
+        : `Creator history could not be read${creatorNote ? ` (${creatorNote})` : ''}.`,
+    );
   } else {
     const c = creator.data.counts;
-    const scope =
-      creator.completeness === 'partial'
-        ? ` within the observed range (blocks ${creator.data.scannedRange.fromBlock} to ${creator.data.scannedRange.toBlock}; earlier history is not covered)`
-        : '';
+    const detailed = creator.data.tokens.length;
+    const outcomes =
+      detailed < c.launched
+        ? `of the ${detailed} most recent, ${c.graduated} graduated and ${c.abandoned} were abandoned`
+        : `including ${c.graduated} graduated and ${c.abandoned} abandoned`;
     parts.push(
-      `Creator: ${c.launched} token${c.launched === 1 ? '' : 's'} launched${scope}, including ${c.graduated} graduated and ${c.abandoned} abandoned.`,
+      `Creator: ${c.launched} token${c.launched === 1 ? '' : 's'} launched; ${outcomes}.` +
+        (creator.completeness === 'partial' && creatorNote ? ` Limit: ${creatorNote}.` : ''),
     );
   }
   if (holders.completeness === 'unavailable') {

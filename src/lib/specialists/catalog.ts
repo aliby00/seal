@@ -191,7 +191,11 @@ const nameClone: Specialist = {
     const named = index?.all().some((m) => m.name || m.symbol) ?? false;
     if (index && !named) limits.push('earlier names were not compared: the index holds no names');
     if (index && named) {
-      const mine = [name, symbol].filter(Boolean).map((s) => normalizeName(s as string));
+      // An emoji- or digit-only name normalises to "": two of them are not a match.
+      const mine = [name, symbol]
+        .filter(Boolean)
+        .map((s) => normalizeName(s as string))
+        .filter((n) => n.length > 0);
       const earlier = index
         .all()
         .filter((m) => m.token !== market.token && m.blockNumber < market.blockNumber)

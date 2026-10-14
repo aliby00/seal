@@ -14,7 +14,9 @@
 
 export type CacheEntry<T> = { value: T; expiresAt: number };
 
-export type TtlCacheOptions = {
+export type TtlCacheOptions<T = unknown> = {
+  /** Values that may be kept; others are returned but not cached. */
+  keep?: (value: T) => boolean;
   /** Durée de vie en millisecondes. */
   ttlMs: number;
   /** Nombre maximal d'entrées. Au-delà, la plus ancienne est évincée. */
@@ -27,13 +29,16 @@ export class TtlCache<T> {
   private readonly ttlMs: number;
   private readonly maxEntries: number;
   private readonly now: () => number;
+  private readonly inflight = new Map<string, Promise<T>>();
+  private readonly keep: (value: T) => boolean;
   private hits = 0;
   private misses = 0;
 
-  constructor(options: TtlCacheOptions) {
+  constructor(options: TtlCacheOptions<T>) {
     this.ttlMs = options.ttlMs;
     this.maxEntries = options.maxEntries ?? 100;
     this.now = options.now ?? Date.now;
+    this.keep = options.keep ?? (() => true);
   }
 
   get(key: string): T | undefined {
@@ -69,9 +74,19 @@ export class TtlCache<T> {
   async resolve(key: string, compute: () => Promise<T>): Promise<{ value: T; cached: boolean }> {
     const hit = this.get(key);
     if (hit !== undefined) return { value: hit, cached: true };
-    const value = await compute();
-    this.set(key, value);
-    return { value, cached: false };
+    // Two requests for the same key share one computation instead of both
+    // rescanning the chain.
+    const pending = this.inflight.get(key);
+    if (pending) return { value: await pending, cached: true };
+    const promise = compute();
+    this.inflight.set(key, promise);
+    try {
+      const value = await promise;
+      if (this.keep(value)) this.set(key, value);
+      return { value, cached: false };
+    } finally {
+      this.inflight.delete(key);
+    }
   }
 
   get size(): number {

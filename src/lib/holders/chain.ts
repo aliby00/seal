@@ -88,14 +88,11 @@ export async function fetchHoldersFromChain(
     value: balance.toString(),
   }));
 
-  // The v4 PoolManager holds every v4 market's liquidity: it is never a holder.
   const pool = options.poolAddress;
-  const data = computeDistribution(
-    token,
-    raw.filter((h) => h.address?.hash !== POOL_MANAGER),
-    { poolAddress: pool },
-  );
-  const holderCount = held.filter(([address]) => address !== pool?.toLowerCase()).length;
+  const data = computeDistribution(token, raw, { poolAddress: pool });
+  const holderCount = held.filter(
+    ([address]) => address !== pool?.toLowerCase() && address !== POOL_MANAGER,
+  ).length;
 
   return {
     completeness: 'full',

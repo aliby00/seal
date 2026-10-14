@@ -51,7 +51,11 @@ export function toMarketState(
 ): MarketState {
   const now = (options.now ?? (() => new Date()))();
   const fetchedAt = now.toISOString();
-  const pair = pickPrimaryPair(pairs);
+  // Only pairs where this token is the base: when it is the quote side, the
+  // price DexScreener gives is the other token's.
+  const pair = pickPrimaryPair(
+    pairs.filter((p) => p.baseToken?.address?.toLowerCase() === token.toLowerCase()),
+  );
   const grad = options.graduation;
 
   const graduation: MarketStateData['graduation'] = grad
@@ -72,7 +76,7 @@ export function toMarketState(
         {
           name: 'dexscreener',
           fetchedAt,
-          note: 'no indexed pair — the token may be too recent',
+          note: 'no pair indexed by DexScreener for this token',
         },
       ],
       data: {
@@ -95,7 +99,8 @@ export function toMarketState(
     pair: pair.pairAddress ?? null,
     priceUsd: num(pair.priceUsd),
     liquidityUsd: num(pair.liquidity?.usd),
-    pairedEth: grad?.pairedEth ?? num(pair.liquidity?.quote),
+    // `liquidity.quote` is in the pair's quote token, which need not be ETH.
+    pairedEth: grad?.pairedEth ?? null,
     graduation,
     volumeUsd: pair.volume
       ? {

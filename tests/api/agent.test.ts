@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const collect = vi.hoisted(() => vi.fn());
 const gatherContext = vi.hoisted(() => vi.fn());
@@ -18,6 +18,7 @@ vi.mock('@/lib/specialists', async (original) => ({
   gatherContext,
 }));
 
+const { resetRateLimits } = await import('../../src/lib/guard');
 const { POST } = await import('../../src/app/api/agent/route');
 
 const TOKEN = '0x494ddf6f7b4b045ede0abbb9ae86e4d59fa62ec9';
@@ -30,6 +31,8 @@ function post(body: unknown): Request {
     headers: { 'content-type': 'application/json' },
   });
 }
+
+beforeEach(() => resetRateLimits());
 
 describe('POST /api/agent', () => {
   it('refuse une adresse invalide', async () => {

@@ -24,6 +24,9 @@ const CREATOR_HISTORY_TTL_MS = 5 * 60_000;
 export const creatorHistoryCache = new TtlCache<CreatorHistory>({
   ttlMs: CREATOR_HISTORY_TTL_MS,
   maxEntries: 200,
+  // A history cut short (a window the node refused) would be served as is for
+  // five minutes: only a read that covered what it meant to cover is kept.
+  keep: (history) => !(history.sources[0]?.note ?? '').includes('could not be read'),
 });
 
 /**

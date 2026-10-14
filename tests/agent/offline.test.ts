@@ -71,9 +71,26 @@ describe('offlineExplanation', () => {
     expect(isCompliant(text)).toBe(true);
   });
 
-  it('restitue les faits du créateur avec la fenêtre observée', () => {
+  // The limit is the one the history module stated, not a block range
+  // rebuilt here: with the whole chain read, that range said "earlier history
+  // not covered" about blocks that did not exist.
+  it('restitue les faits du créateur avec la limite constatée', () => {
     expect(text).toContain('3 tokens launched');
-    expect(text).toMatch(/blocks 66000000 to 71000000/);
+    expect(text).toContain('Limit: fenêtre tronquée.');
+  });
+
+  it('says a token is not a pons launch instead of "could not be read"', () => {
+    const notPons = offlineExplanation(
+      report({
+        creator: {
+          ...report().creator,
+          completeness: 'unavailable',
+          sources: [{ name: 'robinhood-rpc', fetchedAt: 'x', note: 'not a pons launch: no event' }],
+        },
+      }),
+    );
+    expect(notPons).toMatch(/not launched through pons/);
+    expect(notPons).not.toMatch(/could not be read/);
   });
 
   it("dit pourquoi une source manque au lieu de l'omettre", () => {
