@@ -51,7 +51,10 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const report = await Promise.race([
-      collect(token, { blockscoutApiKey: process.env.BLOCKSCOUT_API_KEY }),
+      collect(token, {
+        rpcUrl: process.env.RPC_URL || undefined,
+        blockscoutApiKey: process.env.BLOCKSCOUT_API_KEY || undefined,
+      }),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('timeout global')), COLLECT_TIMEOUT_MS),
       ),
