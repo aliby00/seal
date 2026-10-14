@@ -87,10 +87,85 @@ export function classifyLogError(message: string): LogQueryTooBroadError | undef
   return undefined;
 }
 
+/**
+ * Pacing for the public node, measured on 14/10/2026:
+ *  - a batch of 20 `eth_getLogs` goes through, the next one sent right after
+ *    gets 429 and keeps getting it for about five seconds;
+ *  - 60 single `eth_getLogs` at 4 per second all go through.
+ * So: a burst of about 20 log queries, refilled at about 4 per second, every
+ * entry of a batch counting as one.
+ *
+ * The bucket is shared by every client of the same URL in this process, so
+ * concurrent analyses on one server instance pace each other too.
+ */
+export const RPC_BURST = 20;
+export const RPC_CALLS_PER_SECOND = 4;
+
+/** A paid node allows more: `SEAL_RPC_RATE` raises the refill without a code change. */
+function configuredRate(): number {
+  const raw = Number(process.env.SEAL_RPC_RATE);
+  return Number.isFinite(raw) && raw > 0 ? raw : RPC_CALLS_PER_SECOND;
+}
+
+type Bucket = { tokens: number; updatedAt: number };
+const buckets = new Map<string, Bucket>();
+
+/** Waits until `cost` calls fit in the allowance, then spends them. */
+export async function throttle(
+  url: string,
+  cost: number,
+  options: {
+    rate?: number;
+    burst?: number;
+    now?: () => number;
+    sleep?: (ms: number) => Promise<void>;
+  } = {},
+): Promise<void> {
+  const rate = options.rate ?? configuredRate();
+  const burst = Math.max(options.burst ?? RPC_BURST, rate);
+  const now = options.now ?? Date.now;
+  const sleep = options.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+  const need = Math.min(cost, burst);
+  const bucket = buckets.get(url) ?? { tokens: burst, updatedAt: now() };
+  buckets.set(url, bucket);
+  for (;;) {
+    const t = now();
+    bucket.tokens = Math.min(burst, bucket.tokens + ((t - bucket.updatedAt) / 1000) * rate);
+    bucket.updatedAt = t;
+    if (bucket.tokens >= need) {
+      bucket.tokens -= need;
+      return;
+    }
+    await sleep(Math.ceil(((need - bucket.tokens) / rate) * 1000));
+  }
+}
+
+/**
+ * Only `eth_getLogs` is limited: 120 `eth_getBlockByNumber` in six immediate
+ * batches all went through (14/10/2026). Pacing cheap calls only slowed down
+ * creators with many launches.
+ */
+export function logQueries(payload: unknown): number {
+  const entries = Array.isArray(payload) ? payload : [payload];
+  return entries.filter((e) => (e as { method?: string } | null)?.method === 'eth_getLogs').length;
+}
+
+/** Forget the pacing state. For tests. */
+export function resetThrottle(): void {
+  buckets.clear();
+}
+
+/** After a 429 the node needs seconds, not the generic 0.2 s backoff. */
+const RPC_RATE_LIMIT_WAIT_MS = 2_500;
+
 export function createRpcClient(url: string = DEFAULT_RPC_URL, budget?: RequestBudget): RpcClient {
   async function post(payload: unknown): Promise<Response> {
+    const cost = logQueries(payload);
+    if (cost > 0) await throttle(url, cost);
     return request(url, {
       source: 'robinhood-rpc',
+      retries: 3,
+      minRateLimitWaitMs: RPC_RATE_LIMIT_WAIT_MS,
       budget,
       init: {
         method: 'POST',
@@ -135,15 +210,7 @@ export function createRpcClient(url: string = DEFAULT_RPC_URL, budget?: RequestB
     },
 
     async call<T>(method: string, params: unknown[]): Promise<T> {
-      const response = await request(url, {
-        source: 'robinhood-rpc',
-        budget,
-        init: {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-        },
-      });
+      const response = await post({ jsonrpc: '2.0', id: 1, method, params });
 
       const body = (await response.json()) as JsonRpcResponse<T>;
 
@@ -151,7 +218,8 @@ export function createRpcClient(url: string = DEFAULT_RPC_URL, budget?: RequestB
         const tooBroad = classifyLogError(body.error.message);
         if (tooBroad) throw tooBroad;
         // -32005 est la convention pour « limite dépassée » côté JSON-RPC.
-        if (body.error.code === -32005) throw new RateLimitError('robinhood-rpc');
+        if (body.error.code === -32005 || body.error.code === 429)
+          throw new RateLimitError('robinhood-rpc');
         throw new UpstreamError('robinhood-rpc', `${method} : ${body.error.message}`);
       }
 

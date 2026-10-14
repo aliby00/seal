@@ -7,6 +7,7 @@ import { MarketIndex, scanMarkets, tokenSide } from '@/lib/chain/pools';
 import { collect } from '@/lib/collect';
 import type { TokenReport } from '@/lib/contracts';
 import { SealError } from '@/lib/errors';
+import { AGENT_LIMIT, guardedJson } from '@/lib/guard';
 import { log } from '@/lib/logger';
 import {
   compileAgent,
@@ -18,6 +19,7 @@ import {
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
+/** Same split as /api/analyze: 30 s to gather, the provider's 25 s to word it. */
 const GLOBAL_TIMEOUT_MS = 55_000;
 
 /**
@@ -61,12 +63,9 @@ async function liveIndex(): Promise<MarketIndex> {
 export async function POST(request: Request): Promise<Response> {
   const started = Date.now();
 
-  let body: { token?: unknown; agent?: unknown };
-  try {
-    body = (await request.json()) as typeof body;
-  } catch {
-    return errorResponse(400, 'Unreadable request body');
-  }
+  const guarded = await guardedJson(request, AGENT_LIMIT, 'agent');
+  if ('response' in guarded) return guarded.response;
+  const body = (guarded.body ?? {}) as { token?: unknown; agent?: unknown };
 
   const { token } = body;
   if (typeof token !== 'string' || !isAddress(token)) {
@@ -131,7 +130,7 @@ export async function POST(request: Request): Promise<Response> {
     if (error instanceof SealError) {
       const status = error.kind === 'rate-limit' ? 429 : 502;
       log.warn('agent en échec', { token, kind: error.kind, message: error.message });
-      return errorResponse(status, error.message);
+      return errorResponse(status, 'A data source failed. Try again in a minute.');
     }
     log.error('agent en échec', { token, error: String(error) });
     return errorResponse(500, 'The agent could not complete');

@@ -10,7 +10,7 @@ const schema = z.object({
   RPC_URL: z.url().default('https://rpc.mainnet.chain.robinhood.com'),
   BLOCKSCOUT_API_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
-  ANTHROPIC_MODEL: z.string().default('claude-sonnet-5'),
+  ANTHROPIC_MODEL: z.string().default('claude-sonnet-5-5'),
 });
 
 export type Env = z.infer<typeof schema>;

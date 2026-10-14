@@ -122,7 +122,7 @@ function fakeProvider(text: string, usage = { input_tokens: 6000, output_tokens:
 describe('explain', () => {
   it('renvoie le texte et son coût', async () => {
     const result = await explain(report, {
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       provider: fakeProvider('Les signaux ne racontent pas la même histoire.'),
     });
     expect(result.text).toContain('signaux');
@@ -132,43 +132,48 @@ describe('explain', () => {
 
   // Un score qui passerait malgré le prompt est une violation du produit,
   // pas un détail de style : il doit remonter jusqu'à l'appelant.
-  it('signale une sortie qui contient un score', async () => {
+  // A score or advice is never published: the facts are served instead, and
+  // the model call is still counted, since it was paid for.
+  it.each([
+    ['a score', 'Ce token obtient 8/10.'],
+    ['advice', 'This is safe to buy.'],
+    ['a verdict', 'Probably a rug pull.'],
+  ])('serves the facts instead of a model output containing %s', async (_, output) => {
     const result = await explain(report, {
-      model: 'claude-sonnet-5',
-      provider: fakeProvider('Ce token obtient 8/10.'),
+      model: 'claude-sonnet-5-5',
+      provider: fakeProvider(output),
     });
-    expect(result.violations.map((v) => v.kind)).toContain('score');
+    expect(result.text).not.toContain(output);
+    expect(result.offline).toBe(true);
+    expect(result.rejected).toBe(true);
+    expect(result.violations).toEqual([]);
   });
 
-  it('signale une sortie qui ressemble à un conseil', async () => {
+  it('serves the facts when the model answers nothing', async () => {
     const result = await explain(report, {
-      model: 'claude-sonnet-5',
-      provider: fakeProvider('This is safe to buy.'),
+      model: 'claude-sonnet-5-5',
+      provider: fakeProvider('   ') as never,
     });
-    expect(result.violations.map((v) => v.kind)).toContain('advice');
+    expect(result.offline).toBe(true);
+    expect(result.text.length).toBeGreaterThan(0);
   });
 
-  it('lève sur une réponse vide', async () => {
-    await expect(
-      explain(report, { model: 'claude-sonnet-5', provider: fakeProvider('   ') as never }),
-    ).rejects.toBeInstanceOf(UpstreamError);
-  });
-
-  it('laisse remonter un refus du modèle', async () => {
-    const refusing = {
+  // The audit case: an invalid model id made every analysis a 500.
+  it('serves the facts when the provider fails', async () => {
+    const failing = {
       name: 'anthropic' as const,
       complete: vi.fn(async (): Promise<never> => {
-        throw new UpstreamError('anthropic', 'la requête a été refusée par le modèle');
+        throw new UpstreamError('anthropic', 'model not found');
       }),
     };
-    await expect(
-      explain(report, { model: 'claude-sonnet-5', provider: refusing }),
-    ).rejects.toBeInstanceOf(UpstreamError);
+    const result = await explain(report, { model: 'claude-sonnet-5-5', provider: failing });
+    expect(result.offline).toBe(true);
+    expect(result.cost.costUsd).toBe(0);
   });
 
   it('indique quel fournisseur a produit le texte', async () => {
     const result = await explain(report, {
-      model: 'claude-sonnet-5',
+      model: 'claude-sonnet-5-5',
       provider: fakeProvider('Les signaux divergent.'),
     });
     expect(result.provider).toBe('anthropic');
