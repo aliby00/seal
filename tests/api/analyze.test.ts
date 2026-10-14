@@ -103,3 +103,22 @@ describe('POST /api/analyze', () => {
     expect(body.error).not.toContain('stack trace');
   });
 });
+
+describe('configuration', () => {
+  // The bug: RPC_URL was only read by /api/agent, so a paid node set on
+  // Vercel would never have been used by the main analysis.
+  it('passes RPC_URL to the pipeline, and ignores it when empty', async () => {
+    collect.mockResolvedValue(report);
+    explain.mockResolvedValue({ text: 'ok', cost: { costUsd: 0 }, violations: [] });
+    vi.stubEnv('RPC_URL', 'https://rpc.example/key');
+    await POST(post({ token: TOKEN }));
+    expect(collect).toHaveBeenLastCalledWith(
+      TOKEN,
+      expect.objectContaining({ rpcUrl: 'https://rpc.example/key' }),
+    );
+    vi.stubEnv('RPC_URL', '');
+    await POST(post({ token: TOKEN }));
+    expect(collect).toHaveBeenLastCalledWith(TOKEN, expect.objectContaining({ rpcUrl: undefined }));
+    vi.unstubAllEnvs();
+  });
+});

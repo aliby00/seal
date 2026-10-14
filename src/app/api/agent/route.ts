@@ -49,7 +49,7 @@ function errorResponse(status: number, message: string, detail?: string | string
 
 async function liveIndex(): Promise<MarketIndex> {
   const { value } = await indexCache.resolve('live', async () => {
-    const rpc = createRpcClient(process.env.RPC_URL);
+    const rpc = createRpcClient(process.env.RPC_URL || undefined);
     const latest = Number(await rpc.call<string>('eth_blockNumber', []));
     const { markets } = await scanMarkets(rpc, {
       fromBlock: latest - LIVE_INDEX_BLOCKS,
@@ -84,16 +84,17 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const work = (async () => {
-      const rpc = createRpcClient(process.env.RPC_URL);
+      const rpc = createRpcClient(process.env.RPC_URL || undefined);
       // Un token sans lancement pons reste analysable : les spécialistes qui
       // dépendent du rapport répondront `unknown` en le disant.
       const [report, index] = await Promise.all([
-        collect(token, { blockscoutApiKey: process.env.BLOCKSCOUT_API_KEY }).catch(
-          (error: unknown): TokenReport | undefined => {
-            log.warn('rapport pons indisponible', { token, error: String(error) });
-            return undefined;
-          },
-        ),
+        collect(token, {
+          rpcUrl: process.env.RPC_URL || undefined,
+          blockscoutApiKey: process.env.BLOCKSCOUT_API_KEY || undefined,
+        }).catch((error: unknown): TokenReport | undefined => {
+          log.warn('rapport pons indisponible', { token, error: String(error) });
+          return undefined;
+        }),
         liveIndex().catch(() => undefined),
       ]);
       const context = await gatherContext(rpc, token, report, index);
