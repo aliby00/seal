@@ -87,11 +87,32 @@ describe('request', () => {
   it('respecte Retry-After plutôt que son propre backoff', async () => {
     const { calls, sleep } = recordingSleep();
     stubFetch([
-      new Response('', { status: 429, headers: { 'retry-after': '7' } }),
+      new Response('', { status: 429, headers: { 'retry-after': '3' } }),
       new Response('{}', { status: 200 }),
     ]);
     await request('https://exemple.test', { source: 'blockscout', sleep });
-    expect(calls).toEqual([7000]);
+    expect(calls).toEqual([3000]);
+  });
+
+  // A daily quota answers Retry-After in hours: waiting would outlive the route.
+  it('gives up rather than wait past the cap', async () => {
+    const { calls, sleep } = recordingSleep();
+    stubFetch([new Response('', { status: 429, headers: { 'retry-after': '3600' } })]);
+    await expect(
+      request('https://exemple.test', { source: 'blockscout', sleep }),
+    ).rejects.toBeInstanceOf(RateLimitError);
+    expect(calls).toEqual([]);
+  });
+
+  it('waits at least the floor the source needs after a 429', async () => {
+    const { calls, sleep } = recordingSleep();
+    stubFetch([new Response('', { status: 429 }), new Response('{}', { status: 200 })]);
+    await request('https://exemple.test', {
+      source: 'robinhood-rpc',
+      sleep,
+      minRateLimitWaitMs: 1_200,
+    });
+    expect(calls[0]).toBeGreaterThanOrEqual(1_200);
   });
 
   it('réessaie sur 5xx puis réussit', async () => {

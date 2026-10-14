@@ -26,7 +26,7 @@ export function createGroqProvider(apiKey: string, baseUrl = GROQ_BASE_URL): Pro
     name: 'groq',
     async complete(request: CompletionRequest): Promise<CompletionResult> {
       const body = await requestJson<ChatCompletion>(`${baseUrl}/chat/completions`, {
-        source: 'anthropic', // même budget d'erreurs et de retries que l'autre fournisseur
+        source: 'groq',
         init: {
           method: 'POST',
           headers: {
@@ -48,7 +48,7 @@ export function createGroqProvider(apiKey: string, baseUrl = GROQ_BASE_URL): Pro
       });
 
       if (body.error) {
-        throw new UpstreamError('anthropic', `groq : ${body.error.message ?? 'erreur inconnue'}`);
+        throw new UpstreamError('groq', `groq : ${body.error.message ?? 'erreur inconnue'}`);
       }
 
       const choice = body.choices?.[0];

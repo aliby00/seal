@@ -43,7 +43,12 @@ export type FetchOptions = {
   /** Injectable pour les tests : aucun test unitaire ne doit dormir pour de vrai. */
   sleep?: (ms: number) => Promise<void>;
   init?: RequestInit;
+  /** Floor for the wait after a rate limit, when the source needs longer than the backoff. */
+  minRateLimitWaitMs?: number;
 };
+
+/** A source asking to wait longer than this is treated as down for this analysis. */
+export const MAX_RETRY_AFTER_SECONDS = 5;
 
 const DEFAULT_TIMEOUT_MS = 15_000;
 const DEFAULT_RETRIES = 2;
@@ -115,7 +120,13 @@ export async function request(url: string, options: FetchOptions): Promise<Respo
       if (!isRetryable(error) || attempt === retries) throw error;
 
       const retryAfter = error instanceof RateLimitError ? error.retryAfterSeconds : undefined;
-      await sleep(retryAfter !== undefined ? retryAfter * 1000 : backoffDelay(attempt));
+      // A daily-quota Retry-After (hours) would hold the request until the
+      // route is killed: give up instead, the source is reported unavailable.
+      if (retryAfter !== undefined && retryAfter > MAX_RETRY_AFTER_SECONDS) throw error;
+      const floor = error instanceof RateLimitError ? (options.minRateLimitWaitMs ?? 0) : 0;
+      await sleep(
+        Math.max(floor, retryAfter !== undefined ? retryAfter * 1000 : backoffDelay(attempt)),
+      );
     }
   }
 

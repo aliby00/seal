@@ -45,8 +45,10 @@ export async function gatherContext(
   if (market && market.name === undefined) {
     const meta = await readTokenMetas(rpc, [market.token]).catch(() => undefined);
     const m = meta?.get(market.token);
-    market.name = m?.name ?? null;
-    market.symbol = m?.symbol ?? null;
+    // A copy: the market comes from an index shared by every request on this
+    // instance, and writing into it made one user's results depend on others'.
+    market = { ...market, name: m?.name ?? null, symbol: m?.symbol ?? null };
+    context.market = market;
   }
 
   const hook = market && market.hook !== NATIVE ? market.hook : null;

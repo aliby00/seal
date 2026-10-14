@@ -8,6 +8,7 @@ vi.mock('@/lib/agent/reason', () => ({ explain }));
 
 const { POST } = await import('../../src/app/api/analyze/route');
 const { RateLimitError, NotFoundError } = await import('../../src/lib/errors');
+const { resetRateLimits } = await import('../../src/lib/guard');
 
 const TOKEN = '0x494ddf6f7b4b045ede0abbb9ae86e4d59fa62ec9';
 
@@ -27,11 +28,15 @@ const report = {
 function post(body: unknown): Request {
   return new Request('http://localhost/api/analyze', {
     method: 'POST',
+    headers: { 'content-type': 'application/json' },
     body: typeof body === 'string' ? body : JSON.stringify(body),
   });
 }
 
-afterEach(() => vi.clearAllMocks());
+afterEach(() => {
+  vi.clearAllMocks();
+  resetRateLimits();
+});
 
 describe('POST /api/analyze', () => {
   it('refuse une adresse invalide sans rien collecter', async () => {
@@ -96,5 +101,24 @@ describe('POST /api/analyze', () => {
     const body = (await res.json()) as { error: string };
     expect(res.status).toBe(500);
     expect(body.error).not.toContain('stack trace');
+  });
+});
+
+describe('configuration', () => {
+  // The bug: RPC_URL was only read by /api/agent, so a paid node set on
+  // Vercel would never have been used by the main analysis.
+  it('passes RPC_URL to the pipeline, and ignores it when empty', async () => {
+    collect.mockResolvedValue(report);
+    explain.mockResolvedValue({ text: 'ok', cost: { costUsd: 0 }, violations: [] });
+    vi.stubEnv('RPC_URL', 'https://rpc.example/key');
+    await POST(post({ token: TOKEN }));
+    expect(collect).toHaveBeenLastCalledWith(
+      TOKEN,
+      expect.objectContaining({ rpcUrl: 'https://rpc.example/key' }),
+    );
+    vi.stubEnv('RPC_URL', '');
+    await POST(post({ token: TOKEN }));
+    expect(collect).toHaveBeenLastCalledWith(TOKEN, expect.objectContaining({ rpcUrl: undefined }));
+    vi.unstubAllEnvs();
   });
 });

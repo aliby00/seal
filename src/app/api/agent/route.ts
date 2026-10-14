@@ -7,6 +7,7 @@ import { MarketIndex, scanMarkets, tokenSide } from '@/lib/chain/pools';
 import { collect } from '@/lib/collect';
 import type { TokenReport } from '@/lib/contracts';
 import { SealError } from '@/lib/errors';
+import { AGENT_LIMIT, guardedJson } from '@/lib/guard';
 import { log } from '@/lib/logger';
 import {
   compileAgent,
@@ -18,6 +19,7 @@ import {
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
+/** Same split as /api/analyze: 30 s to gather, the provider's 25 s to word it. */
 const GLOBAL_TIMEOUT_MS = 55_000;
 
 /**
@@ -47,7 +49,7 @@ function errorResponse(status: number, message: string, detail?: string | string
 
 async function liveIndex(): Promise<MarketIndex> {
   const { value } = await indexCache.resolve('live', async () => {
-    const rpc = createRpcClient(process.env.RPC_URL);
+    const rpc = createRpcClient(process.env.RPC_URL || undefined);
     const latest = Number(await rpc.call<string>('eth_blockNumber', []));
     const { markets } = await scanMarkets(rpc, {
       fromBlock: latest - LIVE_INDEX_BLOCKS,
@@ -61,12 +63,9 @@ async function liveIndex(): Promise<MarketIndex> {
 export async function POST(request: Request): Promise<Response> {
   const started = Date.now();
 
-  let body: { token?: unknown; agent?: unknown };
-  try {
-    body = (await request.json()) as typeof body;
-  } catch {
-    return errorResponse(400, 'Unreadable request body');
-  }
+  const guarded = await guardedJson(request, AGENT_LIMIT, 'agent');
+  if ('response' in guarded) return guarded.response;
+  const body = (guarded.body ?? {}) as { token?: unknown; agent?: unknown };
 
   const { token } = body;
   if (typeof token !== 'string' || !isAddress(token)) {
@@ -85,16 +84,17 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const work = (async () => {
-      const rpc = createRpcClient(process.env.RPC_URL);
+      const rpc = createRpcClient(process.env.RPC_URL || undefined);
       // Un token sans lancement pons reste analysable : les spécialistes qui
       // dépendent du rapport répondront `unknown` en le disant.
       const [report, index] = await Promise.all([
-        collect(token, { blockscoutApiKey: process.env.BLOCKSCOUT_API_KEY }).catch(
-          (error: unknown): TokenReport | undefined => {
-            log.warn('rapport pons indisponible', { token, error: String(error) });
-            return undefined;
-          },
-        ),
+        collect(token, {
+          rpcUrl: process.env.RPC_URL || undefined,
+          blockscoutApiKey: process.env.BLOCKSCOUT_API_KEY || undefined,
+        }).catch((error: unknown): TokenReport | undefined => {
+          log.warn('rapport pons indisponible', { token, error: String(error) });
+          return undefined;
+        }),
         liveIndex().catch(() => undefined),
       ]);
       const context = await gatherContext(rpc, token, report, index);
@@ -131,7 +131,7 @@ export async function POST(request: Request): Promise<Response> {
     if (error instanceof SealError) {
       const status = error.kind === 'rate-limit' ? 429 : 502;
       log.warn('agent en échec', { token, kind: error.kind, message: error.message });
-      return errorResponse(status, error.message);
+      return errorResponse(status, 'A data source failed. Try again in a minute.');
     }
     log.error('agent en échec', { token, error: String(error) });
     return errorResponse(500, 'The agent could not complete');

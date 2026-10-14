@@ -1,5 +1,5 @@
 import type { Address } from 'viem';
-import { getLogsChunked, type RawLog } from './logs';
+import { getLogsBatched, type RawLog } from './logs';
 import type { RpcClient } from './rpc';
 
 /**
@@ -25,7 +25,25 @@ function addressFromTopic(topic: string | undefined): string {
   return topic ? `0x${topic.slice(26)}`.toLowerCase() : '';
 }
 
+/**
+ * When some windows could not be read, "nothing seen" is not "nothing
+ * happened": those tokens are dropped, which the caller reports as `null`.
+ * A positive stays — it was observed.
+ */
+function unseenAsUnknown(result: Map<string, boolean>, truncated: boolean): Map<string, boolean> {
+  if (!truncated) return result;
+  return new Map([...result].filter(([, seen]) => seen));
+}
+
 export type BehaviorWindow = { fromBlock: number; toBlock: number };
+
+/** A token to watch, optionally over its own range (its first days after launch). */
+export type BehaviorTarget = {
+  token: Address;
+  pool: Address;
+  fromBlock?: number;
+  toBlock?: number;
+};
 
 /**
  * Détecte les ventes du créateur.
@@ -34,25 +52,29 @@ export type BehaviorWindow = { fromBlock: number; toBlock: number };
  * autre wallet n'est pas une vente. Le signal retenu est un transfert **vers le
  * pool**, ce qui correspond à un swap — c'est-à-dire une vente effective.
  *
- * Une seule requête couvre tous les tokens du créateur : `eth_getLogs` accepte
- * une liste d'adresses.
+ * One batched request covers every token of the creator.
  */
 export async function detectCreatorSales(
   rpc: RpcClient,
   creator: Address,
-  tokens: readonly { token: Address; pool: Address }[],
+  tokens: readonly BehaviorTarget[],
   window: BehaviorWindow,
 ): Promise<Map<string, boolean>> {
   const result = new Map<string, boolean>(tokens.map((t) => [t.token.toLowerCase(), false]));
   if (tokens.length === 0) return result;
 
-  const { logs } = await getLogsChunked(
+  // One query per token: a list of addresses caps the window at 100,000 blocks.
+  const { logs, truncated } = await getLogsBatched(
     rpc,
     {
-      address: tokens.map((t) => t.token),
+      addresses: tokens.map((t) => ({
+        address: t.token,
+        fromBlock: t.fromBlock,
+        toBlock: t.toBlock,
+      })),
       topics: [TRANSFER_TOPIC, topicFor(creator)],
     },
-    { fromBlock: window.fromBlock, toBlock: window.toBlock },
+    window,
   );
 
   const poolOf = new Map(tokens.map((t) => [t.token.toLowerCase(), t.pool.toLowerCase()]));
@@ -61,7 +83,7 @@ export async function detectCreatorSales(
     // Vers le pool = vente. Vers un autre wallet = simple transfert, ambigu.
     if (addressFromTopic(log.topics[2]) === poolOf.get(token)) result.set(token, true);
   }
-  return result;
+  return unseenAsUnknown(result, truncated);
 }
 
 /** Vrai si ce log `Burn` retire réellement de la liquidité. */
@@ -86,17 +108,24 @@ export function isRealLiquidityRemoval(log: RawLog): boolean {
  */
 export async function detectLiquidityRemovals(
   rpc: RpcClient,
-  tokens: readonly { token: Address; pool: Address }[],
+  tokens: readonly BehaviorTarget[],
   window: BehaviorWindow,
 ): Promise<Map<string, boolean>> {
   const result = new Map<string, boolean>(tokens.map((t) => [t.token.toLowerCase(), false]));
   const pools = tokens.filter((t) => t.pool && t.pool !== '0x');
   if (pools.length === 0) return result;
 
-  const { logs } = await getLogsChunked(
+  const { logs, truncated } = await getLogsBatched(
     rpc,
-    { address: pools.map((t) => t.pool), topics: [BURN_TOPIC] },
-    { fromBlock: window.fromBlock, toBlock: window.toBlock },
+    {
+      addresses: pools.map((t) => ({
+        address: t.pool,
+        fromBlock: t.fromBlock,
+        toBlock: t.toBlock,
+      })),
+      topics: [BURN_TOPIC],
+    },
+    window,
   );
 
   const tokenOfPool = new Map(pools.map((t) => [t.pool.toLowerCase(), t.token.toLowerCase()]));
@@ -105,5 +134,5 @@ export async function detectLiquidityRemovals(
     const token = tokenOfPool.get(log.address.toLowerCase());
     if (token) result.set(token, true);
   }
-  return result;
+  return unseenAsUnknown(result, truncated);
 }

@@ -1,13 +1,19 @@
 import type { Address } from 'viem';
 import type { CreatorHistory, LaunchedToken, TokenOutcome } from '../contracts';
 import type { RequestBudget } from '../http';
-import { decodeTokenLaunched, TOKEN_LAUNCHED_TOPIC, type TokenLaunch } from './factory';
-import { getLogsChunked } from './logs';
 import {
-  fetchBlockTimestamps,
-  fetchGraduationStatusBatch,
-  type GraduationStatus,
-} from './graduation';
+  decodeGetLaunchedToken,
+  decodeTokenLaunched,
+  encodeGetLaunchedToken,
+  LIQUIDITY_POOL_SELECTOR,
+  PONS_FACTORIES,
+  wordToAddress,
+  type FactoryRange,
+  TOKEN_LAUNCHED_TOPIC,
+  type TokenLaunch,
+} from './factory';
+import { getLogsBatched, type LogSource } from './logs';
+import { fetchBlockTimestamps, fetchGraduationStatusOf, type GraduationStatus } from './graduation';
 import { detectCreatorSales, detectLiquidityRemovals } from './behavior';
 import { createRpcClient, DEFAULT_RPC_URL, type RpcClient } from './rpc';
 
@@ -31,6 +37,18 @@ export const ABANDON_AFTER_BLOCKS = 26_000_000;
  */
 export const DEFAULT_LOOKBACK_BLOCKS = 30_000_000;
 
+/** Launches read in detail (graduation, launch date) for one creator. */
+export const MAX_DETAILED_LAUNCHES = 40;
+
+/** Launches whose sales and liquidity removals are checked. */
+export const MAX_BEHAVIOR_TOKENS = 10;
+
+/**
+ * Sales and liquidity removals are looked for in the first 10 M blocks after
+ * a launch: about 11.5 days at 0.101 s per block, one query per token.
+ */
+export const BEHAVIOR_WINDOW_BLOCKS = 10_000_000;
+
 /**
  * Détermine le sort d'un token.
  *
@@ -49,6 +67,9 @@ export function classifyOutcome(
   observedBlocks = Number.POSITIVE_INFINITY,
 ): TokenOutcome {
   if (status?.graduated) return 'graduated';
+  // Graduation could not be read (a revert, or a factory with another layout):
+  // calling an old token "abandoned" would state something nobody observed.
+  if (!status && blocksSinceLaunch > ABANDON_AFTER_BLOCKS) return 'undetermined';
   if (blocksSinceLaunch > ABANDON_AFTER_BLOCKS) return 'abandoned';
   if (observedBlocks < ABANDON_AFTER_BLOCKS) return 'undetermined';
   return 'active';
@@ -63,19 +84,56 @@ export function addressTopic(address: string): string {
  * Retrouve le lancement d'un token donné.
  *
  * C'est le point d'entrée réel du pipeline : on ne connaît au départ que
- * l'adresse du token, pas celle de son créateur. Elle se lit dans le
- * `TokenLaunched` de ce token — topic1 est le token, topic2 le deployer.
+ * l'adresse du token, pas celle de son créateur.
+ *
+ * First, the cheap way: the pons factories answer `getLaunchedToken(token)`,
+ * so one batch of `eth_call` settles it for them — `eth_getLogs` is what the
+ * public node rate-limits (a burst of ~20, then ~4 per second). Only the
+ * factories that do not expose that getter are searched through their logs.
  */
 export async function findLaunchOf(
   rpc: RpcClient,
   token: Address,
   latestBlock: number,
-  lookbackBlocks = 5_000_000,
+  lookbackBlocks = latestBlock,
+  factories: readonly FactoryRange[] = PONS_FACTORIES,
 ): Promise<TokenLaunch | undefined> {
-  const { logs } = await getLogsChunked(
+  const readable = factories.filter((f) => f.getter);
+  if (readable.length > 0) {
+    const outcomes = await rpc.callBatch<string>([
+      ...readable.map((f) => ({
+        method: 'eth_call',
+        params: [{ to: f.address, data: encodeGetLaunchedToken(token) }, 'latest'],
+      })),
+      { method: 'eth_call', params: [{ to: token, data: LIQUIDITY_POOL_SELECTOR }, 'latest'] },
+    ]);
+    const pool = outcomes[readable.length];
+    for (const [i, factory] of readable.entries()) {
+      const outcome = outcomes[i];
+      const launched = outcome?.ok ? decodeGetLaunchedToken(outcome.value) : null;
+      if (launched?.exists) {
+        return {
+          token,
+          deployer: launched.deployer,
+          dexFactory: '0x' as Address,
+          pairToken: launched.pairedToken,
+          pool: pool?.ok ? (wordToAddress(pool.value) ?? ('0x' as Address)) : ('0x' as Address),
+          initialBuyAmount: launched.initialBuyAmount,
+          // Not given by the getter; the creator history carries the real block.
+          blockNumber: 0,
+          factory: factory.address,
+          transactionHash: '',
+        };
+      }
+    }
+  }
+
+  const others = factories.filter((f) => !f.getter);
+  if (others.length === 0) return undefined;
+  const { logs } = await getLogsBatched(
     rpc,
-    { topics: [TOKEN_LAUNCHED_TOPIC, addressTopic(token)] },
-    { fromBlock: Math.max(0, latestBlock - lookbackBlocks), toBlock: latestBlock, maxLogs: 1 },
+    { addresses: others, topics: [TOKEN_LAUNCHED_TOPIC, addressTopic(token)] },
+    { fromBlock: Math.max(0, latestBlock - lookbackBlocks), toBlock: latestBlock },
   );
   const first = logs[0];
   return first ? decodeTokenLaunched(first) : undefined;
@@ -85,6 +143,10 @@ export type FetchCreatorHistoryOptions = {
   rpcUrl?: string;
   budget?: RequestBudget;
   client?: RpcClient;
+  /** The token being analysed: its sales and liquidity are always checked. */
+  focus?: Address;
+  /** Factories to read launches from. Defaults to the known pons generations. */
+  factories?: readonly LogSource[];
   /**
    * Profondeur scannée. Le défaut couvre le seuil d'abandon (30 jours), ce qui
    * rend la classification `abandoned` réellement atteignable — avec 5 M blocs
@@ -100,10 +162,11 @@ export async function fetchCreatorHistory(
 ): Promise<CreatorHistory> {
   const rpc = options.client ?? createRpcClient(options.rpcUrl ?? DEFAULT_RPC_URL, options.budget);
   const fetchedAt = (options.now ?? (() => new Date()))().toISOString();
-  const lookback = options.lookbackBlocks ?? DEFAULT_LOOKBACK_BLOCKS;
-
   const latestHex = await rpc.call<string>('eth_blockNumber', []);
   const latest = Number(latestHex);
+  // Reading the whole chain now costs one batch, so it is the default: an
+  // older launch is no longer invisible because it fell outside a window.
+  const lookback = options.lookbackBlocks ?? latest;
 
   // L'adresse du factory se découvre, elle ne se copie pas d'une documentation.
   // Note : `discoverActiveFactories` n'est pas appelée ici. Le factory qui a
@@ -112,49 +175,57 @@ export async function fetchCreatorHistory(
   // générations de factory (#13) — l'appeler ici coûtait un eth_getLogs
   // chunké sur toute la fenêtre pour un résultat qu'on jetait.
 
-  const { logs, truncated, scanned } = await getLogsChunked(
+  // One query per (factory, 10 M-block window), batched. A topic-only filter
+  // is capped at 30,000 blocks per query: 1,000 queries for 30 M blocks, which
+  // the request budget cut short every time.
+  const scanned = { fromBlock: Math.max(0, latest - lookback), toBlock: latest };
+  const { logs, truncated } = await getLogsBatched(
     rpc,
-    { topics: [TOKEN_LAUNCHED_TOPIC, null, addressTopic(creator)] },
-    { fromBlock: Math.max(0, latest - lookback), toBlock: latest },
+    {
+      addresses: options.factories ?? PONS_FACTORIES,
+      topics: [TOKEN_LAUNCHED_TOPIC, null, addressTopic(creator)],
+    },
+    scanned,
   );
 
-  const launches = logs.map(decodeTokenLaunched);
+  const all = logs.map(decodeTokenLaunched);
+  // A serial launcher can have hundreds of tokens. The most recent ones are
+  // read in detail; the rest would only spend the request budget, so the
+  // history says it was capped instead of pretending to be complete.
+  const launches = all.slice(-MAX_DETAILED_LAUNCHES);
+  const capped = all.length > launches.length;
 
   // Un seul aller-retour par lot de 20, au lieu d'un par token.
-  const factory = launches[0]?.factory;
   const [statuses, timestamps] = await Promise.all([
-    factory
-      ? fetchGraduationStatusBatch(
-          rpc,
-          factory,
-          launches.map((l) => l.token),
-        )
-      : Promise.resolve<(GraduationStatus | null)[]>([]),
+    fetchGraduationStatusOf(rpc, launches),
     fetchBlockTimestamps(
       rpc,
       launches.map((l) => l.blockNumber),
     ),
   ]);
 
-  // Deux requêtes pour tous les tokens à la fois, pas deux par token :
-  // eth_getLogs accepte une liste d'adresses.
-  const pairs = launches.map((l) => ({ token: l.token, pool: l.pool }));
-  // Rien ne peut arriver à un token avant son lancement : la fenêtre part du
-  // plus ancien lancement observé, pas du début de la plage scannée. Sur un
-  // créateur récent, ça divise le coût par plus de dix.
-  const earliestLaunch = launches.reduce(
-    (min, l) => Math.min(min, l.blockNumber),
-    Number.POSITIVE_INFINITY,
-  );
-  const window = {
-    fromBlock: Number.isFinite(earliestLaunch) ? earliestLaunch : scanned.fromBlock,
-    toBlock: scanned.toBlock,
-  };
+  // Sales and liquidity are read for the most recent launches (and always for
+  // the token being analysed), each over its first BEHAVIOR_WINDOW_BLOCKS: one
+  // query per token and per signal. Reading every launch over its whole life
+  // cost 400 queries for a creator with 76 tokens — 100 s on the public node.
+  const watched = launches
+    .filter(
+      (l, i) =>
+        i >= launches.length - MAX_BEHAVIOR_TOKENS ||
+        l.token.toLowerCase() === options.focus?.toLowerCase(),
+    )
+    .map((l) => ({
+      token: l.token,
+      pool: l.pool,
+      fromBlock: l.blockNumber,
+      toBlock: Math.min(latest, l.blockNumber + BEHAVIOR_WINDOW_BLOCKS - 1),
+    }));
+  const window = { fromBlock: scanned.fromBlock, toBlock: scanned.toBlock };
   // Un échec ici donne une Map vide, donc `null` par token plus bas : on ne
   // prétend pas avoir observé une absence de vente alors qu'on n'a pas regardé.
   const [sold, pulled] = await Promise.all([
-    detectCreatorSales(rpc, creator, pairs, window).catch(() => new Map<string, boolean>()),
-    detectLiquidityRemovals(rpc, pairs, window).catch(() => new Map<string, boolean>()),
+    detectCreatorSales(rpc, creator, watched, window).catch(() => new Map<string, boolean>()),
+    detectLiquidityRemovals(rpc, watched, window).catch(() => new Map<string, boolean>()),
   ]);
 
   const tokens: LaunchedToken[] = launches.map((launch, i) => {
@@ -175,7 +246,7 @@ export async function fetchCreatorHistory(
   });
 
   const counts = {
-    launched: tokens.length,
+    launched: all.length,
     graduated: tokens.filter((t) => t.outcome === 'graduated').length,
     abandoned: tokens.filter((t) => t.outcome === 'abandoned').length,
     undetermined: tokens.filter((t) => t.outcome === 'undetermined').length,
@@ -186,7 +257,7 @@ export async function fetchCreatorHistory(
   // `truncated` couvre désormais aussi l'arrêt sur rate limit : la fenêtre
   // réellement couverte est dans scannedRange, et elle peut être bien plus
   // courte que demandée.
-  const partial = truncated || scanned.fromBlock > 0;
+  const partial = truncated || capped || scanned.fromBlock > 0;
 
   return {
     completeness: partial ? 'partial' : 'full',
@@ -196,7 +267,11 @@ export async function fetchCreatorHistory(
         fetchedAt,
         ...(partial
           ? {
-              note: `scanned range: blocks ${scanned.fromBlock} to ${scanned.toBlock} — earlier history not covered`,
+              note: capped
+                ? `${launches.length} most recent of ${all.length} launches read in detail`
+                : truncated
+                  ? 'some launch windows could not be read — history may be incomplete'
+                  : `scanned range: blocks ${scanned.fromBlock} to ${scanned.toBlock} — earlier history not covered`,
             }
           : {}),
       },

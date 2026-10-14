@@ -6,7 +6,7 @@ describe('parseEnv', () => {
     const env = parseEnv({});
     expect(env.SEAL_ENV).toBe('development');
     expect(env.RPC_URL).toBe('https://rpc.mainnet.chain.robinhood.com');
-    expect(env.ANTHROPIC_MODEL).toBe('claude-sonnet-5');
+    expect(env.ANTHROPIC_MODEL).toBe('claude-sonnet-5-5');
   });
 
   it('accepte les trois environnements attendus', () => {

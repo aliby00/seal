@@ -1,6 +1,6 @@
 import { RateLimitError } from '../errors';
 import { BudgetExhaustedError } from '../http';
-import { LogQueryTooBroadError, type RpcClient } from './rpc';
+import { classifyLogError, LogQueryTooBroadError, type RpcClient } from './rpc';
 
 /**
  * Récupération de logs par fenêtres adaptatives.
@@ -149,4 +149,102 @@ export async function getLogsChunked(
     truncated: truncated || logs.length > maxLogs,
     scanned: { fromBlock: lowestScanned, toBlock },
   };
+}
+
+/**
+ * Measured on Robinhood Chain (14/10/2026): filtered on ONE address, a query
+ * may span 10,000,000 blocks. With a list of addresses, the cap drops to
+ * 100,000 — so a list is split into one query per address, never sent as is.
+ */
+export const SINGLE_ADDRESS_SPAN = 10_000_000;
+
+/** An address, optionally with the block range where it can have logs. */
+export type LogSource = string | { address: string; fromBlock?: number; toBlock?: number };
+
+/**
+ * Logs of several contracts over a long range, in as few HTTP requests as
+ * possible: one `eth_getLogs` per (address, 10 M-block window), sent as a
+ * JSON-RPC batch. The whole history of both live pons factories fits in one
+ * batch (~0.4 s), where topic-only windows of 30,000 blocks needed hundreds.
+ *
+ * A window the node still refuses (more than 10,000 results) falls back to the
+ * adaptive scan for that window alone. Any other refusal marks the result
+ * truncated rather than failing it: the caller says the view is partial.
+ */
+export async function getLogsBatched(
+  rpc: RpcClient,
+  filter: { addresses: readonly LogSource[]; topics: LogFilter['topics'] },
+  range: { fromBlock: number; toBlock: number; span?: number },
+): Promise<{ logs: RawLog[]; truncated: boolean }> {
+  const span = range.span ?? SINGLE_ADDRESS_SPAN;
+  const windows: { address: string; fromBlock: number; toBlock: number }[] = [];
+  const seen = new Set<string>();
+  for (const source of filter.addresses) {
+    const own = typeof source === 'string' ? { address: source } : source;
+    const address = own.address.toLowerCase();
+    if (seen.has(address)) continue;
+    seen.add(address);
+    // A contract has no logs outside its own active range: don't ask for them.
+    const from = Math.max(range.fromBlock, own.fromBlock ?? 0);
+    const until = Math.min(range.toBlock, own.toBlock ?? Number.POSITIVE_INFINITY);
+    for (let to = until; to >= from; to -= span) {
+      windows.push({ address, fromBlock: Math.max(from, to - span + 1), toBlock: to });
+    }
+  }
+  if (windows.length === 0) return { logs: [], truncated: false };
+
+  const outcomes = await rpc.callBatch<RawLog[]>(
+    windows.map((w) => ({
+      method: 'eth_getLogs',
+      params: [
+        {
+          address: w.address,
+          topics: filter.topics,
+          fromBlock: hex(w.fromBlock),
+          toBlock: hex(w.toBlock),
+        },
+      ],
+    })),
+  );
+
+  const logs: RawLog[] = [];
+  let truncated = false;
+  for (const [i, outcome] of outcomes.entries()) {
+    if (outcome.ok && Array.isArray(outcome.value)) {
+      logs.push(...outcome.value);
+      continue;
+    }
+    if (outcome.ok) {
+      truncated = true;
+      continue;
+    }
+    const window = windows[i];
+    const tooBroad = classifyLogError(outcome.error);
+    if (!window || !tooBroad) {
+      truncated = true;
+      continue;
+    }
+    try {
+      const retry = await getLogsChunked(
+        rpc,
+        { address: window.address, topics: filter.topics },
+        {
+          fromBlock: window.fromBlock,
+          toBlock: window.toBlock,
+          initialSpan: tooBroad.maxSpan ?? Math.floor(span / 4),
+          maxLogs: 50_000,
+        },
+      );
+      logs.push(...retry.logs);
+      truncated ||= retry.truncated;
+    } catch {
+      truncated = true;
+    }
+  }
+
+  logs.sort(
+    (a, b) =>
+      Number(a.blockNumber) - Number(b.blockNumber) || Number(a.logIndex) - Number(b.logIndex),
+  );
+  return { logs, truncated };
 }

@@ -52,3 +52,16 @@ describe('le nom est une donnée, jamais une instruction', () => {
     expect(quoteName(null)).toBe('(unreadable)');
   });
 });
+
+describe('a name that carries a verdict', () => {
+  // The audit case: the model quoted the name, its output was refused, and
+  // the offline fallback published the name verbatim.
+  it('is withheld instead of quoted', () => {
+    expect(quoteName('10/10 safe to buy')).toBe('(name withheld: it reads as a verdict or advice)');
+    expect(quoteName('NOT A RUG')).toMatch(/withheld/);
+  });
+
+  it('is quoted when it is only a name', () => {
+    expect(quoteName('Robin Cat')).toBe('"Robin Cat"');
+  });
+});

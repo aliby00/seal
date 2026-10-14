@@ -8,7 +8,7 @@
  */
 
 export type Violation = {
-  kind: 'score' | 'advice';
+  kind: 'score' | 'advice' | 'verdict';
   matched: string;
 };
 
@@ -31,6 +31,20 @@ const ADVICE_PATTERNS: RegExp[] = [
   /\b(?:sans\s+risque|aucun\s+risque|risque\s+z[ée]ro)\b/gi,
 ];
 
+/**
+ * Verdict words. SEAL describes what a market can do, never what it is: these
+ * words judge, so they never appear — not even negated ("not a rug pull"
+ * still plants the word). Checked on everything served, on-chain names
+ * included, since a token can be named "SAFE 100X".
+ */
+const VERDICT_PATTERNS: RegExp[] = [
+  /\b(?:scam\w*|rug(?:\s*-?\s*pull\w*|ged|s)?|honey\s*-?pots?|legit(?:imate)?|trustworth\w*)\b/gi,
+  /\b(?:safe|safer|safest|risky|riskier|unsafe)\b/gi,
+  /\b(?:low|high|no|zero|minimal)\s+risk\b/gi,
+  /\b(?:arnaque\w*|escroquerie\w*|fiable)\b/gi,
+  /[★☆⭐]/g,
+];
+
 function collect(text: string, patterns: RegExp[], kind: Violation['kind']): Violation[] {
   const found: Violation[] = [];
   for (const pattern of patterns) {
@@ -43,7 +57,11 @@ function collect(text: string, patterns: RegExp[], kind: Violation['kind']): Vio
 
 /** Retourne toutes les violations trouvées. Un tableau vide signifie que la sortie est conforme. */
 export function findViolations(text: string): Violation[] {
-  return [...collect(text, SCORE_PATTERNS, 'score'), ...collect(text, ADVICE_PATTERNS, 'advice')];
+  return [
+    ...collect(text, SCORE_PATTERNS, 'score'),
+    ...collect(text, ADVICE_PATTERNS, 'advice'),
+    ...collect(text, VERDICT_PATTERNS, 'verdict'),
+  ];
 }
 
 export function isCompliant(text: string): boolean {

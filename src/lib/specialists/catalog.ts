@@ -1,4 +1,5 @@
 import { NATIVE } from '../chain/pools';
+import { MAX_BEHAVIOR_TOKENS } from '../chain';
 import { volumePerTrade } from '../market';
 import { addressesSoftware, imitatedName, normalizeName, quoteName } from './names';
 import type { Finding, Signal, Specialist, SpecialistContext, SpecialistId } from './types';
@@ -190,7 +191,11 @@ const nameClone: Specialist = {
     const named = index?.all().some((m) => m.name || m.symbol) ?? false;
     if (index && !named) limits.push('earlier names were not compared: the index holds no names');
     if (index && named) {
-      const mine = [name, symbol].filter(Boolean).map((s) => normalizeName(s as string));
+      // An emoji- or digit-only name normalises to "": two of them are not a match.
+      const mine = [name, symbol]
+        .filter(Boolean)
+        .map((s) => normalizeName(s as string))
+        .filter((n) => n.length > 0);
       const earlier = index
         .all()
         .filter((m) => m.token !== market.token && m.blockNumber < market.blockNumber)
@@ -270,7 +275,7 @@ const creatorHistory: Specialist = {
     const dumped = others.filter((t) => t.creatorDumped === true).length;
     const graduated = others.filter((t) => t.outcome === 'graduated').length;
     const facts = [
-      `The creator launched ${others.length} other token(s): ${graduated} graduated, ${pulled} saw liquidity removed, ${dumped} saw the creator sell into the pool.`,
+      `The creator launched ${others.length} other token(s): ${graduated} graduated, ${pulled} saw liquidity removed, ${dumped} saw the creator sell into the pool (sales and removals checked on the ${MAX_BEHAVIOR_TOKENS} most recent, in the ~11 days after each launch).`,
     ];
     if (pulled + dumped > 0) return finding('creator-history', 'concern', facts, limits);
     if (graduated > 0) return finding('creator-history', 'reassurance', facts, limits);
@@ -368,7 +373,9 @@ const liquidityMove: Specialist = {
       facts.push('Liquidity has already been removed from this token’s pool.');
       signal = 'concern';
     } else if (self?.liquidityPulled === false) {
-      facts.push('No liquidity removal was observed on this token’s pool in the scanned range.');
+      facts.push(
+        'No liquidity removal was observed on this token’s pool in the ~11 days after its launch.',
+      );
       signal = 'quiet';
     } else {
       limits.push('liquidity removals on this token were not determined');

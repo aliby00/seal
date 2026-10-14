@@ -1,0 +1,1102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>SEAL Brand Identity</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800&family=Martian+Mono:wght@400;600&display=swap"
+    />
+    <style>
+      /* Layout: a screening console — film on the monitor, a live scanner you can feed any hook, then the parts and the tweet plan. One deliberate light world: the scanner screen. */
+      :root {
+        --scan: #e6ecee;
+        --paper: #f5f8f9;
+        --dense: #0e1317;
+        --organic: #f2801c;
+        --organic-dense: #b9500b;
+        --metal: #1e4fd8;
+        --mixed: #2f9a5b;
+        --lead: #5e6a73;
+        --rule: rgba(14, 19, 23, 0.13);
+        --display: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+        --mono: 'Martian Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+        color-scheme: light;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        background: var(--scan);
+        background-image: repeating-linear-gradient(
+          0deg,
+          rgba(14, 19, 23, 0.03) 0 1px,
+          transparent 1px 4px
+        );
+        color: var(--dense);
+        font-family: var(--display);
+        font-size: 16px;
+        line-height: 1.55;
+      }
+      .wrap {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding-inline: clamp(16px, 4vw, 40px);
+        padding-block: 24px 96px;
+        display: grid;
+        gap: 88px;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        border-bottom: 1.5px solid var(--rule);
+        padding-bottom: 18px;
+      }
+      header .meta {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--lead);
+        display: flex;
+        gap: 14px;
+        align-items: center;
+      }
+      header .meta .on {
+        color: var(--organic-dense);
+      }
+      .lockup svg {
+        height: 46px;
+        width: auto;
+        display: block;
+      }
+      h1,
+      h2 {
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        text-wrap: balance;
+        margin: 0;
+      }
+      h1 {
+        font-size: clamp(36px, 5.6vw, 68px);
+        line-height: 1;
+        max-width: 16ch;
+      }
+      h2 {
+        font-size: clamp(26px, 3.2vw, 38px);
+        line-height: 1.06;
+      }
+      h1 em,
+      h2 em {
+        font-style: normal;
+        color: var(--organic);
+      }
+      p {
+        margin: 0;
+        max-width: 62ch;
+      }
+      .lede {
+        color: var(--lead);
+        font-size: 18px;
+      }
+      .label {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--lead);
+      }
+      section {
+        display: grid;
+        gap: 28px;
+      }
+      .head {
+        display: grid;
+        gap: 12px;
+      }
+      .monitor {
+        border: 1.5px solid var(--rule);
+        border-radius: 8px;
+        overflow: hidden;
+        background: var(--paper);
+      }
+      .monitor video {
+        display: block;
+        width: 100%;
+        height: auto;
+        aspect-ratio: 16 / 9;
+      }
+
+      .scanner {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 40px;
+        align-items: start;
+        border-top: 1.5px solid var(--rule);
+        padding-top: 32px;
+      }
+      .views {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+        gap: 20px;
+        align-items: end;
+      }
+      .views figure {
+        margin: 0;
+        display: grid;
+        gap: 8px;
+      }
+      .views svg {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+      .form {
+        display: grid;
+        gap: 18px;
+        min-width: 0;
+      }
+      .field {
+        display: grid;
+        gap: 8px;
+      }
+      .field label {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--lead);
+      }
+      .field input {
+        font: 400 15px var(--mono);
+        color: var(--dense);
+        background: var(--paper);
+        border: 1.5px solid var(--rule);
+        border-radius: 6px;
+        padding: 12px 14px;
+        width: 100%;
+      }
+      .field input:focus-visible {
+        outline: 2px solid var(--metal);
+        outline-offset: 2px;
+      }
+      .err {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--organic-dense);
+        min-height: 1.2em;
+      }
+      .examples {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      button {
+        font: 400 12px var(--mono);
+        color: var(--dense);
+        background: var(--paper);
+        border: 1.5px solid var(--rule);
+        border-radius: 999px;
+        padding: 7px 13px;
+        cursor: pointer;
+      }
+      button:hover {
+        border-color: var(--lead);
+      }
+      button:focus-visible {
+        outline: 2px solid var(--metal);
+        outline-offset: 2px;
+      }
+      button[aria-pressed='true'] {
+        border-color: var(--organic);
+        color: var(--organic-dense);
+        background: rgba(242, 128, 28, 0.08);
+      }
+      .mask {
+        font-family: var(--mono);
+        font-size: 13px;
+        color: var(--lead);
+      }
+      .mask strong {
+        color: var(--dense);
+        font-weight: 600;
+      }
+      .bits {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 3px 22px;
+        font-family: var(--mono);
+        font-size: 12px;
+      }
+      .bits div {
+        display: flex;
+        gap: 10px;
+        color: var(--lead);
+        opacity: 0.55;
+      }
+      .bits div.on {
+        color: var(--dense);
+        opacity: 1;
+      }
+      .bits b {
+        font-weight: 600;
+        width: 2.4ch;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .bits div.on b {
+        color: var(--organic-dense);
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--lead);
+      }
+      .legend i {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+        margin-right: 6px;
+        vertical-align: -1px;
+      }
+
+      .marks {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 16px;
+      }
+      .tile {
+        display: grid;
+        gap: 8px;
+      }
+      .tile .art {
+        aspect-ratio: 4 / 3;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        background: var(--paper);
+        border: 1.5px solid var(--rule);
+        padding: 28px;
+      }
+      .tile .art.dense {
+        background: var(--dense);
+      }
+      .tile .art svg {
+        max-width: 100%;
+        max-height: 100%;
+        height: auto;
+      }
+      .sizes {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+      .cap {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--lead);
+      }
+
+      .films {
+        display: grid;
+        gap: 56px;
+      }
+      .film {
+        display: grid;
+        grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+        gap: 32px;
+        align-items: start;
+        border-top: 1.5px solid var(--rule);
+        padding-top: 28px;
+      }
+      .film .screen {
+        background: var(--paper);
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1.5px solid var(--rule);
+        display: grid;
+        place-items: center;
+      }
+      .film .screen video {
+        display: block;
+        width: 100%;
+        height: auto;
+        max-height: 70vh;
+      }
+      .film .side {
+        display: grid;
+        gap: 16px;
+        min-width: 0;
+      }
+      .film .when {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--organic-dense);
+        letter-spacing: 0.06em;
+      }
+      .film h3 {
+        margin: 0;
+        font-size: 26px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+      .toggle {
+        display: flex;
+        gap: 8px;
+      }
+      .tweet {
+        font-family: var(--mono);
+        font-size: 13px;
+        line-height: 1.65;
+        white-space: pre-wrap;
+        background: var(--paper);
+        border: 1.5px solid var(--rule);
+        border-radius: 6px;
+        padding: 16px;
+        margin: 0;
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .system {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+      }
+      .swatch {
+        display: grid;
+        gap: 8px;
+      }
+      .swatch i {
+        display: block;
+        height: 72px;
+        border-radius: 6px;
+        border: 1.5px solid var(--rule);
+      }
+      .type {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 24px;
+      }
+      .sample-d {
+        font-size: 44px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1;
+      }
+      .sample-m {
+        font-family: var(--mono);
+        font-size: 16px;
+      }
+
+      @media (max-width: 760px) {
+        .scanner,
+        .film {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .bits {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+    </style>
+
+    <div class="wrap">
+      <header>
+        <div class="lockup" id="lockup" aria-label="SEAL"></div>
+        <div class="meta">
+          <span class="on">● screening</span><span>Identity v3 · 12 Oct 2026</span>
+        </div>
+      </header>
+
+      <section>
+        <div class="head">
+          <span class="label">The idea</span>
+          <h1>Every market goes through the scanner. <em>We show what it carries.</em></h1>
+          <p class="lede">
+            A security scanner doesn't judge the traveller. It shows what's in the bag. SEAL does
+            the same with a market's rulebook: the 14 permissions written into its hook address,
+            read and shown, never scored.
+          </p>
+        </div>
+        <div class="monitor">
+          <video
+            src="../videos/16x9/seal-reveal.mp4"
+            autoplay
+            muted
+            loop
+            playsinline
+            preload="metadata"
+            aria-label="Logo reveal film"
+          ></video>
+        </div>
+      </section>
+
+      <section>
+        <div class="head">
+          <span class="label">Scanner</span>
+          <h2>Feed it a hook address.</h2>
+          <p class="lede">
+            Left, the market's curtain: one strip per permission, long when the permission is set.
+            Right, the same market x-rayed as luggage. An empty bag is a market with no rulebook.
+          </p>
+        </div>
+        <div class="scanner">
+          <div class="views">
+            <figure>
+              <div id="curtain"></div>
+              <figcaption class="cap">curtain</figcaption>
+            </figure>
+            <figure>
+              <div id="xray"></div>
+              <figcaption class="cap">x-ray</figcaption>
+            </figure>
+          </div>
+          <div class="form">
+            <div class="field">
+              <label for="hook">Hook address</label>
+              <input
+                id="hook"
+                spellcheck="false"
+                autocomplete="off"
+                value="0x4eb1976978756bd56802d8162f2271844924e0cc"
+              />
+              <div class="err" id="hookErr" role="status"></div>
+            </div>
+            <div class="examples" id="examples"></div>
+            <div class="mask" id="maskLine"></div>
+            <div class="legend">
+              <span><i style="background: var(--organic)"></i>trading</span>
+              <span><i style="background: var(--organic-dense)"></i>can change trade amounts</span>
+              <span><i style="background: var(--metal)"></i>liquidity</span>
+              <span><i style="background: var(--mixed)"></i>creation, donations</span>
+            </div>
+            <div class="bits" id="bits"></div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="head">
+          <span class="label">The parts</span>
+          <h2>Arch, stencil, lockups.</h2>
+          <p class="lede">
+            The wordmark is a stencil, like the markings on a cargo crate. Its A is the scanner
+            arch.
+          </p>
+        </div>
+        <div class="marks" id="marks"></div>
+      </section>
+
+      <section>
+        <div class="head">
+          <span class="label">Four films, real data</span>
+          <h2>177 Robinhood Chain markets, through the scanner.</h2>
+          <p class="lede">
+            Every name and number comes from blocks 86,100,036 to 86,131,118, read on 11 October,
+            about 51 minutes. Each film exists in 16:9 for the timeline and 9:16 for phones.
+          </p>
+        </div>
+        <div class="films" id="films"></div>
+      </section>
+
+      <section>
+        <div class="head">
+          <span class="label">System</span>
+          <h2>The scanner's false colours.</h2>
+          <p class="lede">
+            Baggage scanners paint organic matter orange and metal blue. SEAL uses the same code:
+            orange for what touches trading, blue for what touches liquidity.
+          </p>
+        </div>
+        <div class="system">
+          <div class="swatch">
+            <i style="background: var(--scan)"></i><span class="cap">Screen · #E6ECEE</span>
+          </div>
+          <div class="swatch">
+            <i style="background: var(--dense)"></i><span class="cap">Dense · #0E1317</span>
+          </div>
+          <div class="swatch">
+            <i style="background: var(--organic)"></i><span class="cap">Organic · #F2801C</span>
+          </div>
+          <div class="swatch">
+            <i style="background: var(--organic-dense)"></i
+            ><span class="cap">Organic dense · #B9500B</span>
+          </div>
+          <div class="swatch">
+            <i style="background: var(--metal)"></i><span class="cap">Metal · #1E4FD8</span>
+          </div>
+          <div class="swatch">
+            <i style="background: var(--mixed)"></i><span class="cap">Mixed · #2F9A5B</span>
+          </div>
+        </div>
+        <div class="type">
+          <div>
+            <div class="sample-d">We x-ray the rulebook.</div>
+            <span class="cap">Archivo 800, tracking −3%. Headlines.</span>
+          </div>
+          <div>
+            <div class="sample-m">rulebook 0x4eb1…e0cc<br />mask 0x20cc · 5 of 14</div>
+            <span class="cap">Martian Mono. Data and interface.</span>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      (function () {
+        var C = {
+          scan: '#E6ECEE',
+          dense: '#0E1317',
+          organic: '#F2801C',
+          organicDense: '#B9500B',
+          metal: '#1E4FD8',
+          mixed: '#2F9A5B',
+          lead: '#5E6A73',
+        };
+        var FLAGS = [
+          'beforeInitialize',
+          'afterInitialize',
+          'beforeAddLiquidity',
+          'afterAddLiquidity',
+          'beforeRemoveLiquidity',
+          'afterRemoveLiquidity',
+          'beforeSwap',
+          'afterSwap',
+          'beforeDonate',
+          'afterDonate',
+          'beforeSwapReturnsDelta',
+          'afterSwapReturnsDelta',
+          'afterAddLiquidityReturnsDelta',
+          'afterRemoveLiquidityReturnsDelta',
+        ];
+        function f(n) {
+          return Math.round(n * 100) / 100;
+        }
+        function on(mask, bit) {
+          return (mask >> bit) & 1;
+        }
+
+        // Same geometry as brand/v3/gen/marks.mjs.
+        function arch(o) {
+          o = o || {};
+          var mask = o.mask == null ? 0x3fff : o.mask,
+            strips = o.strips || 14,
+            frame = o.frame || C.metal,
+            strip = o.strip || C.organic;
+          var W = 78,
+            H = 86,
+            x0 = (100 - W) / 2,
+            y0 = (100 - H) / 2,
+            t = 8,
+            r = W / 2;
+          var outer =
+            'M' +
+            x0 +
+            ' ' +
+            (y0 + H) +
+            ' V' +
+            (y0 + r) +
+            ' A' +
+            r +
+            ' ' +
+            r +
+            ' 0 0 1 ' +
+            (x0 + W) +
+            ' ' +
+            (y0 + r) +
+            ' V' +
+            (y0 + H) +
+            ' H' +
+            (x0 + W - t) +
+            ' V' +
+            (y0 + r) +
+            ' A' +
+            (r - t) +
+            ' ' +
+            (r - t) +
+            ' 0 0 0 ' +
+            (x0 + t) +
+            ' ' +
+            (y0 + r) +
+            ' V' +
+            (y0 + H) +
+            ' Z';
+          var ix0 = x0 + t + 3,
+            ix1 = x0 + W - t - 3,
+            cx = 50,
+            cy = y0 + r,
+            ri = r - t;
+          var pitch = (ix1 - ix0) / strips,
+            sw = pitch * (strips === 14 ? 0.72 : 0.62),
+            bars = '';
+          for (var i = 0; i < strips; i++) {
+            var isOn = strips === 14 ? on(mask, 13 - i) : 1;
+            var x = ix0 + pitch * i + (pitch - sw) / 2,
+              dx = x + sw / 2 - cx;
+            var top = cy - Math.sqrt(Math.max(0, ri * ri - dx * dx)) + 4;
+            var bottom = isOn ? y0 + H - 7 : cy + 4;
+            bars +=
+              '<rect x="' +
+              f(x) +
+              '" y="' +
+              f(top) +
+              '" width="' +
+              f(sw) +
+              '" height="' +
+              f(bottom - top) +
+              '" rx="' +
+              f(sw / 2) +
+              '" fill="' +
+              strip +
+              '"/>';
+          }
+          return (
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="scanner arch">' +
+            bars +
+            '<path d="' +
+            outer +
+            '" fill="' +
+            frame +
+            '"/></svg>'
+          );
+        }
+
+        function wordmarkInner(color, archColor) {
+          var h = 60,
+            w = 50,
+            t = 12,
+            g = 4,
+            mt = (h - t) / 2,
+            ra = w / 2;
+          function R(x, y, ww, hh) {
+            return '<rect x="' + x + '" y="' + y + '" width="' + ww + '" height="' + hh + '"/>';
+          }
+          function P(d, fill) {
+            return '<path d="' + d + '"' + (fill ? ' fill="' + fill + '"' : '') + '/>';
+          }
+          var L = [
+            [
+              R(0, 0, w, t),
+              P('M0 ' + (t + g) + ' H' + t + ' V' + mt + ' H' + w + ' V' + (mt + t) + ' H0 Z'),
+              P(
+                'M' +
+                  (w - t) +
+                  ' ' +
+                  (mt + t + g) +
+                  ' H' +
+                  w +
+                  ' V' +
+                  h +
+                  ' H0 V' +
+                  (h - t) +
+                  ' H' +
+                  (w - t) +
+                  ' Z',
+              ),
+            ],
+            [
+              R(0, 0, t, h),
+              R(t + g, 0, w - t - g, t),
+              R(t + g, mt, w - t - g - 8, t),
+              R(t + g, h - t, w - t - g, t),
+            ],
+            [
+              P(
+                'M0 ' +
+                  h +
+                  ' V' +
+                  ra +
+                  ' A' +
+                  ra +
+                  ' ' +
+                  ra +
+                  ' 0 0 1 ' +
+                  w +
+                  ' ' +
+                  ra +
+                  ' V' +
+                  h +
+                  ' H' +
+                  (w - t) +
+                  ' V' +
+                  ra +
+                  ' A' +
+                  (ra - t) +
+                  ' ' +
+                  (ra - t) +
+                  ' 0 0 0 ' +
+                  t +
+                  ' ' +
+                  ra +
+                  ' V' +
+                  h +
+                  ' Z',
+                archColor,
+              ),
+              R(t + g, 36, w - 2 * t - 2 * g, t - 2),
+            ],
+            [R(0, 0, t, h - t - g), R(0, h - t, w, t)],
+          ];
+          return (
+            '<g fill="' +
+            color +
+            '">' +
+            L.map(function (parts, i) {
+              return '<g transform="translate(' + i * 66 + ' 0)">' + parts.join('') + '</g>';
+            }).join('') +
+            '</g>'
+          );
+        }
+        function wordmark(color, archColor) {
+          return (
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 252 64" role="img" aria-label="SEAL">' +
+            wordmarkInner(color, archColor) +
+            '</svg>'
+          );
+        }
+        function lockup(fg, frame) {
+          var m = arch({ frame: frame })
+            .replace(/^<svg[^>]*>/, '')
+            .replace(/<\/svg>$/, '');
+          return (
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 270 100" role="img" aria-label="SEAL">' +
+            m +
+            '<g transform="translate(112 31.4) scale(0.62)">' +
+            wordmarkInner(fg) +
+            '</g></svg>'
+          );
+        }
+
+        // Same objects as the films (lib3.tsx): each permission family is an object in the bag.
+        var OBJECTS = [
+          { bits: [7, 6], color: C.organic, x: 10, y: 14, w: 46, h: 30, r: 15 },
+          { bits: [3, 2], color: C.organicDense, x: 26, y: 22, w: 22, h: 22, r: 11 },
+          { bits: [9, 8, 0], color: C.metal, x: 54, y: 38, w: 36, h: 22, r: 4 },
+          { bits: [11, 10, 1], color: C.metal, x: 60, y: 14, w: 26, h: 14, r: 3 },
+          { bits: [13, 12], color: C.mixed, x: 12, y: 48, w: 16, h: 16, r: 8 },
+          { bits: [5, 4], color: C.mixed, x: 34, y: 50, w: 14, h: 10, r: 3 },
+        ];
+        function xray(mask) {
+          var objs = OBJECTS.map(function (o) {
+            var n = o.bits.filter(function (b) {
+              return on(mask, b);
+            }).length;
+            return n
+              ? '<rect x="' +
+                  o.x +
+                  '" y="' +
+                  o.y +
+                  '" width="' +
+                  o.w +
+                  '" height="' +
+                  o.h +
+                  '" rx="' +
+                  o.r +
+                  '" fill="' +
+                  o.color +
+                  '" opacity="' +
+                  (0.45 + 0.25 * n) +
+                  '" style="mix-blend-mode:multiply"/>'
+              : '';
+          }).join('');
+          return (
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 72" role="img" aria-label="x-ray of the market"><rect x="4" y="6" width="92" height="62" rx="9" fill="rgba(255,255,255,0.45)" stroke="' +
+            C.lead +
+            '" stroke-width="1.2"' +
+            (mask === 0 ? ' stroke-dasharray="3 2.5"' : '') +
+            '/><rect x="38" y="1" width="24" height="7" rx="3" fill="none" stroke="' +
+            C.lead +
+            '" stroke-width="2"/>' +
+            objs +
+            '</svg>'
+          );
+        }
+
+        document.getElementById('lockup').innerHTML = lockup(C.dense, C.metal);
+
+        var marks = [
+          { art: arch(), cap: 'Mark' },
+          { art: arch({ mask: 0x2544 }), cap: 'Curtain of hook 0x4e34…a544, 28 of 97 markets' },
+          {
+            art:
+              '<div class="sizes">' +
+              [16, 24, 32, 48]
+                .map(function (s) {
+                  return (
+                    '<span style="width:' +
+                    s +
+                    'px;display:block">' +
+                    arch({ strips: 5 }) +
+                    '</span>'
+                  );
+                })
+                .join('') +
+              '</div>',
+            cap: 'Small sizes: 16, 24, 32, 48 px, five strips',
+          },
+          { art: wordmark(C.dense, C.metal), cap: 'Stencil wordmark, the A is the arch' },
+          { art: lockup(C.dense, C.metal), cap: 'Lockup on screen' },
+          { art: lockup(C.scan, C.scan), cap: 'Lockup on dense', dense: true },
+        ];
+        document.getElementById('marks').innerHTML = marks
+          .map(function (m) {
+            return (
+              '<div class="tile"><div class="art' +
+              (m.dense ? ' dense' : '') +
+              '">' +
+              m.art +
+              '</div><span class="cap">' +
+              m.cap +
+              '</span></div>'
+            );
+          })
+          .join('');
+
+        var EXAMPLES = [
+          { label: '"HOOD" · 0x4eb1…e0cc', hook: '0x4eb1976978756bd56802d8162f2271844924e0cc' },
+          { label: '0x4e34…a544 · 11 markets', hook: '0x4e3468951d49f2eea976ed0d6e75ffcb44a9a544' },
+          { label: '0x2c66…2acc · 6 markets', hook: '0x2c668601193e4a081dd82604785e436aff6a2acc' },
+          { label: 'no rulebook', hook: '0x0000000000000000000000000000000000000000' },
+        ];
+        var input = document.getElementById('hook'),
+          err = document.getElementById('hookErr'),
+          ex = document.getElementById('examples');
+        ex.innerHTML = EXAMPLES.map(function (e, i) {
+          return '<button type="button" data-i="' + i + '">' + e.label + '</button>';
+        }).join('');
+        ex.addEventListener('click', function (e) {
+          var b = e.target.closest('button');
+          if (!b) return;
+          input.value = EXAMPLES[+b.dataset.i].hook;
+          draw();
+        });
+        function draw() {
+          var v = input.value.trim();
+          Array.prototype.forEach.call(ex.querySelectorAll('button'), function (b) {
+            b.setAttribute('aria-pressed', String(EXAMPLES[+b.dataset.i].hook === v.toLowerCase()));
+          });
+          if (!/^0x[0-9a-fA-F]{40}$/.test(v)) {
+            err.textContent = 'An address is 0x followed by 40 hex characters.';
+            return;
+          }
+          err.textContent = '';
+          var mask = Number(BigInt(v) & 0x3fffn);
+          document.getElementById('curtain').innerHTML = arch({ mask: mask });
+          document.getElementById('xray').innerHTML = xray(mask);
+          var count = FLAGS.filter(function (_, i) {
+            return on(mask, 13 - i);
+          }).length;
+          document.getElementById('maskLine').innerHTML =
+            mask === 0
+              ? '<strong>mask 0x0</strong> · the bag is empty. This market runs without a rulebook.'
+              : '<strong>mask 0x' +
+                mask.toString(16) +
+                '</strong> · ' +
+                count +
+                ' of 14 permissions';
+          document.getElementById('bits').innerHTML = FLAGS.map(function (name, i) {
+            var bit = 13 - i;
+            return (
+              '<div class="' +
+              (on(mask, bit) ? 'on' : '') +
+              '"><b>' +
+              bit +
+              '</b><span>' +
+              name +
+              '</span></div>'
+            );
+          }).join('');
+        }
+        input.addEventListener('input', draw);
+        draw();
+
+        var FILMS = [
+          {
+            id: 'reveal',
+            poster: 6,
+            when: 'J-7 · pin it',
+            title: 'Reveal',
+            len: '8 s',
+            what: 'The arch draws itself, the 14 strips drop with the name of their permission, the beam sweeps, the stencil assembles.',
+            tweet:
+              'every market on robinhood chain has a rulebook.\n14 permissions, written into its address.\nwe x-ray it.',
+          },
+          {
+            id: 'shapes',
+            poster: 10,
+            when: 'J-5',
+            title: 'Shapes',
+            len: '16 s',
+            what: '177 markets, 149 empty, 28 carrying a rulebook, 13 different ones, and the x-ray of each.',
+            tweet:
+              '177 new markets in 51 minutes.\n149 came through empty. 28 carried a rulebook, 13 different ones.\neach one leaves a different image.',
+          },
+          {
+            id: 'live',
+            poster: 13,
+            when: 'J-3',
+            title: 'Live',
+            len: '18 s',
+            what: 'The real markets ride the belt and are x-rayed under the arch. The belt stops on "HOOD" and three specialists say what they read.',
+            tweet:
+              '51 minutes of robinhood chain, through the scanner.\none market called itself HOOD.\nits rulebook can be rewritten without changing address.',
+          },
+          {
+            id: 'compose',
+            poster: 9,
+            when: 'J-1',
+            title: 'Compose',
+            len: '17 s',
+            what: 'Ten specialists. Four are picked and become an agent. No prompt anywhere.',
+            tweet:
+              '10 specialists. pick yours.\nno prompt, nothing to inject.\nevery agent gets replayed on past markets and ranked by what it caught.',
+          },
+          {
+            id: 'hype',
+            poster: 6,
+            when: 'J-2',
+            title: 'Hype',
+            len: '14 s',
+            what: 'Hard cuts on the real numbers, then all 13 rulebooks flash under the arch, each one x-rayed. Then the name.',
+            tweet:
+              '177 markets. 51 minutes. 13 rulebooks.\ncan you read them?\nwe x-ray them. soon.',
+          },
+          {
+            id: 'countdown-7',
+            poster: 4.5,
+            when: 'J-7 · second post / story',
+            title: 'Countdown 7',
+            len: '7.6 s',
+            what: 'The number rolls down to 7 and locks. The curtain of the arch parts a little more each day: closed at J-7, open on launch day.',
+            tweet: '7 days.\nuntil the scanner opens.',
+          },
+          {
+            id: 'countdown-5',
+            poster: 4.5,
+            when: 'J-5 · second post / story',
+            title: 'Countdown 5',
+            len: '7.6 s',
+            what: 'The number rolls down to 5 and locks. The curtain of the arch parts a little more each day: closed at J-7, open on launch day.',
+            tweet: '5 days.\nuntil the scanner opens.',
+          },
+          {
+            id: 'countdown-3',
+            poster: 4.5,
+            when: 'J-3 · second post / story',
+            title: 'Countdown 3',
+            len: '7.6 s',
+            what: 'The number rolls down to 3 and locks. The curtain of the arch parts a little more each day: closed at J-7, open on launch day.',
+            tweet: '3 days.\nuntil the scanner opens.',
+          },
+          {
+            id: 'countdown-1',
+            poster: 4.5,
+            when: 'J-1 · second post / story',
+            title: 'Countdown 1',
+            len: '7.6 s',
+            what: 'The number rolls down to 1 and locks. The curtain of the arch parts a little more each day: closed at J-7, open on launch day.',
+            tweet: '1 day.\nuntil the scanner opens.',
+          },
+          {
+            id: 'launch',
+            poster: 4.5,
+            when: 'J · launch',
+            title: 'Launch',
+            len: '7.6 s',
+            what: 'Launch day: the last strips lift, the curtain is open. The scanner is open.',
+            tweet: 'today.\nthe scanner is open.\nevery market on robinhood chain, x-rayed.',
+          },
+        ];
+        var host = document.getElementById('films');
+        host.innerHTML = FILMS.map(function (fm, i) {
+          return (
+            '<article class="film" data-id="' +
+            fm.id +
+            '">' +
+            '<div class="screen"><video src="../videos/16x9/seal-' +
+            fm.id +
+            '.mp4#t=' +
+            fm.poster +
+            '" controls muted loop playsinline preload="metadata"></video></div>' +
+            '<div class="side"><div class="when">' +
+            fm.when +
+            '</div><h3>' +
+            fm.title +
+            ' <span class="cap">' +
+            fm.len +
+            '</span></h3><p>' +
+            fm.what +
+            '</p>' +
+            '<div class="toggle" role="group" aria-label="Format"><button type="button" data-f="" aria-pressed="true">16:9</button><button type="button" data-f="-9x16" aria-pressed="false">9:16</button></div>' +
+            '<pre class="tweet" id="tw' +
+            i +
+            '">' +
+            fm.tweet +
+            '</pre>' +
+            '<div class="row"><button type="button" data-copy="tw' +
+            i +
+            '">Copy tweet</button><span class="cap" aria-live="polite"></span></div></div></article>'
+          );
+        }).join('');
+        host.addEventListener('click', function (e) {
+          var b = e.target.closest('button');
+          if (!b) return;
+          var card = b.closest('.film');
+          if (b.hasAttribute('data-f')) {
+            var fm = FILMS.filter(function (x) {
+              return x.id === card.dataset.id;
+            })[0];
+            card.querySelector('video').src =
+              '../videos/' +
+              (b.dataset.f ? '9x16' : '16x9') +
+              '/seal-' +
+              fm.id +
+              '.mp4#t=' +
+              fm.poster;
+            Array.prototype.forEach.call(card.querySelectorAll('.toggle button'), function (x) {
+              x.setAttribute('aria-pressed', String(x === b));
+            });
+            return;
+          }
+          if (b.dataset.copy) {
+            var pre = document.getElementById(b.dataset.copy),
+              note = b.parentNode.querySelector('.cap');
+            var done = function () {
+              note.textContent = 'Copied';
+              setTimeout(function () {
+                note.textContent = '';
+              }, 1600);
+            };
+            var fallback = function () {
+              var r = document.createRange();
+              r.selectNodeContents(pre);
+              var s = getSelection();
+              s.removeAllRanges();
+              s.addRange(r);
+              note.textContent = 'Selected. Press Ctrl+C.';
+            };
+            try {
+              navigator.clipboard.writeText(pre.textContent).then(done, fallback);
+            } catch (x) {
+              fallback();
+            }
+          }
+        });
+      })();
+    </script>
+  </head>
+</html>

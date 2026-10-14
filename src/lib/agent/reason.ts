@@ -1,5 +1,4 @@
 import type { TokenReport } from '../contracts';
-import { UpstreamError } from '../errors';
 import { log } from '../logger';
 import { computeCost, type CostBreakdown } from './cost';
 import { resolveProvider, type Provider } from './providers';
@@ -24,9 +23,16 @@ export type Explanation = {
   offline: boolean;
   /** Quel fournisseur a produit le texte. `undefined` en hors-ligne. */
   provider?: string;
+  /** The model answered, but its wording was refused and the facts were served instead. */
+  rejected?: boolean;
 };
 
-export const DEFAULT_MODEL = 'claude-sonnet-5';
+/** The offline account, checked like any other text before it is served. */
+function served(text: string, cost: CostBreakdown): Explanation {
+  return { text, cost, violations: findViolations(text), offline: true };
+}
+
+export const DEFAULT_MODEL = 'claude-sonnet-5-5';
 
 export function buildRequest(report: TokenReport, model: string, maxTokens: number) {
   return { system: SYSTEM_PROMPT, user: renderReport(report), model, maxTokens };
@@ -54,19 +60,25 @@ export async function explain(
     : resolveProvider(options.env);
 
   if (!resolved) {
-    const text = offlineExplanation(report);
     log.info('restitution hors-ligne', { reason: 'aucun fournisseur configuré', costUsd: 0 });
-    return {
-      text,
-      cost: computeCost('offline', {}),
-      violations: findViolations(text),
-      offline: true,
-    };
+    return served(offlineExplanation(report), computeCost('offline', {}));
   }
 
   const { provider } = resolved;
   const model = options.model ?? resolved.model;
-  const result = await provider.complete(buildRequest(report, model, maxTokens));
+  // A provider that fails (wrong model id, quota, timeout) must not turn an
+  // analysis whose facts are ready into an error page: the facts are served.
+  let result;
+  try {
+    result = await provider.complete(buildRequest(report, model, maxTokens));
+  } catch (error) {
+    log.warn('fournisseur en échec, restitution hors-ligne', {
+      provider: provider.name,
+      model,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return served(offlineExplanation(report), computeCost('offline', {}));
+  }
 
   const text = result.text.trim();
   const cost = computeCost(model, result.usage);
@@ -85,8 +97,15 @@ export async function explain(
     violations: violations.length,
   });
 
-  if (text.length === 0) {
-    throw new UpstreamError('anthropic', `${provider.name} : empty model response`);
+  // Empty or non-compliant wording is not published; the facts are, and the
+  // call is still paid for, so its cost is kept.
+  if (text.length === 0 || violations.length > 0) {
+    log.warn('restitution refusée, restitution hors-ligne', {
+      provider: provider.name,
+      empty: text.length === 0,
+      violations: violations.map((v) => v.kind),
+    });
+    return { ...served(offlineExplanation(report), cost), rejected: true };
   }
 
   return { text, cost, violations, offline: false, provider: provider.name };

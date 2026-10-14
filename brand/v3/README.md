@@ -50,12 +50,14 @@ projet. Elle reste dans l'historique git.
 Données réelles : 177 marchés v4 relevés sur Robinhood Chain le 11/10/2026,
 blocs 86 100 036 – 86 131 118 (~51 min). `video/src/markets.json`.
 
-| Film      | Durée | Ce qu'il montre                                                                                                                  |
-| --------- | ----- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `Reveal`  | 8 s   | l'arche se trace, les 14 lanières tombent avec le nom de leur permission, le faisceau balaie, le nom s'assemble                  |
-| `Live`    | 18 s  | les vrais marchés défilent sur le tapis, vus aux rayons X sous l'arche ; arrêt sur « HOOD » et ce qu'y lisent trois spécialistes |
-| `Shapes`  | 16 s  | 177 marchés, 149 vides, 28 avec un rulebook, 13 rulebooks différents — l'image de chacun                                         |
-| `Compose` | 17 s  | 10 spécialistes, 4 choisis, un agent ; pas de prompt                                                                             |
+| Film                          | Durée | Ce qu'il montre                                                                                                                  |
+| ----------------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `Reveal`                      | 8 s   | l'arche se trace, les 14 lanières tombent avec le nom de leur permission, le faisceau balaie, le nom s'assemble                  |
+| `Live`                        | 18 s  | les vrais marchés défilent sur le tapis, vus aux rayons X sous l'arche ; arrêt sur « HOOD » et ce qu'y lisent trois spécialistes |
+| `Shapes`                      | 16 s  | 177 marchés, 149 vides, 28 avec un rulebook, 13 rulebooks différents — l'image de chacun                                         |
+| `Compose`                     | 17 s  | 10 spécialistes, 4 choisis, un agent ; pas de prompt                                                                             |
+| `Hype`                        | 14 s  | coupes franches sur les vrais chiffres, puis les 13 rulebooks défilent sous l'arche aux rayons X                                 |
+| `Countdown-7/5/3/1`, `Launch` | 7,6 s | le chiffre défile et se fige ; le rideau s'écarte un peu plus chaque jour, ouvert le jour J                                      |
 
 Chaque film existe en 16:9 et en 9:16. Tout ce qui est dit de « HOOD » est
 vérifié sur la chaîne. Aucun chiffre de classement n'apparaît : il n'en existe
@@ -89,6 +91,23 @@ pas confirmé.
 > 10 specialists. pick yours.
 > no prompt, nothing to inject.
 > every agent gets replayed on past markets and ranked by what it caught.
+
+**J-2 · Hype**
+
+> 177 markets. 51 minutes. 13 rulebooks.
+> can you read them?
+> we x-ray them. soon.
+
+**Compte à rebours** (second post ou story, J-7, J-5, J-3, J-1)
+
+> 3 days.
+> until the scanner opens.
+
+**J · Launch**
+
+> today.
+> the scanner is open.
+> every market on robinhood chain, x-rayed.
 
 Règles : des faits. Jamais « scam », « rug » ni « safe ». On montre ce qu'un
 rulebook peut faire, pas ce qu'il veut faire.

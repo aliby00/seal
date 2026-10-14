@@ -17,19 +17,26 @@ export type FetchHoldersOptions = {
   baseUrl?: string;
   /** Adresse du pool, à exclure du calcul de concentration. */
   poolAddress?: string;
+  /** Other addresses holding liquidity, not positions (the DEX pair, the v4 PoolManager). */
+  liquidityAddresses?: readonly string[];
   /** Nombre de pages à parcourir. Le tier gratuit est à 5 req/s. */
   maxPages?: number;
   topN?: number;
   now?: () => Date;
 };
 
+/** The v4 PoolManager holds every v4 market's liquidity; it is never a holder. */
+const POOL_MANAGER = '0x8366a39cc670b4001a1121b8f6a443a643e40951';
+
 export function classifyHolder(
   address: string,
   isContract: boolean,
   poolAddress?: string,
+  liquidity: readonly string[] = [],
 ): Holder['kind'] {
   const lower = address.toLowerCase();
   if (poolAddress && lower === poolAddress.toLowerCase()) return 'pool';
+  if (lower === POOL_MANAGER || liquidity.some((a) => a.toLowerCase() === lower)) return 'pool';
   if (BURN_ADDRESSES.has(lower)) return 'burn';
   return isContract ? 'contract' : 'wallet';
 }
@@ -55,7 +62,12 @@ export function computeDistribution(
       return {
         address,
         balance,
-        kind: classifyHolder(address, item.address?.is_contract ?? false, options.poolAddress),
+        kind: classifyHolder(
+          address,
+          item.address?.is_contract ?? false,
+          options.poolAddress,
+          options.liquidityAddresses,
+        ),
       };
     })
     .filter((entry) => entry.address !== '');
