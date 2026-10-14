@@ -135,6 +135,17 @@ export type InvestigateOptions = {
  * 4. Fable seulement si Opus a été rejeté sur un rapport très divergent et
  *    qu'un budget l'autorise — sinon la restitution hors-ligne, qui ne ment pas.
  */
+/**
+ * Last check before anything leaves: on-chain names are already withheld when
+ * they read as a verdict, but no text is served without passing the rules.
+ */
+const WITHHELD =
+  'The findings for this token could not be worded within SEAL’s rules (no score, no verdict, no advice), so they are not shown. The token’s own name or data may contain such wording.';
+
+export function servedText(text: string): string {
+  return findViolations(text).length === 0 ? text : WITHHELD;
+}
+
 export async function investigate(
   checklist: Checklist,
   context: SpecialistContext,
@@ -165,12 +176,23 @@ export async function investigate(
 
   const attempt = async (tier: Tier): Promise<string | null> => {
     const model = TIER_MODELS[provider.name][tier];
-    const result = await provider.complete({
-      system: FINDINGS_SYSTEM_PROMPT,
-      user,
-      model,
-      maxTokens,
-    });
+    let result;
+    try {
+      result = await provider.complete({
+        system: FINDINGS_SYSTEM_PROMPT,
+        user,
+        model,
+        maxTokens,
+      });
+    } catch (error) {
+      // The findings are ready; a failing provider only costs the wording.
+      log.warn('fournisseur en échec', {
+        provider: provider.name,
+        tier,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
     const text = result.text.trim();
     const violations = findViolations(text);
     const cost = computeCost(model, result.usage);
@@ -196,8 +218,15 @@ export async function investigate(
   let escalation: EscalationReason = 'not-needed';
 
   if (text === null && tier === 'deep') {
-    const gate: FrontierGate = frontierGateFromEnv(env, options.frontierSpentUsd ?? 0);
-    escalation = shouldEscalate(true, divergence, gate);
+    // Without a running total of what Fable already cost, a monthly budget
+    // cannot be enforced: every qualifying request would escalate. No total,
+    // no frontier.
+    if (options.frontierSpentUsd === undefined) {
+      escalation = 'spend-untracked';
+    } else {
+      const gate: FrontierGate = frontierGateFromEnv(env, options.frontierSpentUsd);
+      escalation = shouldEscalate(true, divergence, gate);
+    }
     if (escalation === 'escalate') text = await attempt('frontier');
   }
 
@@ -206,7 +235,7 @@ export async function investigate(
   return {
     ...base,
     tier: text === null ? 'offline' : (last?.tier ?? tier),
-    text: text ?? offlineFindings(findings),
+    text: servedText(text ?? offlineFindings(findings)),
     attempts,
     totalCostUsd,
     escalation,

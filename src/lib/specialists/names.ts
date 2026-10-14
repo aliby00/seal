@@ -1,3 +1,4 @@
+import { findViolations } from '../agent/guardrails';
 /**
  * Comparaison de noms de token, et neutralisation du texte qu'ils portent.
  *
@@ -56,6 +57,9 @@ export function quoteName(raw: string | null | undefined): string {
   // eslint-disable-next-line no-control-regex
   const clean = raw.replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e]/g, ' ').trim();
   const cut = clean.length > MAX_QUOTED ? `${clean.slice(0, MAX_QUOTED)}\u2026` : clean;
+  // A name is chosen by the creator. Quoting "SAFE 100X" would publish a
+  // verdict SEAL never makes — the name is withheld and that is said.
+  if (findViolations(cut).length > 0) return '(name withheld: it reads as a verdict or advice)';
   return JSON.stringify(cut);
 }
 

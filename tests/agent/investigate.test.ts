@@ -5,6 +5,7 @@ import {
   investigate,
   offlineFindings,
   renderFindings,
+  servedText,
 } from '../../src/lib/agent/investigate';
 import {
   FRONTIER_COST_CEILING_USD,
@@ -150,7 +151,11 @@ describe('investigate', () => {
 
   it('ne monte pas sur Fable sans budget, même si Opus est rejeté', async () => {
     const p = provider({ 'claude-opus-5-5': 'Score: 7/10, a good investment.' });
-    const result = await investigate(agent, divergent, { provider: p, env: {} });
+    const result = await investigate(agent, divergent, {
+      provider: p,
+      env: {},
+      frontierSpentUsd: 0,
+    });
     expect(result.divergence.conflicts).toBe(2);
     expect(result.escalation).toBe('no-budget');
     expect(p.complete).toHaveBeenCalledTimes(1);
@@ -163,12 +168,37 @@ describe('investigate', () => {
     const result = await investigate(agent, divergent, {
       provider: p,
       env: { SEAL_FRONTIER_BUDGET_USD: '20' },
+      frontierSpentUsd: 0,
     });
     expect(result.escalation).toBe('escalate');
     expect(result.attempts.map((a) => a.model)).toEqual(['claude-opus-5-5', 'claude-fable-5-1']);
     expect(result.tier).toBe('frontier');
     // 7 000 × 4 $ + 1 000 × 20 $ pour Opus, 7 000 × 10 $ + 1 000 × 50 $ pour Fable.
     expect(result.totalCostUsd).toBeCloseTo(0.048 + 0.12, 6);
+  });
+
+  // The audit case: the route never passed what Fable already cost, so a
+  // monthly budget was never enforced.
+  it('never escalates when the spend so far is not tracked', async () => {
+    const p = provider({ 'claude-opus-5-5': 'Score: 7/10.' });
+    const result = await investigate(agent, divergent, {
+      provider: p,
+      env: { SEAL_FRONTIER_BUDGET_USD: '20' },
+    });
+    expect(result.escalation).toBe('spend-untracked');
+    expect(p.complete).toHaveBeenCalledTimes(1);
+  });
+
+  it('serves the findings when the provider fails', async () => {
+    const failing = {
+      name: 'anthropic' as const,
+      complete: vi.fn(async (): Promise<never> => {
+        throw new Error('model not found');
+      }),
+    };
+    const result = await investigate(agent, divergent, { provider: failing, env: {} });
+    expect(result.offline).toBe(true);
+    expect(result.text.length).toBeGreaterThan(0);
   });
 
   it('ne monte jamais depuis Sonnet, même rejeté', async () => {
@@ -230,5 +260,17 @@ describe('requête au modèle', () => {
     ]);
     expect(text).toMatch(/What deserves attention\n\nWallet Age: Fresh\./);
     expect(text).toMatch(/What could not be checked\n\nFunding Trace: needs an indexer/);
+  });
+});
+
+describe('servedText', () => {
+  it('lets a compliant text through unchanged', () => {
+    expect(servedText('Liquidity was removed once.')).toBe('Liquidity was removed once.');
+  });
+
+  it('never lets a verdict out, whatever produced it', () => {
+    const out = servedText('Token "SAFE 100X": looks legit.');
+    expect(out).not.toMatch(/SAFE|legit/);
+    expect(isCompliant(out)).toBe(true);
   });
 });

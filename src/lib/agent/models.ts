@@ -60,7 +60,12 @@ export type FrontierGate = {
 export const FRONTIER_COST_CEILING_USD = (7_000 * 10 + 1_500 * 50) / 1_000_000;
 
 export type EscalationReason =
-  'not-needed' | 'not-divergent-enough' | 'no-budget' | 'budget-exhausted' | 'escalate';
+  | 'not-needed'
+  | 'not-divergent-enough'
+  | 'no-budget'
+  | 'budget-exhausted'
+  | 'spend-untracked'
+  | 'escalate';
 
 /**
  * Faut-il monter sur Fable ? Trois conditions, toutes nécessaires :

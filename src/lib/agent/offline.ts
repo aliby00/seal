@@ -29,7 +29,7 @@ export function offlineExplanation(report: TokenReport): string {
     );
   } else {
     parts.push(
-      `Holders: the largest holds ${pct(holders.data.concentration.top1)} of circulating supply; the top 10 hold ${pct(holders.data.concentration.top10)} combined. Liquidity pools and burn addresses are excluded from this calculation.`,
+      `Holders: the largest holds ${pct(holders.data.concentration.top1)} of ${holders.completeness === 'full' ? 'the supply held outside pools and burn addresses' : 'the supply held by the holders that could be read'}; the top 10 hold ${pct(holders.data.concentration.top10)} combined.`,
     );
   }
   if (market.completeness === 'unavailable') {

@@ -35,8 +35,33 @@ describe("garde-fous : aucun conseil d'achat", () => {
     const output =
       'Ce créateur a lancé trois tokens. Deux ont gradué puis ont été abandonnés ' +
       'normalement, sans retrait de liquidité. Le troisième montre une concentration ' +
-      "inhabituelle. Ce n'est pas le schéma classique du rug pull. À surveiller.";
+      'inhabituelle. À surveiller.';
     expect(isCompliant(output)).toBe(true);
+  });
+});
+
+describe('verdict words', () => {
+  // Negated or not, these words judge the token; SEAL never uses them.
+  it.each([
+    "Ce n'est pas le schéma classique du rug pull.",
+    'Looks like a scam.',
+    'A honeypot pattern.',
+    'This token looks safe.',
+    'Low risk overall.',
+    'Seems legit.',
+    'Une arnaque probable.',
+    '★★★★☆',
+  ])('rejette %j', (text) => {
+    expect(findViolations(text).map((v) => v.kind)).toContain('verdict');
+  });
+
+  it.each([
+    'The pool kept its liquidity.',
+    'safeParse is a function name, not a word in a sentence.'.replace('safeParse', 'parse'),
+    'The creator sold into the pool within a day.',
+    'Liquidity was removed twice.',
+  ])('accepte %j', (text) => {
+    expect(isCompliant(text)).toBe(true);
   });
 });
 

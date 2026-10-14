@@ -2,10 +2,17 @@ import Anthropic from '@anthropic-ai/sdk';
 import { UpstreamError } from '../../errors';
 import type { CompletionRequest, CompletionResult, Provider } from './types';
 
-export const ANTHROPIC_DEFAULT_MODEL = 'claude-sonnet-5';
+export const ANTHROPIC_DEFAULT_MODEL = 'claude-sonnet-5-5';
+
+/**
+ * The SDK default is ten minutes and two retries; the route has 60 seconds in
+ * all. A call that cannot finish in time is cut, and the facts are served.
+ */
+export const ANTHROPIC_TIMEOUT_MS = 25_000;
 
 export function createAnthropicProvider(apiKey: string, client?: Anthropic['messages']): Provider {
-  const messages = client ?? new Anthropic({ apiKey }).messages;
+  const messages =
+    client ?? new Anthropic({ apiKey, timeout: ANTHROPIC_TIMEOUT_MS, maxRetries: 1 }).messages;
 
   return {
     name: 'anthropic',
