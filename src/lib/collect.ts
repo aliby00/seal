@@ -5,6 +5,7 @@ import type { CreatorHistory, HolderDistribution, MarketState, TokenReport } fro
 import { NotFoundError, SealError } from './errors';
 import { createBudget, type RequestBudget } from './http';
 import { fetchHolderDistribution } from './holders';
+import { fetchHoldersFromChain } from './holders/chain';
 import { fetchMarketState } from './market';
 import { log } from './logger';
 import { TtlCache } from './cache';
@@ -36,7 +37,8 @@ export const creatorHistoryCache = new TtlCache<CreatorHistory>({
 
 /** Per-source request ceilings for one analysis. */
 export const RPC_BUDGET = 40;
-export const HOLDERS_BUDGET = 10;
+/** Blockscout pages, or RPC requests when holders are rebuilt from transfers. */
+export const HOLDERS_BUDGET = 20;
 export const MARKET_BUDGET = 4;
 
 export type CollectOptions = {
@@ -110,9 +112,10 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
   // An unreachable node and a token that is not a pons launch both leave no
   // launch, but they do not mean the same thing and must not be reported alike.
   let lookupError: unknown;
+  let latest = 0;
   const launch = await settled(
     (async () => {
-      const latest = Number(await rpc.call<string>('eth_blockNumber', []));
+      latest = Number(await rpc.call<string>('eth_blockNumber', []));
       return findLaunchOf(rpc, address, latest, options.lookbackBlocks);
     })(),
     (error) => {
@@ -196,16 +199,33 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     () => undefined,
   );
 
-  const [holders, market] = await Promise.all([
-    settled<HolderDistribution>(
-      fetchHolderDistribution(address, {
-        apiKey: options.blockscoutApiKey,
-        budget: holdersBudget,
+  // Without a Blockscout key, a pons token's holders are rebuilt from its
+  // transfers since launch — free, and exact when the whole history is read.
+  const launchBlock = chain.data.tokens.find(
+    (t) => t.address.toLowerCase() === address.toLowerCase(),
+  )?.launchedAtBlock;
+  function readHolders(): Promise<HolderDistribution> {
+    if (!options.blockscoutApiKey && launchBlock && latest > 0) {
+      return fetchHoldersFromChain(createRpcClient(options.rpcUrl, holdersBudget), address, {
+        fromBlock: launchBlock,
+        toBlock: latest,
         poolAddress: launch?.pool,
         now,
-      }),
+      });
+    }
+    return fetchHolderDistribution(address, {
+      apiKey: options.blockscoutApiKey,
+      budget: holdersBudget,
+      poolAddress: launch?.pool,
+      now,
+    });
+  }
+
+  const [holders, market] = await Promise.all([
+    settled<HolderDistribution>(
+      readHolders(),
       (error) =>
-        failed('blockscout', collectedAt, error, {
+        failed(options.blockscoutApiKey ? 'blockscout' : 'robinhood-rpc', collectedAt, error, {
           token: address,
           countedSupply: '0',
           holderCount: null,
