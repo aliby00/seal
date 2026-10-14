@@ -158,11 +158,27 @@ export function resetThrottle(): void {
 /** After a 429 the node needs seconds, not the generic 0.2 s backoff. */
 const RPC_RATE_LIMIT_WAIT_MS = 2_500;
 
-export function createRpcClient(url: string = DEFAULT_RPC_URL, budget?: RequestBudget): RpcClient {
+/**
+ * Where log queries go. Keyed providers rarely allow what this pipeline needs:
+ * Alchemy's free tier caps `eth_getLogs` at 10 blocks per request, against the
+ * 10,000,000 the public node accepts for a single address. So a keyed
+ * `RPC_URL` serves the plain calls, and log queries stay on the public node
+ * (paced) unless `LOGS_RPC_URL` names a node that does better.
+ */
+export function logsRpcUrl(env: Record<string, string | undefined> = process.env): string {
+  return env.LOGS_RPC_URL || DEFAULT_RPC_URL;
+}
+
+export function createRpcClient(
+  url: string = DEFAULT_RPC_URL,
+  budget?: RequestBudget,
+  logsUrl: string = logsRpcUrl(),
+): RpcClient {
   async function post(payload: unknown): Promise<Response> {
     const cost = logQueries(payload);
-    if (cost > 0) await throttle(url, cost);
-    return request(url, {
+    const target = cost > 0 ? logsUrl : url;
+    if (cost > 0) await throttle(target, cost);
+    return request(target, {
       source: 'robinhood-rpc',
       retries: 3,
       minRateLimitWaitMs: RPC_RATE_LIMIT_WAIT_MS,
