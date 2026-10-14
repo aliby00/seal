@@ -49,6 +49,24 @@ export async function fetchGraduationStatusBatch(
   return outcomes.map((outcome) => (outcome.ok ? decodeGraduationResult(outcome.value) : null));
 }
 
+/**
+ * Same, when the tokens come from different factories: each token is asked of
+ * the factory that launched it, since another generation reverts on it.
+ */
+export async function fetchGraduationStatusOf(
+  rpc: RpcClient,
+  launches: readonly { factory: Address; token: Address }[],
+): Promise<(GraduationStatus | null)[]> {
+  if (launches.length === 0) return [];
+  const outcomes = await rpc.callBatch<string>(
+    launches.map(({ factory, token }) => ({
+      method: 'eth_call',
+      params: [{ to: factory, data: encodeGraduationCall(token) }, 'latest'],
+    })),
+  );
+  return outcomes.map((outcome) => (outcome.ok ? decodeGraduationResult(outcome.value) : null));
+}
+
 /** Horodatages de blocs, groupés. Sert à remplir `launchedAt`. */
 export async function fetchBlockTimestamps(
   rpc: RpcClient,

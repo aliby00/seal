@@ -72,6 +72,8 @@ describe('collect', () => {
     stubNetwork({ rpc: () => new Error('nœud injoignable'), dexscreener: [] });
     const report = await collect(TOKEN, { now: at });
     expect(report.creator.sources[0]?.note).toBeTruthy();
+    // A node that cannot be reached says so; it does not claim the token is not a pons launch.
+    expect(report.creator.sources[0]?.note).not.toMatch(/not a pons launch/);
   });
 
   it("sans clé Blockscout, la source est unavailable et l'analyse continue", async () => {
@@ -120,18 +122,20 @@ describe("résolution du créateur depuis l'adresse du token", () => {
     vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
       if (url.includes('robinhood.com')) {
-        const body = JSON.parse(String(init?.body ?? '{}')) as {
-          method: string;
-          params: [{ topics?: unknown[] }];
+        type Call = { id?: number; method: string; params: [{ topics?: unknown[] }] };
+        const raw = JSON.parse(String(init?.body ?? '{}')) as Call | Call[];
+        const answer = (body: Call) => {
+          if (body.method === 'eth_blockNumber') return '0x5000000';
+          if (body.method === 'eth_getLogs') {
+            topicsSeen.push(body.params[0].topics ?? []);
+            return [launchLog(TOKEN)];
+          }
+          return '0x';
         };
-        if (body.method === 'eth_blockNumber') {
-          return new Response(JSON.stringify({ result: '0x1100' }), { status: 200 });
-        }
-        if (body.method === 'eth_getLogs') {
-          topicsSeen.push(body.params[0].topics ?? []);
-          return new Response(JSON.stringify({ result: [launchLog(TOKEN)] }), { status: 200 });
-        }
-        return new Response(JSON.stringify({ result: '0x' }), { status: 200 });
+        const out = Array.isArray(raw)
+          ? raw.map((r) => ({ id: r.id, result: answer(r) }))
+          : { result: answer(raw) };
+        return new Response(JSON.stringify(out), { status: 200 });
       }
       return new Response('[]', { status: 200 });
     });
@@ -151,9 +155,15 @@ describe("résolution du créateur depuis l'adresse du token", () => {
     vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
       if (url.includes('robinhood.com')) {
-        const body = JSON.parse(String(init?.body ?? '{}')) as { method: string };
-        if (body.method === 'eth_blockNumber') {
-          return new Response(JSON.stringify({ result: '0x1100' }), { status: 200 });
+        const raw = JSON.parse(String(init?.body ?? '{}')) as
+          { method: string } | { id: number; method: string }[];
+        if (Array.isArray(raw)) {
+          return new Response(JSON.stringify(raw.map((r) => ({ id: r.id, result: [] }))), {
+            status: 200,
+          });
+        }
+        if (raw.method === 'eth_blockNumber') {
+          return new Response(JSON.stringify({ result: '0x5000000' }), { status: 200 });
         }
         return new Response(JSON.stringify({ result: [] }), { status: 200 });
       }
@@ -161,7 +171,7 @@ describe("résolution du créateur depuis l'adresse du token", () => {
     });
     const report = await collect(TOKEN, { now: at });
     expect(report.creator.completeness).toBe('unavailable');
-    expect(report.creator.sources[0]?.note).toMatch(/not found/);
+    expect(report.creator.sources[0]?.note).toMatch(/not a pons launch/);
   });
 });
 
@@ -182,37 +192,34 @@ describe("cache de l'historique du créateur", () => {
       rpcCalls += 1;
       const raw = JSON.parse(String(init?.body ?? '{}')) as
         { method: string } | { id: number; method: string }[];
-      if (Array.isArray(raw)) {
-        return new Response(JSON.stringify(raw.map((r) => ({ id: r.id, result: '0x' }))), {
-          status: 200,
-        });
-      }
-      if (raw.method === 'eth_blockNumber') {
-        return new Response(JSON.stringify({ result: '0x1100' }), { status: 200 });
-      }
-      if (raw.method === 'eth_getLogs') {
-        return new Response(
-          JSON.stringify({
-            result: [
-              {
-                address: '0xf4fc0cd27fc8ecf17e55ee4c3f7201897df3eb75',
-                topics: [
-                  TOPIC,
-                  `0x000000000000000000000000${TOKEN.slice(2)}`,
-                  `0x000000000000000000000000${DEPLOYER.slice(2)}`,
-                  '0x0000000000000000000000001f7d7550b1b028f7571e69a784071f0205fd2efa',
-                ],
-                data: DATA,
-                blockNumber: '0x1000',
-                transactionHash: '0xabc',
-                logIndex: '0x0',
-              },
-            ],
-          }),
-          { status: 200 },
-        );
-      }
-      return new Response(JSON.stringify({ result: '0x' }), { status: 200 });
+      const launch = [
+        {
+          address: '0xf4fc0cd27fc8ecf17e55ee4c3f7201897df3eb75',
+          topics: [
+            TOPIC,
+            `0x000000000000000000000000${TOKEN.slice(2)}`,
+            `0x000000000000000000000000${DEPLOYER.slice(2)}`,
+            '0x0000000000000000000000001f7d7550b1b028f7571e69a784071f0205fd2efa',
+          ],
+          data: DATA,
+          blockNumber: '0x1000',
+          transactionHash: '0xabc',
+          logIndex: '0x0',
+        },
+      ];
+      // Launches answer the TokenLaunched filter only; other log reads are empty.
+      const answer = (r: { method: string; params?: [{ topics?: string[] }] }) =>
+        r.method === 'eth_blockNumber'
+          ? '0x5000000'
+          : r.method === 'eth_getLogs'
+            ? r.params?.[0]?.topics?.[0] === TOPIC
+              ? launch
+              : []
+            : '0x';
+      const body = Array.isArray(raw)
+        ? raw.map((r) => ({ id: r.id, result: answer(r as never) }))
+        : { result: answer(raw as never) };
+      return new Response(JSON.stringify(body), { status: 200 });
     });
     return () => rpcCalls;
   }

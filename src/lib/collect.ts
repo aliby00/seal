@@ -34,15 +34,21 @@ export const creatorHistoryCache = new TtlCache<CreatorHistory>({
  * l'agent qui le dira, à partir des `completeness` qu'on lui remet.
  */
 
+/** Per-source request ceilings for one analysis. */
+export const RPC_BUDGET = 40;
+export const HOLDERS_BUDGET = 10;
+export const MARKET_BUDGET = 4;
+
 export type CollectOptions = {
   rpcUrl?: string;
   blockscoutApiKey?: string;
   /**
-   * Plafond de requêtes externes pour une analyse, toutes sources confondues.
+   * Request ceiling for the chain, per analysis. Each source has its own
+   * budget: with a shared one, a slow launch lookup spent all 150 requests and
+   * left DexScreener with none, on every token older than five days.
    *
-   * Mesuré : ~80 requêtes pour un créateur à 3 lancements sur 30 M blocs,
-   * signaux de comportement inclus. 150 laisse de la marge sans permettre
-   * qu'une seule analyse épuise un quota journalier.
+   * Measured with batched reads: 4 to 8 HTTP requests for a creator with a
+   * few launches, sales and liquidity included.
    */
   maxRequests?: number;
   lookbackBlocks?: number;
@@ -89,8 +95,10 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
   const address = token as Address;
   const now = options.now ?? (() => new Date());
   const collectedAt = now().toISOString();
-  const budget: RequestBudget = createBudget(options.maxRequests ?? 150);
+  const budget: RequestBudget = createBudget(options.maxRequests ?? RPC_BUDGET);
   const rpc = createRpcClient(options.rpcUrl, budget);
+  const holdersBudget = createBudget(HOLDERS_BUDGET);
+  const marketBudget = createBudget(MARKET_BUDGET);
 
   // La chaîne d'abord : elle donne le créateur, le pool et l'état de graduation,
   // dont le module marché a besoin pour calculer la progression.
@@ -99,17 +107,25 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
   // `TokenLaunched` de ce token — il faut donc le retrouver AVANT de pouvoir
   // interroger l'historique du créateur. Filtrer les lancements sur l'adresse
   // du token au lieu de celle du deployer ne renvoie évidemment jamais rien.
+  // An unreachable node and a token that is not a pons launch both leave no
+  // launch, but they do not mean the same thing and must not be reported alike.
+  let lookupError: unknown;
   const launch = await settled(
     (async () => {
       const latest = Number(await rpc.call<string>('eth_blockNumber', []));
       return findLaunchOf(rpc, address, latest, options.lookbackBlocks);
     })(),
-    () => undefined,
+    (error) => {
+      lookupError = error;
+      return undefined;
+    },
   );
 
   // La clé porte la profondeur : deux analyses avec des fenêtres différentes
   // ne décrivent pas le même historique et ne doivent pas se partager une entrée.
-  const cacheKey = `${launch?.deployer.toLowerCase()}:${options.lookbackBlocks ?? 'default'}`;
+  // The analysed token is always checked for sales and liquidity, so it is part
+  // of the key: another token of the same creator may not have been.
+  const cacheKey = `${launch?.deployer.toLowerCase()}:${address.toLowerCase()}:${options.lookbackBlocks ?? 'default'}`;
   let historyFromCache = false;
 
   const chain = launch
@@ -117,6 +133,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
         creatorHistoryCache
           .resolve(cacheKey, () =>
             fetchCreatorHistory(launch.deployer, {
+              focus: address,
               rpcUrl: options.rpcUrl,
               budget,
               lookbackBlocks: options.lookbackBlocks,
@@ -145,7 +162,10 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     : (failed(
         'robinhood-rpc',
         collectedAt,
-        new Error('launch not found within the observed range'),
+        lookupError ??
+          new Error(
+            'not a pons launch: no TokenLaunched event for this token from the known pons factories — creator history not available',
+          ),
         {
           creator: '0x',
           tokens: [],
@@ -180,7 +200,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     settled<HolderDistribution>(
       fetchHolderDistribution(address, {
         apiKey: options.blockscoutApiKey,
-        budget,
+        budget: holdersBudget,
         poolAddress: launch?.pool,
         now,
       }),
@@ -195,7 +215,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
         }) as HolderDistribution,
     ),
     settled<MarketState>(
-      fetchMarketState(address, { budget, graduation, now }),
+      fetchMarketState(address, { budget: marketBudget, graduation, now }),
       (error) =>
         failed('dexscreener', collectedAt, error, {
           token: address,
@@ -221,7 +241,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
   log.info('analyse collectée', {
     token: address,
     completeness,
-    requests: budget.spent,
+    requests: { rpc: budget.spent, holders: holdersBudget.spent, market: marketBudget.spent },
     creatorHistoryCached: historyFromCache,
   });
 

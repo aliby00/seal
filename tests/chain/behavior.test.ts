@@ -24,8 +24,9 @@ function nodeReturning(logs: RawLog[]): RpcClient {
     async call<T>(): Promise<T> {
       return logs as unknown as T;
     },
-    async callBatch(): Promise<never[]> {
-      throw new Error('non utilisé');
+    // One batched eth_getLogs per (address, window): the logs come back once.
+    async callBatch(requests: unknown[]) {
+      return requests.map((_, i) => ({ ok: true, value: i === 0 ? logs : [] }));
     },
   } as unknown as RpcClient;
 }
