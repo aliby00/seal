@@ -21,15 +21,23 @@ export function offlineExplanation(report: TokenReport): string {
     );
   } else {
     const c = creator.data.counts;
-    const detailed = creator.data.tokens.length;
-    const outcomes =
-      detailed < c.launched
-        ? `of the ${detailed} most recent, ${c.graduated} graduated and ${c.abandoned} were abandoned`
-        : `including ${c.graduated} graduated and ${c.abandoned} abandoned`;
-    parts.push(
-      `Creator: ${c.launched} token${c.launched === 1 ? '' : 's'} launched; ${outcomes}.` +
-        (creator.completeness === 'partial' && creatorNote ? ` Limit: ${creatorNote}.` : ''),
-    );
+    if (c.launched === 0 && creator.completeness === 'partial') {
+      // The launch was found, but the creator's launches could not be read:
+      // "0 tokens launched" would contradict the token being analysed.
+      parts.push(
+        `Creator: ${creator.data.creator}. Their other launches could not be read${creatorNote ? ` (${creatorNote})` : ''}.`,
+      );
+    } else {
+      const detailed = creator.data.tokens.length;
+      const outcomes =
+        detailed < c.launched
+          ? `of the ${detailed} most recent, ${c.graduated} graduated and ${c.abandoned} were abandoned`
+          : `including ${c.graduated} graduated and ${c.abandoned} abandoned`;
+      parts.push(
+        `Creator: ${c.launched} token${c.launched === 1 ? '' : 's'} launched; ${outcomes}.` +
+          (creator.completeness === 'partial' && creatorNote ? ` Limit: ${creatorNote}.` : ''),
+      );
+    }
   }
   if (holders.completeness === 'unavailable') {
     parts.push(
