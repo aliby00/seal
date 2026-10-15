@@ -2041,3 +2041,199 @@
     transform: none;
   }
 }
+
+/* Faits mesurés : trois cartes, côte à côte, sans note globale. Chaque carte ne
+   montre que ce que sa source a observé ; une donnée absente est dite, jamais
+   dessinée à zéro. */
+.facts-board {
+  --tone-calm: var(--primary);
+  --tone-warm: #b65a12;
+  --tone-neutral: var(--muted-foreground);
+  --tone-faint: var(--border);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 32px;
+}
+@media (prefers-color-scheme: dark) {
+  .facts-board {
+    --tone-warm: #f2a35e;
+  }
+}
+.fact-card {
+  min-width: 0;
+  border: 1px solid var(--border);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font:
+    14px/1.5 Arial,
+    sans-serif;
+}
+.fact-card h3 {
+  font:
+    normal 12px/1.4 'Courier New',
+    monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+.fact-big {
+  font:
+    normal 44px/1 Georgia,
+    serif;
+  letter-spacing: -0.03em;
+}
+.fact-big span {
+  font:
+    14px/1.4 Arial,
+    sans-serif;
+  letter-spacing: 0;
+  margin-left: 6px;
+  color: var(--muted-foreground);
+}
+.fact-mono {
+  font:
+    12px/1.5 'Courier New',
+    monospace;
+  color: var(--muted-foreground);
+  overflow-wrap: anywhere;
+}
+.fact-line strong {
+  font-size: 18px;
+}
+.fact-note,
+.fact-missing {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  overflow-wrap: anywhere;
+}
+.fact-missing {
+  border-left: 2px solid var(--border);
+  padding-left: 12px;
+}
+.fact-pairs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+.fact-pairs dt {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.fact-pairs dd {
+  font:
+    normal 20px/1.3 Georgia,
+    serif;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.gauge {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.gauge svg {
+  width: 96px;
+  height: 96px;
+  flex: none;
+  transform: rotate(-90deg);
+}
+.gauge circle {
+  fill: none;
+  stroke-width: 10;
+}
+.gauge-track {
+  stroke: var(--muted);
+}
+.gauge-soft {
+  stroke: var(--tone-neutral);
+  opacity: 0.45;
+}
+.gauge-value {
+  stroke: var(--seal-curtain);
+  stroke-linecap: butt;
+}
+.gauge figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.gauge figcaption span {
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+.split-bar {
+  display: flex;
+  gap: 2px;
+  height: 12px;
+}
+.split-part {
+  min-width: 3px;
+  background: currentColor;
+}
+.tone-calm {
+  color: var(--tone-calm);
+  background: var(--tone-calm);
+}
+.tone-warm {
+  color: var(--tone-warm);
+  background: var(--tone-warm);
+}
+.tone-neutral {
+  color: var(--tone-neutral);
+  background: var(--tone-neutral);
+}
+.tone-faint {
+  color: var(--tone-faint);
+  background: var(--tone-faint);
+}
+.split-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 8px;
+  list-style: none;
+  padding: 0;
+  font-size: 12px;
+  color: var(--foreground);
+}
+.split-legend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 6px;
+}
+.holder-bars {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.holder-bars li {
+  display: grid;
+  grid-template-columns: minmax(0, 7.5em) minmax(0, 1fr) 3.5em;
+  align-items: center;
+  gap: 10px;
+}
+.holder-track {
+  height: 8px;
+  background: var(--muted);
+}
+.holder-fill {
+  display: block;
+  height: 100%;
+  background: var(--seal-curtain);
+}
+.holder-share {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+}
+@media (max-width: 900px) {
+  .facts-board {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -8,7 +8,8 @@ import { SourceStudy } from './components/SourceStudy';
 import { AnalysisReport } from './components/AnalysisReport';
 import { Arch } from './components/brand';
 
-const EXAMPLE_TOKEN = '0xd0c538e01a22ebf8502b4dc3a92026cec870cec6';
+/** A real pons launch whose creator history and holders can be read in full. */
+const EXAMPLE_TOKEN = '0x10e848f9d5073d670201b111f1ba3d1c5be6f18b';
 const errors: Record<number, string> = {
   400: 'Invalid address. Use 0x followed by 40 hexadecimal characters.',
   404: 'Token not found. Check its address and that it launched on pons, on Robinhood Chain.',

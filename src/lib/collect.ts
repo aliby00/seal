@@ -2,10 +2,10 @@ import { isAddress, type Address } from 'viem';
 import { createRpcClient, fetchCreatorHistory, fetchGraduationStatus, findLaunchOf } from './chain';
 import { combineCompleteness, type Completeness } from './contracts';
 import type { CreatorHistory, HolderDistribution, MarketState, TokenReport } from './contracts';
-import { NotFoundError, SealError } from './errors';
+import { IncompleteDataError, NotFoundError, SealError } from './errors';
 import { createBudget, type RequestBudget } from './http';
 import { fetchHolderDistribution } from './holders';
-import { fetchHoldersFromChain } from './holders/chain';
+import { fetchHoldersFromChain, findFirstMint } from './holders/chain';
 import { fetchMarketState } from './market';
 import { log } from './logger';
 import { TtlCache } from './cache';
@@ -208,13 +208,24 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     (t) => t.address.toLowerCase() === address.toLowerCase(),
   )?.launchedAtBlock;
   function readHolders(): Promise<HolderDistribution> {
-    if (!options.blockscoutApiKey && launchBlock && latest > 0) {
-      return fetchHoldersFromChain(createRpcClient(options.rpcUrl, holdersBudget), address, {
-        fromBlock: launchBlock,
-        toBlock: latest,
-        poolAddress: launch?.pool,
-        now,
-      });
+    if (!options.blockscoutApiKey && latest > 0) {
+      return (async () => {
+        const holdersRpc = createRpcClient(options.rpcUrl, holdersBudget);
+        // Not a pons launch: start from the token's first mint instead.
+        const from = launchBlock ?? (await findFirstMint(holdersRpc, address, latest));
+        if (from === undefined) {
+          throw new IncompleteDataError(
+            'robinhood-rpc',
+            'the start of this token’s history could not be found',
+          );
+        }
+        return fetchHoldersFromChain(holdersRpc, address, {
+          fromBlock: from,
+          toBlock: latest,
+          poolAddress: launch?.pool,
+          now,
+        });
+      })();
     }
     return fetchHolderDistribution(address, {
       apiKey: options.blockscoutApiKey,

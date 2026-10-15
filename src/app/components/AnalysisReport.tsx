@@ -1,5 +1,6 @@
 import type { AnalyzeResponse } from '../api/analyze/route';
 import { Explanation } from './Explanation';
+import { FactsBoard } from './FactsBoard';
 
 const labels: Record<string, string> = {
   full: 'All sources responded.',
@@ -28,13 +29,15 @@ export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
             conclusion about this token.
           </p>
         )}
-        {result.sources
-          .filter((source) => source.note)
-          .map((source, index) => (
-            <p className="source-limit" key={`${source.name}-${index}`}>
-              <strong>{source.name}</strong> — {source.note}
-            </p>
-          ))}
+        {/* With the cards, each limit is shown once, on the card it concerns. */}
+        {!result.facts &&
+          result.sources
+            .filter((source) => source.note)
+            .map((source, index) => (
+              <p className="source-limit" key={`${source.name}-${index}`}>
+                <strong>{source.name}</strong> — {source.note}
+              </p>
+            ))}
       </section>
       {result.offline && (
         <section className="offline-note" aria-label="Offline mode">
@@ -42,6 +45,7 @@ export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
           <p>Facts are presented without being cross-examined by the reasoning agent.</p>
         </section>
       )}
+      {result.facts && <FactsBoard facts={result.facts} />}
       <div className="reading-layout">
         <Explanation text={result.explanation} offline={result.offline} />
         <aside className="sources" aria-label="Report sources">

@@ -175,6 +175,12 @@ export async function getLogsBatched(
   rpc: RpcClient,
   filter: { addresses: readonly LogSource[]; topics: LogFilter['topics'] },
   range: { fromBlock: number; toBlock: number; span?: number },
+  /**
+   * `false`: a window refused for holding too many logs is not split and
+   * re-read, the result is just truncated. For callers that would rather give
+   * up than spend seconds on a very busy contract.
+   */
+  options: { split?: boolean } = {},
 ): Promise<{ logs: RawLog[]; truncated: boolean }> {
   const span = range.span ?? SINGLE_ADDRESS_SPAN;
   const windows: { address: string; fromBlock: number; toBlock: number }[] = [];
@@ -220,7 +226,7 @@ export async function getLogsBatched(
     }
     const window = windows[i];
     const tooBroad = classifyLogError(outcome.error);
-    if (!window || !tooBroad) {
+    if (!window || !tooBroad || options.split === false) {
       truncated = true;
       continue;
     }
