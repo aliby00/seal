@@ -20,13 +20,15 @@ pnpm dev                     # http://localhost:3000
 
 ### Variables d'environnement
 
-| Variable             | Requise     | Où l'obtenir                                                                               |
-| -------------------- | ----------- | ------------------------------------------------------------------------------------------ |
-| `ANTHROPIC_API_KEY`  | oui         | [platform.claude.com](https://platform.claude.com)                                         |
-| `ANTHROPIC_MODEL`    | non         | défaut `claude-sonnet-5`                                                                   |
-| `BLOCKSCOUT_API_KEY` | recommandée | [dev.blockscout.com](https://dev.blockscout.com) — gratuite, 5 req/s, 100 000 crédits/jour |
-| `RPC_URL`            | non         | défaut `https://rpc.mainnet.chain.robinhood.com` (public, rate-limité)                     |
-| `SEAL_ENV`           | non         | `development` \| `staging` \| `production`                                                 |
+| Variable             | Requise     | Où l'obtenir                                                                                                                |
+| -------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY`  | oui         | [platform.claude.com](https://platform.claude.com)                                                                          |
+| `ANTHROPIC_MODEL`    | non         | défaut `claude-sonnet-5-5`                                                                                                  |
+| `BLOCKSCOUT_API_KEY` | recommandée | [dev.blockscout.com](https://dev.blockscout.com) — gratuite, 5 req/s, 100 000 crédits/jour                                  |
+| `RPC_URL`            | non         | défaut `https://rpc.mainnet.chain.robinhood.com` (public, rate-limité) ; plusieurs URLs séparées par des virgules = bascule |
+| `RPC_URL_FALLBACK`   | non         | nœuds de secours, essayés après `RPC_URL` ; le public reste le dernier recours                                              |
+| `LOGS_RPC_URL`       | non         | nœud pour `eth_getLogs` (+ `LOGS_RPC_URL_FALLBACK`) ; vide = public                                                         |
+| `SEAL_ENV`           | non         | `development` \| `staging` \| `production`                                                                                  |
 
 ### Trois modes, du gratuit au payant
 
