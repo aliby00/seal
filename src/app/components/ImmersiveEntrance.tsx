@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 import { Arch, Wordmark } from './brand';
+import { LegalLinks } from './LegalPage';
 
 /**
  * La porte : l'arche du logo, au loin dans la vallée, là où la caméra avance.
@@ -295,6 +296,7 @@ export function ImmersiveEntrance({
           <Wordmark className="brand-word" />
         </span>
         <p>The facts. The context. Your perspective.</p>
+        <LegalLinks />
         <a href="#analysis">Open analysis ↗</a>
       </footer>
     </div>

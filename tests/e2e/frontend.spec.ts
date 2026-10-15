@@ -362,3 +362,27 @@ test('source study exposes each method using accessible controls', async ({ page
   await expect(page.getByText('Method illustration · no token data displayed')).toBeVisible();
   await accessible(page);
 });
+
+test('legal pages are reachable from the footer, flagged as drafts, and accessible', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const legal = page.getByRole('contentinfo').getByRole('navigation', { name: 'Legal' });
+  for (const [label, path, heading] of [
+    ['Terms', '/terms', 'Terms of use'],
+    ['Privacy', '/privacy', 'Privacy'],
+    ['Disclaimer', '/disclaimer', 'Disclaimer'],
+  ] as const) {
+    await expect(legal.getByRole('link', { name: label })).toHaveAttribute('href', path);
+    await page.goto(path);
+    await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
+    await expect(page.getByRole('note')).toContainText('Draft — pending legal review');
+    // Nothing invented about the company: its details stay as placeholders.
+    if (path !== '/disclaimer')
+      await expect(page.getByText(/\[COMPANY NAME\]/).first()).toBeVisible();
+    await accessible(page);
+    await page.goto('/');
+  }
+  await page.goto('/disclaimer');
+  await expect(page.getByText('Not financial advice')).toBeVisible();
+});
