@@ -185,7 +185,7 @@ for (const completeness of ['full', 'unavailable']) {
   });
 }
 
-for (const status of [400, 404, 429, 502, 500]) {
+for (const status of [400, 403, 404, 413, 415, 429, 502, 500]) {
   test(`HTTP ${status}: human message, no technical leak, retry when appropriate`, async ({
     page,
   }) => {
@@ -201,6 +201,11 @@ for (const status of [400, 404, 429, 502, 500]) {
     await expect(page.getByRole('main').getByRole('alert')).toBeVisible();
     await expect(page.getByText('STACK_TRACE_INTERNAL')).toHaveCount(0);
     await accessible(page);
+    if (status === 429) {
+      await expect(
+        page.getByText('Too many analyses from this connection.', { exact: false }),
+      ).toBeVisible();
+    }
     if ([429, 502, 500].includes(status)) {
       await page.getByRole('button', { name: 'Try again' }).click();
       await expect(page.getByRole('article')).toBeVisible();
