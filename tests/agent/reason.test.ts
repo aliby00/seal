@@ -208,3 +208,34 @@ describe('explain', () => {
     expect(result.offline).toBe(false);
   });
 });
+
+describe('renderReport : ventes et retraits du créateur', () => {
+  // The bug: the card showed "sold into the pool 10/10" while the model wrote
+  // that nothing showed the creator selling — it was never told.
+  it('transmet les ventes et retraits observés sur les lancements vérifiés', () => {
+    const t = (dumped: boolean | null, pulled: boolean | null, i: number) => ({
+      address: `0x${String(i).padStart(40, '0')}`,
+      pool: '0xpool',
+      launchedAtBlock: i,
+      launchedAt: null,
+      outcome: 'abandoned' as const,
+      graduationProgress: 0,
+      creatorDumped: dumped,
+      liquidityPulled: pulled,
+    });
+    const rendered = renderReport({
+      ...report,
+      creator: {
+        ...report.creator,
+        data: {
+          ...report.creator.data,
+          tokens: [t(null, null, 1), t(true, false, 2), t(true, true, 3)],
+        },
+      },
+    });
+    expect(rendered).toContain('Sur les 2 lancements vérifiés');
+    expect(rendered).toMatch(/vendu dans le pool sur 2, la liquidité a été retirée sur 1/);
+    expect(rendered).toMatch(/vente du créateur : oui, retrait de liquidité : oui/);
+    expect(rendered).toMatch(/vente du créateur : non vérifié/);
+  });
+});

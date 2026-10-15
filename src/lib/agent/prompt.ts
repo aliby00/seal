@@ -53,10 +53,24 @@ export function renderReport(report: TokenReport): string {
       "Un sort « indéterminable » signifie que la fenêtre scannée est plus courte que le délai au-delà duquel on parlerait d'abandon. Ne le présente pas comme une activité constatée.",
     );
   }
-  for (const token of c.tokens.slice(0, 10)) {
+  // Sales and liquidity are checked on the most recent launches only; the
+  // model must get those results, not the oldest launches where nothing was
+  // checked (it then wrote "no sale observed" over a 10/10 that the card showed).
+  const checked = c.tokens.filter((t) => t.creatorDumped !== null || t.liquidityPulled !== null);
+  if (checked.length > 0) {
     lines.push(
-      `- ${token.address} : ${token.outcome}, progression ${(token.graduationProgress * 100).toFixed(2)} %` +
-        (token.liquidityPulled === null ? ' (retrait de liquidité : non déterminé)' : ''),
+      `Sur les ${checked.length} lancements vérifiés : le créateur a vendu dans le pool sur ` +
+        `${checked.filter((t) => t.creatorDumped === true).length}, la liquidité a été retirée sur ` +
+        `${checked.filter((t) => t.liquidityPulled === true).length} ` +
+        '(dans les ~11 jours suivant chaque lancement).',
+    );
+  }
+  const yesNo = (value: boolean | null) =>
+    value === null ? 'non vérifié' : value ? 'oui' : 'non observé';
+  for (const token of c.tokens.slice(-10)) {
+    lines.push(
+      `- ${token.address} : ${token.outcome}, progression ${(token.graduationProgress * 100).toFixed(2)} %, ` +
+        `vente du créateur : ${yesNo(token.creatorDumped)}, retrait de liquidité : ${yesNo(token.liquidityPulled)}`,
     );
   }
   lines.push('');
