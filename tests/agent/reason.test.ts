@@ -74,8 +74,36 @@ describe('renderReport', () => {
     expect(rendered).toContain('aucune clé API');
   });
 
-  it('précise que le pool est exclu des parts', () => {
-    expect(rendered).toMatch(/pool de liquidité et les adresses de burn sont exclus/);
+  // Unmeasured holders are not sent as zeros: "0 %" would read as a fact.
+  it('ne transmet aucune part quand les holders ne sont pas mesurés', () => {
+    expect(rendered).toContain('Non mesuré');
+    expect(rendered).not.toMatch(/Part du premier détenteur/);
+  });
+
+  it('précise que le pool est exclu des parts, et nomme le créateur parmi les holders', () => {
+    const creator = report.creator.data.creator;
+    const measured = renderReport({
+      ...report,
+      holders: {
+        ...report.holders,
+        completeness: 'full',
+        data: {
+          ...report.holders.data,
+          concentration: { top1: 0.26, top10: 0.9 },
+          top: [
+            { address: creator.toLowerCase(), balance: '1', share: 0.26, kind: 'contract' },
+            {
+              address: '0x1111111111111111111111111111111111111111',
+              balance: '1',
+              share: 0.2,
+              kind: 'wallet',
+            },
+          ],
+        },
+      },
+    });
+    expect(measured).toMatch(/pool de liquidité et les adresses de burn sont exclus/);
+    expect(measured).toMatch(/26\.00 % — adresse du CRÉATEUR/);
   });
 
   it("donne le volume rapporté au nombre d'échanges", () => {

@@ -158,7 +158,13 @@ function CreatorCard({ creator }: { creator: ReportFacts['creator'] }) {
   );
 }
 
-function HoldersCard({ holders }: { holders: ReportFacts['holders'] }) {
+function HoldersCard({
+  holders,
+  creator,
+}: {
+  holders: ReportFacts['holders'];
+  creator: string | null;
+}) {
   const largest = holders.top[0]?.share ?? 0;
   return (
     <section className="fact-card" aria-labelledby="fact-holders">
@@ -185,7 +191,11 @@ function HoldersCard({ holders }: { holders: ReportFacts['holders'] }) {
                 <li key={h.address}>
                   <span className="fact-mono">
                     {short(h.address)}
-                    {h.kind === 'contract' ? ' · contract' : ''}
+                    {creator && h.address.toLowerCase() === creator.toLowerCase()
+                      ? ' · creator'
+                      : h.kind === 'contract'
+                        ? ' · contract'
+                        : ''}
                   </span>
                   <span className="holder-track" aria-hidden="true">
                     <span
@@ -257,7 +267,7 @@ export function FactsBoard({ facts }: { facts: ReportFacts }) {
   return (
     <section className="facts-board" aria-label="Measured facts">
       <CreatorCard creator={facts.creator} />
-      <HoldersCard holders={facts.holders} />
+      <HoldersCard holders={facts.holders} creator={facts.creator.address} />
       <MarketCard market={facts.market} />
     </section>
   );

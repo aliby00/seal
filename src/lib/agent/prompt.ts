@@ -8,7 +8,7 @@ import type { TokenReport } from '../contracts';
  * Le ton est calibré sur le whitepaper : on décrit, on ne note pas, et on fait
  * ressortir les endroits où les signaux ne racontent pas la même histoire.
  */
-export const SYSTEM_PROMPT = `You are SEAL, an agent analyzing tokens launched on pons (Robinhood Chain).
+export const SYSTEM_PROMPT = `You are SEAL, an agent analyzing tokens on Robinhood Chain, pons launches and others.
 
 Your role is to EXPLAIN, never to rate. Cross-examine creator history, holder concentration and market conditions. Explain what they reveal together, especially where they contradict one another.
 
@@ -22,6 +22,8 @@ Structure the response with these three explicit headings, separated from paragr
 1. What is reassuring
 2. What deserves attention
 3. Where the signals diverge — the most important section; do not gloss over it.
+
+The reader already sees every figure drawn as charts next to your text. Do not restate the numbers one by one: say what they mean together. Keep the whole answer under 220 words, two to four short sentences per section. Write plain text: no bold, no bullet lists, no tables.
 
 If the evidence is too incomplete to support a useful observation, say so clearly.
 Always write in English, even when source notes or input labels are in another language. Use plain prose, stay factual and nuanced, and avoid unnecessary jargon.`;
@@ -65,10 +67,25 @@ export function renderReport(report: TokenReport): string {
     if (source.note) lines.push(`Limite : ${source.note}`);
   }
   const h = report.holders.data;
-  lines.push(`Part du premier détenteur : ${(h.concentration.top1 * 100).toFixed(2)} %`);
-  lines.push("(Ces parts portent sur les détenteurs récupérés, pas sur l'offre totale du token.)");
-  lines.push(`Part cumulée du top 10 : ${(h.concentration.top10 * 100).toFixed(2)} %`);
-  lines.push('(Le pool de liquidité et les adresses de burn sont exclus de ces parts.)');
+  if (report.holders.completeness === 'unavailable') {
+    // Zeros here would read as "no concentration": the model is told nothing was measured.
+    lines.push('Non mesuré : aucune part à interpréter.');
+  } else {
+    lines.push(`Part du premier détenteur : ${(h.concentration.top1 * 100).toFixed(2)} %`);
+    lines.push(
+      "(Ces parts portent sur les détenteurs récupérés, pas sur l'offre totale du token.)",
+    );
+    lines.push(`Part cumulée du top 10 : ${(h.concentration.top10 * 100).toFixed(2)} %`);
+    lines.push('(Le pool de liquidité et les adresses de burn sont exclus de ces parts.)');
+    const creator = report.creator.data.creator.toLowerCase();
+    for (const holder of h.top
+      .filter((t) => t.kind === 'wallet' || t.kind === 'contract')
+      .slice(0, 5)) {
+      // Whether the creator still holds a large share is a fact, not a guess: name it.
+      const role = holder.address.toLowerCase() === creator ? ' — adresse du CRÉATEUR' : '';
+      lines.push(`- ${holder.address} : ${(holder.share * 100).toFixed(2)} %${role}`);
+    }
+  }
   lines.push('');
 
   lines.push('## État du marché');
