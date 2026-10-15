@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
-const token = '0xd0c538e01a22ebf8502b4dc3a92026cec870cec6';
+const token = '0x10e848f9d5073d670201b111f1ba3d1c5be6f18b';
 const explanation =
   'What is reassuring.\n\nThe creator launched several tokens.\n\nWhat deserves attention.\n\nConcentration requires further documentation.\n\nWhere the signals diverge.\n\nObserved volume does not explain the distribution.';
 const report = {
@@ -19,7 +19,63 @@ const report = {
   offline: false,
   costUsd: 0.019,
   collectedAt: '2026-09-27T00:20:04.965Z',
+  facts: {
+    creator: {
+      measured: true,
+      note: 'Scanned range: blocks 100 to 200. Earlier history not covered.',
+      address: '0x59a8eb66f90b092c2d1a86531dc3c18e11f0ed34',
+      launched: 76,
+      detailed: 40,
+      graduated: 2,
+      abandoned: 36,
+      undetermined: 0,
+      active: 2,
+      checked: 10,
+      soldIntoPool: 7,
+      liquidityPulled: 1,
+    },
+    holders: {
+      measured: true,
+      holderCount: 42,
+      top1: 0.31,
+      top10: 0.78,
+      top: [
+        { address: '0x25b2eece475e104c85e79d3be9e29cd06cd982ee', share: 0.31, kind: 'wallet' },
+        { address: '0xe08d2285f451ee250b471a5edad1a4b09f22b4fb', share: 0.18, kind: 'wallet' },
+        { address: '0xcd9107d2bdfad6b56a7ac235bebe46e555c1801c', share: 0.04, kind: 'contract' },
+      ],
+    },
+    market: {
+      measured: false,
+      note: 'no pair indexed by DexScreener for this token',
+      priceUsd: null,
+      liquidityUsd: null,
+      volume24hUsd: null,
+      buys24h: null,
+      sells24h: null,
+      fdvUsd: null,
+      graduation: { progress: 0.42, thresholdEth: 4.2, graduated: false },
+    },
+  },
 };
+test('report draws the measured facts, says what is missing, and gives no score', async ({
+  page,
+}) => {
+  await mockReport(page);
+  await page.goto('/#analysis');
+  await submit(page);
+  const board = page.getByRole('region', { name: 'Measured facts' });
+  await expect(board).toBeVisible();
+  await expect(board.locator('.fact-big')).toContainText('76 tokens launched');
+  await expect(
+    board.getByRole('img', { name: /Concentration: largest 31% · top 10 78%/ }),
+  ).toBeVisible();
+  await expect(board.getByText('No trading pair listed on DexScreener.')).toBeVisible();
+  await expect(board.getByText('7 / 10')).toBeVisible();
+  await expect(board).not.toContainText(/score|\/10|\/100/i);
+  await accessible(page);
+});
+
 async function submit(page: Page) {
   await page.getByLabel('Token address', { exact: true }).fill(token);
   await page.getByRole('button', { name: 'Analyze token' }).click();

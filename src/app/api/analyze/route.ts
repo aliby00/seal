@@ -2,6 +2,7 @@ import { isAddress } from 'viem';
 import { NextResponse } from 'next/server';
 import { explain } from '@/lib/agent/reason';
 import { collect } from '@/lib/collect';
+import { toFacts, type ReportFacts } from '@/lib/facts';
 import { SealError } from '@/lib/errors';
 import { ANALYZE_LIMIT, guardedJson } from '@/lib/guard';
 import { log } from '@/lib/logger';
@@ -26,6 +27,8 @@ export type AnalyzeResponse = {
   collectedAt: string;
   /** Vrai si la restitution vient du mode hors-ligne, sans appel au modèle. */
   offline: boolean;
+  /** The measured numbers, for the report's charts. Absent from older responses. */
+  facts?: ReportFacts;
 };
 
 const PUBLIC_MESSAGE: Record<string, string> = {
@@ -33,6 +36,16 @@ const PUBLIC_MESSAGE: Record<string, string> = {
   'not-found': 'Nothing was found for this address',
   timeout: 'A data source did not answer in time',
 };
+
+/** The charts are a bonus on top of the text: a malformed report must not fail the response. */
+function chartable(report: Parameters<typeof toFacts>[0]): ReportFacts | undefined {
+  try {
+    return toFacts(report);
+  } catch (error) {
+    log.warn('faits non représentables', { error: String(error) });
+    return undefined;
+  }
+}
 
 function errorResponse(status: number, message: string, detail?: string) {
   return NextResponse.json({ error: message, ...(detail ? { detail } : {}) }, { status });
@@ -85,6 +98,7 @@ export async function POST(request: Request): Promise<Response> {
       costUsd: explanation.cost.costUsd,
       collectedAt: report.collectedAt,
       offline: explanation.offline,
+      facts: chartable(report),
     };
 
     log.info('analyse servie', { token, ms: Date.now() - started, costUsd: body.costUsd });

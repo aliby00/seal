@@ -186,3 +186,17 @@ describe('classifyOutcome without a readable graduation', () => {
     expect(classifyOutcome(null, 30_000_000)).toBe('undetermined');
   });
 });
+
+describe('getLogsBatched without splitting', () => {
+  it('gives up on a crowded window instead of re-reading it', async () => {
+    const { rpc, batches } = node(() => 'logs matched by query exceeds limit of 10000');
+    const out = await getLogsBatched(
+      rpc,
+      { addresses: ['0xa'], topics: [] },
+      { fromBlock: 0, toBlock: 10 },
+      { split: false },
+    );
+    expect(out.truncated).toBe(true);
+    expect(batches).toHaveLength(1);
+  });
+});
