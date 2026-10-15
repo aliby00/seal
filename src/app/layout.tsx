@@ -1,8 +1,11 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
+import { siteUrl } from '@/lib/site';
 import './globals.css';
 
 export const metadata: Metadata = {
+  metadataBase: siteUrl(),
+  alternates: { canonical: '/' },
   title: 'SEAL',
   description:
     'Understand pons tokens on Robinhood Chain through evidence, context and plain-language analysis. No scores.',
