@@ -1,4 +1,4 @@
-import { RateLimitError, TimeoutError, UpstreamError } from '../errors';
+import { RateLimitError, SealError, TimeoutError, UpstreamError } from '../errors';
 import { request, type RequestBudget } from '../http';
 
 /**
@@ -166,21 +166,59 @@ const RPC_RATE_LIMIT_WAIT_MS = 2_500;
  * (paced) unless `LOGS_RPC_URL` names a node that does better.
  */
 export function logsRpcUrl(env: Record<string, string | undefined> = process.env): string {
-  return env.LOGS_RPC_URL || DEFAULT_RPC_URL;
+  return logsRpcUrls(env)[0] ?? DEFAULT_RPC_URL;
+}
+
+/** `a, b ,c` → ['a', 'b', 'c']: one variable can name several nodes. */
+export function parseRpcUrls(value: string | undefined): string[] {
+  return (value ?? '')
+    .split(',')
+    .map((url) => url.trim())
+    .filter((url) => url.length > 0);
+}
+
+/**
+ * Nodes in the order they are tried. A node that is down, slow or rate-limited
+ * hands the request to the next one; the public node always closes the list,
+ * so a paid provider failing degrades the analysis instead of stopping it.
+ */
+function withFallbacks(...lists: string[][]): string[] {
+  return [...new Set([...lists.flat(), DEFAULT_RPC_URL])];
+}
+
+export function rpcUrls(
+  primary: string | undefined = process.env.RPC_URL,
+  env: Record<string, string | undefined> = process.env,
+): string[] {
+  return withFallbacks(parseRpcUrls(primary), parseRpcUrls(env.RPC_URL_FALLBACK));
+}
+
+export function logsRpcUrls(env: Record<string, string | undefined> = process.env): string[] {
+  return withFallbacks(parseRpcUrls(env.LOGS_RPC_URL), parseRpcUrls(env.LOGS_RPC_URL_FALLBACK));
+}
+
+/** A JSON-RPC error that means "this node is busy", sent with a 200. */
+function busyNodeError(body: unknown): boolean {
+  if (Array.isArray(body) || typeof body !== 'object' || body === null) return false;
+  const code = (body as JsonRpcResponse<unknown>).error?.code;
+  return code === 429 || code === -32005;
 }
 
 export function createRpcClient(
-  url: string = DEFAULT_RPC_URL,
+  url: string | string[] = DEFAULT_RPC_URL,
   budget?: RequestBudget,
-  logsUrl: string = logsRpcUrl(),
+  logsUrl: string | string[] = logsRpcUrls(),
 ): RpcClient {
-  async function post(payload: unknown): Promise<Response> {
-    const cost = logQueries(payload);
-    const target = cost > 0 ? logsUrl : url;
+  const plainTargets = Array.isArray(url) ? withFallbacks(url) : rpcUrls(url);
+  const logTargets = Array.isArray(logsUrl) ? withFallbacks(logsUrl) : withFallbacks([logsUrl]);
+
+  async function attempt(target: string, payload: unknown, cost: number, last: boolean) {
     if (cost > 0) await throttle(target, cost);
-    return request(target, {
+    const response = await request(target, {
       source: 'robinhood-rpc',
-      retries: 3,
+      // Retrying a failing node delays the next one: only the last node,
+      // with nobody left to hand over to, insists.
+      retries: last ? 3 : 0,
       minRateLimitWaitMs: RPC_RATE_LIMIT_WAIT_MS,
       budget,
       init: {
@@ -189,6 +227,31 @@ export function createRpcClient(
         body: JSON.stringify(payload),
       },
     });
+    try {
+      return (await response.json()) as unknown;
+    } catch (error) {
+      throw new UpstreamError('robinhood-rpc', 'unreadable JSON response', response.status, error);
+    }
+  }
+
+  /** Sends to each node in turn; every request starts again from the first. */
+  async function post(payload: unknown): Promise<unknown> {
+    const cost = logQueries(payload);
+    const targets = cost > 0 ? logTargets : plainTargets;
+    for (let i = 0; i < targets.length; i += 1) {
+      const last = i === targets.length - 1;
+      try {
+        const body = await attempt(targets[i] as string, payload, cost, last);
+        if (!last && busyNodeError(body)) continue;
+        return body;
+      } catch (error) {
+        // Any node-side failure — down, slow, rate-limited, refusing the key,
+        // garbled answer — hands over. A spent analysis budget does not: it
+        // would be just as spent on the next node.
+        if (last || !(error instanceof SealError)) throw error;
+      }
+    }
+    throw new UpstreamError('robinhood-rpc', 'no node configured');
   }
 
   return {
@@ -198,10 +261,9 @@ export function createRpcClient(
       const results: BatchOutcome<T>[] = [];
       for (let offset = 0; offset < requests.length; offset += MAX_BATCH_SIZE) {
         const slice = requests.slice(offset, offset + MAX_BATCH_SIZE);
-        const response = await post(
+        const body = (await post(
           slice.map((r, i) => ({ jsonrpc: '2.0', id: offset + i, ...r })),
-        );
-        const body = (await response.json()) as JsonRpcResponse<T>[] | JsonRpcResponse<T>;
+        )) as JsonRpcResponse<T>[] | JsonRpcResponse<T>;
 
         if (!Array.isArray(body)) {
           // Le nœud a répondu à un batch par un objet : erreur globale.
@@ -226,9 +288,7 @@ export function createRpcClient(
     },
 
     async call<T>(method: string, params: unknown[]): Promise<T> {
-      const response = await post({ jsonrpc: '2.0', id: 1, method, params });
-
-      const body = (await response.json()) as JsonRpcResponse<T>;
+      const body = (await post({ jsonrpc: '2.0', id: 1, method, params })) as JsonRpcResponse<T>;
 
       if (body.error) {
         const tooBroad = classifyLogError(body.error.message);
