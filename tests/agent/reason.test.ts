@@ -233,8 +233,8 @@ describe('renderReport : ventes et retraits du créateur', () => {
         },
       },
     });
-    expect(rendered).toContain('Sur les 2 lancements vérifiés');
-    expect(rendered).toMatch(/vendu dans le pool sur 2, la liquidité a été retirée sur 1/);
+    expect(rendered).toContain('Ventes du créateur dans le marché : sur 2 lancements vérifiés, 2');
+    expect(rendered).toContain('Retraits de liquidité : sur 2 lancements vérifiés, 1');
     expect(rendered).toMatch(/vente du créateur : oui, retrait de liquidité : oui/);
     expect(rendered).toMatch(/vente du créateur : non vérifié/);
   });

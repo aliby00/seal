@@ -43,33 +43,67 @@ export function renderReport(report: TokenReport): string {
     if (source.note) lines.push(`Limite : ${source.note}`);
   }
   const c = report.creator.data;
+  const deployer = c.origin?.source === 'deployer';
   lines.push(`Créateur : ${c.creator}`);
-  lines.push(
-    `Tokens lancés sur la fenêtre observée : ${c.counts.launched} — dont ${c.counts.graduated} gradués, ` +
-      `${c.counts.abandoned} abandonnés, ${c.counts.undetermined} au sort indéterminable sur cette fenêtre.`,
-  );
-  if (c.counts.undetermined > 0) {
+  if (deployer && c.origin) {
+    const role = {
+      deployer: 'a déployé le contrat du token',
+      launcher: `a lancé le token via le contrat ${c.origin.launchContract ?? 'de lancement'}`,
+      'first-minter':
+        'a envoyé la transaction du premier mint, après la création du contrat (cela ne prouve pas qui l’a écrit)',
+    }[c.origin.role];
     lines.push(
-      "Un sort « indéterminable » signifie que la fenêtre scannée est plus courte que le délai au-delà duquel on parlerait d'abandon. Ne le présente pas comme une activité constatée.",
+      `Origine : pas un lancement pons. Créateur retrouvé par la transaction du premier mint : cette adresse ${role}.`,
     );
+    if (c.origin.transactionCount !== null) {
+      lines.push(`Transactions envoyées par ce wallet : ${c.origin.transactionCount}.`);
+    }
+    lines.push(
+      c.origin.launchesListed
+        ? `Lancements de cette adresse via le même contrat de lancement : ${c.counts.launched}.`
+        : 'Les autres lancements de cette adresse ne peuvent pas être listés depuis la chaîne : ne les compte pas.',
+    );
+    lines.push(
+      'Hors pons, il n’y a pas de graduation : le sort de ces lancements (gradué, abandonné) n’est pas mesuré. Ne le présente pas comme connu.',
+    );
+  } else {
+    lines.push(
+      `Tokens lancés sur la fenêtre observée : ${c.counts.launched} — dont ${c.counts.graduated} gradués, ` +
+        `${c.counts.abandoned} abandonnés, ${c.counts.undetermined} au sort indéterminable sur cette fenêtre.`,
+    );
+    if (c.counts.undetermined > 0) {
+      lines.push(
+        "Un sort « indéterminable » signifie que la fenêtre scannée est plus courte que le délai au-delà duquel on parlerait d'abandon. Ne le présente pas comme une activité constatée.",
+      );
+    }
   }
   // Sales and liquidity are checked on the most recent launches only; the
   // model must get those results, not the oldest launches where nothing was
   // checked (it then wrote "no sale observed" over a 10/10 that the card showed).
-  const checked = c.tokens.filter((t) => t.creatorDumped !== null || t.liquidityPulled !== null);
-  if (checked.length > 0) {
+  // Each signal has its own denominator: a market that could not be read is
+  // not "no liquidity removed".
+  const salesChecked = c.tokens.filter((t) => t.creatorDumped !== null);
+  const liquidityChecked = c.tokens.filter((t) => t.liquidityPulled !== null);
+  if (salesChecked.length > 0) {
     lines.push(
-      `Sur les ${checked.length} lancements vérifiés : le créateur a vendu dans le pool sur ` +
-        `${checked.filter((t) => t.creatorDumped === true).length}, la liquidité a été retirée sur ` +
-        `${checked.filter((t) => t.liquidityPulled === true).length} ` +
-        '(dans les ~11 jours suivant chaque lancement).',
+      `Ventes du créateur dans le marché : sur ${salesChecked.length} lancements vérifiés, ` +
+        `${salesChecked.filter((t) => t.creatorDumped === true).length} (dans les ~11 jours suivant chaque lancement).`,
+    );
+  }
+  if (liquidityChecked.length > 0) {
+    lines.push(
+      `Retraits de liquidité : sur ${liquidityChecked.length} lancements vérifiés, ` +
+        `${liquidityChecked.filter((t) => t.liquidityPulled === true).length} (même fenêtre).`,
     );
   }
   const yesNo = (value: boolean | null) =>
     value === null ? 'non vérifié' : value ? 'oui' : 'non observé';
   for (const token of c.tokens.slice(-10)) {
     lines.push(
-      `- ${token.address} : ${token.outcome}, progression ${(token.graduationProgress * 100).toFixed(2)} %, ` +
+      `- ${token.address} : ` +
+        (deployer
+          ? ''
+          : `${token.outcome}, progression ${(token.graduationProgress * 100).toFixed(2)} %, `) +
         `vente du créateur : ${yesNo(token.creatorDumped)}, retrait de liquidité : ${yesNo(token.liquidityPulled)}`,
     );
   }
