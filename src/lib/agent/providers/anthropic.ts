@@ -23,15 +23,10 @@ export function createAnthropicProvider(apiKey: string, client?: Anthropic['mess
         {
           model: request.model,
           max_tokens: request.maxTokens,
-          // Préfixe stable marqué pour le cache : le system prompt ne change pas
-          // d'une requête à l'autre, les données du token si.
-          system: [
-            {
-              type: 'text' as const,
-              text: request.system,
-              cache_control: { type: 'ephemeral' as const },
-            },
-          ],
+          // No cache breakpoint: the system prompts are under the 512 tokens a
+          // prefix needs to be cached, and at this traffic a cache write
+          // (1.25x the input price) would rarely be read back within 5 minutes.
+          system: request.system,
           messages: [{ role: 'user' as const, content: request.user }],
         },
         request.signal ? { signal: request.signal } : undefined,
