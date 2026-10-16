@@ -1,4 +1,5 @@
 import { resolveProvider } from './agent/providers';
+import type { LaunchReplayData } from './contracts';
 import type { ReportFacts, TimelineLaunch } from './facts';
 import type { SpecialistAnswer } from './specialists/brief';
 import { SharedCache } from './shared-cache';
@@ -24,6 +25,8 @@ export type CachedAnalysis = {
   timeline?: TimelineLaunch[];
   /** The ten specialists' answers, in catalogue order. Each stands on its own. */
   specialists?: SpecialistAnswer[];
+  /** The first minutes after the launch, move by move, when they could be read. */
+  launch?: LaunchReplayData;
 };
 
 /**

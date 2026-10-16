@@ -1,6 +1,7 @@
 import type { AnalyzeResponse } from '../api/analyze/route';
 import { Explanation } from './Explanation';
 import { FactsBoard } from './FactsBoard';
+import { LaunchReplay } from './LaunchReplay';
 import { ReportHeader } from './ReportHeader';
 import { SpecialistsPanel } from './SpecialistsPanel';
 
@@ -50,12 +51,16 @@ export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
         </section>
       )}
       {result.facts && <FactsBoard facts={result.facts} timeline={result.timeline} />}
+      {result.launch && result.launch.moves.length > 0 && <LaunchReplay launch={result.launch} />}
       {result.specialists && result.specialists.length > 0 && (
-        <SpecialistsPanel answers={result.specialists} />
+        <SpecialistsPanel
+          answers={result.specialists}
+          index={result.launch?.moves.length ? '03' : '02'}
+        />
       )}
       <section className="reading-section" aria-labelledby="reading-title">
         <div className="report-section-head">
-          <p className="report-kicker">03 — Reading</p>
+          <p className="report-kicker">{result.launch?.moves.length ? '04' : '03'} — Reading</p>
           <h3 id="reading-title">How the facts fit together.</h3>
         </div>
         <div className="reading-layout">
