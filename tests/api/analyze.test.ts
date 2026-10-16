@@ -1,3 +1,4 @@
+import { getAddress } from 'viem';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const collect = vi.hoisted(() => vi.fn());
@@ -9,6 +10,7 @@ vi.mock('@/lib/agent/reason', () => ({ explain }));
 const { POST } = await import('../../src/app/api/analyze/route');
 const { RateLimitError, NotFoundError } = await import('../../src/lib/errors');
 const { resetRateLimits } = await import('../../src/lib/guard');
+const { analysisCache } = await import('../../src/lib/analysis-cache');
 
 const TOKEN = '0x494ddf6f7b4b045ede0abbb9ae86e4d59fa62ec9';
 
@@ -36,6 +38,7 @@ function post(body: unknown): Request {
 afterEach(() => {
   vi.clearAllMocks();
   resetRateLimits();
+  analysisCache.clear();
 });
 
 describe('POST /api/analyze', () => {
@@ -117,8 +120,43 @@ describe('configuration', () => {
       expect.objectContaining({ rpcUrl: 'https://rpc.example/key' }),
     );
     vi.stubEnv('RPC_URL', '');
+    analysisCache.clear();
     await POST(post({ token: TOKEN }));
     expect(collect).toHaveBeenLastCalledWith(TOKEN, expect.objectContaining({ rpcUrl: undefined }));
     vi.unstubAllEnvs();
+  });
+
+  // The same token asked twice spends one model call: the second answer is
+  // the first one, marked as cached and free.
+  it('sert une analyse déjà faite depuis le cache, sans rien dépenser', async () => {
+    collect.mockResolvedValue(report);
+    explain.mockResolvedValue({
+      text: 'ok',
+      cost: { costUsd: 0.012 },
+      violations: [],
+      offline: false,
+    });
+    await POST(post({ token: TOKEN }));
+    // Same token, other casing (the checksummed form): same cache entry.
+    const res = await POST(post({ token: getAddress(TOKEN) }));
+    const body = (await res.json()) as { costUsd: number; cached?: boolean; explanation: string };
+    expect(res.status).toBe(200);
+    expect(body).toMatchObject({ costUsd: 0, cached: true, explanation: 'ok' });
+    expect(collect).toHaveBeenCalledTimes(1);
+    expect(explain).toHaveBeenCalledTimes(1);
+  });
+
+  it('ne garde pas une lecture coupée par le nœud', async () => {
+    collect.mockResolvedValue({
+      ...report,
+      creator: {
+        ...report.creator,
+        sources: [{ name: 'robinhood-rpc', note: 'their other launches could not be read' }],
+      },
+    });
+    explain.mockResolvedValue({ text: 'ok', cost: { costUsd: 0.01 }, violations: [] });
+    await POST(post({ token: TOKEN }));
+    await POST(post({ token: TOKEN }));
+    expect(collect).toHaveBeenCalledTimes(2);
   });
 });

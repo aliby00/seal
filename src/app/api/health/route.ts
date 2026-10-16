@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { resolveProvider } from '@/lib/agent/providers';
+import { storeKind } from '@/lib/store';
 import { DEFAULT_RPC_URL, logsRpcUrl, logsRpcUrls, rpcUrls } from '@/lib/chain/rpc';
 
 export const dynamic = 'force-dynamic';
@@ -24,6 +25,8 @@ export function GET() {
       logsRpc: logsRpcUrl() === DEFAULT_RPC_URL ? 'public' : 'custom',
       logsRpcNodes: logsRpcUrls().length,
       holders: process.env.BLOCKSCOUT_API_KEY ? 'blockscout' : 'chain',
+      // Where the rate limit and the analysis cache live: shared, or per instance.
+      store: storeKind(),
     },
     at: new Date().toISOString(),
   });

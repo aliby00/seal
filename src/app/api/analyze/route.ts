@@ -6,6 +6,7 @@ import { toFacts, type ReportFacts } from '@/lib/facts';
 import { SealError } from '@/lib/errors';
 import { ANALYZE_LIMIT, guardedJson } from '@/lib/guard';
 import { log } from '@/lib/logger';
+import { analysisCache, type CachedAnalysis } from '@/lib/analysis-cache';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -18,18 +19,8 @@ export const maxDuration = 60;
  */
 const COLLECT_TIMEOUT_MS = 30_000;
 
-export type AnalyzeResponse = {
-  token: string;
-  explanation: string;
-  completeness: string;
-  sources: { name: string; note?: string }[];
-  costUsd: number;
-  collectedAt: string;
-  /** Vrai si la restitution vient du mode hors-ligne, sans appel au modèle. */
-  offline: boolean;
-  /** The measured numbers, for the report's charts. Absent from older responses. */
-  facts?: ReportFacts;
-};
+/** The response body. Its shape is kept with the cache, which stores it as is. */
+export type AnalyzeResponse = CachedAnalysis;
 
 const PUBLIC_MESSAGE: Record<string, string> = {
   'rate-limit': 'A data source is rate-limiting requests. Try again in a minute.',
@@ -60,6 +51,13 @@ export async function POST(request: Request): Promise<Response> {
 
   if (typeof token !== 'string' || !isAddress(token)) {
     return errorResponse(400, 'Invalid token address');
+  }
+
+  const cacheKey = token.toLowerCase();
+  const hit = await analysisCache.get(cacheKey);
+  if (hit) {
+    log.info('analyse servie depuis le cache', { token, ms: Date.now() - started });
+    return NextResponse.json({ ...hit, costUsd: 0, cached: true } satisfies AnalyzeResponse);
   }
 
   try {
@@ -101,6 +99,7 @@ export async function POST(request: Request): Promise<Response> {
       facts: chartable(report),
     };
 
+    await analysisCache.set(cacheKey, body);
     log.info('analyse servie', { token, ms: Date.now() - started, costUsd: body.costUsd });
     return NextResponse.json(body);
   } catch (error) {
