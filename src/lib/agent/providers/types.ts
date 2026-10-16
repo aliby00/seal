@@ -15,6 +15,8 @@ export type CompletionRequest = {
   user: string;
   maxTokens: number;
   model: string;
+  /** Aborts the call when the route runs out of time. */
+  signal?: AbortSignal;
 };
 
 export type CompletionResult = {

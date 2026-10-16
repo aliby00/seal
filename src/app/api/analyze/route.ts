@@ -6,6 +6,7 @@ import { toFacts, toTimeline, type ReportFacts, type TimelineLaunch } from '@/li
 import { SealError } from '@/lib/errors';
 import { ANALYZE_LIMIT, guardedJson } from '@/lib/guard';
 import { log } from '@/lib/logger';
+import { overBudget, recordSpend } from '@/lib/spend';
 import { analysisCache, type CachedAnalysis } from '@/lib/analysis-cache';
 import {
   briefSpecialists,
@@ -27,6 +28,8 @@ const COLLECT_TIMEOUT_MS = 30_000;
 const REQUEST_BUDGET_MS = 56_000;
 /** Kept for the model: the provider's own timeout. */
 const MODEL_ALLOWANCE_MS = 25_000;
+/** Below this, the model is not worth calling: the facts are worded offline. */
+const MIN_MODEL_MS = 5_000;
 /** The questions always get a short chance, even after a slow collection. */
 const MIN_SPECIALIST_MS = 1_000;
 
@@ -118,7 +121,15 @@ export async function POST(request: Request): Promise<Response> {
       report,
       Math.max(MIN_SPECIALIST_MS, Math.min(SPECIALIST_TIMEOUT_MS, left)),
     );
-    const explanation = await explain(report, { specialists: brief?.answers });
+    // Whatever the model has left is cut at the budget's end, so the response
+    // leaves before the platform kills the function and loses a paid answer.
+    const modelMs = REQUEST_BUDGET_MS - (Date.now() - started);
+    const explanation = await explain(report, {
+      specialists: brief?.answers,
+      offline: modelMs < MIN_MODEL_MS || (await overBudget()),
+      signal: AbortSignal.timeout(Math.max(1, Math.min(MODEL_ALLOWANCE_MS, modelMs))),
+    });
+    await recordSpend(explanation.cost.costUsd);
 
     // Une sortie non conforme ne doit pas atteindre l'utilisateur : c'est une
     // contrainte de conception du produit, pas une préférence de style.

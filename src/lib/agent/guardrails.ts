@@ -12,9 +12,12 @@ export type Violation = {
   matched: string;
 };
 
-/** Un score chiffré, sous ses formes usuelles : « 72/100 », « 8.5 / 10 », « note : 4/5 ». */
+/**
+ * Un score chiffré, sous ses formes usuelles : « 72/100 », « 8.5 / 10 », « note : 4/5 ».
+ * A count ("3/10 launches checked") or a date ("16/10/2026") is not a score.
+ */
 const SCORE_PATTERNS: RegExp[] = [
-  /\b\d{1,3}(?:[.,]\d+)?\s*\/\s*(?:5|10|20|100)\b/g,
+  /(?<![\d/.,])\b\d{1,3}(?:[.,]\d+)?\s*\/\s*(?:5|10|20|100)\b(?!\s*\/)(?!\s+(?:launch|token|wallet|holder|address|buy|buyer|sell|seller|sale|trade|transaction|transfer|day|month|block|minute|second|hour|specialist|question|check|source|pool|move|contract)(?:e?s)?\b)/g,
   /\b(?:score|note|rating|grade)\s*[:=]\s*\d/gi,
   /\b\d{1,3}\s*(?:points?|pts)\s*(?:sur|\/)\s*\d/gi,
 ];
@@ -42,6 +45,9 @@ const VERDICT_PATTERNS: RegExp[] = [
   /\b(?:safe|safer|safest|risky|riskier|unsafe)\b/gi,
   /\b(?:low|high|no|zero|minimal)\s+risk\b/gi,
   /\b(?:arnaque\w*|escroquerie\w*|fiable)\b/gi,
+  // Labels that assign an intent to a wallet: SEAL says "bought in the launch
+  // block", the reader decides what that makes the buyer.
+  /\b(?:snip(?:e|er|ers|ed|es|ing)|insiders?|bundl(?:e|es|ed|er|ers|ing))\b/gi,
   /[★☆⭐]/g,
 ];
 

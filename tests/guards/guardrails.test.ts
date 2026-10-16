@@ -74,3 +74,23 @@ describe('assertCompliant', () => {
     expect(() => assertCompliant('Score : 9/10, safe to buy.')).toThrow(/non conforme/);
   });
 });
+
+describe('mots qui prêtent une intention', () => {
+  it.each([
+    'Two snipers bought early.',
+    'An insider wallet received 5%.',
+    'The launch was bundled.',
+  ])('refuse « %s »', (text) => {
+    expect(findViolations(text).map((v) => v.kind)).toContain('verdict');
+  });
+});
+
+describe('comptes et dates ne sont pas des scores', () => {
+  it.each([
+    'Sales were checked on 3/10 launches.',
+    'Collected on 16/10/2026.',
+    'Only 4/5 wallets still hold tokens.',
+  ])('laisse passer « %s »', (text) => {
+    expect(findViolations(text)).toEqual([]);
+  });
+});

@@ -15,6 +15,10 @@ export type ReasonOptions = {
   env?: Record<string, string | undefined>;
   /** The ten questions' answers, when they are ready before the text is written. */
   specialists?: SpecialistAnswer[];
+  /** Skip the model and word the facts offline: the daily ceiling is reached. */
+  offline?: boolean;
+  /** Cuts the call when the route runs out of time; the facts are then served. */
+  signal?: AbortSignal;
 };
 
 export type Explanation = {
@@ -67,8 +71,11 @@ export async function explain(
     ? { provider: options.provider, model: options.model ?? DEFAULT_MODEL }
     : resolveProvider(options.env);
 
-  if (!resolved) {
-    log.info('restitution hors-ligne', { reason: 'aucun fournisseur configuré', costUsd: 0 });
+  if (!resolved || options.offline) {
+    log.info('restitution hors-ligne', {
+      reason: resolved ? 'plafond de dépense' : 'aucun fournisseur configuré',
+      costUsd: 0,
+    });
     return served(offlineExplanation(report), computeCost('offline', {}));
   }
 
@@ -78,7 +85,10 @@ export async function explain(
   // analysis whose facts are ready into an error page: the facts are served.
   let result;
   try {
-    result = await provider.complete(buildRequest(report, model, maxTokens, options.specialists));
+    result = await provider.complete({
+      ...buildRequest(report, model, maxTokens, options.specialists),
+      ...(options.signal ? { signal: options.signal } : {}),
+    });
   } catch (error) {
     log.warn('fournisseur en échec, restitution hors-ligne', {
       provider: provider.name,
@@ -107,10 +117,13 @@ export async function explain(
 
   // Empty or non-compliant wording is not published; the facts are, and the
   // call is still paid for, so its cost is kept.
-  if (text.length === 0 || violations.length > 0) {
+  // A text cut at the token limit stops mid-sentence: not published either.
+  const truncated = result.stopReason === 'max_tokens' || result.stopReason === 'length';
+  if (text.length === 0 || violations.length > 0 || truncated) {
     log.warn('restitution refusée, restitution hors-ligne', {
       provider: provider.name,
       empty: text.length === 0,
+      truncated,
       violations: violations.map((v) => v.kind),
     });
     return { ...served(offlineExplanation(report), cost), rejected: true };

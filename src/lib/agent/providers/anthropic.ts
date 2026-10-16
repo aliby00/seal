@@ -6,31 +6,36 @@ export const ANTHROPIC_DEFAULT_MODEL = 'claude-sonnet-5-5';
 
 /**
  * The SDK default is ten minutes and two retries; the route has 60 seconds in
- * all. A call that cannot finish in time is cut, and the facts are served.
+ * all. A call that cannot finish in time is cut, and the facts are served. No
+ * retry: a second 25 s attempt would outlive the function, and the first one
+ * would be paid for nothing.
  */
 export const ANTHROPIC_TIMEOUT_MS = 25_000;
 
 export function createAnthropicProvider(apiKey: string, client?: Anthropic['messages']): Provider {
   const messages =
-    client ?? new Anthropic({ apiKey, timeout: ANTHROPIC_TIMEOUT_MS, maxRetries: 1 }).messages;
+    client ?? new Anthropic({ apiKey, timeout: ANTHROPIC_TIMEOUT_MS, maxRetries: 0 }).messages;
 
   return {
     name: 'anthropic',
     async complete(request: CompletionRequest): Promise<CompletionResult> {
-      const response = (await messages.create({
-        model: request.model,
-        max_tokens: request.maxTokens,
-        // Préfixe stable marqué pour le cache : le system prompt ne change pas
-        // d'une requête à l'autre, les données du token si.
-        system: [
-          {
-            type: 'text' as const,
-            text: request.system,
-            cache_control: { type: 'ephemeral' as const },
-          },
-        ],
-        messages: [{ role: 'user' as const, content: request.user }],
-      })) as Anthropic.Message;
+      const response = (await messages.create(
+        {
+          model: request.model,
+          max_tokens: request.maxTokens,
+          // Préfixe stable marqué pour le cache : le system prompt ne change pas
+          // d'une requête à l'autre, les données du token si.
+          system: [
+            {
+              type: 'text' as const,
+              text: request.system,
+              cache_control: { type: 'ephemeral' as const },
+            },
+          ],
+          messages: [{ role: 'user' as const, content: request.user }],
+        },
+        request.signal ? { signal: request.signal } : undefined,
+      )) as Anthropic.Message;
 
       if (response.stop_reason === 'refusal') {
         throw new UpstreamError('anthropic', 'the model refused the request');

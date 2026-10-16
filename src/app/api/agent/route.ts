@@ -7,6 +7,7 @@ import type { TokenReport } from '@/lib/contracts';
 import { SealError } from '@/lib/errors';
 import { AGENT_LIMIT, guardedJson } from '@/lib/guard';
 import { log } from '@/lib/logger';
+import { overBudget, recordSpend } from '@/lib/spend';
 import {
   compileAgent,
   gatherContext,
@@ -20,6 +21,10 @@ export const maxDuration = 60;
 
 /** Same split as /api/analyze: 30 s to gather, the provider's 25 s to word it. */
 const GLOBAL_TIMEOUT_MS = 55_000;
+/** Below this, the model is not worth calling: the findings are listed offline. */
+const MIN_MODEL_MS = 5_000;
+/** Gathering gets its own share, so a slow source leaves time to word the findings. */
+const GATHER_TIMEOUT_MS = 35_000;
 
 export type AgentResponse = {
   token: string;
@@ -66,17 +71,28 @@ export async function POST(request: Request): Promise<Response> {
       // Un token sans lancement pons reste analysable : les spécialistes qui
       // dépendent du rapport répondront `unknown` en le disant.
       const [report, index] = await Promise.all([
-        collect(token, {
-          rpcUrl: process.env.RPC_URL || undefined,
-          blockscoutApiKey: process.env.BLOCKSCOUT_API_KEY || undefined,
-        }).catch((error: unknown): TokenReport | undefined => {
+        Promise.race([
+          collect(token, {
+            rpcUrl: process.env.RPC_URL || undefined,
+            blockscoutApiKey: process.env.BLOCKSCOUT_API_KEY || undefined,
+          }),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('collecte trop longue')), GATHER_TIMEOUT_MS),
+          ),
+        ]).catch((error: unknown): TokenReport | undefined => {
           log.warn('rapport pons indisponible', { token, error: String(error) });
           return undefined;
         }),
         liveIndex().catch(() => undefined),
       ]);
       const context = await gatherContext(rpc, token, report, index);
-      return investigate(checklist, context);
+      const left = GLOBAL_TIMEOUT_MS - (Date.now() - started);
+      const result = await investigate(checklist, context, {
+        offline: left < MIN_MODEL_MS || (await overBudget()),
+        signal: AbortSignal.timeout(Math.max(1, left)),
+      });
+      await recordSpend(result.totalCostUsd);
+      return result;
     })();
 
     const result = await Promise.race([
