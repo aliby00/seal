@@ -140,6 +140,43 @@ export function draftMoves(logs: readonly RawLog[], pools: ReadonlySet<string>):
   return moves.sort((a, b) => a.block - b.block);
 }
 
+/** Moves of the creator always shown, at most. */
+const MAX_CREATOR_MOVES = 15;
+/** The largest moves always shown, at most. */
+const MAX_LARGEST_MOVES = 10;
+
+/**
+ * Which moves a busy launch shows: every move of the creator, then the largest
+ * by share, then the earliest, up to MAX_MOVES, in time order. Showing only the
+ * first forty hid, on a live token, the creator selling 72 % of the supply at
+ * the ninth minute.
+ */
+export function selectMoves<T extends DraftMove>(moves: readonly T[], creator: string | null): T[] {
+  if (moves.length <= MAX_MOVES) return [...moves];
+  const chosen = new Set<T>();
+  const add = (list: readonly T[], cap: number) => {
+    for (const m of list) {
+      if (chosen.size >= MAX_MOVES || cap <= 0) break;
+      if (!chosen.has(m)) {
+        chosen.add(m);
+        cap -= 1;
+      }
+    }
+  };
+  if (creator) {
+    add(
+      moves.filter((m) => m.actor === creator || m.counterparty === creator),
+      MAX_CREATOR_MOVES,
+    );
+  }
+  add(
+    [...moves].sort((a, b) => (b.value > a.value ? 1 : b.value < a.value ? -1 : 0)),
+    MAX_LARGEST_MOVES,
+  );
+  add(moves, MAX_MOVES);
+  return moves.filter((m) => chosen.has(m));
+}
+
 /** Share of `supply`, rounded to 1e-6 so the JSON stays readable. */
 function shareOf(value: bigint, supply: bigint): number {
   if (supply <= 0n) return 0;
@@ -193,25 +230,36 @@ export async function readLaunchReplay(
   }
 
   const drafts = draftMoves(logs, pools);
-  const blocks = [...new Set([from, ...drafts.slice(0, MAX_MOVES).map((m) => m.block), to])];
-  const times = await fetchBlockTimestamps(rpc, blocks);
-  const known: [number, number][] = blocks
-    .map((b, i) => [b, times[i] ? Date.parse(times[i]!) / 1000 : NaN] as [number, number])
-    .filter(([, t]) => Number.isFinite(t))
-    .sort((a, b) => a[0] - b[0]);
-  const launchTime = known.find(([b]) => b === from)?.[1];
+
+  // The window's edges first: every move is placed between them, and only the
+  // moves kept are timed exactly.
+  const edges = await fetchBlockTimestamps(rpc, from === to ? [from] : [from, to]);
+  const edgeTimes: [number, number][] = (from === to ? [from] : [from, to])
+    .map((b, i) => [b, edges[i] ? Date.parse(edges[i]!) / 1000 : NaN] as [number, number])
+    .filter(([, t]) => Number.isFinite(t));
+  const launchTime = edgeTimes.find(([b]) => b === from)?.[1];
   if (launchTime === undefined) {
     throw new IncompleteDataError('robinhood-rpc', 'the launch block could not be read');
   }
   const windowSeconds = Math.min(
     LAUNCH_WINDOW_SECONDS,
-    Math.round(secondsAt(to, known) - launchTime),
+    Math.round(secondsAt(to, edgeTimes) - launchTime),
   );
+  const inWindow = drafts.filter(
+    (m) => secondsAt(m.block, edgeTimes) - launchTime <= windowSeconds,
+  );
+  const kept = selectMoves(inWindow, creator);
 
-  const inWindow = drafts
-    .map((m) => ({ ...m, seconds: Math.max(0, secondsAt(m.block, known) - launchTime) }))
-    .filter((m) => m.seconds <= windowSeconds);
-  const listed = inWindow.slice(0, MAX_MOVES);
+  const blocks = [...new Set([from, ...kept.map((m) => m.block), to])];
+  const times = await fetchBlockTimestamps(rpc, blocks);
+  const known: [number, number][] = blocks
+    .map((b, i) => [b, times[i] ? Date.parse(times[i]!) / 1000 : NaN] as [number, number])
+    .filter(([, t]) => Number.isFinite(t))
+    .sort((a, b) => a[0] - b[0]);
+  const listed = kept.map((m) => ({
+    ...m,
+    seconds: Math.min(windowSeconds, Math.max(0, secondsAt(m.block, known) - launchTime)),
+  }));
 
   // Who each actor is, and what it holds today.
   const actors = [...new Set(listed.map((m) => m.actor))];
@@ -257,13 +305,17 @@ export async function readLaunchReplay(
     transaction: m.transaction,
   }));
 
+  const cut = inWindow.length > listed.length;
   return {
-    completeness: 'full',
+    // Every move was read; only the drawing keeps a selection of them.
+    completeness: cut ? 'partial' : 'full',
     sources: [
       {
         name: 'robinhood-rpc',
         fetchedAt,
-        note: `${inWindow.length} moves in the first ${Math.round(windowSeconds / 60)} minutes, read from the token’s transfers`,
+        note: cut
+          ? `${inWindow.length} moves in the first ${Math.round(windowSeconds / 60)} minutes; ${listed.length} shown: every move of the creator, the largest, then the earliest`
+          : `${inWindow.length} moves in the first ${Math.round(windowSeconds / 60)} minutes, read from the token’s transfers`,
       },
     ],
     data: {

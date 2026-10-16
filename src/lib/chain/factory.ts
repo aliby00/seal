@@ -84,6 +84,9 @@ export function encodeGetLaunchedToken(token: Address): string {
 
 export type LaunchedTokenInfo = {
   deployer: Address;
+  /** The NFT position manager holding the launch liquidity, and the position's id in it. */
+  positionManager: Address;
+  positionId: bigint;
   pairedToken: Address;
   exists: boolean;
   initialBuyAmount: bigint;
@@ -116,6 +119,8 @@ export type TokenLaunch = {
   dexFactory: Address;
   pairToken: Address;
   pool: Address;
+  /** The launch liquidity's position in the DEX's position manager. */
+  positionId: bigint;
   initialBuyAmount: bigint;
   blockNumber: number;
   factory: Address;
@@ -134,6 +139,7 @@ export function decodeTokenLaunched(log: RawLog): TokenLaunch {
     dexFactory: Address;
     pairToken: Address;
     pool: Address;
+    positionId: bigint;
     initialBuyAmount: bigint;
   };
   return {
@@ -142,6 +148,7 @@ export function decodeTokenLaunched(log: RawLog): TokenLaunch {
     dexFactory: args.dexFactory,
     pairToken: args.pairToken,
     pool: args.pool,
+    positionId: args.positionId,
     initialBuyAmount: args.initialBuyAmount,
     blockNumber: Number(log.blockNumber),
     factory: log.address as Address,

@@ -159,7 +159,7 @@ function Summary({ launch }: { launch: LaunchReplayData }) {
     },
     {
       value: pct(bought),
-      label: `bought by ${buyers.size} address${buyers.size === 1 ? '' : 'es'} in the window; ${holdToday}`,
+      label: `bought by ${buyers.size} address${buyers.size === 1 ? '' : 'es'} ${launch.movesInWindow > launch.moves.length ? 'among the moves shown' : 'in the window'}; ${holdToday}`,
     },
     {
       value: String(creatorMoves.length),
@@ -382,7 +382,7 @@ export function LaunchReplay({ launch }: { launch: LaunchReplayData }) {
             </button>
           )}
           {launch.movesInWindow > launch.moves.length &&
-            ` ${launch.movesInWindow - launch.moves.length} later moves in the window are not drawn.`}
+            ` ${launch.movesInWindow - launch.moves.length} other moves in the window are not drawn: every move of the creator and the largest ones are.`}
         </p>
       )}
     </section>

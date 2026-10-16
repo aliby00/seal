@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BURN_TOPIC,
+  DECREASE_LIQUIDITY_TOPIC,
   TRANSFER_TOPIC,
   detectCreatorSales,
   detectLiquidityRemovals,
@@ -115,29 +116,87 @@ describe('detectCreatorSales', () => {
 });
 
 describe('detectLiquidityRemovals', () => {
-  const pairs = [{ token: TOKEN as `0x${string}`, pool: POOL as `0x${string}` }];
+  const MANAGER = '0x73991a25c818bf1f1128deaab1492d45638de0d3';
+  const positions = [
+    {
+      token: TOKEN as `0x${string}`,
+      positionManager: MANAGER as `0x${string}`,
+      positionId: 1273848n,
+      fromBlock: 0,
+      toBlock: 100,
+    },
+  ];
   const window = { fromBlock: 0, toBlock: 100 };
+  const idTopic = `0x${1273848n.toString(16).padStart(64, '0')}`;
 
-  const burn = (liquidity: bigint): RawLog => ({
-    address: POOL,
-    topics: [BURN_TOPIC],
+  const decrease = (liquidity: bigint, id = idTopic, block = '0x1'): RawLog => ({
+    address: MANAGER,
+    topics: [DECREASE_LIQUIDITY_TOPIC, id],
     data: `0x${word(liquidity)}${word(0n)}${word(0n)}`,
-    blockNumber: '0x1',
+    blockNumber: block,
     transactionHash: '0xa',
     logIndex: '0x0',
   });
 
-  it('signale un retrait réel', async () => {
-    const out = await detectLiquidityRemovals(nodeReturning([burn(5n)]), pairs, window);
+  it('signale un retrait de la position du lancement', async () => {
+    const out = await detectLiquidityRemovals(nodeReturning([decrease(5n)]), positions, window);
     expect(out.get(TOKEN)).toBe(true);
   });
 
-  it('ne signale rien sur des burn(0)', async () => {
+  it('ne signale rien sur un retrait à zéro', async () => {
+    const out = await detectLiquidityRemovals(nodeReturning([decrease(0n)]), positions, window);
+    expect(out.get(TOKEN)).toBe(false);
+  });
+
+  // The live case: a third party rebalancing its own range on the same pool.
+  it('ignore la liquidité retirée par un autre fournisseur sur le même pool', async () => {
+    const other = `0x${999n.toString(16).padStart(64, '0')}`;
     const out = await detectLiquidityRemovals(
-      nodeReturning([burn(0n), burn(0n), burn(0n)]),
-      pairs,
+      nodeReturning([decrease(5n, other), burnOnPool(5n)]),
+      positions,
       window,
     );
     expect(out.get(TOKEN)).toBe(false);
   });
+
+  it('lit chaque position sur sa propre fenêtre', async () => {
+    const seen: unknown[] = [];
+    const rpc = {
+      call: async () => [],
+      callBatch: async (requests: { params: unknown[] }[]) => {
+        seen.push(...requests.map((r) => r.params[0]));
+        return requests.map(() => ({ ok: true as const, value: [] }));
+      },
+    };
+    await detectLiquidityRemovals(rpc as never, positions, { fromBlock: 0, toBlock: 5_000 });
+    expect(seen).toEqual([
+      expect.objectContaining({
+        fromBlock: '0x0',
+        toBlock: '0x64',
+        topics: [DECREASE_LIQUIDITY_TOPIC, idTopic],
+      }),
+    ]);
+  });
+
+  it('dit inconnu, pas intact, quand la position n’a pas pu être lue', async () => {
+    const failing = {
+      call: async () => {
+        throw new Error('unused');
+      },
+      callBatch: async () => [{ ok: false as const, error: 'too many' }],
+    };
+    const out = await detectLiquidityRemovals(failing as never, positions, window);
+    expect(out.has(TOKEN)).toBe(false);
+  });
+
+  function burnOnPool(liquidity: bigint): RawLog {
+    return {
+      address: POOL,
+      topics: [BURN_TOPIC],
+      data: `0x${word(liquidity)}${word(0n)}${word(0n)}`,
+      blockNumber: '0x1',
+      transactionHash: '0xb',
+      logIndex: '0x0',
+    };
+  }
 });

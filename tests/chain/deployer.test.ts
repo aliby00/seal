@@ -195,6 +195,8 @@ describe('liquidity events', () => {
 
 type Filter = { address: string; topics: unknown[] };
 
+const OTHER_LP = '0x00000000000000000000000000000000000000b3';
+
 /** A node answering logs through `logs`, everything else with fixed values. */
 function node(logs: (f: Filter) => RawLog[]) {
   const requests: RpcRequest[] = [];
@@ -216,7 +218,9 @@ function node(logs: (f: Filter) => RawLog[]) {
                   ? { timestamp: '0x68000000' }
                   : r.method === 'eth_getTransactionReceipt'
                     ? { contractAddress: null, logs: [] }
-                    : null;
+                    : r.method === 'eth_getTransactionByHash'
+                      ? { from: (r.params[0] as string) === '0xcreator-pull' ? CREATOR : OTHER_LP }
+                      : null;
         return { ok: true as const, value: value as T };
       });
     },
@@ -313,5 +317,27 @@ describe('fetchDeployerHistory', () => {
     );
     const history = await fetchDeployerHistory(rpc, ORIGIN, { latestBlock: 1_000 });
     expect(history.data.tokens.find((t) => t.address === TOKEN)?.creatorDumped).toBe(false);
+  });
+});
+
+describe('fetchDeployerHistory: liquidity removals', () => {
+  const burnBy = (hash: string) => ({
+    ...log(PAIR, [V2_BURN_TOPIC, pad(ROUTER_LIKE)], `0x${word(5)}${word(5)}`, 0, 150),
+    transactionHash: hash,
+  });
+  const ROUTER_LIKE = '0x00000000000000000000000000000000000000c0';
+
+  it('ignores liquidity another provider removed from the same market', async () => {
+    const { rpc } = node((f) => (f.address === PAIR ? [burnBy('0xsomeone-else')] : []));
+    const history = await fetchDeployerHistory(rpc, ORIGIN, { latestBlock: 1_000 });
+    expect(history.data.tokens.find((t) => t.address === TOKEN)?.liquidityPulled).toBe(false);
+  });
+
+  it('reports a removal the creator signed', async () => {
+    const { rpc } = node((f) =>
+      f.address === PAIR ? [burnBy('0xsomeone-else'), burnBy('0xcreator-pull')] : [],
+    );
+    const history = await fetchDeployerHistory(rpc, ORIGIN, { latestBlock: 1_000 });
+    expect(history.data.tokens.find((t) => t.address === TOKEN)?.liquidityPulled).toBe(true);
   });
 });

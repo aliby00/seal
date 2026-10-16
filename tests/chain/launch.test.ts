@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { draftMoves } from '../../src/lib/chain/launch';
+import { draftMoves, MAX_MOVES, selectMoves } from '../../src/lib/chain/launch';
 import type { RawLog } from '../../src/lib/chain/logs';
 
 const TRANSFER = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
@@ -72,5 +72,35 @@ describe('draftMoves', () => {
       ['mint', CREATOR, 1000n],
       ['allocation', BUYER, 400n],
     ]);
+  });
+});
+
+describe('selectMoves', () => {
+  const move = (i: number, value: bigint, actor = `0x${String(i).padStart(40, '0')}`) => ({
+    kind: 'buy' as const,
+    actor,
+    counterparty: '0xpool',
+    value,
+    block: i,
+    transaction: `0x${i}`,
+  });
+
+  it('garde tout quand la fenêtre est courte', () => {
+    const moves = Array.from({ length: 12 }, (_, i) => move(i, 1n));
+    expect(selectMoves(moves, null)).toHaveLength(12);
+  });
+
+  // The live case: the creator's sale of 72 % sat at the ninth minute, past the
+  // first forty moves.
+  it('garde les mouvements du créateur et les plus gros, même tardifs', () => {
+    const creator = '0xc0ffee0000000000000000000000000000000000';
+    const moves = Array.from({ length: 1_500 }, (_, i) => move(i, 1n));
+    moves[1_200] = { ...move(1_200, 10n ** 27n, creator), kind: 'sell' as never };
+    moves[900] = move(900, 10n ** 20n);
+    const kept = selectMoves(moves, creator);
+    expect(kept).toHaveLength(MAX_MOVES);
+    expect(kept.map((m) => m.block)).toContain(1_200);
+    expect(kept.map((m) => m.block)).toContain(900);
+    expect(kept.map((m) => m.block)).toEqual([...kept.map((m) => m.block)].sort((a, b) => a - b));
   });
 });
