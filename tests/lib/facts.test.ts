@@ -141,3 +141,40 @@ describe('findFirstMint', () => {
     ).toBeUndefined();
   });
 });
+
+describe('toFacts · creator origin', () => {
+  it('says how the creator was found and counts each signal over what it measured', () => {
+    const traced = {
+      ...report,
+      creator: {
+        ...report.creator,
+        data: {
+          ...report.creator.data,
+          origin: {
+            source: 'deployer',
+            role: 'first-minter',
+            launchesListed: false,
+            transactionCount: null,
+          },
+          tokens: [token('undetermined', true, null), token('undetermined', false, false)],
+        },
+      },
+    } as unknown as TokenReport;
+    const facts = toFacts(traced);
+    expect(facts.creator).toMatchObject({
+      source: 'deployer',
+      role: 'first-minter',
+      launchContract: null,
+      launchesListed: false,
+      salesChecked: 2,
+      liquidityChecked: 1,
+      soldIntoPool: 1,
+    });
+  });
+
+  it('leaves the origin empty on a history read before tracing existed', () => {
+    const facts = toFacts(report as unknown as TokenReport);
+    expect(facts.creator.source).toBeNull();
+    expect(facts.creator.launchesListed).toBe(true);
+  });
+});

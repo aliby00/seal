@@ -26,6 +26,19 @@ export type ReportFacts = {
     checked: number;
     soldIntoPool: number;
     liquidityPulled: number;
+    /** Launches where each signal was actually measured (the other may not be). */
+    salesChecked: number;
+    liquidityChecked: number;
+    /** How the creator was found: their pons launch record, or the token's first mint. */
+    source: 'pons' | 'deployer' | null;
+    /** What the address did: created the contract, launched it through a contract, or sent its first mint. */
+    role: 'deployer' | 'launcher' | 'first-minter' | null;
+    /** The launch contract the creator called, when one made the token. */
+    launchContract: string | null;
+    /** False when the creator's other launches cannot be listed: `launched` is then a minimum. */
+    launchesListed: boolean;
+    /** Transactions the creator's wallet has sent (null for a contract, or when unknown). */
+    transactionCount: number | null;
   };
   holders: {
     measured: boolean;
@@ -71,6 +84,13 @@ export function toFacts(report: TokenReport): ReportFacts {
       checked: checked.length,
       soldIntoPool: tokens.filter((t) => t.creatorDumped === true).length,
       liquidityPulled: tokens.filter((t) => t.liquidityPulled === true).length,
+      salesChecked: tokens.filter((t) => t.creatorDumped !== null).length,
+      liquidityChecked: tokens.filter((t) => t.liquidityPulled !== null).length,
+      source: creator.data.origin?.source ?? null,
+      role: creator.data.origin?.role ?? null,
+      launchContract: creator.data.origin?.launchContract ?? null,
+      launchesListed: creator.data.origin?.launchesListed ?? creator.completeness !== 'unavailable',
+      transactionCount: creator.data.origin?.transactionCount ?? null,
     },
     holders: {
       measured: holders.completeness !== 'unavailable',
