@@ -1,4 +1,5 @@
-import type { ReportFacts } from '@/lib/facts';
+import type { CSSProperties } from 'react';
+import type { ReportFacts, TimelineLaunch } from '@/lib/facts';
 
 /**
  * The measured numbers, drawn. Three cards — creator, holders, market — each
@@ -47,28 +48,191 @@ function Ring({
   inner,
   label,
   caption,
+  center,
 }: {
   value: number;
   inner?: number;
   label: string;
   caption: string;
+  center?: string;
 }) {
   const r = 42;
-  const c = 2 * Math.PI * r;
-  const arc = (share: number) => `${Math.max(0, Math.min(1, share)) * c} ${c}`;
+  const arc = (share: number) => `${Math.max(0, Math.min(1, share)) * 100} 100`;
   return (
     <figure className="gauge">
-      <svg viewBox="0 0 100 100" role="img" aria-label={`${label}: ${caption}`}>
-        <circle className="gauge-track" cx="50" cy="50" r={r} />
-        {inner !== undefined && (
-          <circle className="gauge-soft" cx="50" cy="50" r={r} strokeDasharray={arc(inner)} />
+      <div className="gauge-dial">
+        <svg viewBox="0 0 100 100" role="img" aria-label={`${label}: ${caption}`}>
+          <circle className="gauge-track" cx="50" cy="50" r={r} pathLength={100} />
+          {inner !== undefined && (
+            <circle
+              className="gauge-soft"
+              cx="50"
+              cy="50"
+              r={r}
+              pathLength={100}
+              style={{ '--arc': arc(inner) } as CSSProperties}
+            />
+          )}
+          <circle
+            className="gauge-value"
+            cx="50"
+            cy="50"
+            r={r}
+            pathLength={100}
+            style={{ '--arc': arc(value) } as CSSProperties}
+          />
+        </svg>
+        {center && (
+          <span className="gauge-center" aria-hidden="true">
+            {center}
+          </span>
         )}
-        <circle className="gauge-value" cx="50" cy="50" r={r} strokeDasharray={arc(value)} />
-      </svg>
+      </div>
       <figcaption>
         <strong>{label}</strong>
         <span>{caption}</span>
       </figcaption>
+    </figure>
+  );
+}
+
+/**
+ * Where the counted supply sits: the largest holder, the next nine, everyone
+ * else. Three plain shares of one whole — no threshold is drawn on it.
+ */
+function Donut({ top1, top10, count }: { top1: number; top10: number; count: number | null }) {
+  const clamp = (x: number) => Math.max(0, Math.min(1, x));
+  const first = clamp(top1);
+  const next = clamp(top10 - top1);
+  const rest = clamp(1 - first - next);
+  const parts = [
+    { name: 'Largest holder', share: first, tone: 'accent' },
+    { name: 'Holders 2 to 10', share: next, tone: 'soft' },
+    { name: 'Everyone else', share: rest, tone: 'faint' },
+  ];
+  let offset = 0;
+  const label = parts.map((p) => `${p.name} ${pct(p.share)}`).join(', ');
+  return (
+    <figure className="donut">
+      <div className="donut-dial">
+        <svg viewBox="0 0 100 100" role="img" aria-label={`Counted supply: ${label}`}>
+          <circle className="donut-track" cx="50" cy="50" r="40" pathLength={100} />
+          {parts.map((p) => {
+            const segment = (
+              <circle
+                key={p.name}
+                className={`donut-part donut-${p.tone}`}
+                cx="50"
+                cy="50"
+                r="40"
+                pathLength={100}
+                style={
+                  {
+                    '--arc': `${p.share * 100} 100`,
+                    strokeDashoffset: -offset * 100,
+                  } as CSSProperties
+                }
+              />
+            );
+            offset += p.share;
+            return segment;
+          })}
+        </svg>
+        <span className="donut-center" aria-hidden="true">
+          <strong>{count ?? '—'}</strong>
+          <span>holders</span>
+        </span>
+      </div>
+      <figcaption>
+        <ul className="donut-legend">
+          {parts.map((p) => (
+            <li key={p.name}>
+              <i className={`donut-key donut-${p.tone}`} aria-hidden="true" />
+              <span>{p.name}</span>
+              <strong>{pct(p.share)}</strong>
+            </li>
+          ))}
+        </ul>
+      </figcaption>
+    </figure>
+  );
+}
+
+const OUTCOME_LABEL: Record<TimelineLaunch['outcome'], string> = {
+  graduated: 'graduated',
+  active: 'active',
+  abandoned: 'abandoned',
+  undetermined: 'undetermined',
+};
+
+/**
+ * The creator's launches on one line, oldest on the left. Each mark keeps its
+ * own outcome; a sale into the pool or a liquidity removal is marked on the
+ * launch it happened to. The token being read is ringed.
+ */
+function Timeline({ launches }: { launches: TimelineLaunch[] }) {
+  if (launches.length < 2) return null;
+  const first = launches[0]!.block;
+  const last = launches.at(-1)!.block;
+  const span = Math.max(1, last - first);
+  const date = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null;
+  const from = date(launches[0]!.launchedAt);
+  const to = date(launches.at(-1)!.launchedAt);
+  return (
+    <figure className="timeline">
+      <figcaption className="timeline-caption">
+        Launches read in detail, in time order{from && to ? ` · ${from} → ${to}` : ''}
+      </figcaption>
+      <ol className="timeline-track">
+        {launches.map((l, i) => {
+          const x = 2 + ((l.block - first) / span) * 96;
+          const events = [
+            l.sold ? 'creator sold into the pool' : '',
+            l.pulled ? 'liquidity removed' : '',
+          ]
+            .filter(Boolean)
+            .join(', ');
+          return (
+            <li
+              key={l.address}
+              className="timeline-mark"
+              data-outcome={l.outcome}
+              data-current={l.current || undefined}
+              style={{ left: `${x}%`, '--i': i } as CSSProperties}
+            >
+              <span className="sr-only">
+                {`${l.current ? 'This token, ' : ''}launch ${i + 1}${date(l.launchedAt) ? ` on ${date(l.launchedAt)}` : ''}: ${OUTCOME_LABEL[l.outcome]}${events ? `, ${events}` : ''}.`}
+              </span>
+              {l.sold && <span className="timeline-flag timeline-sold" aria-hidden="true" />}
+              {l.pulled && <span className="timeline-flag timeline-pulled" aria-hidden="true" />}
+            </li>
+          );
+        })}
+      </ol>
+      <ul className="timeline-legend" aria-hidden="true">
+        <li>
+          <i data-outcome="graduated" /> graduated
+        </li>
+        <li>
+          <i data-outcome="active" /> active
+        </li>
+        <li>
+          <i data-outcome="undetermined" /> undetermined
+        </li>
+        <li>
+          <i data-outcome="abandoned" /> abandoned
+        </li>
+        <li>
+          <i className="timeline-sold" /> creator sold
+        </li>
+        <li>
+          <i className="timeline-pulled" /> liquidity removed
+        </li>
+        <li>
+          <i data-current="true" /> this token
+        </li>
+      </ul>
     </figure>
   );
 }
@@ -113,9 +277,16 @@ function Missing({ note }: { note?: string }) {
   return <p className="fact-missing">Not measured{plain ? <span> — {plain}</span> : '.'}</p>;
 }
 
-function CreatorCard({ creator }: { creator: ReportFacts['creator'] }) {
+function CreatorCard({
+  creator,
+  timeline,
+}: {
+  creator: ReportFacts['creator'];
+  timeline?: TimelineLaunch[];
+}) {
+  const wide = creator.measured && (timeline?.length ?? 0) >= 2;
   return (
-    <section className="fact-card" aria-labelledby="fact-creator">
+    <section className="fact-card" data-wide={wide || undefined} aria-labelledby="fact-creator">
       <h3 id="fact-creator">Creator</h3>
       {!creator.measured ? (
         <Missing note={creator.note} />
@@ -135,18 +306,19 @@ function CreatorCard({ creator }: { creator: ReportFacts['creator'] }) {
               { value: creator.abandoned, tone: 'warm', name: 'abandoned' },
             ]}
           />
+          {timeline && <Timeline launches={timeline} />}
           {creator.checked > 0 && (
             <dl className="fact-pairs">
               <div>
                 <dt>Sold into the pool</dt>
                 <dd>
-                  {creator.soldIntoPool} / {creator.checked}
+                  {creator.soldIntoPool} <span>of {creator.checked}</span>
                 </dd>
               </div>
               <div>
                 <dt>Liquidity removed</dt>
                 <dd>
-                  {creator.liquidityPulled} / {creator.checked}
+                  {creator.liquidityPulled} <span>of {creator.checked}</span>
                 </dd>
               </div>
             </dl>
@@ -173,18 +345,14 @@ function HoldersCard({
         <Missing note={holders.note} />
       ) : (
         <>
-          <Ring
-            value={holders.top1}
-            inner={holders.top10}
-            label="Concentration"
-            caption={`largest ${pct(holders.top1)} · top 10 ${pct(holders.top10)}`}
-          />
-          {holders.note && <p className="fact-note">{plainNote(holders.note)}</p>}
+          <Donut top1={holders.top1} top10={holders.top10} count={holders.holderCount} />
+          <p className="sr-only">{`Concentration: largest ${pct(holders.top1)} · top 10 ${pct(holders.top10)}`}</p>
           {holders.holderCount !== null && (
             <p className="fact-line">
               <strong>{holders.holderCount}</strong> holders outside pools and burn addresses
             </p>
           )}
+          {holders.note && <p className="fact-note">{plainNote(holders.note)}</p>}
           {holders.top.length > 0 && (
             <ol className="holder-bars" aria-label="Largest holders">
               {holders.top.map((h) => (
@@ -224,6 +392,7 @@ function MarketCard({ market }: { market: ReportFacts['market'] }) {
           value={market.graduation.progress}
           label={market.graduation.graduated ? 'Graduated' : 'Graduation'}
           caption={`${pct(market.graduation.progress)} of ${market.graduation.thresholdEth} ETH`}
+          center={pct(market.graduation.progress)}
         />
       )}
       {!market.measured ? (
@@ -263,12 +432,24 @@ function MarketCard({ market }: { market: ReportFacts['market'] }) {
   );
 }
 
-export function FactsBoard({ facts }: { facts: ReportFacts }) {
+export function FactsBoard({
+  facts,
+  timeline,
+}: {
+  facts: ReportFacts;
+  timeline?: TimelineLaunch[];
+}) {
   return (
-    <section className="facts-board" aria-label="Measured facts">
-      <CreatorCard creator={facts.creator} />
-      <HoldersCard holders={facts.holders} creator={facts.creator.address} />
-      <MarketCard market={facts.market} />
+    <section className="facts-section" aria-labelledby="facts-title">
+      <div className="report-section-head">
+        <p className="report-kicker">01 — Measured</p>
+        <h3 id="facts-title">What the chain and the market show.</h3>
+      </div>
+      <div className="facts-board" role="region" aria-label="Measured facts">
+        <CreatorCard creator={facts.creator} timeline={timeline} />
+        <HoldersCard holders={facts.holders} creator={facts.creator.address} />
+        <MarketCard market={facts.market} />
+      </div>
     </section>
   );
 }

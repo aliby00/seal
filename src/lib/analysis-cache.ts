@@ -1,5 +1,6 @@
 import { resolveProvider } from './agent/providers';
-import type { ReportFacts } from './facts';
+import type { ReportFacts, TimelineLaunch } from './facts';
+import type { SpecialistAnswer } from './specialists/brief';
 import { SharedCache } from './shared-cache';
 
 /** The body of a served analysis, as /api/analyze returns it. */
@@ -16,6 +17,13 @@ export type CachedAnalysis = {
   facts?: ReportFacts;
   /** True when served from the shared cache: this request spent nothing (costUsd 0). */
   cached?: boolean;
+  /** The token's name and symbol as read on chain; absent or null when unreadable. */
+  name?: string | null;
+  symbol?: string | null;
+  /** The creator's launches in time order, when the history was read. */
+  timeline?: TimelineLaunch[];
+  /** The ten specialists' answers, in catalogue order. Each stands on its own. */
+  specialists?: SpecialistAnswer[];
 };
 
 /**
@@ -38,7 +46,7 @@ export function keepAnalysis(body: CachedAnalysis, modelConfigured: boolean): bo
 }
 
 export const analysisCache = new SharedCache<CachedAnalysis>({
-  prefix: 'seal:analysis:v1',
+  prefix: 'seal:analysis:v2',
   ttlMs: ANALYSIS_TTL_MS,
   keep: (body) => keepAnalysis(body, resolveProvider() !== undefined),
 });
