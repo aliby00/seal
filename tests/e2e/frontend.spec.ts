@@ -19,6 +19,66 @@ const report = {
   offline: false,
   costUsd: 0.019,
   collectedAt: '2026-09-27T00:20:04.965Z',
+  name: 'Alpha Token',
+  symbol: 'ALP',
+  timeline: [
+    {
+      address: '0x1000000000000000000000000000000000000001',
+      launchedAt: '2026-09-01T00:00:00.000Z',
+      block: 100,
+      outcome: 'abandoned',
+      progress: 0.1,
+      sold: true,
+      pulled: false,
+      current: false,
+    },
+    {
+      address: '0x1000000000000000000000000000000000000002',
+      launchedAt: '2026-09-10T00:00:00.000Z',
+      block: 150,
+      outcome: 'graduated',
+      progress: 1,
+      sold: false,
+      pulled: true,
+      current: false,
+    },
+    {
+      address: token,
+      launchedAt: '2026-09-20T00:00:00.000Z',
+      block: 200,
+      outcome: 'active',
+      progress: 0.42,
+      sold: null,
+      pulled: null,
+      current: true,
+    },
+  ],
+  specialists: [
+    {
+      specialist: 'holder-spread',
+      title: 'Holder Spread',
+      question: 'How much of the supply sits in a few wallets?',
+      signal: 'concern',
+      facts: ['The largest holder has 31.0% of counted supply; the top 10 have 78.0%.'],
+      limits: ['Pool and burn addresses are excluded.'],
+    },
+    {
+      specialist: 'rule-change',
+      title: 'Rule Change',
+      question: 'Can the rulebook be rewritten after people have bought?',
+      signal: 'reassurance',
+      facts: ['The rulebook’s code (4120 bytes) has no standard upgrade slot set.'],
+      limits: [],
+    },
+    {
+      specialist: 'funding-trace',
+      title: 'Funding Trace',
+      question: 'Who paid for the creator’s wallet, and did they fund other creators?',
+      signal: 'unknown',
+      facts: [],
+      limits: ['funding was not collected'],
+    },
+  ],
   facts: {
     creator: {
       measured: true,
@@ -68,11 +128,43 @@ test('report draws the measured facts, says what is missing, and gives no score'
   await expect(board).toBeVisible();
   await expect(board.locator('.fact-big')).toContainText('76 tokens launched');
   await expect(
-    board.getByRole('img', { name: /Concentration: largest 31% · top 10 78%/ }),
+    board.getByRole('img', { name: /Largest holder 31%, Holders 2 to 10 47%, Everyone else 22%/ }),
   ).toBeVisible();
+  await expect(board.getByText('Launches read in detail, in time order')).toBeVisible();
   await expect(board.getByText('No trading pair listed on DexScreener.')).toBeVisible();
-  await expect(board.getByText('7 / 10')).toBeVisible();
+  await expect(board.getByText('7 of 10')).toBeVisible();
   await expect(board).not.toContainText(/score|\/10|\/100/i);
+  await accessible(page);
+});
+
+test('report opens with the token, then asks the ten questions one by one, without a tally', async ({
+  page,
+}) => {
+  await mockReport(page);
+  await page.goto('/#analysis');
+  await submit(page);
+  await expect(page.getByRole('heading', { level: 2, name: /Alpha Token/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Explorer/ })).toHaveAttribute(
+    'href',
+    `https://robinhoodchain.blockscout.com/token/${token}`,
+  );
+  const coverage = page.getByRole('list', { name: 'What each source could read' });
+  await expect(coverage).toContainText('Market');
+  await expect(coverage).toContainText('Not measured');
+
+  const panel = page.getByRole('region', { name: 'Asked of every token, answered one by one.' });
+  await expect(panel).toBeVisible();
+  // Every answer carries an icon and a word; colour is never the only carrier.
+  await expect(panel.getByText('Worth attention')).toBeVisible();
+  await expect(panel.getByText('Rules a mechanism out')).toBeVisible();
+  await expect(panel.getByText('Not measured')).toBeVisible();
+  // Nothing adds the answers up.
+  await expect(panel).not.toContainText(/\d+\s*(?:\/|of|out of)\s*10\b|score|safe|risky/i);
+
+  await expect(panel.getByText('Pool and burn addresses are excluded.')).toBeHidden();
+  await panel.getByRole('button', { name: 'Open all' }).click();
+  await expect(panel.getByText('Pool and burn addresses are excluded.')).toBeVisible();
+  await expect(panel.getByText('What it could not see').first()).toBeVisible();
   await accessible(page);
 });
 
@@ -147,9 +239,9 @@ test('loading describes sources; report keeps limits before prose and sources gl
   );
   await expect(page.locator('.divergent')).toHaveCount(1);
   await expect(page.getByText('Sources apply to the report as a whole.')).toBeVisible();
-  await page.locator('summary').click();
+  await page.locator('.sources summary').click();
   await expect(page.getByText('Sources apply to the report as a whole.')).toBeHidden();
-  await page.locator('summary').focus();
+  await page.locator('.sources summary').focus();
   await page.keyboard.press('Enter');
   await expect(page.getByText('Sources apply to the report as a whole.')).toBeVisible();
   await expect(page.getByText('Request cost: 0.0190 $')).toBeVisible();

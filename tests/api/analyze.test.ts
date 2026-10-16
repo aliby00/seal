@@ -3,9 +3,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const collect = vi.hoisted(() => vi.fn());
 const explain = vi.hoisted(() => vi.fn());
+const briefSpecialists = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/collect', () => ({ collect }));
 vi.mock('@/lib/agent/reason', () => ({ explain }));
+vi.mock('@/lib/specialists/brief', () => ({ briefSpecialists }));
 
 const { POST } = await import('../../src/app/api/analyze/route');
 const { RateLimitError, NotFoundError } = await import('../../src/lib/errors');
@@ -158,5 +160,42 @@ describe('configuration', () => {
     await POST(post({ token: TOKEN }));
     await POST(post({ token: TOKEN }));
     expect(collect).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('specialists and timeline', () => {
+  it('serves the ten answers and the token name beside the explanation', async () => {
+    collect.mockResolvedValue(report);
+    explain.mockResolvedValue({ text: 'ok', cost: { costUsd: 0.01 }, violations: [] });
+    briefSpecialists.mockResolvedValue({
+      name: 'Alpha',
+      symbol: 'ALP',
+      answers: [
+        {
+          specialist: 'holder-spread',
+          title: 'Holder Spread',
+          question: 'How much of the supply sits in a few wallets?',
+          signal: 'quiet',
+          facts: ['x'],
+          limits: [],
+        },
+      ],
+    });
+    const body = (await (await POST(post({ token: TOKEN }))).json()) as Record<string, unknown>;
+    expect(body.name).toBe('Alpha');
+    expect(body.symbol).toBe('ALP');
+    expect(body.specialists).toHaveLength(1);
+    expect(JSON.stringify(body)).not.toMatch(/score|verdict|\d+\s*\/\s*10\b/i);
+  });
+
+  it('still serves the analysis when the specialists fail', async () => {
+    collect.mockResolvedValue(report);
+    explain.mockResolvedValue({ text: 'ok', cost: { costUsd: 0.01 }, violations: [] });
+    briefSpecialists.mockRejectedValue(new Error('node down'));
+    const res = await POST(post({ token: TOKEN }));
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(res.status).toBe(200);
+    expect(body.specialists).toBeUndefined();
+    expect(body.explanation).toBe('ok');
   });
 });

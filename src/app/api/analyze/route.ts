@@ -2,11 +2,12 @@ import { isAddress } from 'viem';
 import { NextResponse } from 'next/server';
 import { explain } from '@/lib/agent/reason';
 import { collect } from '@/lib/collect';
-import { toFacts, type ReportFacts } from '@/lib/facts';
+import { toFacts, toTimeline, type ReportFacts, type TimelineLaunch } from '@/lib/facts';
 import { SealError } from '@/lib/errors';
 import { ANALYZE_LIMIT, guardedJson } from '@/lib/guard';
 import { log } from '@/lib/logger';
 import { analysisCache, type CachedAnalysis } from '@/lib/analysis-cache';
+import { briefSpecialists, type SpecialistBrief } from '@/lib/specialists/brief';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -34,6 +35,29 @@ function chartable(report: Parameters<typeof toFacts>[0]): ReportFacts | undefin
     return toFacts(report);
   } catch (error) {
     log.warn('faits non représentables', { error: String(error) });
+    return undefined;
+  }
+}
+
+function timeline(report: Parameters<typeof toTimeline>[0]): TimelineLaunch[] | undefined {
+  try {
+    const launches = toTimeline(report);
+    return launches.length > 0 ? launches : undefined;
+  } catch (error) {
+    log.warn('chronologie non représentable', { error: String(error) });
+    return undefined;
+  }
+}
+
+/** The specialists are part of the picture, not a condition of it: never fail on them. */
+async function specialists(
+  token: string,
+  report: Parameters<typeof toFacts>[0],
+): Promise<SpecialistBrief | undefined> {
+  try {
+    return await briefSpecialists(token, report, { rpcUrl: process.env.RPC_URL || undefined });
+  } catch (error) {
+    log.warn('spécialistes indisponibles', { token, error: String(error) });
     return undefined;
   }
 }
@@ -71,7 +95,8 @@ export async function POST(request: Request): Promise<Response> {
       ),
     ]);
 
-    const explanation = await explain(report);
+    // The specialists read the chain while the model writes: no added wait.
+    const [explanation, brief] = await Promise.all([explain(report), specialists(token, report)]);
 
     // Une sortie non conforme ne doit pas atteindre l'utilisateur : c'est une
     // contrainte de conception du produit, pas une préférence de style.
@@ -97,6 +122,8 @@ export async function POST(request: Request): Promise<Response> {
       collectedAt: report.collectedAt,
       offline: explanation.offline,
       facts: chartable(report),
+      timeline: timeline(report),
+      ...(brief ? { name: brief.name, symbol: brief.symbol, specialists: brief.answers } : {}),
     };
 
     await analysisCache.set(cacheKey, body);

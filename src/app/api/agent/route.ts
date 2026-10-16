@@ -1,9 +1,7 @@
 import { isAddress } from 'viem';
 import { NextResponse } from 'next/server';
 import { investigate } from '@/lib/agent/investigate';
-import { TtlCache } from '@/lib/cache';
 import { createRpcClient } from '@/lib/chain';
-import { MarketIndex, scanMarkets, tokenSide } from '@/lib/chain/pools';
 import { collect } from '@/lib/collect';
 import type { TokenReport } from '@/lib/contracts';
 import { SealError } from '@/lib/errors';
@@ -13,6 +11,7 @@ import {
   compileAgent,
   gatherContext,
   InvalidAgentSpecError,
+  liveIndex,
   type Finding,
 } from '@/lib/specialists';
 
@@ -21,14 +20,6 @@ export const maxDuration = 60;
 
 /** Same split as /api/analyze: 30 s to gather, the provider's 25 s to word it. */
 const GLOBAL_TIMEOUT_MS = 55_000;
-
-/**
- * Fenêtre de l'index construit à la volée : 30 000 blocs, soit ~50 minutes et
- * une seule requête `eth_getLogs`. C'est court. L'index long — celui qui sert
- * au classement — se construit hors requête ; ici on ne promet que ce qu'on lit.
- */
-const LIVE_INDEX_BLOCKS = 30_000;
-const indexCache = new TtlCache<MarketIndex>({ ttlMs: 5 * 60_000, maxEntries: 1 });
 
 export type AgentResponse = {
   token: string;
@@ -45,19 +36,6 @@ export type AgentResponse = {
 
 function errorResponse(status: number, message: string, detail?: string | string[]) {
   return NextResponse.json({ error: message, ...(detail ? { detail } : {}) }, { status });
-}
-
-async function liveIndex(): Promise<MarketIndex> {
-  const { value } = await indexCache.resolve('live', async () => {
-    const rpc = createRpcClient(process.env.RPC_URL || undefined);
-    const latest = Number(await rpc.call<string>('eth_blockNumber', []));
-    const { markets } = await scanMarkets(rpc, {
-      fromBlock: latest - LIVE_INDEX_BLOCKS,
-      toBlock: latest,
-    });
-    return new MarketIndex(markets.map((m) => ({ ...m, token: tokenSide(m) })));
-  });
-  return value;
 }
 
 export async function POST(request: Request): Promise<Response> {

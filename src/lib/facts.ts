@@ -105,3 +105,37 @@ export function toFacts(report: TokenReport): ReportFacts {
     },
   };
 }
+
+/**
+ * The creator's launches in time order, for the report's timeline. Each one
+ * keeps its own outcome and what was checked on it; nothing is summed here.
+ * `current` marks the token being analysed.
+ */
+export type TimelineLaunch = {
+  address: string;
+  launchedAt: string | null;
+  block: number;
+  outcome: 'graduated' | 'active' | 'abandoned' | 'undetermined';
+  /** Share of the graduation threshold reached, 0 to 1. */
+  progress: number;
+  sold: boolean | null;
+  pulled: boolean | null;
+  current: boolean;
+};
+
+export function toTimeline(report: TokenReport): TimelineLaunch[] {
+  if (report.creator.completeness === 'unavailable') return [];
+  const token = report.token.toLowerCase();
+  return [...(report.creator.data.tokens ?? [])]
+    .sort((a, b) => a.launchedAtBlock - b.launchedAtBlock)
+    .map((t) => ({
+      address: t.address,
+      launchedAt: t.launchedAt,
+      block: t.launchedAtBlock,
+      outcome: t.outcome,
+      progress: t.graduationProgress,
+      sold: t.creatorDumped,
+      pulled: t.liquidityPulled,
+      current: t.address.toLowerCase() === token,
+    }));
+}
