@@ -1,7 +1,13 @@
 import type { TokenReport } from '../contracts';
 import { readOnchainFacts, readTokenMetas } from '../chain/facts';
 import { readHook } from '../chain/hooks';
-import { findMarketsOf, NATIVE, type IndexedMarket, type MarketIndex } from '../chain/pools';
+import {
+  findMarketsOf,
+  NATIVE,
+  pickMarket,
+  type IndexedMarket,
+  type MarketIndex,
+} from '../chain/pools';
 import type { RpcClient } from '../chain/rpc';
 import { log } from '../logger';
 import type { SpecialistContext } from './types';
@@ -26,19 +32,28 @@ export async function gatherContext(
     ...(index ? { index } : {}),
   };
 
-  let market: IndexedMarket | null = index?.ofToken(token)[0] ?? null;
-  if (!market) {
-    try {
-      const latest = Number(await rpc.call<string>('eth_blockNumber', []));
-      const found = await findMarketsOf(rpc, token, {
-        fromBlock: Math.max(0, latest - MARKET_LOOKBACK_BLOCKS),
-        toBlock: latest,
-      });
-      const first = found[0];
-      if (first) market = { ...first, token: token.toLowerCase() };
-    } catch (error) {
-      log.warn('marché v4 introuvable', { token, error: String(error) });
-    }
+  // The creator named by the launch record: the market they opened is the
+  // token's market, whoever else opened one beside it.
+  const reported =
+    report && report.creator.completeness !== 'unavailable' ? report.creator.data.creator : null;
+
+  let market: IndexedMarket | null;
+  try {
+    const latest = Number(await rpc.call<string>('eth_blockNumber', []));
+    const indexed = index?.ofToken(token) ?? [];
+    const found =
+      indexed.length > 0
+        ? indexed
+        : (
+            await findMarketsOf(rpc, token, {
+              fromBlock: Math.max(0, latest - MARKET_LOOKBACK_BLOCKS),
+              toBlock: latest,
+            })
+          ).map((m) => ({ ...m, token: token.toLowerCase() }));
+    market = await pickMarket(rpc, found, { creator: reported, latestBlock: latest });
+  } catch (error) {
+    log.warn('marché v4 introuvable', { token, error: String(error) });
+    market = index?.ofToken(token)[0] ?? null;
   }
   context.market = market;
 
@@ -57,8 +72,7 @@ export async function gatherContext(
   // Le créateur vient du rapport pons s'il existe ; sinon c'est l'expéditeur
   // de la transaction qui a créé le marché v4 — une transaction a toujours un
   // expéditeur humain (EOA), même quand elle passe par un routeur.
-  let creator =
-    report && report.creator.completeness !== 'unavailable' ? report.creator.data.creator : null;
+  let creator = reported;
   if (!creator && market) {
     const tx = await rpc
       .call<{ from?: string } | null>('eth_getTransactionByHash', [market.transactionHash])

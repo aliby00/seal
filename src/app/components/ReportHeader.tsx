@@ -73,7 +73,7 @@ export function ReportHeader({ result }: { result: AnalyzeResponse }) {
     <header className="report-hero">
       <div className="report-identity">
         <p className="report-kicker">SEAL reading</p>
-        <h2 id="report-title">
+        <h2 id="report-title" tabIndex={-1}>
           <span className="report-name">{title}</span>
           {result.symbol && result.name && <span className="report-symbol">{result.symbol}</span>}
         </h2>

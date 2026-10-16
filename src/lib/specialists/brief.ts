@@ -7,6 +7,7 @@ import { log } from '../logger';
 import { CATALOG } from './catalog';
 import { gatherContext } from './context';
 import { liveIndex } from './live-index';
+import { displayName } from './names';
 import { SPECIALIST_IDS, type Signal, type SpecialistContext, type SpecialistId } from './types';
 
 /**
@@ -123,8 +124,8 @@ export async function briefSpecialists(
   const symbol = context.market?.symbol ?? meta?.symbol ?? null;
   return {
     answers: answerAll(context, { timedOut }),
-    // A token can name itself anything: a name that reads as a verdict is not shown.
-    name: name && findViolations(name).length === 0 ? name : null,
-    symbol: symbol && findViolations(symbol).length === 0 ? symbol : null,
+    // A token can name itself anything: cleaned, cut, and withheld when it reads as a verdict.
+    name: displayName(name),
+    symbol: displayName(symbol),
   };
 }

@@ -76,6 +76,11 @@ export function AnalyzeForm() {
   const input = useRef<HTMLInputElement>(null);
   const request = useRef<AbortController | null>(null);
   useEffect(() => () => request.current?.abort(), []);
+  // A finished report takes the focus: a screen reader starts at its title
+  // instead of hearing the whole report read out as one live announcement.
+  useEffect(() => {
+    if (state.status === 'done') document.getElementById('report-title')?.focus();
+  }, [state]);
 
   async function analyze() {
     const address = token.trim();
@@ -202,12 +207,11 @@ export function AnalyzeForm() {
         <p className="entry-principle">Evidence and context. Never a score.</p>
       </div>
       {state.status === 'loading' && <Loading />}
-      <div
-        aria-live="polite"
-        aria-atomic="false"
-        id="analysis-result"
-        aria-busy={state.status === 'loading'}
-      >
+      {/* The loading panel announces itself; this only says the report is in. */}
+      <p className="sr-only" aria-live="polite">
+        {state.status === 'done' ? 'Analysis ready.' : ''}
+      </p>
+      <div id="analysis-result" aria-busy={state.status === 'loading'}>
         {state.status === 'error' && (
           <div className="error-state" role="alert">
             <h2>{state.title ?? 'The analysis could not be completed.'}</h2>

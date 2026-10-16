@@ -5,6 +5,7 @@ import { fetchBlockTimestamps } from './graduation';
 import { getLogsBatched, type RawLog } from './logs';
 import { POOL_MANAGER } from './pools';
 import type { RpcClient } from './rpc';
+import { readTxNatures } from './trades';
 
 /**
  * The creator of a token that is not a pons launch.
@@ -271,6 +272,46 @@ export function modifyRemovedLiquidity(log: RawLog): boolean {
   return delta.length === 64 && Number.parseInt(delta[0] ?? '0', 16) >= 8;
 }
 
+/** Removal transactions checked for their sender; beyond, the answer is unknown. */
+const MAX_REMOVALS_CHECKED = 60;
+
+/**
+ * Which tokens had liquidity removed by the creator: each removal's
+ * transaction is read for its sender. A token whose removals could not all be
+ * read, and none of the read ones was the creator's, is left out: unknown.
+ */
+async function creatorRemovals(
+  rpc: RpcClient,
+  creator: string,
+  targets: ReadonlySet<string>,
+  removals: readonly { token: string; log: RawLog }[],
+): Promise<Map<string, boolean>> {
+  const pulled = new Map([...targets].map((t) => [t, false]));
+  if (removals.length === 0) return pulled;
+  // The most recent first: a pull ends a market's life, it rarely starts it.
+  const hashes = [...new Set([...removals].reverse().map((r) => r.log.transactionHash))];
+  const read = hashes.slice(0, MAX_REMOVALS_CHECKED);
+  const outcomes = await rpc
+    .callBatch<{ from?: string } | null>(
+      read.map((hash) => ({ method: 'eth_getTransactionByHash', params: [hash] })),
+    )
+    .catch(() => []);
+  const sender = new Map<string, string | null>(
+    read.map((hash, i) => {
+      const outcome = outcomes[i];
+      return [hash, outcome?.ok && outcome.value?.from ? lower(outcome.value.from) : null];
+    }),
+  );
+  const unread = new Set<string>();
+  for (const { token, log } of removals) {
+    const from = sender.get(log.transactionHash);
+    if (from === lower(creator)) pulled.set(token, true);
+    else if (from === undefined || from === null) unread.add(token);
+  }
+  for (const token of unread) if (pulled.get(token) === false) pulled.delete(token);
+  return pulled;
+}
+
 type WindowQuery = { address: string; fromBlock: number; toBlock: number; topics: string[] };
 
 /** Queries that each fit one window, sent in one batch. Any refusal marks the result truncated. */
@@ -452,28 +493,55 @@ export async function fetchDeployerHistory(
     ).catch(() => detailed.map(() => null)),
   ]);
 
+  // A transfer into a curve is a sale on it. A transfer into a pool is one
+  // only when the pool swapped in that transaction: without a swap, it is the
+  // creator providing liquidity, not selling.
   const sold = new Map(salesTargets.map((l) => [l.token, false]));
+  const intoPool: { token: string; hash: string }[] = [];
   for (const log of sales.logs) {
     const token = lower(log.address);
-    if (venues.get(token)?.saleRecipients.includes(fromTopic(log.topics[2]))) sold.set(token, true);
+    const to = fromTopic(log.topics[2]);
+    if (!venues.get(token)?.saleRecipients.includes(to)) continue;
+    if (origin.launchContract && to === lower(origin.launchContract)) sold.set(token, true);
+    else intoPool.push({ token, hash: log.transactionHash });
   }
+  const marketAddresses = new Set([...tokenOfPool.keys(), lower(POOL_MANAGER)]);
+  const natures = await readTxNatures(
+    rpc,
+    intoPool.map((t) => t.hash),
+    marketAddresses,
+  ).catch(() => new Map<string, never>());
+  const unread = new Set<string>();
+  for (const { token, hash } of intoPool) {
+    const nature = natures.get(hash);
+    if (nature === 'swap') sold.set(token, true);
+    else if (nature === undefined) unread.add(token);
+  }
+  // A transaction whose receipt was not read could have been a sale.
+  for (const token of unread) if (!sold.get(token)) sold.delete(token);
   const soldKnown = unseenAsUnknown(sold, sales.truncated);
 
   const liquidityTargets = new Set([...tokenOfPool.values(), ...tokenOfMarket.values()]);
-  const pulled = new Map([...liquidityTargets].map((t) => [t, false]));
-  const burns = liquidityLogs.logs.filter((l) => l.topics[0] !== MODIFY_LIQUIDITY_TOPIC);
-  const modifications = liquidityLogs.logs.filter((l) => l.topics[0] === MODIFY_LIQUIDITY_TOPIC);
-  for (const log of burns) {
-    const token = tokenOfPool.get(lower(log.address));
-    if (token && burnMovedLiquidity(log)) pulled.set(token, true);
+  // Removals of any liquidity on the token's markets, by anyone.
+  const removals: { token: string; log: RawLog }[] = [];
+  for (const log of liquidityLogs.logs) {
+    if (log.topics[0] === MODIFY_LIQUIDITY_TOPIC) {
+      const token = tokenOfMarket.get(lower(log.topics[1] ?? ''));
+      if (!token || !modifyRemovedLiquidity(log)) continue;
+      // Outside its own window, a removal is not the one being asked about.
+      const launch = checked.find((l) => l.token === token);
+      if (launch && Number(log.blockNumber) <= windowOf(launch).toBlock) {
+        removals.push({ token, log });
+      }
+    } else {
+      const token = tokenOfPool.get(lower(log.address));
+      if (token && burnMovedLiquidity(log)) removals.push({ token, log });
+    }
   }
-  for (const log of modifications) {
-    const token = tokenOfMarket.get(lower(log.topics[1] ?? ''));
-    if (!token || !modifyRemovedLiquidity(log)) continue;
-    // Outside its own window, a removal is not the one being asked about.
-    const launch = checked.find((l) => l.token === token);
-    if (launch && Number(log.blockNumber) <= windowOf(launch).toBlock) pulled.set(token, true);
-  }
+  // Anyone can add liquidity to a market and take it back: only a removal the
+  // creator signed is theirs. Verified live, where a third party rebalancing
+  // its own range made SEAL report the creator's liquidity as pulled.
+  const pulled = await creatorRemovals(rpc, creator, liquidityTargets, removals);
   const pulledKnown = unseenAsUnknown(pulled, liquidityLogs.truncated);
 
   const checkedTokens = new Set(checked.map((l) => l.token));

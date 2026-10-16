@@ -2,6 +2,7 @@ import { decodeEventLog, parseAbiItem, type Address } from 'viem';
 import { addressTopic } from './index';
 import { getLogsChunked, type GetLogsOptions, type RawLog } from './logs';
 import type { RpcClient } from './rpc';
+import { V4_SWAP_TOPIC } from './trades';
 
 /**
  * Les marchés Uniswap v4 de Robinhood Chain, lus à la source.
@@ -118,6 +119,86 @@ export async function findMarketsOf(
   return [...as0.logs, ...as1.logs]
     .map(decodeInitialize)
     .sort((a, b) => a.blockNumber - b.blockNumber);
+}
+
+/** Candidates weighed when a token has several v4 markets. */
+export const MAX_MARKET_CANDIDATES = 8;
+/** Trades counted per candidate, over the last ~11.5 days. */
+const MARKET_ACTIVITY_BLOCKS = 10_000_000;
+
+/**
+ * Which of a token's v4 markets is its market.
+ *
+ * Anyone can initialise a v4 market on any token, with any rulebook: taking
+ * the first one found let a stranger's empty market, with a hook of their
+ * choosing, stand for the token. So the market its creator opened comes
+ * first; failing that, the one that trades the most; failing a reading, the
+ * earliest quoted against ETH.
+ */
+export async function pickMarket<T extends V4Market>(
+  rpc: RpcClient,
+  markets: readonly T[],
+  options: { creator?: string | null; latestBlock?: number } = {},
+): Promise<T | null> {
+  if (markets.length <= 1) return markets[0] ?? null;
+  const candidates = [...markets]
+    .sort((a, b) => a.blockNumber - b.blockNumber)
+    .slice(0, MAX_MARKET_CANDIDATES);
+
+  const creator = options.creator?.toLowerCase();
+  if (creator) {
+    const senders = await rpc
+      .callBatch<{ from?: string } | null>(
+        candidates.map((m) => ({
+          method: 'eth_getTransactionByHash',
+          params: [m.transactionHash],
+        })),
+      )
+      .catch(() => []);
+    const own = candidates.find((_, i) => {
+      const sender = senders[i];
+      return sender?.ok && sender.value?.from?.toLowerCase() === creator;
+    });
+    if (own) return own;
+  }
+
+  if (options.latestBlock !== undefined) {
+    const latest = options.latestBlock;
+    const fromBlock = `0x${Math.max(0, latest - MARKET_ACTIVITY_BLOCKS + 1).toString(16)}`;
+    const trades = await rpc
+      .callBatch<RawLog[]>(
+        candidates.map((m) => ({
+          method: 'eth_getLogs',
+          params: [
+            {
+              address: POOL_MANAGER,
+              topics: [V4_SWAP_TOPIC, m.id],
+              fromBlock,
+              toBlock: `0x${latest.toString(16)}`,
+            },
+          ],
+        })),
+      )
+      .catch(() => []);
+    // A market too busy to list is the busiest.
+    const counts = candidates.map((_, i) => {
+      const outcome = trades[i];
+      if (!outcome) return -1;
+      if (outcome.ok) return Array.isArray(outcome.value) ? outcome.value.length : -1;
+      return /exceeds limit|returned more than|response size exceeded/i.test(outcome.error)
+        ? Number.POSITIVE_INFINITY
+        : -1;
+    });
+    const best = Math.max(...counts);
+    if (best > 0) return candidates[counts.indexOf(best)] ?? null;
+  }
+
+  const quotes = new Set(QUOTE_CURRENCIES);
+  return (
+    candidates.find((m) => quotes.has(m.currency0) || quotes.has(m.currency1)) ??
+    candidates[0] ??
+    null
+  );
 }
 
 /** Le côté « token » d'un marché : celui qui n'est pas la monnaie de cotation. */

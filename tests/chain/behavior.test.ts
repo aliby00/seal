@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BURN_TOPIC,
+  DECREASE_LIQUIDITY_TOPIC,
   TRANSFER_TOPIC,
   detectCreatorSales,
   detectLiquidityRemovals,
@@ -19,14 +20,29 @@ function word(n: bigint): string {
   return n.toString(16).padStart(64, '0');
 }
 
-function nodeReturning(logs: RawLog[]): RpcClient {
+const SWAP = '0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67';
+const MINT = '0x7a53080ba414158be7ec69b987b5fb7d07dee101fe85488f0853ae16239d0bde';
+
+/** `receipt`: the pool events of every transaction, or `null` for an unreadable receipt. */
+function nodeReturning(logs: RawLog[], receipt: string[] | null = [SWAP]): RpcClient {
   return {
     async call<T>(): Promise<T> {
       return logs as unknown as T;
     },
     // One batched eth_getLogs per (address, window): the logs come back once.
-    async callBatch(requests: unknown[]) {
-      return requests.map((_, i) => ({ ok: true, value: i === 0 ? logs : [] }));
+    async callBatch(requests: { method: string }[]) {
+      return requests.map((r, i) =>
+        r.method === 'eth_getTransactionReceipt'
+          ? receipt
+            ? {
+                ok: true,
+                value: {
+                  logs: receipt.map((topic) => ({ address: POOL, topics: [topic], data: '0x' })),
+                },
+              }
+            : { ok: false, error: 'missing' }
+          : { ok: true, value: i === 0 ? logs : [] },
+      );
     },
   } as unknown as RpcClient;
 }
@@ -86,6 +102,28 @@ describe('detectCreatorSales', () => {
     expect(out.get(TOKEN)).toBe(true);
   });
 
+  // Providing to a V3 position pulls the tokens from the provider straight
+  // into the pool: the same Transfer as a sale, without a Swap.
+  it('ne compte pas un apport de liquidité comme une vente', async () => {
+    const out = await detectCreatorSales(
+      nodeReturning([transfer(POOL)], [MINT]),
+      CREATOR as `0x${string}`,
+      pairs,
+      window,
+    );
+    expect(out.get(TOKEN)).toBe(false);
+  });
+
+  it('dit inconnu quand le reçu de la transaction est illisible', async () => {
+    const out = await detectCreatorSales(
+      nodeReturning([transfer(POOL)], null),
+      CREATOR as `0x${string}`,
+      pairs,
+      window,
+    );
+    expect(out.has(TOKEN)).toBe(false);
+  });
+
   // Envoyer ses tokens vers un autre wallet n'est pas une vente : c'est ambigu,
   // et l'annoncer comme un dump serait une accusation non fondée.
   it('ne compte pas un transfert vers un autre wallet', async () => {
@@ -115,29 +153,87 @@ describe('detectCreatorSales', () => {
 });
 
 describe('detectLiquidityRemovals', () => {
-  const pairs = [{ token: TOKEN as `0x${string}`, pool: POOL as `0x${string}` }];
+  const MANAGER = '0x73991a25c818bf1f1128deaab1492d45638de0d3';
+  const positions = [
+    {
+      token: TOKEN as `0x${string}`,
+      positionManager: MANAGER as `0x${string}`,
+      positionId: 1273848n,
+      fromBlock: 0,
+      toBlock: 100,
+    },
+  ];
   const window = { fromBlock: 0, toBlock: 100 };
+  const idTopic = `0x${1273848n.toString(16).padStart(64, '0')}`;
 
-  const burn = (liquidity: bigint): RawLog => ({
-    address: POOL,
-    topics: [BURN_TOPIC],
+  const decrease = (liquidity: bigint, id = idTopic, block = '0x1'): RawLog => ({
+    address: MANAGER,
+    topics: [DECREASE_LIQUIDITY_TOPIC, id],
     data: `0x${word(liquidity)}${word(0n)}${word(0n)}`,
-    blockNumber: '0x1',
+    blockNumber: block,
     transactionHash: '0xa',
     logIndex: '0x0',
   });
 
-  it('signale un retrait réel', async () => {
-    const out = await detectLiquidityRemovals(nodeReturning([burn(5n)]), pairs, window);
+  it('signale un retrait de la position du lancement', async () => {
+    const out = await detectLiquidityRemovals(nodeReturning([decrease(5n)]), positions, window);
     expect(out.get(TOKEN)).toBe(true);
   });
 
-  it('ne signale rien sur des burn(0)', async () => {
+  it('ne signale rien sur un retrait à zéro', async () => {
+    const out = await detectLiquidityRemovals(nodeReturning([decrease(0n)]), positions, window);
+    expect(out.get(TOKEN)).toBe(false);
+  });
+
+  // The live case: a third party rebalancing its own range on the same pool.
+  it('ignore la liquidité retirée par un autre fournisseur sur le même pool', async () => {
+    const other = `0x${999n.toString(16).padStart(64, '0')}`;
     const out = await detectLiquidityRemovals(
-      nodeReturning([burn(0n), burn(0n), burn(0n)]),
-      pairs,
+      nodeReturning([decrease(5n, other), burnOnPool(5n)]),
+      positions,
       window,
     );
     expect(out.get(TOKEN)).toBe(false);
   });
+
+  it('lit chaque position sur sa propre fenêtre', async () => {
+    const seen: unknown[] = [];
+    const rpc = {
+      call: async () => [],
+      callBatch: async (requests: { params: unknown[] }[]) => {
+        seen.push(...requests.map((r) => r.params[0]));
+        return requests.map(() => ({ ok: true as const, value: [] }));
+      },
+    };
+    await detectLiquidityRemovals(rpc as never, positions, { fromBlock: 0, toBlock: 5_000 });
+    expect(seen).toEqual([
+      expect.objectContaining({
+        fromBlock: '0x0',
+        toBlock: '0x64',
+        topics: [DECREASE_LIQUIDITY_TOPIC, idTopic],
+      }),
+    ]);
+  });
+
+  it('dit inconnu, pas intact, quand la position n’a pas pu être lue', async () => {
+    const failing = {
+      call: async () => {
+        throw new Error('unused');
+      },
+      callBatch: async () => [{ ok: false as const, error: 'too many' }],
+    };
+    const out = await detectLiquidityRemovals(failing as never, positions, window);
+    expect(out.has(TOKEN)).toBe(false);
+  });
+
+  function burnOnPool(liquidity: bigint): RawLog {
+    return {
+      address: POOL,
+      topics: [BURN_TOPIC],
+      data: `0x${word(liquidity)}${word(0n)}${word(0n)}`,
+      blockNumber: '0x1',
+      transactionHash: '0xb',
+      logIndex: '0x0',
+    };
+  }
 });

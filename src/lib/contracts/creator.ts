@@ -4,9 +4,9 @@ import type { Sourced } from './completeness';
 export type TokenOutcome =
   /** Le seuil de graduation a été atteint. Ne dit rien de la qualité. */
   | 'graduated'
-  /** Sous le seuil, lancé assez récemment pour qu'on ne puisse pas parler d'abandon. */
+  /** Sous le seuil, et lancé récemment ou encore échangé ces derniers jours. */
   | 'active'
-  /** Sous le seuil, et inactif depuis assez longtemps pour le dire. */
+  /** Sous le seuil, lancé il y a plus de 30 jours, et aucun transfert depuis ~11 jours. */
   | 'abandoned'
   /**
    * La fenêtre observée est trop courte pour trancher entre `active` et

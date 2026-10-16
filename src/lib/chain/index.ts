@@ -12,10 +12,15 @@ import {
   TOKEN_LAUNCHED_TOPIC,
   type TokenLaunch,
 } from './factory';
-import { getLogsBatched, type LogSource } from './logs';
+import { getLogsBatched, type LogSource, type RawLog } from './logs';
 import { fetchBlockTimestamps, fetchGraduationStatusOf, type GraduationStatus } from './graduation';
-import { detectCreatorSales, detectLiquidityRemovals } from './behavior';
-import { createRpcClient, DEFAULT_RPC_URL, type RpcClient } from './rpc';
+import {
+  detectCreatorSales,
+  detectLiquidityRemovals,
+  TRANSFER_TOPIC,
+  type LaunchPosition,
+} from './behavior';
+import { classifyLogError, createRpcClient, DEFAULT_RPC_URL, type RpcClient } from './rpc';
 
 export * from './rpc';
 export * from './logs';
@@ -25,8 +30,100 @@ export * from './behavior';
 export * from './deployer';
 export * from './launch';
 
-/** Sans activité depuis ~30 jours et sous le seuil : on parle d'abandon. */
+/**
+ * Where each watched token's launch liquidity sits: its position id comes with
+ * `TokenLaunched`, its position manager from the factory's `getLaunchedToken`.
+ * A token whose manager cannot be read is left out, and its liquidity reads
+ * as unknown rather than untouched.
+ */
+async function launchPositions(
+  rpc: RpcClient,
+  launches: readonly TokenLaunch[],
+  watched: readonly { token: Address; fromBlock: number; toBlock: number }[],
+): Promise<LaunchPosition[]> {
+  const targets = watched
+    .map((w) => ({ w, launch: launches.find((l) => l.token === w.token) }))
+    .filter((t): t is { w: (typeof watched)[number]; launch: TokenLaunch } => !!t.launch);
+  if (targets.length === 0) return [];
+  const outcomes = await rpc
+    .callBatch<string>(
+      targets.map(({ launch }) => ({
+        method: 'eth_call',
+        params: [{ to: launch.factory, data: encodeGetLaunchedToken(launch.token) }, 'latest'],
+      })),
+    )
+    .catch(() => []);
+  return targets.flatMap(({ w, launch }, i) => {
+    const outcome = outcomes[i];
+    const info = outcome?.ok ? decodeGetLaunchedToken(outcome.value) : null;
+    if (!info?.positionManager || BigInt(info.positionManager) === 0n) return [];
+    return [
+      {
+        token: launch.token,
+        positionManager: info.positionManager,
+        positionId: launch.positionId,
+        fromBlock: w.fromBlock,
+        toBlock: w.toBlock,
+      },
+    ];
+  });
+}
+
+/** Lancé il y a plus de ~30 jours et sous le seuil : candidat à l'abandon. */
 export const ABANDON_AFTER_BLOCKS = 26_000_000;
+
+/**
+ * A candidate is called abandoned only when its token has not moved over the
+ * last 10 M blocks (~11.5 days): age alone said "abandoned" of a token still
+ * traded every day. One query per token, the most a single address may span.
+ */
+export const IDLE_WINDOW_BLOCKS = 10_000_000;
+
+/** Old launches checked for recent activity: every launch read in detail. */
+export const MAX_ACTIVITY_CHECKS = 40;
+
+/** Whether a token moved recently: `undefined` when it could not be read. */
+export type RecentActivity = boolean | undefined;
+
+/**
+ * Reads whether each token had a `Transfer` in the last IDLE_WINDOW_BLOCKS.
+ * A node refusing the query for holding too many logs is an answer too: the
+ * token is busy.
+ */
+export async function readRecentActivity(
+  rpc: RpcClient,
+  tokens: readonly Address[],
+  latest: number,
+): Promise<Map<string, boolean>> {
+  const activity = new Map<string, boolean>();
+  if (tokens.length === 0) return activity;
+  const fromBlock = `0x${Math.max(0, latest - IDLE_WINDOW_BLOCKS + 1).toString(16)}`;
+  const outcomes = await rpc.callBatch<RawLog[]>(
+    tokens.map((token) => ({
+      method: 'eth_getLogs',
+      params: [
+        {
+          address: token,
+          topics: [TRANSFER_TOPIC],
+          fromBlock,
+          toBlock: `0x${latest.toString(16)}`,
+        },
+      ],
+    })),
+  );
+  tokens.forEach((token, i) => {
+    const outcome = outcomes[i];
+    if (outcome?.ok && Array.isArray(outcome.value)) {
+      activity.set(token.toLowerCase(), outcome.value.length > 0);
+    } else if (
+      !outcome?.ok &&
+      classifyLogError(outcome?.error ?? '')?.reason === 'too-many-results'
+    ) {
+      activity.set(token.toLowerCase(), true);
+    }
+  });
+  return activity;
+}
 
 /**
  * Profondeur scannée par défaut : un peu plus que le seuil d'abandon, pour que
@@ -67,12 +164,18 @@ export function classifyOutcome(
   status: GraduationStatus | null,
   blocksSinceLaunch: number,
   observedBlocks = Number.POSITIVE_INFINITY,
+  /** Whether the token moved recently. Only an old launch needs it. */
+  recentActivity: RecentActivity = undefined,
 ): TokenOutcome {
   if (status?.graduated) return 'graduated';
   // Graduation could not be read (a revert, or a factory with another layout):
   // calling an old token "abandoned" would state something nobody observed.
   if (!status && blocksSinceLaunch > ABANDON_AFTER_BLOCKS) return 'undetermined';
-  if (blocksSinceLaunch > ABANDON_AFTER_BLOCKS) return 'abandoned';
+  if (blocksSinceLaunch > ABANDON_AFTER_BLOCKS) {
+    // Old and under the threshold is not abandoned while it still trades.
+    if (recentActivity === undefined) return 'undetermined';
+    return recentActivity ? 'active' : 'abandoned';
+  }
   if (observedBlocks < ABANDON_AFTER_BLOCKS) return 'undetermined';
   return 'active';
 }
@@ -120,6 +223,7 @@ export async function findLaunchOf(
           dexFactory: '0x' as Address,
           pairToken: launched.pairedToken,
           pool: pool?.ok ? (wordToAddress(pool.value) ?? ('0x' as Address)) : ('0x' as Address),
+          positionId: launched.positionId,
           initialBuyAmount: launched.initialBuyAmount,
           // Not given by the getter; the creator history carries the real block.
           blockNumber: 0,
@@ -194,7 +298,14 @@ export async function fetchCreatorHistory(
   // A serial launcher can have hundreds of tokens. The most recent ones are
   // read in detail; the rest would only spend the request budget, so the
   // history says it was capped instead of pretending to be complete.
-  const launches = all.slice(-MAX_DETAILED_LAUNCHES);
+  // The token being analysed is always read in detail, even when the creator
+  // launched it long before their most recent ones.
+  const recent = all.slice(-MAX_DETAILED_LAUNCHES);
+  const focus = options.focus?.toLowerCase();
+  const older = focus
+    ? all.find((l) => l.token.toLowerCase() === focus && !recent.includes(l))
+    : undefined;
+  const launches = older ? [older, ...recent] : recent;
   const capped = all.length > launches.length;
 
   // Un seul aller-retour par lot de 20, au lieu d'un par token.
@@ -223,11 +334,22 @@ export async function fetchCreatorHistory(
       toBlock: Math.min(latest, l.blockNumber + BEHAVIOR_WINDOW_BLOCKS - 1),
     }));
   const window = { fromBlock: scanned.fromBlock, toBlock: scanned.toBlock };
+  const positions = await launchPositions(rpc, launches, watched);
   // Un échec ici donne une Map vide, donc `null` par token plus bas : on ne
   // prétend pas avoir observé une absence de vente alors qu'on n'a pas regardé.
-  const [sold, pulled] = await Promise.all([
+  // Old launches under the threshold: whether they still trade decides
+  // between "abandoned" and "active". The most recent ones are checked.
+  const candidates = launches
+    .filter(
+      (l, i) =>
+        !statuses[i]?.graduated && statuses[i] && latest - l.blockNumber > ABANDON_AFTER_BLOCKS,
+    )
+    .slice(-MAX_ACTIVITY_CHECKS)
+    .map((l) => l.token);
+  const [sold, pulled, activity] = await Promise.all([
     detectCreatorSales(rpc, creator, watched, window).catch(() => new Map<string, boolean>()),
-    detectLiquidityRemovals(rpc, watched, window).catch(() => new Map<string, boolean>()),
+    detectLiquidityRemovals(rpc, positions, window).catch(() => new Map<string, boolean>()),
+    readRecentActivity(rpc, candidates, latest).catch(() => new Map<string, boolean>()),
   ]);
 
   const tokens: LaunchedToken[] = launches.map((launch, i) => {
@@ -238,7 +360,7 @@ export async function fetchCreatorHistory(
       pool: launch.pool,
       launchedAtBlock: launch.blockNumber,
       launchedAt: timestamps[i] ?? null,
-      outcome: classifyOutcome(status, latest - launch.blockNumber, lookback),
+      outcome: classifyOutcome(status, latest - launch.blockNumber, lookback, activity.get(key)),
       graduationProgress: status?.progress ?? 0,
       // `false` signifie « rien observé sur la fenêtre », pas « certainement
       // pas arrivé ». La complétude du bloc porte déjà cette nuance.

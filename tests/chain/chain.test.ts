@@ -7,6 +7,7 @@ import {
   classifyOutcome,
   decodeTokenLaunched,
   getLogsChunked,
+  readRecentActivity,
   toGraduationStatus,
   type RawLog,
   type RpcClient,
@@ -84,7 +85,10 @@ describe('classifyOutcome', () => {
   });
 
   it('abandonné après une longue inactivité sous le seuil', () => {
-    expect(classifyOutcome(young, 30_000_000)).toBe('abandoned');
+    expect(classifyOutcome(young, 30_000_000, undefined, false)).toBe('abandoned');
+    // Old but still traded is not abandoned; unread activity is not either.
+    expect(classifyOutcome(young, 30_000_000, undefined, true)).toBe('active');
+    expect(classifyOutcome(young, 30_000_000)).toBe('undetermined');
   });
 
   it('traite un statut absent comme non gradué', () => {
@@ -259,7 +263,7 @@ describe('classifyOutcome et la fenêtre observée', () => {
   });
 
   it('dit « abandonné » au-delà du seuil, si la fenêtre le couvre', () => {
-    expect(classifyOutcome(young, 30_000_000, 40_000_000)).toBe('abandoned');
+    expect(classifyOutcome(young, 30_000_000, 40_000_000, false)).toBe('abandoned');
   });
 
   it('gradué prime, quelle que soit la fenêtre', () => {
@@ -394,5 +398,38 @@ describe('getLogsChunked uses the announced span', () => {
     expect(spans[0]).toBeGreaterThan(30_000);
     expect(spans[1]).toBeLessThanOrEqual(30_000);
     expect(spans.filter((s) => s > 30_000)).toHaveLength(1);
+  });
+});
+
+describe('readRecentActivity', () => {
+  const A = '0x00000000000000000000000000000000000000a1' as const;
+  const B = '0x00000000000000000000000000000000000000b2' as const;
+  const C = '0x00000000000000000000000000000000000000c3' as const;
+  const D = '0x00000000000000000000000000000000000000d4' as const;
+
+  it('tells idle, busy and unread tokens apart', async () => {
+    const requests: { params: { address: string; fromBlock: string }[] }[] = [];
+    const rpc = {
+      async call() {
+        throw new Error('not used');
+      },
+      async callBatch(batch: { params: { address: string; fromBlock: string }[] }[]) {
+        requests.push(...batch);
+        return batch.map(({ params }) => {
+          const address = params[0]?.address;
+          if (address === A) return { ok: true, value: [] };
+          if (address === B) return { ok: true, value: [{}] };
+          if (address === C) return { ok: false, error: 'query exceeds limit' };
+          return { ok: false, error: 'internal error' };
+        });
+      },
+    } as unknown as RpcClient;
+    const activity = await readRecentActivity(rpc, [A, B, C, D], 40_000_000);
+    expect(activity.get(A)).toBe(false);
+    expect(activity.get(B)).toBe(true);
+    // Too many transfers to list: the token is busy.
+    expect(activity.get(C)).toBe(true);
+    expect(activity.has(D)).toBe(false);
+    expect(requests[0]?.params[0]?.fromBlock).toBe(`0x${(30_000_001).toString(16)}`);
   });
 });

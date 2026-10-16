@@ -56,10 +56,11 @@ export const HOLDERS_BUDGET = 20;
 export const MARKET_BUDGET = 4;
 /**
  * The launch replay: the log read and the supply, then block times, codes and
- * balances in batches of 20 — up to 42 blocks and 40 addresses, so 9 at most.
- * Retries on a busy public node count too: room is left for them.
+ * balances in batches of 20 — up to 42 blocks and 40 addresses, so 9 at most,
+ * plus two batches of receipts and the halvings of a launch too busy to read
+ * at once. Retries on a busy public node count too: room is left for them.
  */
-export const LAUNCH_BUDGET = 20;
+export const LAUNCH_BUDGET = 30;
 
 /** A pons launch names its creator in its own launch record. */
 const PONS_ORIGIN: CreatorOrigin = {

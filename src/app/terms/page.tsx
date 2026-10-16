@@ -2,8 +2,10 @@ import type { Metadata } from 'next';
 import { LegalPage } from '../components/LegalPage';
 
 export const metadata: Metadata = {
-  title: 'Terms of use — SEAL',
+  title: 'Terms of use',
   alternates: { canonical: '/terms' },
+  // A draft awaiting legal review is not offered to search engines.
+  robots: { index: false, follow: true },
 };
 
 export default function TermsPage() {

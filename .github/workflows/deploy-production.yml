@@ -19,7 +19,7 @@ permissions:
 env:
   # pnpm 12 refuse par défaut d'exécuter les scripts de build des dépendances
   # (ERR_PNPM_IGNORED_BUILDS). La CLI Vercel dépend d'esbuild, qui en a besoin.
-  VERCEL: pnpm dlx --allow-build=esbuild vercel@59
+  VERCEL: pnpm dlx --allow-build=esbuild vercel@59.26.0
 
 jobs:
   ci:
@@ -43,11 +43,11 @@ jobs:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: 24
           cache: pnpm
@@ -55,11 +55,14 @@ jobs:
       - name: Installer les dépendances
         run: pnpm install --frozen-lockfile
 
-      # Mémorise le déploiement actuellement en ligne, pour pouvoir y revenir.
+      # Mémorise le déploiement que le domaine sert réellement, pour pouvoir y
+      # revenir. Le plus récent de `vercel ls --prod` peut être un déploiement
+      # jamais promu ou en échec : y revenir aurait remis en ligne le mauvais.
       - name: Relever le déploiement en cours
         id: previous
         run: |
-          url=$($VERCEL ls --prod --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null \
+          domain=$(echo "${{ vars.PUBLIC_URL }}" | sed -E 's#^https?://##; s#/.*$##')
+          url=$($VERCEL inspect "$domain" --token=${{ secrets.VERCEL_TOKEN }} 2>&1 \
                 | grep -oE 'https://[a-zA-Z0-9.-]+\.vercel\.app' | head -1 || true)
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "Déploiement actuel : ${url:-aucun}"

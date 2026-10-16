@@ -99,6 +99,15 @@ await check('/api/analyze produit une analyse sur un token réel', async () => {
   const res = await post('/api/analyze', { token: PROBE_TOKEN });
   if (!res.ok) {
     const body = await res.text();
+    // A chain node or an explorer down is not this deployment's fault: the
+    // route says so in its own words, and rolling back would not bring the
+    // source back. Anything else (a 500, a crash page) fails the deploy.
+    if ([429, 502, 504].includes(res.status) && /data source/i.test(body)) {
+      console.log(
+        `  warn  source tierce indisponible — HTTP ${res.status} : ${body.slice(0, 160)}`,
+      );
+      return;
+    }
     throw new Error(`HTTP ${res.status} — ${body.slice(0, 200)}`);
   }
   const body = await res.json();
@@ -118,7 +127,8 @@ await check('/api/analyze produit une analyse sur un token réel', async () => {
 
   // Les garde-fous du produit s'appliquent aussi à ce qui est réellement servi.
   const forbidden = [
-    /\b\d{1,3}\s*\/\s*(?:5|10|20|100)\b/,
+    // A count ("3/10 launches") is not a score: only a rated number is.
+    /\b(?:score|rating|grade|note)\s*[:=]?\s*\d{1,3}\s*\/\s*(?:5|10|20|100)\b/i,
     /\bsafe\s+to\s+buy\b/i,
     /\bbon\s+investissement\b/i,
   ];

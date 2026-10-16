@@ -15,7 +15,11 @@ export type LaunchMoveKind =
   /** Tokens taken out of a pool: a purchase. */
   | 'buy'
   /** Tokens put back into a pool: a sale. */
-  | 'sell';
+  | 'sell'
+  /** Tokens put into a pool as liquidity, in a transaction where nothing was traded. */
+  | 'provide'
+  /** Tokens taken out of a pool's liquidity, in a transaction where nothing was traded. */
+  | 'withdraw';
 
 export type LaunchMove = {
   kind: LaunchMoveKind;

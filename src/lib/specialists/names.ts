@@ -52,10 +52,29 @@ export function addressesSoftware(raw: string): boolean {
 
 const MAX_QUOTED = 40;
 
+/** Control, zero-width and bidi characters: they hide or reorder what a reader sees. */
+// eslint-disable-next-line no-control-regex
+const INVISIBLE = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/g;
+
+/** Longest name or symbol shown in the report header. */
+export const MAX_DISPLAYED = 64;
+
+/**
+ * A creator-chosen name as the report header shows it: invisible and bidi
+ * characters removed (a right-to-left override can make "DOOH" read as
+ * "HOOD"), cut to a length a header can hold, withheld when it reads as a
+ * verdict. `null` when nothing is left to show.
+ */
+export function displayName(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const clean = raw.replace(INVISIBLE, ' ').replace(/\s+/g, ' ').trim();
+  if (!clean || findViolations(clean).length > 0) return null;
+  return clean.length > MAX_DISPLAYED ? `${clean.slice(0, MAX_DISPLAYED)}\u2026` : clean;
+}
+
 export function quoteName(raw: string | null | undefined): string {
   if (raw === null || raw === undefined) return '(unreadable)';
-  // eslint-disable-next-line no-control-regex
-  const clean = raw.replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e]/g, ' ').trim();
+  const clean = raw.replace(INVISIBLE, ' ').trim();
   const cut = clean.length > MAX_QUOTED ? `${clean.slice(0, MAX_QUOTED)}\u2026` : clean;
   // A name is chosen by the creator. Quoting "SAFE 100X" would publish a
   // verdict SEAL never makes — the name is withheld and that is said.

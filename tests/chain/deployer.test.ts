@@ -195,8 +195,14 @@ describe('liquidity events', () => {
 
 type Filter = { address: string; topics: unknown[] };
 
+const OTHER_LP = '0x00000000000000000000000000000000000000b3';
+
 /** A node answering logs through `logs`, everything else with fixed values. */
-function node(logs: (f: Filter) => RawLog[]) {
+const V2_SWAP = '0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822';
+const V2_MINT = '0x4c209b5fc8ad50758f13e2e1088ba56a560dff690a1c6fef26394f4c03821c4f';
+
+/** `poolEvent`: what the pair emitted in every transaction, a swap by default. */
+function node(logs: (f: Filter) => RawLog[], poolEvent = V2_SWAP) {
   const requests: RpcRequest[] = [];
   const rpc: RpcClient = {
     async call() {
@@ -215,8 +221,13 @@ function node(logs: (f: Filter) => RawLog[]) {
                 : r.method === 'eth_getBlockByNumber'
                   ? { timestamp: '0x68000000' }
                   : r.method === 'eth_getTransactionReceipt'
-                    ? { contractAddress: null, logs: [] }
-                    : null;
+                    ? {
+                        contractAddress: null,
+                        logs: [{ address: PAIR, topics: [poolEvent], data: '0x' }],
+                      }
+                    : r.method === 'eth_getTransactionByHash'
+                      ? { from: (r.params[0] as string) === '0xcreator-pull' ? CREATOR : OTHER_LP }
+                      : null;
         return { ok: true as const, value: value as T };
       });
     },
@@ -236,6 +247,20 @@ const ORIGIN: TokenOrigin = {
 };
 
 describe('fetchDeployerHistory', () => {
+  it('does not count the creator adding liquidity to the pair as a sale', async () => {
+    const { rpc } = node((f) => {
+      if (f.address === REGISTRY) {
+        return [log(REGISTRY, [REGISTRY_TOPIC, pad(TOKEN), pad(CREATOR)], '0x', 0, 100)];
+      }
+      if (f.address === TOKEN) {
+        return [log(TOKEN, [TRANSFER_TOPIC, pad(CREATOR), pad(PAIR)], `0x${word(5)}`, 0, 150)];
+      }
+      return [];
+    }, V2_MINT);
+    const history = await fetchDeployerHistory(rpc, ORIGIN, { latestBlock: 1_000 });
+    expect(history.data.tokens.find((t) => t.address === TOKEN)?.creatorDumped).toBe(false);
+  });
+
   it('lists the launches through the same contract and reads the sales into the market', async () => {
     const other = '0x00000000000000000000000000000000000000aa';
     const { rpc, requests } = node((f) => {
@@ -313,5 +338,27 @@ describe('fetchDeployerHistory', () => {
     );
     const history = await fetchDeployerHistory(rpc, ORIGIN, { latestBlock: 1_000 });
     expect(history.data.tokens.find((t) => t.address === TOKEN)?.creatorDumped).toBe(false);
+  });
+});
+
+describe('fetchDeployerHistory: liquidity removals', () => {
+  const burnBy = (hash: string) => ({
+    ...log(PAIR, [V2_BURN_TOPIC, pad(ROUTER_LIKE)], `0x${word(5)}${word(5)}`, 0, 150),
+    transactionHash: hash,
+  });
+  const ROUTER_LIKE = '0x00000000000000000000000000000000000000c0';
+
+  it('ignores liquidity another provider removed from the same market', async () => {
+    const { rpc } = node((f) => (f.address === PAIR ? [burnBy('0xsomeone-else')] : []));
+    const history = await fetchDeployerHistory(rpc, ORIGIN, { latestBlock: 1_000 });
+    expect(history.data.tokens.find((t) => t.address === TOKEN)?.liquidityPulled).toBe(false);
+  });
+
+  it('reports a removal the creator signed', async () => {
+    const { rpc } = node((f) =>
+      f.address === PAIR ? [burnBy('0xsomeone-else'), burnBy('0xcreator-pull')] : [],
+    );
+    const history = await fetchDeployerHistory(rpc, ORIGIN, { latestBlock: 1_000 });
+    expect(history.data.tokens.find((t) => t.address === TOKEN)?.liquidityPulled).toBe(true);
   });
 });

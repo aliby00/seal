@@ -12,7 +12,7 @@ import { createBudget, BudgetExhaustedError } from '../../src/lib/http';
 beforeEach(() => resetThrottle());
 afterEach(() => vi.unstubAllGlobals());
 
-type Behaviour = 'ok' | 'http-500' | 'http-429' | 'json-429' | 'network' | 'http-401';
+type Behaviour = 'ok' | 'http-500' | 'http-429' | 'json-429' | 'network' | 'http-401' | 'json-401';
 
 /** Each host answers the way the test says; every request is recorded. */
 function nodes(behaviour: Record<string, Behaviour>) {
@@ -25,6 +25,12 @@ function nodes(behaviour: Record<string, Behaviour>) {
     if (mode === 'http-500') return new Response('down', { status: 500 });
     if (mode === 'http-429') return new Response('slow down', { status: 429 });
     if (mode === 'http-401') return new Response('bad key', { status: 401 });
+    if (mode === 'json-401') {
+      return new Response(
+        JSON.stringify({ id: 1, error: { code: -32600, message: 'Must be authenticated' } }),
+        { status: 401 },
+      );
+    }
     if (mode === 'json-429') {
       return new Response(JSON.stringify({ id: 1, error: { code: 429, message: 'busy' } }));
     }
@@ -59,7 +65,7 @@ describe('node lists', () => {
 });
 
 describe('a failing node hands the request to the next one', () => {
-  it.each<Behaviour>(['http-500', 'http-429', 'json-429', 'network', 'http-401'])(
+  it.each<Behaviour>(['http-500', 'http-429', 'json-429', 'network', 'http-401', 'json-401'])(
     'on %s',
     async (failure) => {
       const calls = nodes({ [A]: failure });
