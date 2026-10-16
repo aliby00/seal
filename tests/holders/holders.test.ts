@@ -121,6 +121,50 @@ describe('fetchHolderDistribution', () => {
     expect(result.sources[0]?.note).toMatch(/2 pages/);
   });
 
+  it('lit le nombre de détenteurs hors pool et burn depuis /tokens', async () => {
+    vi.stubGlobal('fetch', async (url: string) =>
+      String(url).includes('/holders')
+        ? new Response(JSON.stringify(page), { status: 200 })
+        : new Response(JSON.stringify({ holders_count: '1234', total_supply: '1' }), {
+            status: 200,
+          }),
+    );
+    const result = await fetchHolderDistribution(TOKEN, { apiKey: 'test', poolAddress: POOL });
+    const setAside = result.data.top.filter((h) => h.kind === 'pool' || h.kind === 'burn').length;
+    expect(result.data.holderCount).toBe(1234 - setAside);
+  });
+
+  it('mesure les parts sur l’offre totale quand la liste est coupée', async () => {
+    const holders = [
+      { address: { hash: '0x1111111111111111111111111111111111111111' }, value: '100' },
+      { address: { hash: '0x2222222222222222222222222222222222222222' }, value: '50' },
+    ];
+    vi.stubGlobal('fetch', async (url: string) =>
+      String(url).includes('/holders')
+        ? new Response(JSON.stringify({ items: holders, next_page_params: { items_count: 2 } }), {
+            status: 200,
+          })
+        : new Response(JSON.stringify({ holders_count: 900, total_supply: '1000' }), {
+            status: 200,
+          }),
+    );
+    const result = await fetchHolderDistribution(TOKEN, { apiKey: 'test', maxPages: 1 });
+    expect(result.completeness).toBe('partial');
+    expect(result.data.concentration.top1).toBeCloseTo(0.1, 6);
+    expect(result.data.holderCount).toBe(900);
+  });
+
+  it('garde la liste quand /tokens échoue', async () => {
+    vi.stubGlobal('fetch', async (url: string) =>
+      String(url).includes('/holders')
+        ? new Response(JSON.stringify(page), { status: 200 })
+        : new Response('nope', { status: 500 }),
+    );
+    const result = await fetchHolderDistribution(TOKEN, { apiKey: 'test', poolAddress: POOL });
+    expect(result.completeness).toBe('full');
+    expect(result.data.holderCount).toBeNull();
+  });
+
   it("lève si la réponse n'a pas le champ items", async () => {
     vi.stubGlobal('fetch', async () => new Response('{"oops":1}', { status: 200 }));
     await expect(fetchHolderDistribution(TOKEN, { apiKey: 'test' })).rejects.toBeInstanceOf(
