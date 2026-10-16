@@ -1,4 +1,4 @@
-import type { TokenReport } from '../contracts';
+import type { LaunchMove, LaunchReplay, TokenReport } from '../contracts';
 import type { SpecialistAnswer } from '../specialists/brief';
 
 /**
@@ -162,9 +162,45 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
     lines.push('Volume : non disponible');
   }
 
+  if (report.launch) lines.push('', ...renderLaunch(report.launch));
   if (specialists && specialists.length > 0) lines.push('', ...renderSpecialists(specialists));
 
   return lines.join('\n');
+}
+
+const MOVE_WORD: Record<LaunchMove['kind'], string> = {
+  mint: 'créé et remis à',
+  allocation: 'transféré hors pool à',
+  buy: 'acheté dans un pool par',
+  sell: 'revendu dans un pool par',
+};
+
+/**
+ * The first minutes, move by move. Facts only: the model is told what moved,
+ * when and to whom, and what each address holds today — never "sniper" or
+ * "insider", which would be verdicts.
+ */
+export function renderLaunch(launch: LaunchReplay): string[] {
+  const d = launch.data;
+  const lines = [
+    `## Les ${Math.round(d.windowSeconds / 60)} premières minutes après le lancement (bloc ${d.launchBlock})`,
+    'Parts exprimées sur l’offre totale. N’emploie pas les mots sniper, insider ou bundle : décris ce qui a bougé.',
+  ];
+  for (const source of launch.sources) if (source.note) lines.push(`Limite : ${source.note}`);
+  for (const m of d.moves.slice(0, 20)) {
+    const who = m.actorIsCreator ? `${m.actor} (CRÉATEUR)` : `${m.actor} (${m.actorKind})`;
+    const from = m.counterpartyIsCreator ? ' — reçu du CRÉATEUR' : '';
+    const held = m.heldNow === null ? 'inconnu' : `${(m.heldNow * 100).toFixed(2)} %`;
+    lines.push(
+      `- +${m.seconds} s (bloc +${m.block}) : ${(m.share * 100).toFixed(3)} % ${MOVE_WORD[m.kind]} ${who}${from} ; détient aujourd’hui ${held}`,
+    );
+  }
+  if (d.movesInWindow > d.moves.length) {
+    lines.push(
+      `(${d.movesInWindow - d.moves.length} mouvements de plus dans la fenêtre, non listés)`,
+    );
+  }
+  return lines;
 }
 
 /** How each kind of answer is named to the model: the kind of fact, never a verdict. */

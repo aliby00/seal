@@ -145,6 +145,7 @@ export async function POST(request: Request): Promise<Response> {
       offline: explanation.offline,
       facts: chartable(report),
       timeline: timeline(report),
+      ...(report.launch ? { launch: report.launch.data } : {}),
       ...(brief ? { name: brief.name, symbol: brief.symbol, specialists: brief.answers } : {}),
     };
 

@@ -1,6 +1,7 @@
 import type { Completeness } from './completeness';
 import type { CreatorHistory } from './creator';
 import type { HolderDistribution } from './holders';
+import type { LaunchReplay } from './launch';
 import type { MarketState } from './market';
 
 /**
@@ -16,8 +17,14 @@ export type TokenReport = {
   creator: CreatorHistory;
   holders: HolderDistribution;
   market: MarketState;
+  /**
+   * The first minutes after the launch, when the launch block is known. Not
+   * part of the overall completeness: a missing replay leaves the three blocks
+   * as complete as they were.
+   */
+  launch?: LaunchReplay;
   /** Complétude d'ensemble, dérivée des trois blocs. */
   completeness: Completeness;
 };
 
-export type { Completeness, CreatorHistory, HolderDistribution, MarketState };
+export type { Completeness, CreatorHistory, HolderDistribution, LaunchReplay, MarketState };

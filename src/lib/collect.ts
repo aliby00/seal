@@ -6,6 +6,7 @@ import {
   fetchGraduationStatus,
   findFirstMintLog,
   findLaunchOf,
+  readLaunchReplay,
   traceTokenOrigin,
   type RawLog,
   type TokenOrigin,
@@ -53,6 +54,12 @@ export const RPC_BUDGET = 40;
 /** Blockscout pages, or RPC requests when holders are rebuilt from transfers. */
 export const HOLDERS_BUDGET = 20;
 export const MARKET_BUDGET = 4;
+/**
+ * The launch replay: the log read and the supply, then block times, codes and
+ * balances in batches of 20 — up to 42 blocks and 40 addresses, so 9 at most.
+ * Retries on a busy public node count too: room is left for them.
+ */
+export const LAUNCH_BUDGET = 20;
 
 /** A pons launch names its creator in its own launch record. */
 const PONS_ORIGIN: CreatorOrigin = {
@@ -292,7 +299,28 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     });
   }
 
-  const [holders, market] = await Promise.all([
+  // The first minutes, read on their own budget: they never cost the three blocks anything.
+  const launchFrom = launchBlock ?? (mintLog ? Number(mintLog.blockNumber) : undefined);
+  const replay =
+    launchFrom !== undefined && latest > 0
+      ? settled(
+          readLaunchReplay(createRpcClient(options.rpcUrl, createBudget(LAUNCH_BUDGET)), address, {
+            launchBlock: launchFrom,
+            latestBlock: latest,
+            pools: [launch?.pool, ...(origin?.venues.pools ?? [])].filter((pool): pool is string =>
+              Boolean(pool),
+            ),
+            creator: chain.data.creator,
+            now,
+          }),
+          (error) => {
+            log.warn('replay du lancement indisponible', { token: address, error: String(error) });
+            return undefined;
+          },
+        )
+      : Promise.resolve(undefined);
+
+  const [holders, market, launchReplay] = await Promise.all([
     settled<HolderDistribution>(
       readHolders(),
       (error) =>
@@ -321,6 +349,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
           pairCreatedAt: null,
         }) as MarketState,
     ),
+    replay,
   ]);
 
   const completeness = combineCompleteness([
@@ -336,5 +365,13 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     creatorHistoryCached: historyFromCache,
   });
 
-  return { token: address, collectedAt, creator: chain, holders, market, completeness };
+  return {
+    token: address,
+    collectedAt,
+    creator: chain,
+    holders,
+    market,
+    ...(launchReplay ? { launch: launchReplay } : {}),
+    completeness,
+  };
 }
