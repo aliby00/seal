@@ -309,7 +309,24 @@ const sellPath: Specialist = {
   id: 'sell-path',
   title: 'Sell Path',
   question: 'Can holders sell, and can the rulebook stand in the way?',
-  run({ hook, report }: SpecialistContext): Finding {
+  run({ hook, report, market }: SpecialistContext): Finding {
+    if (market && hook === null) {
+      // A v4 pool without a hook: nothing sits between a sell and the pool.
+      const txns = report?.market.data.txns?.h24 ?? null;
+      const facts = [
+        'This token’s Uniswap v4 pool has no rulebook (hook): no contract sits between a sell and the pool.',
+      ];
+      if (txns)
+        facts.push(
+          `${txns.sells} sell(s) and ${txns.buys} buy(s) went through in the last 24 hours.`,
+        );
+      return finding(
+        'sell-path',
+        'reassurance',
+        facts,
+        txns ? [] : ['recent trades were not collected'],
+      );
+    }
     if (hook === undefined || hook === null) {
       const where = marketElsewhere(report);
       const txns = report?.market.data.txns?.h24 ?? null;
