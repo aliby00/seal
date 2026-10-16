@@ -31,7 +31,8 @@ export function Explanation({ text, offline }: { text: string; offline: boolean 
         <div key={index} className={section.divergent ? 'prose-block divergent' : 'prose-block'}>
           {section.heading && <h3>{section.heading}</h3>}
           {section.paragraphs.map((paragraph, paragraphIndex) => (
-            <p key={paragraphIndex}>{paragraph}</p>
+            // Emphasis markers are not rendered as emphasis: they would only show as asterisks.
+            <p key={paragraphIndex}>{paragraph.replace(/\*\*/g, '')}</p>
           ))}
         </div>
       ))}

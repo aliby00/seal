@@ -1,11 +1,21 @@
 import { isAddress, type Address } from 'viem';
-import { createRpcClient, fetchCreatorHistory, fetchGraduationStatus, findLaunchOf } from './chain';
-import { combineCompleteness, type Completeness } from './contracts';
+import {
+  createRpcClient,
+  fetchCreatorHistory,
+  fetchDeployerHistory,
+  fetchGraduationStatus,
+  findFirstMintLog,
+  findLaunchOf,
+  traceTokenOrigin,
+  type RawLog,
+  type TokenOrigin,
+} from './chain';
+import { combineCompleteness, type Completeness, type CreatorOrigin } from './contracts';
 import type { CreatorHistory, HolderDistribution, MarketState, TokenReport } from './contracts';
-import { NotFoundError, SealError } from './errors';
+import { IncompleteDataError, NotFoundError, SealError } from './errors';
 import { createBudget, type RequestBudget } from './http';
 import { fetchHolderDistribution } from './holders';
-import { fetchHoldersFromChain } from './holders/chain';
+import { fetchHoldersFromChain, findFirstMint } from './holders/chain';
 import { fetchMarketState } from './market';
 import { log } from './logger';
 import { TtlCache } from './cache';
@@ -43,6 +53,14 @@ export const RPC_BUDGET = 40;
 /** Blockscout pages, or RPC requests when holders are rebuilt from transfers. */
 export const HOLDERS_BUDGET = 20;
 export const MARKET_BUDGET = 4;
+
+/** A pons launch names its creator in its own launch record. */
+const PONS_ORIGIN: CreatorOrigin = {
+  source: 'pons',
+  role: 'launcher',
+  launchesListed: true,
+  transactionCount: null,
+};
 
 export type CollectOptions = {
   rpcUrl?: string;
@@ -127,14 +145,45 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     },
   );
 
+  // Not a pons launch: the creator is traced from the transaction of the
+  // token's first mint, and their other launches from the launch contract's
+  // own record. Only when the node answered: a failed lookup is not "not pons".
+  let mintLog: RawLog | undefined;
+  const origin: TokenOrigin | undefined =
+    !launch && lookupError === undefined && latest > 0
+      ? await settled(
+          (async () => {
+            mintLog = await findFirstMintLog(rpc, address, latest);
+            return mintLog ? traceTokenOrigin(rpc, address, mintLog) : undefined;
+          })(),
+          () => undefined,
+        )
+      : undefined;
+
   // La clé porte la profondeur : deux analyses avec des fenêtres différentes
   // ne décrivent pas le même historique et ne doivent pas se partager une entrée.
   // The analysed token is always checked for sales and liquidity, so it is part
   // of the key: another token of the same creator may not have been.
-  const cacheKey = `${launch?.deployer.toLowerCase()}:${address.toLowerCase()}:${options.lookbackBlocks ?? 'default'}`;
+  const cacheKey = launch
+    ? `${launch.deployer.toLowerCase()}:${address.toLowerCase()}:${options.lookbackBlocks ?? 'default'}`
+    : `deployer:${origin?.creator}:${address.toLowerCase()}`;
   let historyFromCache = false;
 
-  const chain = launch
+  const emptyHistory = (creator: string) => ({
+    creator,
+    tokens: [],
+    counts: {
+      launched: 0,
+      graduated: 0,
+      abandoned: 0,
+      undetermined: 0,
+      liquidityPulled: 0,
+      creatorDumped: 0,
+    },
+    scannedRange: { fromBlock: 0, toBlock: 0 },
+  });
+
+  const chain: CreatorHistory = launch
     ? await settled(
         creatorHistoryCache
           .resolve(cacheKey, () =>
@@ -148,44 +197,48 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
           )
           .then(({ value, cached }) => {
             historyFromCache = cached;
-            return value;
+            return {
+              ...value,
+              data: { ...value.data, origin: value.data.origin ?? PONS_ORIGIN },
+            };
           }),
         (error) =>
-          failed('robinhood-rpc', collectedAt, error, {
-            creator: launch.deployer,
-            tokens: [],
-            counts: {
-              launched: 0,
-              graduated: 0,
-              abandoned: 0,
-              undetermined: 0,
-              liquidityPulled: 0,
-              creatorDumped: 0,
-            },
-            scannedRange: { fromBlock: 0, toBlock: 0 },
-          }) as CreatorHistory,
+          failed(
+            'robinhood-rpc',
+            collectedAt,
+            error,
+            emptyHistory(launch.deployer),
+          ) as CreatorHistory,
       )
-    : (failed(
-        'robinhood-rpc',
-        collectedAt,
-        lookupError ??
-          new Error(
-            'not a pons launch: no TokenLaunched event for this token from the known pons factories — creator history not available',
-          ),
-        {
-          creator: '0x',
-          tokens: [],
-          counts: {
-            launched: 0,
-            graduated: 0,
-            abandoned: 0,
-            undetermined: 0,
-            liquidityPulled: 0,
-            creatorDumped: 0,
-          },
-          scannedRange: { fromBlock: 0, toBlock: 0 },
-        },
-      ) as CreatorHistory);
+    : origin
+      ? await settled(
+          creatorHistoryCache
+            .resolve(cacheKey, () =>
+              fetchDeployerHistory(rpc, origin, { latestBlock: latest, now }),
+            )
+            .then(({ value, cached }) => {
+              historyFromCache = cached;
+              return value;
+            }),
+          (error) =>
+            failed(
+              'robinhood-rpc',
+              collectedAt,
+              error,
+              emptyHistory(origin.creator),
+            ) as CreatorHistory,
+        )
+      : (failed(
+          'robinhood-rpc',
+          collectedAt,
+          lookupError ??
+            new Error(
+              mintLog
+                ? 'not a pons launch, and the transaction of its first mint could not be read — creator not available'
+                : 'not a pons launch, and the token’s first mint was not found — creator not available',
+            ),
+          emptyHistory('0x'),
+        ) as CreatorHistory);
 
   const graduation = await settled(
     (async () => {
@@ -208,18 +261,33 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     (t) => t.address.toLowerCase() === address.toLowerCase(),
   )?.launchedAtBlock;
   function readHolders(): Promise<HolderDistribution> {
-    if (!options.blockscoutApiKey && launchBlock && latest > 0) {
-      return fetchHoldersFromChain(createRpcClient(options.rpcUrl, holdersBudget), address, {
-        fromBlock: launchBlock,
-        toBlock: latest,
-        poolAddress: launch?.pool,
-        now,
-      });
+    if (!options.blockscoutApiKey && latest > 0) {
+      return (async () => {
+        const holdersRpc = createRpcClient(options.rpcUrl, holdersBudget);
+        // Not a pons launch: start from the token's first mint instead.
+        const from =
+          launchBlock ??
+          (mintLog
+            ? Number(mintLog.blockNumber)
+            : await findFirstMint(holdersRpc, address, latest));
+        if (from === undefined) {
+          throw new IncompleteDataError(
+            'robinhood-rpc',
+            'the start of this token’s history could not be found',
+          );
+        }
+        return fetchHoldersFromChain(holdersRpc, address, {
+          fromBlock: from,
+          toBlock: latest,
+          poolAddress: launch?.pool ?? origin?.venues.pools[0],
+          now,
+        });
+      })();
     }
     return fetchHolderDistribution(address, {
       apiKey: options.blockscoutApiKey,
       budget: holdersBudget,
-      poolAddress: launch?.pool,
+      poolAddress: launch?.pool ?? origin?.venues.pools[0],
       now,
     });
   }

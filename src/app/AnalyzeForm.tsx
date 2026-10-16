@@ -7,20 +7,15 @@ import type { AnalyzeResponse } from './api/analyze/route';
 import { SourceStudy } from './components/SourceStudy';
 import { AnalysisReport } from './components/AnalysisReport';
 import { Arch } from './components/brand';
+import { requestError } from './requestErrors';
 
-const EXAMPLE_TOKEN = '0xd0c538e01a22ebf8502b4dc3a92026cec870cec6';
-const errors: Record<number, string> = {
-  400: 'Invalid address. Use 0x followed by 40 hexadecimal characters.',
-  404: 'Token not found. Check its address and that it launched on pons, on Robinhood Chain.',
-  429: 'The request limit has been reached. Wait a moment, then try again.',
-  502: 'A data source or the explanation could not be reached. Please try again.',
-  500: 'Something interrupted the analysis. Please try again shortly.',
-};
+/** A real pons launch whose creator history and holders can be read in full. */
+const EXAMPLE_TOKEN = '0x10e848f9d5073d670201b111f1ba3d1c5be6f18b';
 type State =
   | { status: 'idle' }
   | { status: 'loading' }
   | { status: 'done'; result: AnalyzeResponse }
-  | { status: 'error'; message: string; retry: boolean };
+  | { status: 'error'; title?: string; message: string; retry: boolean };
 
 function Loading() {
   const [elapsed, setElapsed] = useState(0);
@@ -81,13 +76,7 @@ export function AnalyzeForm() {
         signal: controller.signal,
       });
       if (!response.ok) {
-        setState({
-          status: 'error',
-          message:
-            errors[response.status] ??
-            'The service is temporarily unavailable. Please try again shortly.',
-          retry: response.status !== 400 && response.status !== 404,
-        });
+        setState({ status: 'error', ...requestError(response.status) });
         return;
       }
       const result = (await response.json()) as AnalyzeResponse;
@@ -194,7 +183,7 @@ export function AnalyzeForm() {
       >
         {state.status === 'error' && (
           <div className="error-state" role="alert">
-            <h2>The analysis could not be completed.</h2>
+            <h2>{state.title ?? 'The analysis could not be completed.'}</h2>
             <p>{state.message}</p>
             {state.retry && (
               <Button variant="ghost" type="button" onClick={() => void analyze()}>

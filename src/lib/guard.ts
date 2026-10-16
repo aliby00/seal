@@ -1,13 +1,16 @@
 import { NextResponse } from 'next/server';
+import { log } from './logger';
+import { sharedRedis } from './store';
 
 /**
  * Entry checks shared by the public POST routes. Each analysis spends upstream
  * requests and, with a key, model tokens: an anonymous caller must not be able
  * to spend them without limit, nor from another website.
  *
- * The rate limit lives in this process's memory. On Vercel each warm instance
- * keeps its own count, so it stops a single client hammering an instance, not
- * a distributed attack — a shared store is the next step (issue #43).
+ * The count lives in Redis when it is configured, so every instance sees the
+ * same buckets. Without Redis, or when it fails, each instance counts in its
+ * own memory: weaker (requests spread over instances each get a burst), but
+ * the site keeps answering.
  */
 
 /** Largest body accepted: an address and a small agent spec fit well under it. */
@@ -48,6 +51,56 @@ export function allow(key: string, limit: RateLimit, now = Date.now()): boolean 
   if (bucket.tokens < 1) return false;
   bucket.tokens -= 1;
   return true;
+}
+
+/**
+ * The same token bucket as `allow`, kept in Redis and updated atomically by a
+ * script, so simultaneous requests on different instances share one count.
+ * Returns 1 when the request may proceed.
+ */
+const BUCKET_SCRIPT = `
+local v = redis.call('HMGET', KEYS[1], 't', 'u')
+local cap = tonumber(ARGV[1])
+local now = tonumber(ARGV[3])
+local t = tonumber(v[1])
+local u = tonumber(v[2])
+if t == nil or u == nil then t = cap; u = now end
+t = math.min(cap, t + math.max(0, now - u) * tonumber(ARGV[2]))
+local ok = 0
+if t >= 1 then t = t - 1; ok = 1 end
+redis.call('HSET', KEYS[1], 't', tostring(t), 'u', tostring(now))
+redis.call('PEXPIRE', KEYS[1], ARGV[4])
+return ok
+`;
+
+/** Spends one request in the shared bucket; falls back to memory if Redis is absent or fails. */
+export async function allowShared(
+  key: string,
+  limit: RateLimit,
+  now = Date.now(),
+): Promise<boolean> {
+  const redis = sharedRedis();
+  if (!redis) return allow(key, limit, now);
+  // A bucket untouched for the time it takes to refill is full again: let it expire.
+  const refillMs = Math.ceil((limit.capacity / limit.perMinute) * 60_000) + 1_000;
+  try {
+    const [result] = await redis.pipeline([
+      [
+        'EVAL',
+        BUCKET_SCRIPT,
+        1,
+        `seal:rl:${key}`,
+        limit.capacity,
+        limit.perMinute / 60_000,
+        now,
+        refillMs,
+      ],
+    ]);
+    return Number(result) === 1;
+  } catch (error) {
+    log.warn('limite partagée indisponible, repli mémoire', { error: String(error) });
+    return allow(key, limit, now);
+  }
 }
 
 /** The caller's address as Vercel reports it. Not a secret, only a bucket key. */
@@ -96,7 +149,7 @@ export async function guardedJson(
   const declared = Number(request.headers.get('content-length') ?? 0);
   if (declared > MAX_BODY_BYTES) return { response: refuse(413, 'Request body too large') };
 
-  if (!allow(`${scope}:${clientKey(request)}`, limit)) {
+  if (!(await allowShared(`${scope}:${clientKey(request)}`, limit))) {
     return {
       response: refuse(429, 'Too many analyses from this address. Try again in a minute.', {
         'retry-after': '60',

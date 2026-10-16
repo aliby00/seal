@@ -6,3 +6,6 @@ export { runAgent, measureDivergence, isFlagged, MAX_LEADS } from './run';
 export { replay, rank, LookaheadError, SNAPSHOT_MAX_DELAY_BLOCKS } from './scoreboard';
 export type { ReplayCase, Scoreline } from './scoreboard';
 export { gatherContext } from './context';
+export { answerAll, briefSpecialists, WITHHELD_LINE } from './brief';
+export type { SpecialistAnswer, SpecialistBrief } from './brief';
+export { liveIndex, LIVE_INDEX_BLOCKS } from './live-index';

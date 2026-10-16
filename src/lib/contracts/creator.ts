@@ -29,8 +29,32 @@ export type LaunchedToken = {
   creatorDumped: boolean | null;
 };
 
+/**
+ * How the creator was found. A pons launch names its creator in its launch
+ * record; any other token is traced back to the transaction that minted it.
+ */
+export type CreatorOrigin = {
+  source: 'pons' | 'deployer';
+  /**
+   * - `deployer`: the address sent the transaction that created the contract;
+   * - `launcher`: it called a launch contract, which created the token;
+   * - `first-minter`: it sent the token's first mint, after the contract
+   *   already existed (a bridge or a relayer can do that — it is not proof
+   *   of authorship).
+   */
+  role: 'deployer' | 'launcher' | 'first-minter';
+  /** The contract the launch transaction called, when a contract made the token. */
+  launchContract?: string;
+  /** Whether the address's other launches could be listed from the chain. */
+  launchesListed: boolean;
+  /** Transactions sent by the address, when it is a wallet (null for a contract). */
+  transactionCount: number | null;
+};
+
 export type CreatorHistoryData = {
   creator: string;
+  /** Absent on histories built before deployer tracing, and on pons launches read the old way. */
+  origin?: CreatorOrigin;
   tokens: LaunchedToken[];
   counts: {
     launched: number;

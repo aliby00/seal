@@ -2,9 +2,16 @@ import { isAddress } from 'viem';
 import { NextResponse } from 'next/server';
 import { explain } from '@/lib/agent/reason';
 import { collect } from '@/lib/collect';
+import { toFacts, toTimeline, type ReportFacts, type TimelineLaunch } from '@/lib/facts';
 import { SealError } from '@/lib/errors';
 import { ANALYZE_LIMIT, guardedJson } from '@/lib/guard';
 import { log } from '@/lib/logger';
+import { analysisCache, type CachedAnalysis } from '@/lib/analysis-cache';
+import {
+  briefSpecialists,
+  SPECIALIST_TIMEOUT_MS,
+  type SpecialistBrief,
+} from '@/lib/specialists/brief';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -16,23 +23,58 @@ export const maxDuration = 60;
  * kills the function.
  */
 const COLLECT_TIMEOUT_MS = 30_000;
+/** What the whole request may take, under maxDuration with a margin. */
+const REQUEST_BUDGET_MS = 56_000;
+/** Kept for the model: the provider's own timeout. */
+const MODEL_ALLOWANCE_MS = 25_000;
+/** The questions always get a short chance, even after a slow collection. */
+const MIN_SPECIALIST_MS = 1_000;
 
-export type AnalyzeResponse = {
-  token: string;
-  explanation: string;
-  completeness: string;
-  sources: { name: string; note?: string }[];
-  costUsd: number;
-  collectedAt: string;
-  /** Vrai si la restitution vient du mode hors-ligne, sans appel au modèle. */
-  offline: boolean;
-};
+/** The response body. Its shape is kept with the cache, which stores it as is. */
+export type AnalyzeResponse = CachedAnalysis;
 
 const PUBLIC_MESSAGE: Record<string, string> = {
   'rate-limit': 'A data source is rate-limiting requests. Try again in a minute.',
   'not-found': 'Nothing was found for this address',
   timeout: 'A data source did not answer in time',
 };
+
+/** The charts are a bonus on top of the text: a malformed report must not fail the response. */
+function chartable(report: Parameters<typeof toFacts>[0]): ReportFacts | undefined {
+  try {
+    return toFacts(report);
+  } catch (error) {
+    log.warn('faits non représentables', { error: String(error) });
+    return undefined;
+  }
+}
+
+function timeline(report: Parameters<typeof toTimeline>[0]): TimelineLaunch[] | undefined {
+  try {
+    const launches = toTimeline(report);
+    return launches.length > 0 ? launches : undefined;
+  } catch (error) {
+    log.warn('chronologie non représentable', { error: String(error) });
+    return undefined;
+  }
+}
+
+/** The specialists are part of the picture, not a condition of it: never fail on them. */
+async function specialists(
+  token: string,
+  report: Parameters<typeof toFacts>[0],
+  timeoutMs: number,
+): Promise<SpecialistBrief | undefined> {
+  try {
+    return await briefSpecialists(token, report, {
+      rpcUrl: process.env.RPC_URL || undefined,
+      timeoutMs,
+    });
+  } catch (error) {
+    log.warn('spécialistes indisponibles', { token, error: String(error) });
+    return undefined;
+  }
+}
 
 function errorResponse(status: number, message: string, detail?: string) {
   return NextResponse.json({ error: message, ...(detail ? { detail } : {}) }, { status });
@@ -49,6 +91,13 @@ export async function POST(request: Request): Promise<Response> {
     return errorResponse(400, 'Invalid token address');
   }
 
+  const cacheKey = token.toLowerCase();
+  const hit = await analysisCache.get(cacheKey);
+  if (hit) {
+    log.info('analyse servie depuis le cache', { token, ms: Date.now() - started });
+    return NextResponse.json({ ...hit, costUsd: 0, cached: true } satisfies AnalyzeResponse);
+  }
+
   try {
     const report = await Promise.race([
       collect(token, {
@@ -60,7 +109,16 @@ export async function POST(request: Request): Promise<Response> {
       ),
     ]);
 
-    const explanation = await explain(report);
+    // The ten questions are answered before the text is written, so the text
+    // can draw on them. Their time is what is left once the model's own
+    // allowance is set aside, so the whole request stays under maxDuration.
+    const left = REQUEST_BUDGET_MS - (Date.now() - started) - MODEL_ALLOWANCE_MS;
+    const brief = await specialists(
+      token,
+      report,
+      Math.max(MIN_SPECIALIST_MS, Math.min(SPECIALIST_TIMEOUT_MS, left)),
+    );
+    const explanation = await explain(report, { specialists: brief?.answers });
 
     // Une sortie non conforme ne doit pas atteindre l'utilisateur : c'est une
     // contrainte de conception du produit, pas une préférence de style.
@@ -85,8 +143,12 @@ export async function POST(request: Request): Promise<Response> {
       costUsd: explanation.cost.costUsd,
       collectedAt: report.collectedAt,
       offline: explanation.offline,
+      facts: chartable(report),
+      timeline: timeline(report),
+      ...(brief ? { name: brief.name, symbol: brief.symbol, specialists: brief.answers } : {}),
     };
 
+    await analysisCache.set(cacheKey, body);
     log.info('analyse servie', { token, ms: Date.now() - started, costUsd: body.costUsd });
     return NextResponse.json(body);
   } catch (error) {

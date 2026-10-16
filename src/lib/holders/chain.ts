@@ -45,6 +45,30 @@ export function balancesFromTransfers(
   return balances;
 }
 
+const ZERO_TOPIC = `0x${'0'.repeat(64)}`;
+
+/**
+ * First block where the token was minted, for a token that is not a pons
+ * launch. The public node keeps no historical state (no eth_getCode at an old
+ * block), but it keeps logs: the earliest Transfer from the zero address is
+ * the start of every balance. One batch of 10 M-block windows.
+ */
+export async function findFirstMint(
+  rpc: RpcClient,
+  token: Address,
+  latestBlock: number,
+): Promise<number | undefined> {
+  const { logs, truncated } = await getLogsBatched(
+    rpc,
+    { addresses: [token], topics: [TRANSFER_TOPIC, ZERO_TOPIC] },
+    { fromBlock: 0, toBlock: latestBlock },
+  );
+  // A missed window could hide an earlier mint: starting later would give wrong balances.
+  if (truncated) return undefined;
+  const first = logs[0];
+  return first ? Number(first.blockNumber) : undefined;
+}
+
 export async function fetchHoldersFromChain(
   rpc: RpcClient,
   token: Address,
@@ -61,11 +85,15 @@ export async function fetchHoldersFromChain(
     rpc,
     { addresses: [token], topics: [TRANSFER_TOPIC] },
     { fromBlock: options.fromBlock, toBlock: options.toBlock },
+    // A token with more than 10,000 transfers in a window is too busy to
+    // replay inside an analysis: say so at once instead of spending the time
+    // budget (it pushed a whole analysis past its timeout).
+    { split: false },
   );
   if (truncated) {
     throw new IncompleteDataError(
       'robinhood-rpc',
-      'not every transfer since launch could be read — balances would be wrong, so none are given',
+      'too many transfers to rebuild balances here — none are given rather than wrong ones',
     );
   }
 

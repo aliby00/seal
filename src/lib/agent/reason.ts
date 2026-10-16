@@ -5,6 +5,7 @@ import { resolveProvider, type Provider } from './providers';
 import { findViolations } from './guardrails';
 import { offlineExplanation } from './offline';
 import { SYSTEM_PROMPT, renderReport } from './prompt';
+import type { SpecialistAnswer } from '../specialists/brief';
 
 export type ReasonOptions = {
   model?: string;
@@ -12,6 +13,8 @@ export type ReasonOptions = {
   /** Injecté par les tests, ou pour forcer un fournisseur précis. */
   provider?: Provider;
   env?: Record<string, string | undefined>;
+  /** The ten questions' answers, when they are ready before the text is written. */
+  specialists?: SpecialistAnswer[];
 };
 
 export type Explanation = {
@@ -34,8 +37,13 @@ function served(text: string, cost: CostBreakdown): Explanation {
 
 export const DEFAULT_MODEL = 'claude-sonnet-5-5';
 
-export function buildRequest(report: TokenReport, model: string, maxTokens: number) {
-  return { system: SYSTEM_PROMPT, user: renderReport(report), model, maxTokens };
+export function buildRequest(
+  report: TokenReport,
+  model: string,
+  maxTokens: number,
+  specialists?: SpecialistAnswer[],
+) {
+  return { system: SYSTEM_PROMPT, user: renderReport(report, specialists), model, maxTokens };
 }
 
 /**
@@ -70,7 +78,7 @@ export async function explain(
   // analysis whose facts are ready into an error page: the facts are served.
   let result;
   try {
-    result = await provider.complete(buildRequest(report, model, maxTokens));
+    result = await provider.complete(buildRequest(report, model, maxTokens, options.specialists));
   } catch (error) {
     log.warn('fournisseur en échec, restitution hors-ligne', {
       provider: provider.name,

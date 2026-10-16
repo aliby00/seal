@@ -176,6 +176,72 @@ describe("résolution du créateur depuis l'adresse du token", () => {
   });
 });
 
+describe('créateur d’un token hors pons', () => {
+  const CREATOR = '0xc47ff45c87ee89a999b95ed6d4f408674d9bed9f';
+  const LAUNCHPAD = '0xd4ccbfa37e2f35611b3042e4096ad7a3459bd007';
+  const REGISTRY = '0x6d80b81d9fc56a7a839b1af9006eb49151961ce7';
+  const REGISTRY_TOPIC = '0x8c768b5da89e637b23caac626ccd760ef89b9e8eaa2f45bbf8c9d68e231dabef';
+  const TRANSFER = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+  const pad = (a: string) => `0x${a.toLowerCase().slice(2).padStart(64, '0')}`;
+
+  it('retrouve le créateur par la transaction du premier mint', async () => {
+    const mint = {
+      address: TOKEN,
+      topics: [TRANSFER, pad('0x0'), pad(LAUNCHPAD)],
+      data: `0x${(1000).toString(16).padStart(64, '0')}`,
+      blockNumber: '0x100',
+      transactionHash: '0xmint',
+      logIndex: '0x1',
+    };
+    const registry = {
+      address: REGISTRY,
+      topics: [REGISTRY_TOPIC, pad(TOKEN), pad(CREATOR)],
+      data: '0x',
+      blockNumber: '0x100',
+      transactionHash: '0xmint',
+      logIndex: '0x5',
+    };
+    const answer = (method: string, params: unknown[]): unknown => {
+      if (method === 'eth_blockNumber') return '0x5000000';
+      if (method === 'eth_getTransactionByHash')
+        return { from: CREATOR, to: LAUNCHPAD, hash: '0xmint' };
+      if (method === 'eth_getTransactionReceipt')
+        return { contractAddress: null, logs: [mint, registry] };
+      if (method === 'eth_getCode') return '0x';
+      if (method === 'eth_getTransactionCount') return '0xb';
+      if (method === 'eth_getBlockByNumber') return { timestamp: '0x68000000' };
+      if (method === 'eth_getLogs') {
+        const f = params[0] as { address: string; topics: (string | null)[] };
+        if (f.address === TOKEN && f.topics[1] === pad('0x0')) return [mint];
+        if (f.address === REGISTRY) return [registry];
+        return [];
+      }
+      return '0x';
+    };
+    vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (!url.includes('robinhood.com')) return new Response('[]', { status: 200 });
+      const raw = JSON.parse(String(init?.body ?? '{}')) as
+        { method: string; params: unknown[] } | { id: number; method: string; params: unknown[] }[];
+      const body = Array.isArray(raw)
+        ? raw.map((r) => ({ id: r.id, result: answer(r.method, r.params) }))
+        : { result: answer(raw.method, raw.params) };
+      return new Response(JSON.stringify(body), { status: 200 });
+    });
+    const report = await collect(TOKEN, { now: at });
+    expect(report.creator.completeness).toBe('partial');
+    expect(report.creator.data.creator).toBe(CREATOR);
+    expect(report.creator.data.origin).toMatchObject({
+      source: 'deployer',
+      role: 'launcher',
+      launchContract: LAUNCHPAD,
+      launchesListed: true,
+      transactionCount: 11,
+    });
+    expect(report.creator.data.counts.launched).toBe(1);
+  });
+});
+
 describe("cache de l'historique du créateur", () => {
   const TOPIC = '0xdb51ea9ad51ab453a65a4cb7e60c3cb378c9501bb002609f8f97778fb6c4235a';
   const DEPLOYER = '0xe06289fde414ee521aba50db0cf0a60816faa523';

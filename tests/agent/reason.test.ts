@@ -74,8 +74,36 @@ describe('renderReport', () => {
     expect(rendered).toContain('aucune clé API');
   });
 
-  it('précise que le pool est exclu des parts', () => {
-    expect(rendered).toMatch(/pool de liquidité et les adresses de burn sont exclus/);
+  // Unmeasured holders are not sent as zeros: "0 %" would read as a fact.
+  it('ne transmet aucune part quand les holders ne sont pas mesurés', () => {
+    expect(rendered).toContain('Non mesuré');
+    expect(rendered).not.toMatch(/Part du premier détenteur/);
+  });
+
+  it('précise que le pool est exclu des parts, et nomme le créateur parmi les holders', () => {
+    const creator = report.creator.data.creator;
+    const measured = renderReport({
+      ...report,
+      holders: {
+        ...report.holders,
+        completeness: 'full',
+        data: {
+          ...report.holders.data,
+          concentration: { top1: 0.26, top10: 0.9 },
+          top: [
+            { address: creator.toLowerCase(), balance: '1', share: 0.26, kind: 'contract' },
+            {
+              address: '0x1111111111111111111111111111111111111111',
+              balance: '1',
+              share: 0.2,
+              kind: 'wallet',
+            },
+          ],
+        },
+      },
+    });
+    expect(measured).toMatch(/pool de liquidité et les adresses de burn sont exclus/);
+    expect(measured).toMatch(/26\.00 % — adresse du CRÉATEUR/);
   });
 
   it("donne le volume rapporté au nombre d'échanges", () => {
@@ -178,5 +206,74 @@ describe('explain', () => {
     });
     expect(result.provider).toBe('anthropic');
     expect(result.offline).toBe(false);
+  });
+});
+
+describe('renderReport : ventes et retraits du créateur', () => {
+  // The bug: the card showed "sold into the pool 10/10" while the model wrote
+  // that nothing showed the creator selling — it was never told.
+  it('transmet les ventes et retraits observés sur les lancements vérifiés', () => {
+    const t = (dumped: boolean | null, pulled: boolean | null, i: number) => ({
+      address: `0x${String(i).padStart(40, '0')}`,
+      pool: '0xpool',
+      launchedAtBlock: i,
+      launchedAt: null,
+      outcome: 'abandoned' as const,
+      graduationProgress: 0,
+      creatorDumped: dumped,
+      liquidityPulled: pulled,
+    });
+    const rendered = renderReport({
+      ...report,
+      creator: {
+        ...report.creator,
+        data: {
+          ...report.creator.data,
+          tokens: [t(null, null, 1), t(true, false, 2), t(true, true, 3)],
+        },
+      },
+    });
+    expect(rendered).toContain('Ventes du créateur dans le marché : sur 2 lancements vérifiés, 2');
+    expect(rendered).toContain('Retraits de liquidité : sur 2 lancements vérifiés, 1');
+    expect(rendered).toMatch(/vente du créateur : oui, retrait de liquidité : oui/);
+    expect(rendered).toMatch(/vente du créateur : non vérifié/);
+  });
+});
+
+describe('renderReport : les dix questions', () => {
+  const answers = [
+    {
+      specialist: 'holder-spread' as const,
+      title: 'Holder Spread',
+      question: 'How much of the supply sits in a few wallets?',
+      signal: 'concern' as const,
+      facts: ['The largest holder has 46% of counted supply.'],
+      limits: [],
+    },
+    {
+      specialist: 'sell-path' as const,
+      title: 'Sell Path',
+      question: 'Can holders sell, and can the rulebook stand in the way?',
+      signal: 'unknown' as const,
+      facts: [],
+      limits: ['recent trades were not collected'],
+    },
+  ];
+
+  it('transmet chaque question avec ses faits et ses limites', () => {
+    const rendered = renderReport(report, answers);
+    expect(rendered).toContain('Holder Spread');
+    expect(rendered).toContain('fait : The largest holder has 46% of counted supply.');
+    expect(rendered).toContain('limite : recent trades were not collected');
+  });
+
+  it('interdit de les additionner ou de les compter', () => {
+    const rendered = renderReport(report, answers);
+    expect(rendered).toMatch(/Ne les additionne pas/);
+    expect(rendered).not.toMatch(/\d+\s*\/\s*10|score/i);
+  });
+
+  it('ne change rien quand les réponses manquent', () => {
+    expect(renderReport(report, [])).toBe(renderReport(report));
   });
 });

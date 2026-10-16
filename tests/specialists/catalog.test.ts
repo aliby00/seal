@@ -245,3 +245,62 @@ describe('les spécialistes de données', () => {
     expect(CATALOG['liquidity-move'].run({ token, report }).signal).toBe('concern');
   });
 });
+
+describe('tokens sans marché v4', () => {
+  const token = reused().token;
+  const pons = makeReport(token, (r) => {
+    r.market.data.graduation = { thresholdEth: 4.2, progress: 0.01, graduated: false };
+    r.market.data.txns = { h1: { buys: 1, sells: 1 }, h24: { buys: 9, sells: 4 } };
+  });
+
+  it('sell-path dit où le token s’échange et ce que montrent les ventes récentes', () => {
+    const f = CATALOG['sell-path'].run({ token, report: pons, market: null, hook: null });
+    expect(f.signal).toBe('quiet');
+    expect(f.facts[0]).toMatch(/pons launch pool/);
+    expect(f.facts[1]).toMatch(/4 sell\(s\)/);
+    expect(f.facts.concat(f.limits).every((line) => isCompliant(line))).toBe(true);
+  });
+
+  it('sell-path reste non mesuré sans vente récente, et dit pourquoi', () => {
+    const quiet = makeReport(token, (r) => {
+      r.market.data.pair = '0x1111111111111111111111111111111111111111';
+      r.market.data.txns = { h1: { buys: 2, sells: 0 }, h24: { buys: 5, sells: 0 } };
+    });
+    const f = CATALOG['sell-path'].run({ token, report: quiet, market: null, hook: null });
+    expect(f.signal).toBe('unknown');
+    expect(f.facts[0]).toMatch(/DexScreener \(0x1111…1111\)/);
+    expect(f.limits[0]).toMatch(/no sell went through/);
+  });
+
+  it('les questions v4 nomment le marché réel au lieu d’un « not found » sec', () => {
+    for (const id of ['code-reuse', 'name-clone', 'rule-change'] as const) {
+      const f = CATALOG[id].run({ token, report: pons, market: null, hook: null });
+      expect(f.signal).toBe('unknown');
+      expect(f.limits[0]).toMatch(/trades on its pons launch pool, not on a Uniswap v4 pool/);
+    }
+  });
+
+  it('sans aucun marché, la raison le dit en clair', () => {
+    const none = makeReport(token, (r) => {
+      r.market.data.pair = null;
+      r.market.data.graduation = null;
+    });
+    const f = CATALOG['code-reuse'].run({ token, report: none, market: null });
+    expect(f.limits[0]).toMatch(/no market was found for this token/);
+  });
+});
+
+describe('sell-path sur un pool v4 sans rulebook', () => {
+  it('dit qu’aucun contrat ne se place entre une vente et le pool', () => {
+    const m = market((x) => x.hook === '0x0000000000000000000000000000000000000000');
+    const f = CATALOG['sell-path'].run({
+      token: m.token,
+      market: m,
+      hook: null,
+      report: makeReport(m.token),
+    });
+    expect(f.signal).toBe('reassurance');
+    expect(f.facts[0]).toMatch(/no rulebook \(hook\)/);
+    expect(f.facts[1]).toMatch(/30 sell\(s\)/);
+  });
+});

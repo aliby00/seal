@@ -93,6 +93,44 @@ describe('offlineExplanation', () => {
     expect(notPons).not.toMatch(/could not be read/);
   });
 
+  it('names the creator traced from the first mint, and what was measured', () => {
+    const base = report();
+    const traced = offlineExplanation(
+      report({
+        creator: {
+          ...base.creator,
+          completeness: 'partial',
+          sources: [
+            { name: 'robinhood-rpc', fetchedAt: 'x', note: 'traced from the token’s first mint' },
+          ],
+          data: {
+            ...base.creator.data,
+            creator: '0xc47f',
+            origin: {
+              source: 'deployer',
+              role: 'launcher',
+              launchContract: '0xd4cc',
+              launchesListed: true,
+              transactionCount: 11,
+            },
+            tokens: [
+              { ...base.creator.data.tokens[0]!, creatorDumped: true, liquidityPulled: null },
+            ],
+            counts: { ...base.creator.data.counts, launched: 31 },
+          },
+        },
+      }),
+    );
+    expect(traced).toMatch(
+      /not launched through pons\. It was launched by 0xc47f through the contract 0xd4cc/,
+    );
+    expect(traced).toMatch(/launched 31 tokens/);
+    expect(traced).toMatch(/Of 1 launch checked, the creator sold into the market on 1/);
+    expect(traced).not.toMatch(/liquidity was removed/);
+    expect(traced).toMatch(/sent 11 transactions/);
+    expect(isCompliant(traced)).toBe(true);
+  });
+
   it("dit pourquoi une source manque au lieu de l'omettre", () => {
     expect(text).toMatch(/not measured \(aucune clé API\)/);
   });

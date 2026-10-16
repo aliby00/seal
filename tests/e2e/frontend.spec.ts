@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
-const token = '0xd0c538e01a22ebf8502b4dc3a92026cec870cec6';
+const token = '0x10e848f9d5073d670201b111f1ba3d1c5be6f18b';
 const explanation =
   'What is reassuring.\n\nThe creator launched several tokens.\n\nWhat deserves attention.\n\nConcentration requires further documentation.\n\nWhere the signals diverge.\n\nObserved volume does not explain the distribution.';
 const report = {
@@ -19,7 +19,164 @@ const report = {
   offline: false,
   costUsd: 0.019,
   collectedAt: '2026-09-27T00:20:04.965Z',
+  name: 'Alpha Token',
+  symbol: 'ALP',
+  timeline: [
+    {
+      address: '0x1000000000000000000000000000000000000001',
+      launchedAt: '2026-09-01T00:00:00.000Z',
+      block: 100,
+      outcome: 'abandoned',
+      progress: 0.1,
+      sold: true,
+      pulled: false,
+      current: false,
+    },
+    {
+      address: '0x1000000000000000000000000000000000000002',
+      launchedAt: '2026-09-10T00:00:00.000Z',
+      block: 150,
+      outcome: 'graduated',
+      progress: 1,
+      sold: false,
+      pulled: true,
+      current: false,
+    },
+    {
+      address: token,
+      launchedAt: '2026-09-20T00:00:00.000Z',
+      block: 200,
+      outcome: 'active',
+      progress: 0.42,
+      sold: null,
+      pulled: null,
+      current: true,
+    },
+  ],
+  specialists: [
+    {
+      specialist: 'holder-spread',
+      title: 'Holder Spread',
+      question: 'How much of the supply sits in a few wallets?',
+      signal: 'concern',
+      facts: ['The largest holder has 31.0% of counted supply; the top 10 have 78.0%.'],
+      limits: ['Pool and burn addresses are excluded.'],
+    },
+    {
+      specialist: 'rule-change',
+      title: 'Rule Change',
+      question: 'Can the rulebook be rewritten after people have bought?',
+      signal: 'reassurance',
+      facts: ['The rulebook’s code (4120 bytes) has no standard upgrade slot set.'],
+      limits: [],
+    },
+    {
+      specialist: 'funding-trace',
+      title: 'Funding Trace',
+      question: 'Who paid for the creator’s wallet, and did they fund other creators?',
+      signal: 'unknown',
+      facts: [],
+      limits: ['funding was not collected'],
+    },
+  ],
+  facts: {
+    creator: {
+      measured: true,
+      note: 'Scanned range: blocks 100 to 200. Earlier history not covered.',
+      address: '0x59a8eb66f90b092c2d1a86531dc3c18e11f0ed34',
+      launched: 76,
+      detailed: 40,
+      graduated: 2,
+      abandoned: 36,
+      undetermined: 0,
+      active: 2,
+      checked: 10,
+      soldIntoPool: 7,
+      liquidityPulled: 1,
+      salesChecked: 10,
+      liquidityChecked: 8,
+      source: 'pons',
+      role: null,
+      launchContract: null,
+      launchesListed: true,
+      transactionCount: 860,
+    },
+    holders: {
+      measured: true,
+      holderCount: 42,
+      top1: 0.31,
+      top10: 0.78,
+      top: [
+        { address: '0x25b2eece475e104c85e79d3be9e29cd06cd982ee', share: 0.31, kind: 'wallet' },
+        { address: '0xe08d2285f451ee250b471a5edad1a4b09f22b4fb', share: 0.18, kind: 'wallet' },
+        { address: '0xcd9107d2bdfad6b56a7ac235bebe46e555c1801c', share: 0.04, kind: 'contract' },
+      ],
+    },
+    market: {
+      measured: false,
+      note: 'no pair indexed by DexScreener for this token',
+      priceUsd: null,
+      liquidityUsd: null,
+      volume24hUsd: null,
+      buys24h: null,
+      sells24h: null,
+      fdvUsd: null,
+      graduation: { progress: 0.42, thresholdEth: 4.2, graduated: false },
+    },
+  },
 };
+test('report draws the measured facts, says what is missing, and gives no score', async ({
+  page,
+}) => {
+  await mockReport(page);
+  await page.goto('/#analysis');
+  await submit(page);
+  const board = page.getByRole('region', { name: 'Measured facts' });
+  await expect(board).toBeVisible();
+  await expect(board.locator('.fact-big')).toContainText('76 tokens launched');
+  await expect(
+    board.getByRole('img', { name: /Largest holder 31%, Holders 2 to 10 47%, Everyone else 22%/ }),
+  ).toBeVisible();
+  await expect(board.getByText('Launches read in detail, in time order')).toBeVisible();
+  await expect(board.getByText('No trading pair listed on DexScreener.')).toBeVisible();
+  await expect(board.getByText('7 of 10 checked')).toBeVisible();
+  await expect(board.getByText('1 of 8 checked')).toBeVisible();
+  await expect(board.getByText('Found from their pons launch record.')).toBeVisible();
+  await expect(board).not.toContainText(/score|\/10|\/100/i);
+  await accessible(page);
+});
+
+test('report opens with the token, then asks the ten questions one by one, without a tally', async ({
+  page,
+}) => {
+  await mockReport(page);
+  await page.goto('/#analysis');
+  await submit(page);
+  await expect(page.getByRole('heading', { level: 2, name: /Alpha Token/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Explorer/ })).toHaveAttribute(
+    'href',
+    `https://robinhoodchain.blockscout.com/token/${token}`,
+  );
+  const coverage = page.getByRole('list', { name: 'What each source could read' });
+  await expect(coverage).toContainText('Market');
+  await expect(coverage).toContainText('Not measured');
+
+  const panel = page.getByRole('region', { name: 'Asked of every token, answered one by one.' });
+  await expect(panel).toBeVisible();
+  // Every answer carries an icon and a word; colour is never the only carrier.
+  await expect(panel.getByText('Worth attention')).toBeVisible();
+  await expect(panel.getByText('Rules a mechanism out')).toBeVisible();
+  await expect(panel.getByText('Not measured')).toBeVisible();
+  // Nothing adds the answers up.
+  await expect(panel).not.toContainText(/\d+\s*(?:\/|of|out of)\s*10\b|score|safe|risky/i);
+
+  await expect(panel.getByText('Pool and burn addresses are excluded.')).toBeHidden();
+  await panel.getByRole('button', { name: 'Open all' }).click();
+  await expect(panel.getByText('Pool and burn addresses are excluded.')).toBeVisible();
+  await expect(panel.getByText('What it could not see').first()).toBeVisible();
+  await accessible(page);
+});
+
 async function submit(page: Page) {
   await page.getByLabel('Token address', { exact: true }).fill(token);
   await page.getByRole('button', { name: 'Analyze token' }).click();
@@ -91,9 +248,9 @@ test('loading describes sources; report keeps limits before prose and sources gl
   );
   await expect(page.locator('.divergent')).toHaveCount(1);
   await expect(page.getByText('Sources apply to the report as a whole.')).toBeVisible();
-  await page.locator('summary').click();
+  await page.locator('.sources summary').click();
   await expect(page.getByText('Sources apply to the report as a whole.')).toBeHidden();
-  await page.locator('summary').focus();
+  await page.locator('.sources summary').focus();
   await page.keyboard.press('Enter');
   await expect(page.getByText('Sources apply to the report as a whole.')).toBeVisible();
   await expect(page.getByText('Request cost: 0.0190 $')).toBeVisible();
@@ -129,7 +286,7 @@ for (const completeness of ['full', 'unavailable']) {
   });
 }
 
-for (const status of [400, 404, 429, 502, 500]) {
+for (const status of [400, 403, 404, 413, 415, 429, 502, 500]) {
   test(`HTTP ${status}: human message, no technical leak, retry when appropriate`, async ({
     page,
   }) => {
@@ -145,6 +302,11 @@ for (const status of [400, 404, 429, 502, 500]) {
     await expect(page.getByRole('main').getByRole('alert')).toBeVisible();
     await expect(page.getByText('STACK_TRACE_INTERNAL')).toHaveCount(0);
     await accessible(page);
+    if (status === 429) {
+      await expect(
+        page.getByText('Too many analyses from this connection.', { exact: false }),
+      ).toBeVisible();
+    }
     if ([429, 502, 500].includes(status)) {
       await page.getByRole('button', { name: 'Try again' }).click();
       await expect(page.getByRole('article')).toBeVisible();
@@ -300,4 +462,28 @@ test('source study exposes each method using accessible controls', async ({ page
   await expect(page.locator('#source-study-detail')).toContainText('DexScreener');
   await expect(page.getByText('Method illustration · no token data displayed')).toBeVisible();
   await accessible(page);
+});
+
+test('legal pages are reachable from the footer, flagged as drafts, and accessible', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const legal = page.getByRole('contentinfo').getByRole('navigation', { name: 'Legal' });
+  for (const [label, path, heading] of [
+    ['Terms', '/terms', 'Terms of use'],
+    ['Privacy', '/privacy', 'Privacy'],
+    ['Disclaimer', '/disclaimer', 'Disclaimer'],
+  ] as const) {
+    await expect(legal.getByRole('link', { name: label })).toHaveAttribute('href', path);
+    await page.goto(path);
+    await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
+    await expect(page.getByRole('note')).toContainText('Draft — pending legal review');
+    // Nothing invented about the company: its details stay as placeholders.
+    if (path !== '/disclaimer')
+      await expect(page.getByText(/\[COMPANY NAME\]/).first()).toBeVisible();
+    await accessible(page);
+    await page.goto('/');
+  }
+  await page.goto('/disclaimer');
+  await expect(page.getByText('Not financial advice')).toBeVisible();
 });

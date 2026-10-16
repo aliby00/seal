@@ -1,0 +1,104 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  createRpcClient,
+  DEFAULT_RPC_URL,
+  logsRpcUrls,
+  parseRpcUrls,
+  resetThrottle,
+  rpcUrls,
+} from '../../src/lib/chain/rpc';
+import { createBudget, BudgetExhaustedError } from '../../src/lib/http';
+
+beforeEach(() => resetThrottle());
+afterEach(() => vi.unstubAllGlobals());
+
+type Behaviour = 'ok' | 'http-500' | 'http-429' | 'json-429' | 'network' | 'http-401';
+
+/** Each host answers the way the test says; every request is recorded. */
+function nodes(behaviour: Record<string, Behaviour>) {
+  const calls: string[] = [];
+  vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    calls.push(url);
+    const mode = behaviour[url] ?? 'ok';
+    if (mode === 'network') throw new TypeError('fetch failed');
+    if (mode === 'http-500') return new Response('down', { status: 500 });
+    if (mode === 'http-429') return new Response('slow down', { status: 429 });
+    if (mode === 'http-401') return new Response('bad key', { status: 401 });
+    if (mode === 'json-429') {
+      return new Response(JSON.stringify({ id: 1, error: { code: 429, message: 'busy' } }));
+    }
+    const body = JSON.parse(String(init?.body ?? '{}')) as { id: number } | { id: number }[];
+    const out = Array.isArray(body)
+      ? body.map((b) => ({ id: b.id, result: url }))
+      : { id: 1, result: url };
+    return new Response(JSON.stringify(out));
+  });
+  return calls;
+}
+
+const A = 'https://a.example';
+const B = 'https://b.example';
+
+describe('node lists', () => {
+  it('reads several nodes from one variable', () => {
+    expect(parseRpcUrls(` ${A}, ${B} ,,`)).toEqual([A, B]);
+    expect(parseRpcUrls(undefined)).toEqual([]);
+  });
+
+  it('tries the configured nodes first and always ends on the public node', () => {
+    expect(rpcUrls(undefined, {})).toEqual([DEFAULT_RPC_URL]);
+    expect(rpcUrls(A, { RPC_URL_FALLBACK: B })).toEqual([A, B, DEFAULT_RPC_URL]);
+    expect(rpcUrls(`${A},${DEFAULT_RPC_URL}`, {})).toEqual([A, DEFAULT_RPC_URL]);
+    expect(logsRpcUrls({ LOGS_RPC_URL: A, LOGS_RPC_URL_FALLBACK: B })).toEqual([
+      A,
+      B,
+      DEFAULT_RPC_URL,
+    ]);
+  });
+});
+
+describe('a failing node hands the request to the next one', () => {
+  it.each<Behaviour>(['http-500', 'http-429', 'json-429', 'network', 'http-401'])(
+    'on %s',
+    async (failure) => {
+      const calls = nodes({ [A]: failure });
+      const rpc = createRpcClient([A, B], undefined, [B]);
+      await expect(rpc.call('eth_blockNumber', [])).resolves.toBe(B);
+      // The failing node is not retried: the next one is faster than a backoff.
+      expect(calls).toEqual([A, B]);
+    },
+  );
+
+  it('starts every request from the first node again', async () => {
+    const behaviour: Record<string, Behaviour> = { [A]: 'http-500' };
+    const calls = nodes(behaviour);
+    const rpc = createRpcClient([A, B], undefined, [B]);
+    await rpc.call('eth_blockNumber', []);
+    behaviour[A] = 'ok';
+    await expect(rpc.call('eth_blockNumber', [])).resolves.toBe(A);
+    expect(calls).toEqual([A, B, A]);
+  });
+
+  it('fails over for log queries and batches too', async () => {
+    const calls = nodes({ [A]: 'http-500' });
+    const rpc = createRpcClient([B], undefined, [A, B]);
+    const out = await rpc.callBatch([{ method: 'eth_getLogs', params: [{}] }]);
+    expect(out).toEqual([{ ok: true, value: B }]);
+    expect(calls).toEqual([A, B]);
+  });
+
+  it('falls back to the public node when every configured node fails', async () => {
+    const calls = nodes({ [A]: 'network', [B]: 'http-500' });
+    const rpc = createRpcClient([A, B], undefined, [B]);
+    await expect(rpc.call('eth_blockNumber', [])).resolves.toBe(DEFAULT_RPC_URL);
+    expect(calls).toEqual([A, B, DEFAULT_RPC_URL]);
+  });
+
+  it('does not fail over a spent analysis budget', async () => {
+    nodes({});
+    const budget = createBudget(0);
+    const rpc = createRpcClient([A, B], budget, [B]);
+    await expect(rpc.call('eth_blockNumber', [])).rejects.toBeInstanceOf(BudgetExhaustedError);
+  });
+});

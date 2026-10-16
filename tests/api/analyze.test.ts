@@ -1,14 +1,18 @@
+import { getAddress } from 'viem';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const collect = vi.hoisted(() => vi.fn());
 const explain = vi.hoisted(() => vi.fn());
+const briefSpecialists = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/collect', () => ({ collect }));
 vi.mock('@/lib/agent/reason', () => ({ explain }));
+vi.mock('@/lib/specialists/brief', () => ({ briefSpecialists, SPECIALIST_TIMEOUT_MS: 12_000 }));
 
 const { POST } = await import('../../src/app/api/analyze/route');
 const { RateLimitError, NotFoundError } = await import('../../src/lib/errors');
 const { resetRateLimits } = await import('../../src/lib/guard');
+const { analysisCache } = await import('../../src/lib/analysis-cache');
 
 const TOKEN = '0x494ddf6f7b4b045ede0abbb9ae86e4d59fa62ec9';
 
@@ -36,6 +40,7 @@ function post(body: unknown): Request {
 afterEach(() => {
   vi.clearAllMocks();
   resetRateLimits();
+  analysisCache.clear();
 });
 
 describe('POST /api/analyze', () => {
@@ -117,8 +122,88 @@ describe('configuration', () => {
       expect.objectContaining({ rpcUrl: 'https://rpc.example/key' }),
     );
     vi.stubEnv('RPC_URL', '');
+    analysisCache.clear();
     await POST(post({ token: TOKEN }));
     expect(collect).toHaveBeenLastCalledWith(TOKEN, expect.objectContaining({ rpcUrl: undefined }));
     vi.unstubAllEnvs();
+  });
+
+  // The same token asked twice spends one model call: the second answer is
+  // the first one, marked as cached and free.
+  it('sert une analyse déjà faite depuis le cache, sans rien dépenser', async () => {
+    collect.mockResolvedValue(report);
+    explain.mockResolvedValue({
+      text: 'ok',
+      cost: { costUsd: 0.012 },
+      violations: [],
+      offline: false,
+    });
+    await POST(post({ token: TOKEN }));
+    // Same token, other casing (the checksummed form): same cache entry.
+    const res = await POST(post({ token: getAddress(TOKEN) }));
+    const body = (await res.json()) as { costUsd: number; cached?: boolean; explanation: string };
+    expect(res.status).toBe(200);
+    expect(body).toMatchObject({ costUsd: 0, cached: true, explanation: 'ok' });
+    expect(collect).toHaveBeenCalledTimes(1);
+    expect(explain).toHaveBeenCalledTimes(1);
+  });
+
+  it('ne garde pas une lecture coupée par le nœud', async () => {
+    collect.mockResolvedValue({
+      ...report,
+      creator: {
+        ...report.creator,
+        sources: [{ name: 'robinhood-rpc', note: 'their other launches could not be read' }],
+      },
+    });
+    explain.mockResolvedValue({ text: 'ok', cost: { costUsd: 0.01 }, violations: [] });
+    await POST(post({ token: TOKEN }));
+    await POST(post({ token: TOKEN }));
+    expect(collect).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('specialists and timeline', () => {
+  it('serves the ten answers and the token name beside the explanation', async () => {
+    collect.mockResolvedValue(report);
+    explain.mockResolvedValue({ text: 'ok', cost: { costUsd: 0.01 }, violations: [] });
+    briefSpecialists.mockResolvedValue({
+      name: 'Alpha',
+      symbol: 'ALP',
+      answers: [
+        {
+          specialist: 'holder-spread',
+          title: 'Holder Spread',
+          question: 'How much of the supply sits in a few wallets?',
+          signal: 'quiet',
+          facts: ['x'],
+          limits: [],
+        },
+      ],
+    });
+    const body = (await (await POST(post({ token: TOKEN }))).json()) as Record<string, unknown>;
+    expect(body.name).toBe('Alpha');
+    expect(body.symbol).toBe('ALP');
+    expect(body.specialists).toHaveLength(1);
+    expect(JSON.stringify(body)).not.toMatch(/score|verdict|\d+\s*\/\s*10\b/i);
+    // The answers reach the model, so the text and the tiles tell one story.
+    expect(explain.mock.calls.at(-1)?.[1]).toMatchObject({
+      specialists: [expect.objectContaining({ specialist: 'holder-spread' })],
+    });
+    // Their time is bounded so the request stays under maxDuration.
+    const timeoutMs = briefSpecialists.mock.calls.at(-1)?.[2]?.timeoutMs as number;
+    expect(timeoutMs).toBeGreaterThanOrEqual(1_000);
+    expect(timeoutMs).toBeLessThanOrEqual(12_000);
+  });
+
+  it('still serves the analysis when the specialists fail', async () => {
+    collect.mockResolvedValue(report);
+    explain.mockResolvedValue({ text: 'ok', cost: { costUsd: 0.01 }, violations: [] });
+    briefSpecialists.mockRejectedValue(new Error('node down'));
+    const res = await POST(post({ token: TOKEN }));
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(res.status).toBe(200);
+    expect(body.specialists).toBeUndefined();
+    expect(body.explanation).toBe('ok');
   });
 });
