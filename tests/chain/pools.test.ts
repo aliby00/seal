@@ -4,11 +4,13 @@ import {
   NATIVE,
   WETH,
   decodeInitialize,
+  pickMarket,
   tokenSide,
   type V4Market,
 } from '../../src/lib/chain/pools';
 import { MARKETS, REUSED_HOOK } from '../specialists/helpers';
 import initialize from './fixtures/initialize.json';
+import type { RpcClient } from '../../src/lib/chain/rpc';
 
 describe('decodeInitialize — log réel du PoolManager', () => {
   const market = decodeInitialize(initialize);
@@ -79,5 +81,59 @@ describe('MarketIndex', () => {
   it('se sérialise et se recharge à l’identique', () => {
     const reloaded = MarketIndex.fromJSON(JSON.parse(JSON.stringify(index)));
     expect(reloaded.all()).toEqual(index.all());
+  });
+});
+
+describe('pickMarket', () => {
+  const TOKEN = '0x00000000000000000000000000000000000000aa';
+  const CREATOR = '0x00000000000000000000000000000000000000cc';
+  const market = (id: string, blockNumber: number, quote = NATIVE): V4Market => ({
+    id,
+    currency0: quote,
+    currency1: TOKEN,
+    fee: 0,
+    tickSpacing: 1,
+    hook: NATIVE,
+    blockNumber,
+    transactionHash: `0xtx-${id}`,
+  });
+  // A stranger's empty market opened first, the creator's busy one after.
+  const junk = market('0x01', 10);
+  const real = market('0x02', 20);
+
+  function node(senders: Record<string, string>, swaps: Record<string, number | 'busy'>) {
+    return {
+      async call() {
+        throw new Error('not used');
+      },
+      async callBatch(batch: { method: string; params: unknown[] }[]) {
+        return batch.map((r) => {
+          if (r.method === 'eth_getTransactionByHash') {
+            return { ok: true, value: { from: senders[r.params[0] as string] ?? '0xother' } };
+          }
+          const id = (r.params[0] as { topics: string[] }).topics[1] as string;
+          const n = swaps[id] ?? 0;
+          return n === 'busy'
+            ? { ok: false, error: 'query exceeds limit' }
+            : { ok: true, value: Array.from({ length: n }, () => ({})) };
+        });
+      },
+    } as unknown as RpcClient;
+  }
+
+  it('takes the market the creator opened, not the first one', async () => {
+    const rpc = node({ '0xtx-0x02': CREATOR }, {});
+    expect(await pickMarket(rpc, [junk, real], { creator: CREATOR, latestBlock: 100 })).toBe(real);
+  });
+
+  it('without a creator, takes the market that trades the most', async () => {
+    const rpc = node({}, { '0x01': 0, '0x02': 'busy' });
+    expect(await pickMarket(rpc, [junk, real], { latestBlock: 100 })).toBe(real);
+  });
+
+  it('falls back to the earliest market quoted against ETH', async () => {
+    const odd = market('0x03', 5, '0x00000000000000000000000000000000000000ee');
+    const rpc = node({}, {});
+    expect(await pickMarket(rpc, [odd, junk, real], { latestBlock: 100 })).toBe(junk);
   });
 });
