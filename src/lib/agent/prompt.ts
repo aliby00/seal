@@ -1,4 +1,5 @@
 import type { TokenReport } from '../contracts';
+import type { SpecialistAnswer } from '../specialists/brief';
 
 /**
  * Le system prompt est un préfixe **stable** : il ne contient aucune donnée de
@@ -29,7 +30,7 @@ If the evidence is too incomplete to support a useful observation, say so clearl
 Always write in English, even when source notes or input labels are in another language. Use plain prose, stay factual and nuanced, and avoid unnecessary jargon.`;
 
 /** Rend le rapport lisible par le modèle, en nommant explicitement les trous. */
-export function renderReport(report: TokenReport): string {
+export function renderReport(report: TokenReport, specialists?: SpecialistAnswer[]): string {
   const lines: string[] = [];
 
   lines.push(`Token analysé : ${report.token}`);
@@ -161,5 +162,35 @@ export function renderReport(report: TokenReport): string {
     lines.push('Volume : non disponible');
   }
 
+  if (specialists && specialists.length > 0) lines.push('', ...renderSpecialists(specialists));
+
   return lines.join('\n');
+}
+
+/** How each kind of answer is named to the model: the kind of fact, never a verdict. */
+const SIGNAL_WORD: Record<SpecialistAnswer['signal'], string> = {
+  concern: 'fait qui mérite l’attention',
+  reassurance: 'fait qui écarte un mécanisme connu',
+  observation: 'fait notable',
+  quiet: 'rien de notable',
+  unknown: 'non mesuré',
+};
+
+/**
+ * The ten questions the reader sees as tiles beside the text. The model may
+ * cite them, never count them: a tally of answers would be a score by another
+ * name.
+ */
+export function renderSpecialists(answers: SpecialistAnswer[]): string[] {
+  const lines = [
+    '## Les dix questions (affichées en tuiles à côté de ton texte)',
+    'Chaque question se lit seule. Ne les additionne pas, ne compte pas les réponses par type, ne les classe pas. ' +
+      'Reprends celles qui éclairent le reste, et nomme une question non mesurée seulement si son absence empêche une conclusion.',
+  ];
+  for (const answer of answers) {
+    lines.push(`- ${answer.title} — ${answer.question} → ${SIGNAL_WORD[answer.signal]}`);
+    for (const fact of answer.facts.slice(0, 3)) lines.push(`  · fait : ${fact}`);
+    for (const limit of answer.limits.slice(0, 2)) lines.push(`  · limite : ${limit}`);
+  }
+  return lines;
 }

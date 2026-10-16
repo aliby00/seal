@@ -34,7 +34,7 @@ export type SpecialistBrief = {
   symbol: string | null;
 };
 
-/** The on-chain lookups run beside the model call: they must be done before it is. */
+/** Upper bound for the on-chain lookups; they run before the model writes, so they add to the wait. */
 export const SPECIALIST_TIMEOUT_MS = 12_000;
 /** Requests these lookups may spend, on top of the collection's own budget. */
 export const SPECIALIST_BUDGET = 20;

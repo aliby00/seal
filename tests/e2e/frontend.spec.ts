@@ -93,6 +93,13 @@ const report = {
       checked: 10,
       soldIntoPool: 7,
       liquidityPulled: 1,
+      salesChecked: 10,
+      liquidityChecked: 8,
+      source: 'pons',
+      role: null,
+      launchContract: null,
+      launchesListed: true,
+      transactionCount: 860,
     },
     holders: {
       measured: true,
@@ -132,7 +139,9 @@ test('report draws the measured facts, says what is missing, and gives no score'
   ).toBeVisible();
   await expect(board.getByText('Launches read in detail, in time order')).toBeVisible();
   await expect(board.getByText('No trading pair listed on DexScreener.')).toBeVisible();
-  await expect(board.getByText('7 of 10')).toBeVisible();
+  await expect(board.getByText('7 of 10 checked')).toBeVisible();
+  await expect(board.getByText('1 of 8 checked')).toBeVisible();
+  await expect(board.getByText('Found from their pons launch record.')).toBeVisible();
   await expect(board).not.toContainText(/score|\/10|\/100/i);
   await accessible(page);
 });

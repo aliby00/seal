@@ -7,7 +7,7 @@ const briefSpecialists = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/collect', () => ({ collect }));
 vi.mock('@/lib/agent/reason', () => ({ explain }));
-vi.mock('@/lib/specialists/brief', () => ({ briefSpecialists }));
+vi.mock('@/lib/specialists/brief', () => ({ briefSpecialists, SPECIALIST_TIMEOUT_MS: 12_000 }));
 
 const { POST } = await import('../../src/app/api/analyze/route');
 const { RateLimitError, NotFoundError } = await import('../../src/lib/errors');
@@ -186,6 +186,14 @@ describe('specialists and timeline', () => {
     expect(body.symbol).toBe('ALP');
     expect(body.specialists).toHaveLength(1);
     expect(JSON.stringify(body)).not.toMatch(/score|verdict|\d+\s*\/\s*10\b/i);
+    // The answers reach the model, so the text and the tiles tell one story.
+    expect(explain.mock.calls.at(-1)?.[1]).toMatchObject({
+      specialists: [expect.objectContaining({ specialist: 'holder-spread' })],
+    });
+    // Their time is bounded so the request stays under maxDuration.
+    const timeoutMs = briefSpecialists.mock.calls.at(-1)?.[2]?.timeoutMs as number;
+    expect(timeoutMs).toBeGreaterThanOrEqual(1_000);
+    expect(timeoutMs).toBeLessThanOrEqual(12_000);
   });
 
   it('still serves the analysis when the specialists fail', async () => {

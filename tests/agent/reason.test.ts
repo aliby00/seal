@@ -239,3 +239,41 @@ describe('renderReport : ventes et retraits du créateur', () => {
     expect(rendered).toMatch(/vente du créateur : non vérifié/);
   });
 });
+
+describe('renderReport : les dix questions', () => {
+  const answers = [
+    {
+      specialist: 'holder-spread' as const,
+      title: 'Holder Spread',
+      question: 'How much of the supply sits in a few wallets?',
+      signal: 'concern' as const,
+      facts: ['The largest holder has 46% of counted supply.'],
+      limits: [],
+    },
+    {
+      specialist: 'sell-path' as const,
+      title: 'Sell Path',
+      question: 'Can holders sell, and can the rulebook stand in the way?',
+      signal: 'unknown' as const,
+      facts: [],
+      limits: ['recent trades were not collected'],
+    },
+  ];
+
+  it('transmet chaque question avec ses faits et ses limites', () => {
+    const rendered = renderReport(report, answers);
+    expect(rendered).toContain('Holder Spread');
+    expect(rendered).toContain('fait : The largest holder has 46% of counted supply.');
+    expect(rendered).toContain('limite : recent trades were not collected');
+  });
+
+  it('interdit de les additionner ou de les compter', () => {
+    const rendered = renderReport(report, answers);
+    expect(rendered).toMatch(/Ne les additionne pas/);
+    expect(rendered).not.toMatch(/\d+\s*\/\s*10|score/i);
+  });
+
+  it('ne change rien quand les réponses manquent', () => {
+    expect(renderReport(report, [])).toBe(renderReport(report));
+  });
+});
