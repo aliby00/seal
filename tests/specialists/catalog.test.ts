@@ -289,3 +289,18 @@ describe('tokens sans marché v4', () => {
     expect(f.limits[0]).toMatch(/no market was found for this token/);
   });
 });
+
+describe('sell-path sur un pool v4 sans rulebook', () => {
+  it('dit qu’aucun contrat ne se place entre une vente et le pool', () => {
+    const m = market((x) => x.hook === '0x0000000000000000000000000000000000000000');
+    const f = CATALOG['sell-path'].run({
+      token: m.token,
+      market: m,
+      hook: null,
+      report: makeReport(m.token),
+    });
+    expect(f.signal).toBe('reassurance');
+    expect(f.facts[0]).toMatch(/no rulebook \(hook\)/);
+    expect(f.facts[1]).toMatch(/30 sell\(s\)/);
+  });
+});
