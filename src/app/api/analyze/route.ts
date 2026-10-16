@@ -7,7 +7,11 @@ import { SealError } from '@/lib/errors';
 import { ANALYZE_LIMIT, guardedJson } from '@/lib/guard';
 import { log } from '@/lib/logger';
 import { analysisCache, type CachedAnalysis } from '@/lib/analysis-cache';
-import { briefSpecialists, type SpecialistBrief } from '@/lib/specialists/brief';
+import {
+  briefSpecialists,
+  SPECIALIST_TIMEOUT_MS,
+  type SpecialistBrief,
+} from '@/lib/specialists/brief';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -19,6 +23,12 @@ export const maxDuration = 60;
  * kills the function.
  */
 const COLLECT_TIMEOUT_MS = 30_000;
+/** What the whole request may take, under maxDuration with a margin. */
+const REQUEST_BUDGET_MS = 56_000;
+/** Kept for the model: the provider's own timeout. */
+const MODEL_ALLOWANCE_MS = 25_000;
+/** The questions always get a short chance, even after a slow collection. */
+const MIN_SPECIALIST_MS = 1_000;
 
 /** The response body. Its shape is kept with the cache, which stores it as is. */
 export type AnalyzeResponse = CachedAnalysis;
@@ -53,9 +63,13 @@ function timeline(report: Parameters<typeof toTimeline>[0]): TimelineLaunch[] | 
 async function specialists(
   token: string,
   report: Parameters<typeof toFacts>[0],
+  timeoutMs: number,
 ): Promise<SpecialistBrief | undefined> {
   try {
-    return await briefSpecialists(token, report, { rpcUrl: process.env.RPC_URL || undefined });
+    return await briefSpecialists(token, report, {
+      rpcUrl: process.env.RPC_URL || undefined,
+      timeoutMs,
+    });
   } catch (error) {
     log.warn('spécialistes indisponibles', { token, error: String(error) });
     return undefined;
@@ -95,8 +109,16 @@ export async function POST(request: Request): Promise<Response> {
       ),
     ]);
 
-    // The specialists read the chain while the model writes: no added wait.
-    const [explanation, brief] = await Promise.all([explain(report), specialists(token, report)]);
+    // The ten questions are answered before the text is written, so the text
+    // can draw on them. Their time is what is left once the model's own
+    // allowance is set aside, so the whole request stays under maxDuration.
+    const left = REQUEST_BUDGET_MS - (Date.now() - started) - MODEL_ALLOWANCE_MS;
+    const brief = await specialists(
+      token,
+      report,
+      Math.max(MIN_SPECIALIST_MS, Math.min(SPECIALIST_TIMEOUT_MS, left)),
+    );
+    const explanation = await explain(report, { specialists: brief?.answers });
 
     // Une sortie non conforme ne doit pas atteindre l'utilisateur : c'est une
     // contrainte de conception du produit, pas une préférence de style.

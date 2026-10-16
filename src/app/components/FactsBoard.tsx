@@ -277,6 +277,25 @@ function Missing({ note }: { note?: string }) {
   return <p className="fact-missing">Not measured{plain ? <span> — {plain}</span> : '.'}</p>;
 }
 
+/**
+ * How the creator was found, said plainly. A first minter only sent the first
+ * mint: that does not prove they wrote the token, and the card says so.
+ */
+export function creatorOrigin(creator: ReportFacts['creator']): string | null {
+  const via = creator.launchContract ? ` through ${short(creator.launchContract)}` : '';
+  if (creator.source === 'pons') return 'Found from their pons launch record.';
+  switch (creator.role) {
+    case 'deployer':
+      return 'Deployed the token contract.';
+    case 'launcher':
+      return `Launched the token${via}.`;
+    case 'first-minter':
+      return 'Sent the first mint. This does not prove who wrote the token.';
+    default:
+      return null;
+  }
+}
+
 function CreatorCard({
   creator,
   timeline,
@@ -285,6 +304,9 @@ function CreatorCard({
   timeline?: TimelineLaunch[];
 }) {
   const wide = creator.measured && (timeline?.length ?? 0) >= 2;
+  // A report cached before these counts existed carries only `checked`.
+  const salesChecked = creator.salesChecked ?? creator.checked;
+  const liquidityChecked = creator.liquidityChecked ?? creator.checked;
   return (
     <section className="fact-card" data-wide={wide || undefined} aria-labelledby="fact-creator">
       <h3 id="fact-creator">Creator</h3>
@@ -293,10 +315,18 @@ function CreatorCard({
       ) : (
         <>
           <p className="fact-big">
+            {creator.launchesListed === false && <span>at least </span>}
             {creator.launched}
             <span> token{creator.launched === 1 ? '' : 's'} launched</span>
           </p>
-          {creator.address && <p className="fact-mono">{short(creator.address)}</p>}
+          {creator.address && (
+            <p className="fact-mono">
+              {short(creator.address)}
+              {creator.transactionCount != null &&
+                ` · ${creator.transactionCount} transaction${creator.transactionCount === 1 ? '' : 's'} sent`}
+            </p>
+          )}
+          {creatorOrigin(creator) && <p className="fact-line">{creatorOrigin(creator)}</p>}
           <Split
             label={`Outcomes of ${creator.detailed} launches read in detail`}
             parts={[
@@ -307,18 +337,30 @@ function CreatorCard({
             ]}
           />
           {timeline && <Timeline launches={timeline} />}
-          {creator.checked > 0 && (
+          {salesChecked + liquidityChecked > 0 && (
             <dl className="fact-pairs">
               <div>
                 <dt>Sold into the pool</dt>
                 <dd>
-                  {creator.soldIntoPool} <span>of {creator.checked}</span>
+                  {salesChecked > 0 ? (
+                    <>
+                      {creator.soldIntoPool} <span>of {salesChecked} checked</span>
+                    </>
+                  ) : (
+                    <span>not measured</span>
+                  )}
                 </dd>
               </div>
               <div>
                 <dt>Liquidity removed</dt>
                 <dd>
-                  {creator.liquidityPulled} <span>of {creator.checked}</span>
+                  {liquidityChecked > 0 ? (
+                    <>
+                      {creator.liquidityPulled} <span>of {liquidityChecked} checked</span>
+                    </>
+                  ) : (
+                    <span>not measured</span>
+                  )}
                 </dd>
               </div>
             </dl>

@@ -27,6 +27,28 @@ function finding(
 const unknown = (id: SpecialistId, why: string): Finding => finding(id, 'unknown', [], [why]);
 
 /**
+ * Where the token trades when it has no Uniswap v4 market, said for a person:
+ * the questions that read a v4 rulebook then say why there is nothing to read,
+ * rather than a bare "not found".
+ */
+export function marketElsewhere(report: SpecialistContext['report']): string | null {
+  const data = report?.market.data;
+  if (!data) return null;
+  if (data.graduation && !data.graduation.graduated) return 'its pons launch pool';
+  if (data.pair)
+    return `a trading pair listed by DexScreener (${data.pair.slice(0, 6)}…${data.pair.slice(-4)})`;
+  return null;
+}
+
+/** Why a v4-only question has no answer, in plain words. */
+export function noV4Market(report: SpecialistContext['report']): string {
+  const where = marketElsewhere(report);
+  return where
+    ? `this token trades on ${where}, not on a Uniswap v4 pool, so there is no v4 rulebook for this question to read`
+    : 'no market was found for this token: no Uniswap v4 pool, no pons pool, and no pair listed by DexScreener';
+}
+
+/**
  * Familles de tokens reconnues par leur beacon EIP-1967.
  *
  * Relevé le 11/10/2026 : les tokens « … • Robinhood Token » (AMZN, SPCX…)
@@ -57,8 +79,8 @@ const codeReuse: Specialist = {
   id: 'code-reuse',
   title: 'Code Reuse',
   question: 'Has this market’s rulebook already been used by other markets?',
-  run({ market, index }: SpecialistContext): Finding {
-    if (!market) return unknown('code-reuse', 'no Uniswap v4 market found for this token');
+  run({ market, index, report }: SpecialistContext): Finding {
+    if (!market) return unknown('code-reuse', noV4Market(report));
     if (market.hook === NATIVE) {
       return finding('code-reuse', 'quiet', ['This market runs without a rulebook (no hook).']);
     }
@@ -154,8 +176,8 @@ const nameClone: Specialist = {
   id: 'name-clone',
   title: 'Name Clone',
   question: 'Does the token borrow a name it does not own, or reuse an earlier token’s name?',
-  run({ market, index, tokenBeacon }: SpecialistContext): Finding {
-    if (!market) return unknown('name-clone', 'no Uniswap v4 market found for this token');
+  run({ market, index, tokenBeacon, report }: SpecialistContext): Finding {
+    if (!market) return unknown('name-clone', noV4Market(report));
     const { name, symbol } = market;
     const limits: string[] = [];
     if (!name && !symbol) return unknown('name-clone', 'name and symbol could not be read');
@@ -289,7 +311,25 @@ const sellPath: Specialist = {
   question: 'Can holders sell, and can the rulebook stand in the way?',
   run({ hook, report }: SpecialistContext): Finding {
     if (hook === undefined || hook === null) {
-      return unknown('sell-path', 'no Uniswap v4 rulebook found for this token');
+      const where = marketElsewhere(report);
+      const txns = report?.market.data.txns?.h24 ?? null;
+      if (!where) return unknown('sell-path', noV4Market(report));
+      const facts = [
+        `No Uniswap v4 rulebook sits in front of trades: this token trades on ${where}.`,
+      ];
+      if (txns && txns.sells > 0) {
+        facts.push(
+          `${txns.sells} sell(s) and ${txns.buys} buy(s) went through in the last 24 hours.`,
+        );
+        return finding('sell-path', 'quiet', facts, [
+          'the pool’s own contract is not read here; recent sells show that selling worked in that window',
+        ]);
+      }
+      return finding('sell-path', 'unknown', facts, [
+        txns
+          ? 'no sell went through in the last 24 hours, so whether selling works is not shown either way'
+          : 'recent trades were not collected, so whether selling works is not shown',
+      ]);
     }
     const ids = new Set(hook.capabilities.map((c) => c.id));
     const txns = report?.market.data.txns?.h24 ?? null;
@@ -399,8 +439,8 @@ const ruleChange: Specialist = {
   id: 'rule-change',
   title: 'Rule Change',
   question: 'Can the rulebook be rewritten after people have bought?',
-  run({ market, hookCode }: SpecialistContext): Finding {
-    if (!market) return unknown('rule-change', 'no Uniswap v4 market found for this token');
+  run({ market, hookCode, report }: SpecialistContext): Finding {
+    if (!market) return unknown('rule-change', noV4Market(report));
     if (market.hook === NATIVE) {
       return finding('rule-change', 'quiet', ['There is no rulebook to rewrite.']);
     }
