@@ -5,6 +5,7 @@ import { fetchBlockTimestamps } from './graduation';
 import { getLogsBatched, type RawLog } from './logs';
 import { POOL_MANAGER } from './pools';
 import type { RpcClient } from './rpc';
+import { readTxNatures } from './trades';
 
 /**
  * The creator of a token that is not a pons launch.
@@ -492,11 +493,32 @@ export async function fetchDeployerHistory(
     ).catch(() => detailed.map(() => null)),
   ]);
 
+  // A transfer into a curve is a sale on it. A transfer into a pool is one
+  // only when the pool swapped in that transaction: without a swap, it is the
+  // creator providing liquidity, not selling.
   const sold = new Map(salesTargets.map((l) => [l.token, false]));
+  const intoPool: { token: string; hash: string }[] = [];
   for (const log of sales.logs) {
     const token = lower(log.address);
-    if (venues.get(token)?.saleRecipients.includes(fromTopic(log.topics[2]))) sold.set(token, true);
+    const to = fromTopic(log.topics[2]);
+    if (!venues.get(token)?.saleRecipients.includes(to)) continue;
+    if (origin.launchContract && to === lower(origin.launchContract)) sold.set(token, true);
+    else intoPool.push({ token, hash: log.transactionHash });
   }
+  const marketAddresses = new Set([...tokenOfPool.keys(), lower(POOL_MANAGER)]);
+  const natures = await readTxNatures(
+    rpc,
+    intoPool.map((t) => t.hash),
+    marketAddresses,
+  ).catch(() => new Map<string, never>());
+  const unread = new Set<string>();
+  for (const { token, hash } of intoPool) {
+    const nature = natures.get(hash);
+    if (nature === 'swap') sold.set(token, true);
+    else if (nature === undefined) unread.add(token);
+  }
+  // A transaction whose receipt was not read could have been a sale.
+  for (const token of unread) if (!sold.get(token)) sold.delete(token);
   const soldKnown = unseenAsUnknown(sold, sales.truncated);
 
   const liquidityTargets = new Set([...tokenOfPool.values(), ...tokenOfMarket.values()]);

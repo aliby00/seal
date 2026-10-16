@@ -20,14 +20,29 @@ function word(n: bigint): string {
   return n.toString(16).padStart(64, '0');
 }
 
-function nodeReturning(logs: RawLog[]): RpcClient {
+const SWAP = '0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67';
+const MINT = '0x7a53080ba414158be7ec69b987b5fb7d07dee101fe85488f0853ae16239d0bde';
+
+/** `receipt`: the pool events of every transaction, or `null` for an unreadable receipt. */
+function nodeReturning(logs: RawLog[], receipt: string[] | null = [SWAP]): RpcClient {
   return {
     async call<T>(): Promise<T> {
       return logs as unknown as T;
     },
     // One batched eth_getLogs per (address, window): the logs come back once.
-    async callBatch(requests: unknown[]) {
-      return requests.map((_, i) => ({ ok: true, value: i === 0 ? logs : [] }));
+    async callBatch(requests: { method: string }[]) {
+      return requests.map((r, i) =>
+        r.method === 'eth_getTransactionReceipt'
+          ? receipt
+            ? {
+                ok: true,
+                value: {
+                  logs: receipt.map((topic) => ({ address: POOL, topics: [topic], data: '0x' })),
+                },
+              }
+            : { ok: false, error: 'missing' }
+          : { ok: true, value: i === 0 ? logs : [] },
+      );
     },
   } as unknown as RpcClient;
 }
@@ -85,6 +100,28 @@ describe('detectCreatorSales', () => {
       window,
     );
     expect(out.get(TOKEN)).toBe(true);
+  });
+
+  // Providing to a V3 position pulls the tokens from the provider straight
+  // into the pool: the same Transfer as a sale, without a Swap.
+  it('ne compte pas un apport de liquidité comme une vente', async () => {
+    const out = await detectCreatorSales(
+      nodeReturning([transfer(POOL)], [MINT]),
+      CREATOR as `0x${string}`,
+      pairs,
+      window,
+    );
+    expect(out.get(TOKEN)).toBe(false);
+  });
+
+  it('dit inconnu quand le reçu de la transaction est illisible', async () => {
+    const out = await detectCreatorSales(
+      nodeReturning([transfer(POOL)], null),
+      CREATOR as `0x${string}`,
+      pairs,
+      window,
+    );
+    expect(out.has(TOKEN)).toBe(false);
   });
 
   // Envoyer ses tokens vers un autre wallet n'est pas une vente : c'est ambigu,

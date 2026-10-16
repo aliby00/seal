@@ -5,7 +5,8 @@ import { TRANSFER_TOPIC } from './behavior';
 import { fetchBlockTimestamps } from './graduation';
 import type { RawLog } from './logs';
 import { POOL_MANAGER } from './pools';
-import type { RpcClient } from './rpc';
+import { LogQueryTooBroadError, type RpcClient } from './rpc';
+import { readTxNatures } from './trades';
 
 /**
  * The first minutes of a token, replayed from its own `Transfer` events.
@@ -22,6 +23,8 @@ export const LAUNCH_WINDOW_SECONDS = 600;
  * so twice the ten minutes, in case blocks were slower when the token was born.
  */
 const WINDOW_BLOCKS = 12_000;
+/** A launch too busy to read under this many blocks is not replayed. */
+const MIN_WINDOW_BLOCKS = 150;
 /** Moves listed. Beyond, they are counted, not drawn. */
 export const MAX_MOVES = 40;
 
@@ -177,6 +180,61 @@ export function selectMoves<T extends DraftMove>(moves: readonly T[], creator: s
   return moves.filter((m) => chosen.has(m));
 }
 
+/**
+ * A transfer into or out of a pool reads the same for a trade and for a
+ * liquidity change: the transaction's receipt tells them apart. A move whose
+ * receipt could not be read keeps its trade reading.
+ */
+export async function separateLiquidity<T extends DraftMove>(
+  rpc: RpcClient,
+  moves: readonly T[],
+  pools: ReadonlySet<string>,
+): Promise<T[]> {
+  const pooled = moves.filter((m) => m.kind === 'buy' || m.kind === 'sell');
+  if (pooled.length === 0) return [...moves];
+  const natures = await readTxNatures(
+    rpc,
+    pooled.map((m) => m.transaction),
+    pools,
+  ).catch(() => new Map<string, never>());
+  return moves.map((m) =>
+    (m.kind === 'buy' || m.kind === 'sell') && natures.get(m.transaction) === 'liquidity'
+      ? { ...m, kind: m.kind === 'sell' ? 'provide' : 'withdraw' }
+      : m,
+  );
+}
+
+/**
+ * The transfers after the launch block. A launch so busy that the node
+ * refuses the whole window is read over a shorter one, halved until it fits:
+ * the replay then covers fewer minutes, and says so.
+ */
+async function readTransfers(
+  rpc: RpcClient,
+  token: Address,
+  from: number,
+  to: number,
+): Promise<{ logs: RawLog[]; to: number; narrowed: boolean }> {
+  let end = to;
+  for (;;) {
+    try {
+      const logs = await rpc.call<RawLog[]>('eth_getLogs', [
+        {
+          address: token,
+          topics: [TRANSFER_TOPIC],
+          fromBlock: `0x${from.toString(16)}`,
+          toBlock: `0x${end.toString(16)}`,
+        },
+      ]);
+      return { logs, to: end, narrowed: end < to };
+    } catch (error) {
+      const span = end - from;
+      if (!(error instanceof LogQueryTooBroadError) || span <= MIN_WINDOW_BLOCKS) throw error;
+      end = from + Math.floor(span / 2);
+    }
+  }
+}
+
 /** Share of `supply`, rounded to 1e-6 so the JSON stays readable. */
 function shareOf(value: bigint, supply: bigint): number {
   if (supply <= 0n) return 0;
@@ -211,19 +269,11 @@ export async function readLaunchReplay(
   const pools = new Set([...options.pools, POOL_MANAGER].map((a) => a.toLowerCase()));
   const creator = options.creator?.toLowerCase() ?? null;
   const from = options.launchBlock;
-  const to = Math.min(options.latestBlock, from + WINDOW_BLOCKS);
-
-  const [logs, supplyHex] = await Promise.all([
-    rpc.call<RawLog[]>('eth_getLogs', [
-      {
-        address: token,
-        topics: [TRANSFER_TOPIC],
-        fromBlock: `0x${from.toString(16)}`,
-        toBlock: `0x${to.toString(16)}`,
-      },
-    ]),
+  const [read, supplyHex] = await Promise.all([
+    readTransfers(rpc, token, from, Math.min(options.latestBlock, from + WINDOW_BLOCKS)),
     rpc.call<string>('eth_call', [{ to: token, data: TOTAL_SUPPLY }, 'latest']),
   ]);
+  const { logs, to, narrowed } = read;
   const supply = BigInt(supplyHex && supplyHex !== '0x' ? supplyHex : 0);
   if (supply === 0n) {
     throw new IncompleteDataError('robinhood-rpc', 'the token’s supply could not be read');
@@ -248,7 +298,7 @@ export async function readLaunchReplay(
   const inWindow = drafts.filter(
     (m) => secondsAt(m.block, edgeTimes) - launchTime <= windowSeconds,
   );
-  const kept = selectMoves(inWindow, creator);
+  const kept = await separateLiquidity(rpc, selectMoves(inWindow, creator), pools);
 
   const blocks = [...new Set([from, ...kept.map((m) => m.block), to])];
   const times = await fetchBlockTimestamps(rpc, blocks);
@@ -306,18 +356,20 @@ export async function readLaunchReplay(
   }));
 
   const cut = inWindow.length > listed.length;
+  const minutes =
+    windowSeconds < 90 ? `${windowSeconds} seconds` : `${Math.round(windowSeconds / 60)} minutes`;
+  const notes = [
+    cut
+      ? `${inWindow.length} moves in the first ${minutes}; ${listed.length} shown: every move of the creator, the largest, then the earliest`
+      : `${inWindow.length} moves in the first ${minutes}, read from the token’s transfers`,
+    ...(narrowed
+      ? [`the launch was too busy to read over ten minutes: only the first ${minutes} are covered`]
+      : []),
+  ];
   return {
     // Every move was read; only the drawing keeps a selection of them.
-    completeness: cut ? 'partial' : 'full',
-    sources: [
-      {
-        name: 'robinhood-rpc',
-        fetchedAt,
-        note: cut
-          ? `${inWindow.length} moves in the first ${Math.round(windowSeconds / 60)} minutes; ${listed.length} shown: every move of the creator, the largest, then the earliest`
-          : `${inWindow.length} moves in the first ${Math.round(windowSeconds / 60)} minutes, read from the token’s transfers`,
-      },
-    ],
+    completeness: cut || narrowed ? 'partial' : 'full',
+    sources: [{ name: 'robinhood-rpc', fetchedAt, note: notes.join('; ') }],
     data: {
       token: token.toLowerCase(),
       launchBlock: from,

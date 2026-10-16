@@ -175,6 +175,8 @@ const MOVE_WORD: Record<LaunchMove['kind'], string> = {
   allocation: 'transféré hors pool à',
   buy: 'acheté dans un pool par',
   sell: 'revendu dans un pool par',
+  provide: 'apporté en liquidité à un pool par',
+  withdraw: 'retiré de la liquidité d’un pool par',
 };
 
 /**

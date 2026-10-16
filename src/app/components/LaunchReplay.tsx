@@ -12,18 +12,27 @@ import type { LaunchMove, LaunchReplayData } from '@/lib/contracts/launch';
 
 const EXPLORER = 'https://robinhoodchain.blockscout.com';
 
-const LANES: { kind: LaunchMove['kind']; label: string }[] = [
-  { kind: 'mint', label: 'Created' },
-  { kind: 'allocation', label: 'Passed on' },
-  { kind: 'buy', label: 'Bought' },
-  { kind: 'sell', label: 'Sold' },
+type Lane = 'mint' | 'allocation' | 'buy' | 'sell' | 'liquidity';
+
+const LANES: { lane: Lane; label: string }[] = [
+  { lane: 'mint', label: 'Created' },
+  { lane: 'allocation', label: 'Passed on' },
+  { lane: 'buy', label: 'Bought' },
+  { lane: 'sell', label: 'Sold' },
+  { lane: 'liquidity', label: 'Liquidity' },
 ];
+
+/** Liquidity put in and taken out share one lane: neither is a trade. */
+const laneOf = (kind: LaunchMove['kind']): Lane =>
+  kind === 'provide' || kind === 'withdraw' ? 'liquidity' : kind;
 
 const KIND_WORD: Record<LaunchMove['kind'], string> = {
   mint: 'Created for',
   allocation: 'Passed on to',
   buy: 'Bought by',
   sell: 'Sold by',
+  provide: 'Liquidity added by',
+  withdraw: 'Liquidity removed by',
 };
 
 const short = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)}`;
@@ -181,7 +190,7 @@ function Summary({ launch }: { launch: LaunchReplayData }) {
 function Chart({ launch, run }: { launch: LaunchReplayData; run: number }) {
   const window = Math.max(1, launch.windowSeconds);
   const ticks = [0, 10, 60, 300, 600].filter((t) => t <= window);
-  const laneY = (kind: LaunchMove['kind']) => 40 + LANES.findIndex((l) => l.kind === kind) * 56;
+  const laneY = (lane: Lane) => 40 + LANES.findIndex((l) => l.lane === lane) * 52;
   // Moves at the same moment in the same lane are fanned out above and below
   // the line instead of hiding one another.
   const placed: { kind: string; cx: number; r: number }[] = [];
@@ -196,35 +205,35 @@ function Chart({ launch, run }: { launch: LaunchReplayData; run: number }) {
     // Within the lane's own band: never over the next lane.
     const offset =
       clashes === 0 ? 0 : (clashes % 2 ? -1 : 1) * Math.min(20, Math.ceil(clashes / 2) * 10);
-    return { burst, move, cx, cy: laneY(move.kind) + offset, r };
+    return { burst, move, cx, cy: laneY(laneOf(move.kind)) + offset, r };
   });
   const labelled: number[] = [];
   return (
     <svg
       key={run}
       className="launch-chart"
-      viewBox="0 0 1000 270"
+      viewBox="0 0 1000 310"
       role="img"
       aria-label={`${launch.moves.length} moves in the first ${span(window)}, listed in the table below`}
     >
       {LANES.map((lane) => (
-        <g key={lane.kind}>
+        <g key={lane.lane}>
           <line
             className="launch-lane"
             x1={CHART_LEFT}
             x2={CHART_LEFT + CHART_WIDTH + 10}
-            y1={laneY(lane.kind)}
-            y2={laneY(lane.kind)}
+            y1={laneY(lane.lane)}
+            y2={laneY(lane.lane)}
           />
-          <text className="launch-lane-label" x={0} y={laneY(lane.kind) + 4}>
+          <text className="launch-lane-label" x={0} y={laneY(lane.lane) + 4}>
             {lane.label}
           </text>
         </g>
       ))}
       {ticks.map((t) => (
         <g key={t}>
-          <line className="launch-tick" x1={x(t, window)} x2={x(t, window)} y1={18} y2={238} />
-          <text className="launch-tick-label" x={x(t, window)} y={262} textAnchor="middle">
+          <line className="launch-tick" x1={x(t, window)} x2={x(t, window)} y1={18} y2={270} />
+          <text className="launch-tick-label" x={x(t, window)} y={296} textAnchor="middle">
             {t === 0 ? 'launch' : t < 60 ? `${t} s` : `${t / 60} min`}
           </text>
         </g>
@@ -234,7 +243,7 @@ function Chart({ launch, run }: { launch: LaunchReplayData; run: number }) {
         x1={CHART_LEFT}
         x2={CHART_LEFT}
         y1={14}
-        y2={242}
+        y2={274}
         style={{ '--sweep': `${CHART_WIDTH}px` } as CSSProperties}
       />
       {dots.map(({ burst, move, cx, cy, r }, i) => {
@@ -324,6 +333,7 @@ export function LaunchReplay({ launch }: { launch: LaunchReplayData }) {
           <li data-kind="allocation">Passed on</li>
           <li data-kind="buy">Bought</li>
           <li data-kind="sell">Sold</li>
+          <li data-kind="liquidity">Liquidity</li>
           <li data-legend="creator">Involves the creator</li>
           <li data-legend="gone">Holds nothing today</li>
         </ul>

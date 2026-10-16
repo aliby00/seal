@@ -719,6 +719,7 @@
   --move-allocation: #b79bff;
   --move-buy: var(--hud-accent);
   --move-sell: var(--hud-amber);
+  --move-liquidity: var(--hud-mint);
 }
 .launch-summary {
   list-style: none;
@@ -834,6 +835,10 @@
 .launch-dot[data-kind='sell'] {
   --c: var(--move-sell);
 }
+.launch-dot[data-kind='provide'],
+.launch-dot[data-kind='withdraw'] {
+  --c: var(--move-liquidity);
+}
 .launch-dot circle {
   fill: color-mix(in srgb, var(--c) 70%, transparent);
   stroke: var(--c);
@@ -890,6 +895,9 @@
 }
 .launch-legend li[data-kind='sell'] {
   --c: var(--move-sell);
+}
+.launch-legend li[data-kind='liquidity'] {
+  --c: var(--move-liquidity);
 }
 .launch-legend li[data-legend='creator']::before {
   background: transparent;
@@ -956,6 +964,10 @@ tr[data-kind='buy'] .launch-kind::before {
 }
 tr[data-kind='sell'] .launch-kind::before {
   background: var(--move-sell);
+}
+tr[data-kind='provide'] .launch-kind::before,
+tr[data-kind='withdraw'] .launch-kind::before {
+  background: var(--move-liquidity);
 }
 .launch-flag,
 .launch-role {

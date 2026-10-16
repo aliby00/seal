@@ -1,6 +1,8 @@
 import type { Address } from 'viem';
 import { getLogsBatched, type RawLog } from './logs';
+import { POOL_MANAGER } from './pools';
 import type { RpcClient } from './rpc';
+import { readTxNatures } from './trades';
 
 /**
  * Deux signaux de comportement que le whitepaper met en avant : le créateur
@@ -50,9 +52,13 @@ export type BehaviorTarget = {
  *
  * Un `Transfer` sortant du deployer ne suffit pas : envoyer ses tokens vers un
  * autre wallet n'est pas une vente. Le signal retenu est un transfert **vers le
- * pool**, ce qui correspond à un swap — c'est-à-dire une vente effective.
+ * pool** dans une transaction où le pool a réellement échangé (`Swap`). Un
+ * transfert vers le pool sans échange est un apport de liquidité : le compter
+ * comme une vente accusait un créateur d'avoir vendu alors qu'il approvisionnait
+ * son marché.
  *
- * One batched request covers every token of the creator.
+ * One batched request covers every token of the creator, then one batch of
+ * receipts for the transfers into a pool.
  */
 export async function detectCreatorSales(
   rpc: RpcClient,
@@ -78,10 +84,24 @@ export async function detectCreatorSales(
   );
 
   const poolOf = new Map(tokens.map((t) => [t.token.toLowerCase(), t.pool.toLowerCase()]));
+  // Vers le pool = vente possible. Vers un autre wallet = simple transfert, ambigu.
+  const intoPool = new Map<string, string[]>();
   for (const log of logs) {
     const token = log.address.toLowerCase();
-    // Vers le pool = vente. Vers un autre wallet = simple transfert, ambigu.
-    if (addressFromTopic(log.topics[2]) === poolOf.get(token)) result.set(token, true);
+    if (addressFromTopic(log.topics[2]) !== poolOf.get(token)) continue;
+    intoPool.set(token, [...(intoPool.get(token) ?? []), log.transactionHash]);
+  }
+  if (intoPool.size === 0) return unseenAsUnknown(result, truncated);
+
+  const pools = new Set([...poolOf.values(), POOL_MANAGER.toLowerCase()]);
+  const natures = await readTxNatures(rpc, [...intoPool.values()].flat(), pools).catch(
+    () => new Map<string, never>(),
+  );
+  for (const [token, hashes] of intoPool) {
+    const read = hashes.map((h) => natures.get(h));
+    if (read.includes('swap')) result.set(token, true);
+    // A transaction whose receipt was not read could have been a sale.
+    else if (read.includes(undefined)) result.delete(token);
   }
   return unseenAsUnknown(result, truncated);
 }
