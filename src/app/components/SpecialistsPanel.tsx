@@ -8,7 +8,14 @@ import { SignalBadge } from './signals';
  * The ten questions, one tile each, always in the same order. A tile is read
  * on its own: there is no total, no count of answers per kind, no ranking.
  */
-export function SpecialistsPanel({ answers }: { answers: SpecialistAnswer[] }) {
+export function SpecialistsPanel({
+  answers,
+  index = '02',
+}: {
+  answers: SpecialistAnswer[];
+  /** Section number: the launch replay, when shown, comes before. */
+  index?: string;
+}) {
   const grid = useRef<HTMLDivElement>(null);
   const setAll = (open: boolean) =>
     grid.current?.querySelectorAll('details').forEach((d) => {
@@ -18,7 +25,7 @@ export function SpecialistsPanel({ answers }: { answers: SpecialistAnswer[] }) {
   return (
     <section className="questions" aria-labelledby="questions-title">
       <div className="report-section-head">
-        <p className="report-kicker">02 — Ten questions</p>
+        <p className="report-kicker">{index} — Ten questions</p>
         <h3 id="questions-title">Asked of every token, answered one by one.</h3>
         <p className="questions-intro">
           Each specialist reads the chain for one question. The answers are not added up: each tile

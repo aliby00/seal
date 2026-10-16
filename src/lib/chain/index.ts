@@ -23,6 +23,7 @@ export * from './factory';
 export * from './graduation';
 export * from './behavior';
 export * from './deployer';
+export * from './launch';
 
 /** Sans activité depuis ~30 jours et sous le seuil : on parle d'abandon. */
 export const ABANDON_AFTER_BLOCKS = 26_000_000;
