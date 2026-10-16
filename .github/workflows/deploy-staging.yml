@@ -17,7 +17,7 @@ permissions:
 env:
   # pnpm 12 refuse par défaut d'exécuter les scripts de build des dépendances
   # (ERR_PNPM_IGNORED_BUILDS). La CLI Vercel dépend d'esbuild, qui en a besoin.
-  VERCEL: pnpm dlx --allow-build=esbuild vercel@59
+  VERCEL: pnpm dlx --allow-build=esbuild vercel@59.26.0
 
 jobs:
   # Le CI passe d'abord. S'il est rouge, rien ne se déploie.

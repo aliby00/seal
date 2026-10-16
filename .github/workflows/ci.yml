@@ -34,6 +34,9 @@ jobs:
       - name: Installer les dépendances
         run: pnpm install --frozen-lockfile
 
+      - name: Audit des dépendances
+        run: pnpm audit --prod --audit-level=high
+
       - name: Typecheck
         run: pnpm typecheck
 
