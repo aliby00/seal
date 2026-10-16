@@ -12,10 +12,15 @@ import {
   TOKEN_LAUNCHED_TOPIC,
   type TokenLaunch,
 } from './factory';
-import { getLogsBatched, type LogSource } from './logs';
+import { getLogsBatched, type LogSource, type RawLog } from './logs';
 import { fetchBlockTimestamps, fetchGraduationStatusOf, type GraduationStatus } from './graduation';
-import { detectCreatorSales, detectLiquidityRemovals, type LaunchPosition } from './behavior';
-import { createRpcClient, DEFAULT_RPC_URL, type RpcClient } from './rpc';
+import {
+  detectCreatorSales,
+  detectLiquidityRemovals,
+  TRANSFER_TOPIC,
+  type LaunchPosition,
+} from './behavior';
+import { classifyLogError, createRpcClient, DEFAULT_RPC_URL, type RpcClient } from './rpc';
 
 export * from './rpc';
 export * from './logs';
@@ -64,8 +69,61 @@ async function launchPositions(
   });
 }
 
-/** Sans activité depuis ~30 jours et sous le seuil : on parle d'abandon. */
+/** Lancé il y a plus de ~30 jours et sous le seuil : candidat à l'abandon. */
 export const ABANDON_AFTER_BLOCKS = 26_000_000;
+
+/**
+ * A candidate is called abandoned only when its token has not moved over the
+ * last 10 M blocks (~11.5 days): age alone said "abandoned" of a token still
+ * traded every day. One query per token, the most a single address may span.
+ */
+export const IDLE_WINDOW_BLOCKS = 10_000_000;
+
+/** Old launches checked for recent activity: every launch read in detail. */
+export const MAX_ACTIVITY_CHECKS = 40;
+
+/** Whether a token moved recently: `undefined` when it could not be read. */
+export type RecentActivity = boolean | undefined;
+
+/**
+ * Reads whether each token had a `Transfer` in the last IDLE_WINDOW_BLOCKS.
+ * A node refusing the query for holding too many logs is an answer too: the
+ * token is busy.
+ */
+export async function readRecentActivity(
+  rpc: RpcClient,
+  tokens: readonly Address[],
+  latest: number,
+): Promise<Map<string, boolean>> {
+  const activity = new Map<string, boolean>();
+  if (tokens.length === 0) return activity;
+  const fromBlock = `0x${Math.max(0, latest - IDLE_WINDOW_BLOCKS + 1).toString(16)}`;
+  const outcomes = await rpc.callBatch<RawLog[]>(
+    tokens.map((token) => ({
+      method: 'eth_getLogs',
+      params: [
+        {
+          address: token,
+          topics: [TRANSFER_TOPIC],
+          fromBlock,
+          toBlock: `0x${latest.toString(16)}`,
+        },
+      ],
+    })),
+  );
+  tokens.forEach((token, i) => {
+    const outcome = outcomes[i];
+    if (outcome?.ok && Array.isArray(outcome.value)) {
+      activity.set(token.toLowerCase(), outcome.value.length > 0);
+    } else if (
+      !outcome?.ok &&
+      classifyLogError(outcome?.error ?? '')?.reason === 'too-many-results'
+    ) {
+      activity.set(token.toLowerCase(), true);
+    }
+  });
+  return activity;
+}
 
 /**
  * Profondeur scannée par défaut : un peu plus que le seuil d'abandon, pour que
@@ -106,12 +164,18 @@ export function classifyOutcome(
   status: GraduationStatus | null,
   blocksSinceLaunch: number,
   observedBlocks = Number.POSITIVE_INFINITY,
+  /** Whether the token moved recently. Only an old launch needs it. */
+  recentActivity: RecentActivity = undefined,
 ): TokenOutcome {
   if (status?.graduated) return 'graduated';
   // Graduation could not be read (a revert, or a factory with another layout):
   // calling an old token "abandoned" would state something nobody observed.
   if (!status && blocksSinceLaunch > ABANDON_AFTER_BLOCKS) return 'undetermined';
-  if (blocksSinceLaunch > ABANDON_AFTER_BLOCKS) return 'abandoned';
+  if (blocksSinceLaunch > ABANDON_AFTER_BLOCKS) {
+    // Old and under the threshold is not abandoned while it still trades.
+    if (recentActivity === undefined) return 'undetermined';
+    return recentActivity ? 'active' : 'abandoned';
+  }
   if (observedBlocks < ABANDON_AFTER_BLOCKS) return 'undetermined';
   return 'active';
 }
@@ -273,9 +337,19 @@ export async function fetchCreatorHistory(
   const positions = await launchPositions(rpc, launches, watched);
   // Un échec ici donne une Map vide, donc `null` par token plus bas : on ne
   // prétend pas avoir observé une absence de vente alors qu'on n'a pas regardé.
-  const [sold, pulled] = await Promise.all([
+  // Old launches under the threshold: whether they still trade decides
+  // between "abandoned" and "active". The most recent ones are checked.
+  const candidates = launches
+    .filter(
+      (l, i) =>
+        !statuses[i]?.graduated && statuses[i] && latest - l.blockNumber > ABANDON_AFTER_BLOCKS,
+    )
+    .slice(-MAX_ACTIVITY_CHECKS)
+    .map((l) => l.token);
+  const [sold, pulled, activity] = await Promise.all([
     detectCreatorSales(rpc, creator, watched, window).catch(() => new Map<string, boolean>()),
     detectLiquidityRemovals(rpc, positions, window).catch(() => new Map<string, boolean>()),
+    readRecentActivity(rpc, candidates, latest).catch(() => new Map<string, boolean>()),
   ]);
 
   const tokens: LaunchedToken[] = launches.map((launch, i) => {
@@ -286,7 +360,7 @@ export async function fetchCreatorHistory(
       pool: launch.pool,
       launchedAtBlock: launch.blockNumber,
       launchedAt: timestamps[i] ?? null,
-      outcome: classifyOutcome(status, latest - launch.blockNumber, lookback),
+      outcome: classifyOutcome(status, latest - launch.blockNumber, lookback, activity.get(key)),
       graduationProgress: status?.progress ?? 0,
       // `false` signifie « rien observé sur la fenêtre », pas « certainement
       // pas arrivé ». La complétude du bloc porte déjà cette nuance.
