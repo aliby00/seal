@@ -31,13 +31,26 @@ export function plainNote(note: string | undefined): string | undefined {
   return note;
 }
 
-function usd(value: number | null): string {
+const SUBSCRIPT = '₀₁₂₃₄₅₆₇₈₉';
+
+export function usd(value: number | null): string {
   if (value === null) return '—';
-  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
-  if (value >= 1_000) return `$${(value / 1_000).toFixed(1)}k`;
+  if (value >= 999_500) return `$${(value / 1_000_000).toFixed(2)}M`;
+  if (value >= 999.95) return `$${(value / 1_000).toFixed(1)}k`;
   if (value >= 1) return `$${value.toFixed(2)}`;
-  // Tiny prices: keep four significant digits rather than show $0.00.
-  return `$${value.toPrecision(4)}`;
+  if (value <= 0) return '$0';
+  if (value >= 0.0001) return `$${Number(value.toPrecision(4))}`;
+  // Memecoin prices: $0.0₆1234 reads where $1.234e-7 does not. The subscript
+  // counts the zeros after the decimal point.
+  const zeros = -Math.floor(Math.log10(value)) - 1;
+  const digits = Math.round(value * 10 ** (zeros + 4))
+    .toString()
+    .replace(/0+$/, '');
+  const count = String(zeros)
+    .split('')
+    .map((d) => SUBSCRIPT[Number(d)])
+    .join('');
+  return `$0.0${count}${digits}`;
 }
 
 const short = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)}`;
@@ -461,7 +474,7 @@ function MarketCard({ market }: { market: ReportFacts['market'] }) {
           </dl>
           {trades > 0 && (
             <Split
-              label={`${market.buys24h} buys and ${market.sells24h} sells in 24 hours`}
+              label={`${market.buys24h ?? 0} buys and ${market.sells24h ?? 0} sells in 24 hours`}
               parts={[
                 { value: market.buys24h ?? 0, tone: 'calm', name: 'buys' },
                 { value: market.sells24h ?? 0, tone: 'warm', name: 'sells' },

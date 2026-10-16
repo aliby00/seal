@@ -21,6 +21,18 @@ export type BlockscoutHoldersPage = {
   next_page_params?: Record<string, string | number> | null;
 };
 
+/** `/tokens/{address}`: the count of holders and the supply, which the holders list lacks. */
+export type BlockscoutToken = {
+  holders_count?: string | number | null;
+  total_supply?: string | null;
+};
+
+export function tokenUrl(token: string, apiKey: string, base = BLOCKSCOUT_BASE): string {
+  const url = new URL(`${base}/${ROBINHOOD_CHAIN_ID}/api/v2/tokens/${token}`);
+  url.searchParams.set('apikey', apiKey);
+  return url.toString();
+}
+
 export function holdersUrl(
   token: string,
   params: Record<string, string | number> = {},

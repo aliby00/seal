@@ -29,6 +29,7 @@ export function createGroqProvider(apiKey: string, baseUrl = GROQ_BASE_URL): Pro
         source: 'groq',
         init: {
           method: 'POST',
+          ...(request.signal ? { signal: request.signal } : {}),
           headers: {
             'content-type': 'application/json',
             authorization: `Bearer ${apiKey}`,

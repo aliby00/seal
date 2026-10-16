@@ -66,7 +66,14 @@ export class LogQueryTooBroadError extends Error {
  */
 export function classifyLogError(message: string): LogQueryTooBroadError | undefined {
   const lower = message.toLowerCase();
-  if (lower.includes('exceeds limit')) return new LogQueryTooBroadError('too-many-results');
+  // The public node says "exceeds limit"; geth-style nodes "query returned
+  // more than 10000 results"; Alchemy "Log response size exceeded".
+  if (
+    lower.includes('exceeds limit') ||
+    lower.includes('returned more than') ||
+    lower.includes('response size exceeded')
+  )
+    return new LogQueryTooBroadError('too-many-results');
 
   // The node states its own maximum in the message:
   //   "query spans 859987 blocks (…), but only 30000 are allowed for this request"
@@ -101,9 +108,16 @@ export function classifyLogError(message: string): LogQueryTooBroadError | undef
 export const RPC_BURST = 20;
 export const RPC_CALLS_PER_SECOND = 4;
 
-/** A paid node allows more: `SEAL_RPC_RATE` raises the refill without a code change. */
-function configuredRate(): number {
-  const raw = Number(process.env.SEAL_RPC_RATE);
+/**
+ * A paid node allows more: `SEAL_RPC_RATE` raises its refill without a code
+ * change. The public node keeps its measured pace whatever the setting, since
+ * it closes every list of nodes and would be the one cutting the caller off.
+ */
+export function configuredRate(url?: string): number {
+  // `SEAL_PUBLIC_RPC_RATE` exists for the tests, whose fake node never limits.
+  const raw = Number(
+    url === DEFAULT_RPC_URL ? process.env.SEAL_PUBLIC_RPC_RATE : process.env.SEAL_RPC_RATE,
+  );
   return Number.isFinite(raw) && raw > 0 ? raw : RPC_CALLS_PER_SECOND;
 }
 
@@ -121,7 +135,7 @@ export async function throttle(
     sleep?: (ms: number) => Promise<void>;
   } = {},
 ): Promise<void> {
-  const rate = options.rate ?? configuredRate();
+  const rate = options.rate ?? configuredRate(url);
   const burst = Math.max(options.burst ?? RPC_BURST, rate);
   const now = options.now ?? Date.now;
   const sleep = options.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
@@ -228,7 +242,7 @@ export function createRpcClient(
       },
     });
     try {
-      return (await response.json()) as unknown;
+      return { status: response.status, body: (await response.json()) as unknown };
     } catch (error) {
       throw new UpstreamError('robinhood-rpc', 'unreadable JSON response', response.status, error);
     }
@@ -241,8 +255,10 @@ export function createRpcClient(
     for (let i = 0; i < targets.length; i += 1) {
       const last = i === targets.length - 1;
       try {
-        const body = await attempt(targets[i] as string, payload, cost, last);
-        if (!last && busyNodeError(body)) continue;
+        const { status, body } = await attempt(targets[i] as string, payload, cost, last);
+        // A keyed node refusing the request (bad key, plan limit) answers
+        // 400/401 with a JSON error: the next node may well accept it.
+        if (!last && (status >= 400 || busyNodeError(body))) continue;
         return body;
       } catch (error) {
         // Any node-side failure — down, slow, rate-limited, refusing the key,

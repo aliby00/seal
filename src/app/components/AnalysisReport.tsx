@@ -1,6 +1,6 @@
 import type { AnalyzeResponse } from '../api/analyze/route';
 import { Explanation } from './Explanation';
-import { FactsBoard } from './FactsBoard';
+import { FactsBoard, plainNote } from './FactsBoard';
 import { LaunchReplay } from './LaunchReplay';
 import { ReportHeader } from './ReportHeader';
 import { SpecialistsPanel } from './SpecialistsPanel';
@@ -78,7 +78,7 @@ export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
               {result.sources.map((source, index) => (
                 <div className="source" key={`${source.name}-${index}`}>
                   <h3>{source.name}</h3>
-                  <p>{source.note ?? 'No limitations reported by this source.'}</p>
+                  <p>{plainNote(source.note) ?? 'No limitations reported by this source.'}</p>
                 </div>
               ))}
             </details>
@@ -91,7 +91,8 @@ export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
           <time dateTime={result.collectedAt}>
             {new Date(result.collectedAt).toLocaleString('en-US', {
               dateStyle: 'long',
-              timeStyle: 'short',
+              // 'long' carries the time zone; timeZoneName cannot be combined with timeStyle.
+              timeStyle: 'long',
             })}
           </time>
         </p>
@@ -99,8 +100,8 @@ export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
           {result.cached
             ? 'Served again from a reading made minutes ago: no new cost.'
             : result.offline
-              ? 'no cost: no model call'
-              : `Request cost: ${result.costUsd.toFixed(4)} $`}
+              ? 'No cost: no model call.'
+              : `Request cost: $${result.costUsd.toFixed(4)}`}
         </p>
       </footer>
     </article>

@@ -3,6 +3,7 @@ import {
   addressesSoftware,
   imitatedName,
   normalizeName,
+  displayName,
   quoteName,
 } from '../../src/lib/specialists/names';
 
@@ -63,5 +64,24 @@ describe('a name that carries a verdict', () => {
 
   it('is quoted when it is only a name', () => {
     expect(quoteName('Robin Cat')).toBe('"Robin Cat"');
+  });
+});
+
+describe('displayName', () => {
+  it('retire les caractères bidi et invisibles', () => {
+    expect(displayName('‮DOOH‬')).toBe('DOOH');
+    expect(displayName('RO​BIN⁦HOOD')).toBe('RO BIN HOOD');
+  });
+
+  it('coupe un nom trop long', () => {
+    const shown = displayName('A'.repeat(500));
+    expect(shown).toHaveLength(65);
+    expect(shown?.endsWith('…')).toBe(true);
+  });
+
+  it('ne montre pas un nom qui se lit comme un verdict, ni un nom vide', () => {
+    expect(displayName('SAFE 100X')).toBeNull();
+    expect(displayName('​​')).toBeNull();
+    expect(displayName(null)).toBeNull();
   });
 });

@@ -1,7 +1,14 @@
 import type { Holder, HolderDistribution, HolderDistributionData } from '../contracts';
 import { IncompleteDataError } from '../errors';
 import { requestJson, type RequestBudget } from '../http';
-import { holdersUrl, type BlockscoutHolder, type BlockscoutHoldersPage } from './blockscout';
+import { log } from '../logger';
+import {
+  holdersUrl,
+  tokenUrl,
+  type BlockscoutHolder,
+  type BlockscoutHoldersPage,
+  type BlockscoutToken,
+} from './blockscout';
 
 export * from './blockscout';
 
@@ -23,6 +30,14 @@ export type FetchHoldersOptions = {
   maxPages?: number;
   topN?: number;
   now?: () => Date;
+};
+
+/** What Blockscout says of the token as a whole, beyond the pages read. */
+export type TokenTotals = {
+  /** Every address with a balance, pools and burn included. */
+  holders: number | null;
+  /** Raw total supply, used as the base when the list is cut. */
+  supply: bigint | null;
 };
 
 /** The v4 PoolManager holds every v4 market's liquidity; it is never a holder. */
@@ -52,6 +67,7 @@ export function computeDistribution(
   token: string,
   raw: BlockscoutHolder[],
   options: FetchHoldersOptions = {},
+  totals: TokenTotals = { holders: null, supply: null },
 ): HolderDistributionData {
   const topN = options.topN ?? 20;
 
@@ -72,9 +88,17 @@ export function computeDistribution(
     })
     .filter((entry) => entry.address !== '');
 
-  const circulating = entries
+  const listed = entries
     .filter((entry) => entry.kind !== 'pool' && entry.kind !== 'burn')
     .reduce((sum, entry) => sum + entry.balance, 0n);
+  const setAside = entries
+    .filter((entry) => entry.kind === 'pool' || entry.kind === 'burn')
+    .reduce((sum, entry) => sum + entry.balance, 0n);
+  // When the list is cut, the holders read are not the whole supply: shares
+  // measured against them alone would overstate every one of them. The total
+  // supply, less the pools and burn addresses, is the true base.
+  const fromSupply = totals.supply !== null ? totals.supply - setAside : null;
+  const circulating = fromSupply !== null && fromSupply > listed ? fromSupply : listed;
 
   const holders: Holder[] = entries
     .map((entry) => ({
@@ -93,7 +117,13 @@ export function computeDistribution(
   return {
     token,
     countedSupply: circulating.toString(),
-    holderCount: null,
+    holderCount:
+      totals.holders !== null
+        ? Math.max(
+            0,
+            totals.holders - entries.filter((e) => e.kind === 'pool' || e.kind === 'burn').length,
+          )
+        : null,
     top: holders.slice(0, topN),
     concentration: {
       top1: counted[0]?.share ?? 0,
@@ -131,6 +161,14 @@ export async function fetchHolderDistribution(
   }
 
   const maxPages = options.maxPages ?? 3;
+  // The count and the supply are a bonus: their failure leaves the list as is.
+  const totalsRequest = requestJson<BlockscoutToken>(
+    tokenUrl(token, options.apiKey, options.baseUrl),
+    { source: 'blockscout', budget: options.budget, retries: 0 },
+  ).then(readTotals, (error: unknown): TokenTotals => {
+    log.warn('totaux Blockscout indisponibles', { token, error: String(error) });
+    return { holders: null, supply: null };
+  });
   const collected: BlockscoutHolder[] = [];
   let params: Record<string, string | number> = { apikey: options.apiKey };
   let pages = 0;
@@ -153,8 +191,13 @@ export async function fetchHolderDistribution(
     if (pages >= maxPages) break;
   }
 
-  const data = computeDistribution(token, collected, options);
   const truncated = more && pages >= maxPages;
+  const totals = await totalsRequest;
+  const data = computeDistribution(token, collected, options, {
+    holders: totals.holders,
+    // A complete list is its own base; the supply only corrects a cut one.
+    supply: truncated ? totals.supply : null,
+  });
 
   return {
     completeness: truncated ? 'partial' : 'full',
@@ -167,6 +210,23 @@ export async function fetchHolderDistribution(
     ],
     data,
   };
+}
+
+function readTotals(body: BlockscoutToken): TokenTotals {
+  const count = Number(body?.holders_count);
+  return {
+    holders: Number.isInteger(count) && count >= 0 ? count : null,
+    supply: parseSupply(body?.total_supply),
+  };
+}
+
+function parseSupply(raw: string | null | undefined): bigint | null {
+  if (!raw) return null;
+  try {
+    return BigInt(raw);
+  } catch {
+    return null;
+  }
 }
 
 function emptyDistribution(token: string): HolderDistributionData {

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { Arch, Wordmark } from './brand';
 
@@ -40,10 +41,10 @@ export function LegalPage({
         Draft — pending legal review. This text is not final and may change.
       </p>
       <header className="legal-header">
-        <a href="/" className="legal-home" aria-label="SEAL home">
+        <Link href="/" className="legal-home" aria-label="SEAL home">
           <Arch className="brand-arch" strips={5} />
           <Wordmark className="brand-word" />
-        </a>
+        </Link>
       </header>
       <main className="legal-body">
         <h1>{title}</h1>
@@ -52,7 +53,7 @@ export function LegalPage({
       </main>
       <footer className="legal-footer">
         <LegalLinks />
-        <a href="/">Back to SEAL</a>
+        <Link href="/">Back to SEAL</Link>
       </footer>
     </div>
   );

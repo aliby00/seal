@@ -144,10 +144,17 @@ export async function getLogsChunked(
   // Les logs sont collectés du plus récent au plus ancien ; on rétablit l'ordre chronologique.
   logs.sort((a, b) => Number(a.blockNumber) - Number(b.blockNumber));
 
+  // Read from the newest down, so the newest are the ones kept: cutting the
+  // oldest window short keeps the range covered contiguous up to `toBlock`.
+  const over = logs.length > maxLogs;
+  const kept = over ? logs.slice(-maxLogs) : logs;
   return {
-    logs: logs.slice(0, maxLogs),
-    truncated: truncated || logs.length > maxLogs,
-    scanned: { fromBlock: lowestScanned, toBlock },
+    logs: kept,
+    truncated: truncated || over,
+    scanned: {
+      fromBlock: over ? Number(kept[0]?.blockNumber ?? lowestScanned) : lowestScanned,
+      toBlock,
+    },
   };
 }
 

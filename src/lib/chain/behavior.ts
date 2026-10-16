@@ -1,6 +1,8 @@
 import type { Address } from 'viem';
 import { getLogsBatched, type RawLog } from './logs';
+import { POOL_MANAGER } from './pools';
 import type { RpcClient } from './rpc';
+import { readTxNatures } from './trades';
 
 /**
  * Deux signaux de comportement que le whitepaper met en avant : le créateur
@@ -50,9 +52,13 @@ export type BehaviorTarget = {
  *
  * Un `Transfer` sortant du deployer ne suffit pas : envoyer ses tokens vers un
  * autre wallet n'est pas une vente. Le signal retenu est un transfert **vers le
- * pool**, ce qui correspond à un swap — c'est-à-dire une vente effective.
+ * pool** dans une transaction où le pool a réellement échangé (`Swap`). Un
+ * transfert vers le pool sans échange est un apport de liquidité : le compter
+ * comme une vente accusait un créateur d'avoir vendu alors qu'il approvisionnait
+ * son marché.
  *
- * One batched request covers every token of the creator.
+ * One batched request covers every token of the creator, then one batch of
+ * receipts for the transfers into a pool.
  */
 export async function detectCreatorSales(
   rpc: RpcClient,
@@ -78,15 +84,29 @@ export async function detectCreatorSales(
   );
 
   const poolOf = new Map(tokens.map((t) => [t.token.toLowerCase(), t.pool.toLowerCase()]));
+  // Vers le pool = vente possible. Vers un autre wallet = simple transfert, ambigu.
+  const intoPool = new Map<string, string[]>();
   for (const log of logs) {
     const token = log.address.toLowerCase();
-    // Vers le pool = vente. Vers un autre wallet = simple transfert, ambigu.
-    if (addressFromTopic(log.topics[2]) === poolOf.get(token)) result.set(token, true);
+    if (addressFromTopic(log.topics[2]) !== poolOf.get(token)) continue;
+    intoPool.set(token, [...(intoPool.get(token) ?? []), log.transactionHash]);
+  }
+  if (intoPool.size === 0) return unseenAsUnknown(result, truncated);
+
+  const pools = new Set([...poolOf.values(), POOL_MANAGER.toLowerCase()]);
+  const natures = await readTxNatures(rpc, [...intoPool.values()].flat(), pools).catch(
+    () => new Map<string, never>(),
+  );
+  for (const [token, hashes] of intoPool) {
+    const read = hashes.map((h) => natures.get(h));
+    if (read.includes('swap')) result.set(token, true);
+    // A transaction whose receipt was not read could have been a sale.
+    else if (read.includes(undefined)) result.delete(token);
   }
   return unseenAsUnknown(result, truncated);
 }
 
-/** Vrai si ce log `Burn` retire réellement de la liquidité. */
+/** Vrai si ce log retire réellement de la liquidité : son premier mot est le montant. */
 export function isRealLiquidityRemoval(log: RawLog): boolean {
   const data = log.data.startsWith('0x') ? log.data.slice(2) : log.data;
   if (data.length < 64) return false;
@@ -95,44 +115,81 @@ export function isRealLiquidityRemoval(log: RawLog): boolean {
 }
 
 /**
- * Détecte les retraits de liquidité.
+ * `DecreaseLiquidity(uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)`
+ * — Uniswap V3 NonfungiblePositionManager.
+ */
+export const DECREASE_LIQUIDITY_TOPIC =
+  '0x26f6a048ee9138f2c0ce266f322cb99228e8d619ae2bff30c67f8dcf9d2377b4';
+
+/** The launch liquidity of one token: where it sits and over which blocks to watch it. */
+export type LaunchPosition = {
+  token: Address;
+  positionManager: Address;
+  positionId: bigint;
+  fromBlock?: number;
+  toBlock?: number;
+};
+
+/**
+ * Détecte les retraits de la liquidité **du lancement**.
  *
- * Piège vérifié en direct : sur Uniswap V3, `burn(0)` est le motif standard
- * pour déclencher la comptabilisation des frais avant un `collect`. Sur un
- * token réel, les trois events `Burn` observés avaient tous `liquidity = 0`.
- * Compter les events sans lire le montant aurait fait annoncer « liquidité
- * retirée trois fois » là où rien n'avait été retiré.
+ * Un `Burn` sur le pool ne suffit pas : n'importe qui peut y fournir de la
+ * liquidité puis la retirer. Vérifié en direct sur le seul token gradué de
+ * 0xf4fc : cinquante `Burn`, tous d'un tiers qui rééquilibrait ses positions,
+ * alors que la position du lancement n'avait jamais bougé — et SEAL annonçait
+ * « liquidité retirée ». Le signal retenu est donc un `DecreaseLiquidity` sur
+ * la position du lancement elle-même, avec un montant non nul : `burn(0)` sert
+ * seulement à comptabiliser des frais.
  *
- * Le WETH sortant du pool n'est pas non plus un signal : c'est ce qui se passe
- * à chaque vente, l'acheteur reçoit le WETH du pool.
+ * One query per launch position, all in one batch.
  */
 export async function detectLiquidityRemovals(
   rpc: RpcClient,
-  tokens: readonly BehaviorTarget[],
+  positions: readonly LaunchPosition[],
   window: BehaviorWindow,
 ): Promise<Map<string, boolean>> {
-  const result = new Map<string, boolean>(tokens.map((t) => [t.token.toLowerCase(), false]));
-  const pools = tokens.filter((t) => t.pool && t.pool !== '0x');
-  if (pools.length === 0) return result;
+  const result = new Map<string, boolean>(positions.map((p) => [p.token.toLowerCase(), false]));
+  if (positions.length === 0) return result;
 
-  const { logs, truncated } = await getLogsBatched(
-    rpc,
-    {
-      addresses: pools.map((t) => ({
-        address: t.pool,
-        fromBlock: t.fromBlock,
-        toBlock: t.toBlock,
-      })),
-      topics: [BURN_TOPIC],
-    },
-    window,
+  // One query per position, each over its own window: this node caps a
+  // filter listing several values in one topic position at 100,000 blocks.
+  const hex = (n: number) => `0x${n.toString(16)}`;
+  const queries = positions.map((p) => ({
+    position: p,
+    fromBlock: Math.max(window.fromBlock, p.fromBlock ?? window.fromBlock),
+    toBlock: Math.min(window.toBlock, p.toBlock ?? window.toBlock),
+  }));
+  const outcomes = await rpc.callBatch<RawLog[]>(
+    queries.map((q) => ({
+      method: 'eth_getLogs',
+      params: [
+        {
+          address: q.position.positionManager,
+          topics: [DECREASE_LIQUIDITY_TOPIC, topicForId(q.position.positionId)],
+          fromBlock: hex(q.fromBlock),
+          toBlock: hex(q.toBlock),
+        },
+      ],
+    })),
   );
 
-  const tokenOfPool = new Map(pools.map((t) => [t.pool.toLowerCase(), t.token.toLowerCase()]));
-  for (const log of logs) {
-    if (!isRealLiquidityRemoval(log)) continue;
-    const token = tokenOfPool.get(log.address.toLowerCase());
-    if (token) result.set(token, true);
-  }
-  return unseenAsUnknown(result, truncated);
+  queries.forEach((q, i) => {
+    const outcome = outcomes[i];
+    if (!outcome?.ok || !Array.isArray(outcome.value)) {
+      // Not read: unknown for this token, never "untouched".
+      result.delete(q.position.token.toLowerCase());
+      return;
+    }
+    const id = topicForId(q.position.positionId);
+    for (const log of outcome.value) {
+      if ((log.topics[1] ?? '').toLowerCase() !== id) continue;
+      if (log.address.toLowerCase() !== q.position.positionManager.toLowerCase()) continue;
+      if (isRealLiquidityRemoval(log)) result.set(q.position.token.toLowerCase(), true);
+    }
+  });
+  return result;
+}
+
+function topicForId(id: bigint): string {
+  return `0x${id.toString(16).padStart(64, '0')}`;
 }

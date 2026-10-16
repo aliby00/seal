@@ -80,7 +80,11 @@ async function once(url: string, options: FetchOptions): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(url, { ...init, signal: controller.signal });
+    // A caller's own signal (the route running out of time) cuts it too.
+    const signal = init?.signal
+      ? AbortSignal.any([controller.signal, init.signal])
+      : controller.signal;
+    return await fetch(url, { ...init, signal });
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       throw new TimeoutError(source, timeoutMs);

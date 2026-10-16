@@ -11,15 +11,16 @@ const jetbrains = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrai
 
 export const metadata: Metadata = {
   metadataBase: siteUrl(),
-  alternates: { canonical: '/' },
-  title: 'SEAL',
+  title: { default: 'SEAL — token evidence on Robinhood Chain', template: '%s · SEAL' },
   description:
     'Understand pons tokens on Robinhood Chain through evidence, context and plain-language analysis. No scores.',
+  openGraph: { type: 'website', siteName: 'SEAL', url: '/' },
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  themeColor: '#0b1014',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

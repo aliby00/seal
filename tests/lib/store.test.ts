@@ -189,6 +189,19 @@ describe('keepAnalysis', () => {
     ).toBe(false);
   });
 
+  it.each([
+    'upstream : HTTP status 401',
+    'incomplete : response missing the `items` field',
+    'timeout : no answer after 15000 ms',
+  ])('does not keep a source that failed (%s)', (note) => {
+    expect(keepAnalysis({ ...body, sources: [{ name: 'blockscout', note }] }, true)).toBe(false);
+  });
+
+  it('keeps a source that simply has nothing to show', () => {
+    const note = 'no pair indexed by DexScreener for this token';
+    expect(keepAnalysis({ ...body, sources: [{ name: 'dexscreener', note }] }, true)).toBe(true);
+  });
+
   it('does not keep an offline text when a model is configured (a provider hiccup)', () => {
     expect(keepAnalysis({ ...body, offline: true }, true)).toBe(false);
     expect(keepAnalysis({ ...body, offline: true }, false)).toBe(true);

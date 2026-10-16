@@ -253,7 +253,7 @@ test('loading describes sources; report keeps limits before prose and sources gl
   await page.locator('.sources summary').focus();
   await page.keyboard.press('Enter');
   await expect(page.getByText('Sources apply to the report as a whole.')).toBeVisible();
-  await expect(page.getByText('Request cost: 0.0190 $')).toBeVisible();
+  await expect(page.getByText('Request cost: $0.0190')).toBeVisible();
   await accessible(page);
   await page.screenshot({ path: `/tmp/seal-report-${testInfo.project.name}.png`, fullPage: true });
 });
@@ -276,7 +276,7 @@ for (const completeness of ['full', 'unavailable']) {
     expect(text.indexOf('Offline mode')).toBeLessThan(text.indexOf('Raw facts.'));
     await expect(page.locator('.divergent')).toHaveCount(0);
     await expect(page.locator('.explanation p')).toHaveCount(3);
-    await expect(page.getByText('no cost: no model call')).toBeVisible();
+    await expect(page.getByText('No cost: no model call.')).toBeVisible();
     await expect(
       page.getByText(completeness === 'full' ? 'All sources responded.' : 'No usable sources.', {
         exact: true,

@@ -103,10 +103,61 @@ export async function allowShared(
   }
 }
 
-/** The caller's address as Vercel reports it. Not a secret, only a bucket key. */
+/**
+ * An IPv6 caller usually holds a whole /64: counting each address apart would
+ * hand it billions of buckets. IPv4 addresses are kept whole.
+ */
+export function bucketOf(ip: string): string {
+  if (!ip.includes(':')) return ip;
+  const [head = '', tail] = ip.toLowerCase().split('::');
+  const left = head ? head.split(':') : [];
+  const right = tail !== undefined && tail !== '' ? tail.split(':') : [];
+  const groups =
+    tail === undefined
+      ? left
+      : [...left, ...Array(8 - left.length - right.length).fill('0'), ...right];
+  return `${groups
+    .slice(0, 4)
+    .map((g) => g || '0')
+    .join(':')}::/64`;
+}
+
+/**
+ * The caller's address as the platform reports it. Not a secret, only a bucket
+ * key. Vercel's own headers come first: they cannot be set by the caller,
+ * whereas the first `x-forwarded-for` entry can be behind another proxy.
+ */
 export function clientKey(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
-  return forwarded || request.headers.get('x-real-ip') || 'unknown';
+  const ip =
+    request.headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim() ||
+    request.headers.get('x-real-ip')?.trim() ||
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+  return ip ? bucketOf(ip) : 'unknown';
+}
+
+/** Reads at most `limit` bytes: a body without an honest length is not buffered whole. */
+async function readCapped(request: Request, limit: number): Promise<string | null> {
+  if (!request.body) return '';
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > limit) {
+      await reader.cancel().catch(() => undefined);
+      return null;
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
 }
 
 /**
@@ -158,10 +209,8 @@ export async function guardedJson(
   }
 
   // content-length can be absent or wrong: the body itself is measured too.
-  const text = await request.text();
-  if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) {
-    return { response: refuse(413, 'Request body too large') };
-  }
+  const text = await readCapped(request, MAX_BODY_BYTES);
+  if (text === null) return { response: refuse(413, 'Request body too large') };
   try {
     return { body: JSON.parse(text) as unknown };
   } catch {

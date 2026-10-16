@@ -177,6 +177,40 @@ describe('explain', () => {
     expect(result.violations).toEqual([]);
   });
 
+  it('serves the facts when the text was cut at the token limit', async () => {
+    const provider = {
+      name: 'anthropic' as const,
+      complete: vi.fn(async () => ({
+        text: 'What is reassuring\n\nThe creator has',
+        usage: { input_tokens: 6000, output_tokens: 1500 },
+        stopReason: 'max_tokens',
+      })),
+    };
+    const result = await explain(report, { model: 'claude-sonnet-5-5', provider });
+    expect(result.offline).toBe(true);
+    expect(result.rejected).toBe(true);
+    expect(result.cost.costUsd).toBeGreaterThan(0);
+  });
+
+  it('does not call the model past the daily ceiling', async () => {
+    const provider = fakeProvider('Les signaux divergent.');
+    const result = await explain(report, {
+      model: 'claude-sonnet-5-5',
+      provider,
+      offline: true,
+    });
+    expect(provider.complete).not.toHaveBeenCalled();
+    expect(result.offline).toBe(true);
+    expect(result.cost.costUsd).toBe(0);
+  });
+
+  it('hands the deadline to the provider', async () => {
+    const provider = fakeProvider('Les signaux divergent.');
+    const signal = AbortSignal.timeout(10_000);
+    await explain(report, { model: 'claude-sonnet-5-5', provider, signal });
+    expect(provider.complete).toHaveBeenCalledWith(expect.objectContaining({ signal }));
+  });
+
   it('serves the facts when the model answers nothing', async () => {
     const result = await explain(report, {
       model: 'claude-sonnet-5-5',
