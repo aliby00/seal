@@ -17,15 +17,25 @@ type State =
   | { status: 'done'; result: AnalyzeResponse }
   | { status: 'error'; title?: string; message: string; retry: boolean };
 
+/** The steps light up on a typical schedule; the request itself is a single call. */
+const SCAN_STEPS: { label: string; from: number }[] = [
+  { label: 'Chain history', from: 0 },
+  { label: 'Holders', from: 3 },
+  { label: 'Market', from: 5 },
+  { label: 'Ten specialists', from: 7 },
+  { label: 'Reading', from: 12 },
+];
+
 function Loading() {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     const timer = setInterval(() => setElapsed((value) => value + 1), 1000);
     return () => clearInterval(timer);
   }, []);
+  const current = SCAN_STEPS.filter((step) => elapsed >= step.from).length - 1;
   return (
     <div className="loading-state" role="status">
-      <Arch className="loading-arch" />
+      <span className="scan-beam" aria-hidden="true" />
       <div className="loading-top">
         <h2>
           Reading public data
@@ -37,10 +47,22 @@ function Loading() {
           {elapsed} s
         </span>
       </div>
-      <p>On-chain history · Holders via Blockscout · Market via DexScreener</p>
+      <ol className="scan-steps" aria-hidden="true">
+        {SCAN_STEPS.map((step, i) => (
+          <li
+            key={step.label}
+            data-state={i < current ? 'done' : i === current ? 'active' : 'wait'}
+          >
+            {step.label}
+          </li>
+        ))}
+      </ol>
+      <p className="loading-sources">
+        On-chain history · Holders via Blockscout · Market via DexScreener
+      </p>
       <p className="loading-caption">
-        {elapsed < 15
-          ? 'Analysis usually takes 2–15 seconds. Sources are consulted, then their observations are brought together.'
+        {elapsed < 30
+          ? 'An analysis usually takes 15 to 30 seconds. Each source is read, then the ten questions are asked.'
           : 'This is taking longer than expected. A source may be slow or incomplete; its limitations will be shown.'}
       </p>
     </div>
@@ -124,6 +146,9 @@ export function AnalyzeForm() {
             Token address
           </label>
           <div className="input-row composer-row">
+            <span className="composer-prompt" aria-hidden="true">
+              &gt;_
+            </span>
             <Input
               ref={input}
               id="token"
@@ -143,7 +168,9 @@ export function AnalyzeForm() {
             />
             <Button type="submit" disabled={state.status === 'loading'}>
               {state.status === 'loading' ? 'Analyzing…' : 'Analyze token'}
-              <span aria-hidden="true">↑</span>
+              <span className="cta-orb" aria-hidden="true">
+                →
+              </span>
             </Button>
           </div>
           {validation && (
