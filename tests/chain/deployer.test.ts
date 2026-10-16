@@ -279,6 +279,15 @@ describe('fetchDeployerHistory', () => {
       null,
       pad(CREATOR),
     ]);
+    // The node caps a filter listing several values in one position at
+    // 100,000 blocks: every liquidity query names one event only.
+    const burnQueries = requests.filter(
+      (r) => r.method === 'eth_getLogs' && (r.params[0] as Filter).address === PAIR,
+    );
+    expect(burnQueries).toHaveLength(2);
+    for (const r of requests.filter((q) => q.method === 'eth_getLogs')) {
+      expect((r.params[0] as Filter).topics.some(Array.isArray)).toBe(false);
+    }
   });
 
   it('says the other launches cannot be listed when no contract records them', async () => {
