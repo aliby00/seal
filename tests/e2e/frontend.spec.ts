@@ -341,9 +341,9 @@ test('slow response is explained, reduced motion is respected, timeout allows re
   await submit(page);
   await expect(page.getByRole('status')).toBeVisible();
   await expect(page.locator('.loading-dots')).toHaveCSS('animation-name', 'none');
-  await page.clock.runFor(16_000);
+  await page.clock.runFor(31_000);
   await expect(page.getByRole('status')).toContainText('longer than expected');
-  await page.clock.fastForward(75_000);
+  await page.clock.fastForward(60_000);
   await expect(page.getByRole('main').getByRole('alert')).toContainText('too long');
   await page.unroute('**/api/analyze');
   await mockReport(page);

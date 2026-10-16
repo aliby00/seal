@@ -227,7 +227,10 @@ export function ImmersiveEntrance({
         <nav aria-label="Sections">
           <a href="#method">Method</a>
           <a href="#analysis" className="nav-enter">
-            Analyze <span aria-hidden="true">↗</span>
+            Analyze
+            <span className="cta-orb" aria-hidden="true">
+              →
+            </span>
           </a>
         </nav>
       </header>
@@ -252,7 +255,10 @@ export function ImmersiveEntrance({
                 An explanation of what they reveal together.
               </p>
               <a href="#analysis" className="entrance-cta">
-                Enter SEAL <span aria-hidden="true">↗</span>
+                Enter SEAL
+                <span className="cta-orb" aria-hidden="true">
+                  →
+                </span>
               </a>
             </div>
             <div className="journey-caption">
