@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   allow,
+  bucketOf,
+  clientKey,
   crossSite,
   guardedJson,
   MAX_BODY_BYTES,
@@ -77,5 +79,49 @@ describe('guardedJson', () => {
   it('refuses a cross-site request before counting it', async () => {
     const out = await guardedJson(req({ headers: { origin: 'https://evil.example' } }), LIMIT, 't');
     expect('response' in out && out.response.status).toBe(403);
+  });
+});
+
+describe('clé de limitation par appelant', () => {
+  const req = (headers: Record<string, string>) =>
+    new Request('https://sealauth.dev/api/analyze', { method: 'POST', headers });
+
+  it('préfère l’en-tête posé par Vercel à x-forwarded-for', () => {
+    expect(
+      clientKey(req({ 'x-vercel-forwarded-for': '1.2.3.4', 'x-forwarded-for': '9.9.9.9' })),
+    ).toBe('1.2.3.4');
+    expect(clientKey(req({ 'x-real-ip': '5.6.7.8', 'x-forwarded-for': '9.9.9.9' }))).toBe(
+      '5.6.7.8',
+    );
+  });
+
+  it('regroupe une adresse IPv6 par /64', () => {
+    expect(bucketOf('2001:db8:1:2:aaaa::1')).toBe('2001:db8:1:2::/64');
+    expect(bucketOf('2001:db8:1:2:ffff:ffff:ffff:ffff')).toBe('2001:db8:1:2::/64');
+    expect(bucketOf('2001:db8::1')).toBe('2001:db8:0:0::/64');
+    expect(bucketOf('1.2.3.4')).toBe('1.2.3.4');
+  });
+
+  it('range les appels sans adresse dans un seul seau', () => {
+    expect(clientKey(req({}))).toBe('unknown');
+  });
+});
+
+describe('corps sans longueur honnête', () => {
+  it('refuse un corps trop gros même sans content-length', async () => {
+    const big = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(`{"token":"${'a'.repeat(10_000)}"}`));
+        controller.close();
+      },
+    });
+    const request = new Request('https://sealauth.dev/api/analyze', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-real-ip': '7.7.7.7' },
+      body: big,
+      duplex: 'half',
+    } as RequestInit);
+    const result = await guardedJson(request, { capacity: 10, perMinute: 10 }, 'test');
+    expect('response' in result && result.response.status).toBe(413);
   });
 });

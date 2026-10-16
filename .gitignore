@@ -64,3 +64,8 @@ brand/video/stills/
 brand/**/*.mp4
 brand/v3/video/out/
 brand/v3/video/stills/
+!.env.example
+
+# Internal documents: never public
+seal-build-plan-condensed.pdf
+instructions
