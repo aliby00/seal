@@ -35,6 +35,16 @@ function pct(value: number): string {
   return `${(value * 100).toFixed(value < 0.1 ? 1 : 0)}%`;
 }
 
+/** "the first 10 minutes", "the first 40 seconds", "the first minute". */
+function span(seconds: number): string {
+  if (seconds < 90) {
+    const s = Math.max(1, Math.round(seconds));
+    return s === 1 ? 'second' : `${s} seconds`;
+  }
+  const m = Math.round(seconds / 60);
+  return m === 1 ? 'minute' : `${m} minutes`;
+}
+
 function when(seconds: number): string {
   if (seconds < 1) return 'launch';
   if (seconds < 60) return `+${Math.round(seconds)} s`;
@@ -126,7 +136,16 @@ function Summary({ launch }: { launch: LaunchReplayData }) {
   const buys = people.filter((m) => m.kind === 'buy');
   const buyers = new Map(buys.map((m) => [m.actor, m]));
   const bought = buys.reduce((sum, m) => sum + m.share, 0);
-  const stillHeld = [...buyers.values()].reduce((sum, m) => sum + (m.heldNow ?? 0), 0);
+  const known = [...buyers.values()].filter((m) => m.heldNow !== null);
+  const stillHeld = known.reduce((sum, m) => sum + (m.heldNow ?? 0), 0);
+  // An unread balance is not a zero: say how many could not be read.
+  const unread = buyers.size - known.length;
+  const holdToday =
+    unread === buyers.size
+      ? 'what they hold today could not be read'
+      : unread > 0
+        ? `the ${known.length} read hold ${pct(stillHeld)} today`
+        : `they hold ${pct(stillHeld)} today`;
   const creatorMoves = launch.moves.filter((m) => m.actorIsCreator || m.counterpartyIsCreator);
 
   const items: { value: string; label: string }[] = [
@@ -140,7 +159,7 @@ function Summary({ launch }: { launch: LaunchReplayData }) {
     },
     {
       value: pct(bought),
-      label: `bought by ${buyers.size} address${buyers.size === 1 ? '' : 'es'} in the window; they hold ${pct(stillHeld)} today`,
+      label: `bought by ${buyers.size} address${buyers.size === 1 ? '' : 'es'} in the window; ${holdToday}`,
     },
     {
       value: String(creatorMoves.length),
@@ -186,7 +205,7 @@ function Chart({ launch, run }: { launch: LaunchReplayData; run: number }) {
       className="launch-chart"
       viewBox="0 0 1000 270"
       role="img"
-      aria-label={`${launch.moves.length} moves in the first ${Math.round(window / 60)} minutes`}
+      aria-label={`${launch.moves.length} moves in the first ${span(window)}, listed in the table below`}
     >
       {LANES.map((lane) => (
         <g key={lane.kind}>
@@ -267,13 +286,13 @@ function Chart({ launch, run }: { launch: LaunchReplayData; run: number }) {
 export function LaunchReplay({ launch }: { launch: LaunchReplayData }) {
   const [run, setRun] = useState(0);
   const [all, setAll] = useState(false);
-  const minutes = Math.round(launch.windowSeconds / 60);
+  const firstSpan = span(launch.windowSeconds);
   const rows = all ? launch.moves : launch.moves.slice(0, 8);
 
   return (
     <section className="launch-replay" aria-labelledby="launch-title">
       <div className="report-section-head">
-        <p className="report-kicker">02 — The first {minutes} minutes</p>
+        <p className="report-kicker">02 — The first {firstSpan}</p>
         <h3 id="launch-title">Where the supply went when the token was born.</h3>
         <p className="questions-intro">
           Every move read from the token’s own transfers, from the launch block on. Dots are sized

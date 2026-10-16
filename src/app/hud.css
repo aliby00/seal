@@ -11,7 +11,8 @@
   --hud-line-strong: rgb(255 255 255 / 0.18);
   --hud-text: #eef2f4;
   --hud-dim: #9aa6ae;
-  --hud-faint: #66727a;
+  /* 4.5:1 on the HUD panels at 11px (AA); #66727a measured 3.6–4.1:1. */
+  --hud-faint: #7d8992;
   --hud-accent: #ff8a2a;
   --hud-accent-hot: #ffb15e;
   --hud-accent-glow: rgb(255 138 42 / 0.45);
@@ -1375,6 +1376,10 @@ tr[data-kind='sell'] .launch-kind::before {
   .launch-dot,
   .launch-sweep {
     animation: none;
+  }
+  /* Without its run, the sweep would rest at the chart's left edge. */
+  .launch-sweep {
+    display: none;
   }
   .question-tile:hover {
     transform: none;
