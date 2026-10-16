@@ -1,0 +1,67 @@
+name: Surveillance · disponibilité
+
+# Toutes les 15 minutes, interroge /api/health en prod et en staging.
+# Un site est déclaré indisponible après deux échecs à une minute d'écart :
+# une issue « Site indisponible » est ouverte (ou commentée), puis fermée au retour.
+# Aucun environnement protégé ici : les adresses sont publiques.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        site:
+          - name: production
+            url: ${{ vars.PRODUCTION_URL || 'https://sealauth.dev' }}
+          - name: staging
+            url: ${{ vars.STAGING_URL || 'https://seal-staging.vercel.app' }}
+    steps:
+      - name: Interroger /api/health (deux essais)
+        id: probe
+        env:
+          URL: ${{ matrix.site.url }}
+        run: |
+          probe() {
+            body=$(curl -fsS -m 20 "$URL/api/health") && echo "$body" | grep -q '"status":"ok"'
+          }
+          if probe; then echo "up=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          sleep 60
+          if probe; then echo "up=true" >> "$GITHUB_OUTPUT"; else echo "up=false" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Ouvrir ou fermer l'issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SITE: ${{ matrix.site.name }}
+          URL: ${{ matrix.site.url }}
+          UP: ${{ steps.probe.outputs.up }}
+        run: |
+          title="Site indisponible · $SITE"
+          open=$(gh issue list --state open --search "\"$title\" in:title" --json number,title \
+            --jq "map(select(.title == \"$title\")) | .[0].number // empty")
+          now=$(date -u +'%Y-%m-%d %H:%M UTC')
+          if [ "$UP" = "true" ]; then
+            if [ -n "$open" ]; then
+              gh issue close "$open" --comment "De nouveau joignable à $now ($URL/api/health)."
+            fi
+          elif [ -n "$open" ]; then
+            gh issue comment "$open" --body "Toujours injoignable à $now ($URL/api/health)."
+          else
+            gh issue create --title "$title" \
+              --body "$URL/api/health ne répond pas « ok » (deux essais à une minute d'écart, $now). Cette issue se ferme seule au retour."
+          fi
