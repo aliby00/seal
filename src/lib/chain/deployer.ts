@@ -2,7 +2,7 @@ import type { Address } from 'viem';
 import type { CreatorHistory, CreatorOrigin, LaunchedToken } from '../contracts';
 import { TRANSFER_TOPIC, topicFor, BURN_TOPIC } from './behavior';
 import { fetchBlockTimestamps } from './graduation';
-import { getLogsBatched, type LogSource, type RawLog } from './logs';
+import { getLogsBatched, type RawLog } from './logs';
 import { POOL_MANAGER } from './pools';
 import type { RpcClient } from './rpc';
 
@@ -271,6 +271,41 @@ export function modifyRemovedLiquidity(log: RawLog): boolean {
   return delta.length === 64 && Number.parseInt(delta[0] ?? '0', 16) >= 8;
 }
 
+type WindowQuery = { address: string; fromBlock: number; toBlock: number; topics: string[] };
+
+/** Queries that each fit one window, sent in one batch. Any refusal marks the result truncated. */
+async function readWindows(
+  rpc: RpcClient,
+  queries: readonly WindowQuery[],
+): Promise<{ logs: RawLog[]; truncated: boolean }> {
+  if (queries.length === 0) return { logs: [], truncated: false };
+  const hex = (n: number) => `0x${n.toString(16)}`;
+  try {
+    const outcomes = await rpc.callBatch<RawLog[]>(
+      queries.map((q) => ({
+        method: 'eth_getLogs',
+        params: [
+          {
+            address: q.address,
+            topics: q.topics,
+            fromBlock: hex(q.fromBlock),
+            toBlock: hex(q.toBlock),
+          },
+        ],
+      })),
+    );
+    const logs: RawLog[] = [];
+    let truncated = false;
+    for (const outcome of outcomes) {
+      if (outcome.ok && Array.isArray(outcome.value)) logs.push(...outcome.value);
+      else truncated = true;
+    }
+    return { logs, truncated };
+  } catch {
+    return { logs: [], truncated: true };
+  }
+}
+
 export type DeployerHistoryOptions = {
   latestBlock: number;
   now?: () => Date;
@@ -369,7 +404,7 @@ export async function fetchDeployerHistory(
 
   // Sales: transfers from the creator, then kept when they went into a market.
   const salesTargets = checked.filter((l) => (venues.get(l.token)?.saleRecipients.length ?? 0) > 0);
-  const poolSources: LogSource[] = [];
+  const poolSources: { address: string; fromBlock: number; toBlock: number }[] = [];
   const tokenOfPool = new Map<string, string>();
   for (const l of checked) {
     for (const pool of venues.get(l.token)?.pools ?? []) {
@@ -384,7 +419,7 @@ export async function fetchDeployerHistory(
   }
 
   const none = { logs: [] as RawLog[], truncated: false };
-  const [sales, burns, modifications, timestamps] = await Promise.all([
+  const [sales, liquidityLogs, timestamps] = await Promise.all([
     salesTargets.length
       ? getLogsBatched(
           rpc,
@@ -396,31 +431,21 @@ export async function fetchDeployerHistory(
           { split: false },
         ).catch(() => ({ logs: [], truncated: true }))
       : Promise.resolve(none),
-    poolSources.length
-      ? getLogsBatched(
-          rpc,
-          { addresses: poolSources, topics: [[BURN_TOPIC, V2_BURN_TOPIC]] },
-          { fromBlock: 0, toBlock: latest },
-          { split: false },
-        ).catch(() => ({ logs: [], truncated: true }))
-      : Promise.resolve(none),
-    marketTargets.length
-      ? getLogsBatched(
-          rpc,
-          {
-            addresses: [
-              {
-                address: POOL_MANAGER,
-                fromBlock: Math.min(...marketTargets.map((l) => l.blockNumber)),
-                toBlock: Math.max(...marketTargets.map((l) => windowOf(l).toBlock)),
-              },
-            ],
-            topics: [MODIFY_LIQUIDITY_TOPIC, [...tokenOfMarket.keys()]],
-          },
-          { fromBlock: 0, toBlock: latest },
-          { split: false },
-        ).catch(() => ({ logs: [], truncated: true }))
-      : Promise.resolve(none),
+    // One query per market and per event: this node caps a filter that lists
+    // several values in one position at 100,000 blocks, and each window here
+    // is 10 M. Every query fits one window, so they all go in one batch.
+    readWindows(rpc, [
+      ...poolSources.flatMap((source) =>
+        [BURN_TOPIC, V2_BURN_TOPIC].map((topic) => ({ ...source, topics: [topic] })),
+      ),
+      ...marketTargets.flatMap((l) =>
+        (venues.get(l.token)?.v4Markets ?? []).map((id) => ({
+          address: POOL_MANAGER as string,
+          ...windowOf(l),
+          topics: [MODIFY_LIQUIDITY_TOPIC, id],
+        })),
+      ),
+    ]),
     fetchBlockTimestamps(
       rpc,
       detailed.map((l) => l.blockNumber),
@@ -436,18 +461,20 @@ export async function fetchDeployerHistory(
 
   const liquidityTargets = new Set([...tokenOfPool.values(), ...tokenOfMarket.values()]);
   const pulled = new Map([...liquidityTargets].map((t) => [t, false]));
-  for (const log of burns.logs) {
+  const burns = liquidityLogs.logs.filter((l) => l.topics[0] !== MODIFY_LIQUIDITY_TOPIC);
+  const modifications = liquidityLogs.logs.filter((l) => l.topics[0] === MODIFY_LIQUIDITY_TOPIC);
+  for (const log of burns) {
     const token = tokenOfPool.get(lower(log.address));
     if (token && burnMovedLiquidity(log)) pulled.set(token, true);
   }
-  for (const log of modifications.logs) {
+  for (const log of modifications) {
     const token = tokenOfMarket.get(lower(log.topics[1] ?? ''));
     if (!token || !modifyRemovedLiquidity(log)) continue;
     // Outside its own window, a removal is not the one being asked about.
     const launch = checked.find((l) => l.token === token);
     if (launch && Number(log.blockNumber) <= windowOf(launch).toBlock) pulled.set(token, true);
   }
-  const pulledKnown = unseenAsUnknown(pulled, burns.truncated || modifications.truncated);
+  const pulledKnown = unseenAsUnknown(pulled, liquidityLogs.truncated);
 
   const checkedTokens = new Set(checked.map((l) => l.token));
   const tokens: LaunchedToken[] = detailed.map((l, i) => {
