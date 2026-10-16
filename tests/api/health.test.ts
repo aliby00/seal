@@ -8,6 +8,8 @@ describe('GET /api/health', () => {
     vi.stubEnv('GROQ_API_KEY', 'gsk_secret');
     vi.stubEnv('RPC_URL', 'https://keyed.example/v2/secret, https://other.example/secret');
     vi.stubEnv('LOGS_RPC_URL', '');
+    vi.stubEnv('KV_REST_API_URL', 'https://secret.upstash.io');
+    vi.stubEnv('KV_REST_API_TOKEN', 'secret');
     const body = await GET().json();
     expect(body.config).toEqual({
       reasoning: 'groq',
@@ -16,6 +18,7 @@ describe('GET /api/health', () => {
       logsRpc: 'public',
       logsRpcNodes: 1,
       holders: expect.any(String),
+      store: 'redis',
     });
     expect(JSON.stringify(body)).not.toMatch(/secret/);
   });
