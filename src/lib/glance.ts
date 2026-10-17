@@ -215,6 +215,18 @@ function marketItem(market: ReportFacts['market']): GlanceItem | null {
       href: '#fact-market',
     };
   }
+  // No listed pair: the launch pool's own trades, counted by the indexer.
+  const pool = market.measured ? market.poolActivity : undefined;
+  if (pool && pool.buys24h + pool.sells24h > 0) {
+    return {
+      id: 'market',
+      tone: 'neutral',
+      figure: `${pool.buys24h + pool.sells24h}`,
+      title: `${plural(pool.buys24h, 'buy')} and ${plural(pool.sells24h, 'sell')} by ${plural(pool.traders24h, 'wallet')} in the last 24 hours.`,
+      detail: 'Counted from the launch pool’s own trades; no price, as no pair is listed.',
+      href: '#fact-market',
+    };
+  }
   if (market.graduation && !market.graduation.graduated) {
     return {
       id: 'market',

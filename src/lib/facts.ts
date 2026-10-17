@@ -61,10 +61,47 @@ export type ReportFacts = {
     sells24h: number | null;
     fdvUsd: number | null;
     graduation: { progress: number; thresholdEth: number; graduated: boolean } | null;
+    /**
+     * Trades counted by the SEAL indexer from the launch pool's own swaps, when
+     * no listed pair gives them. No price: counts, and volume in ETH.
+     */
+    poolActivity?: {
+      buys24h: number;
+      sells24h: number;
+      traders24h: number;
+      /** In ETH when the pool trades against WETH, else `null`. */
+      volume24hEth: number | null;
+      lastTradeAt: string | null;
+      /** Swaps are counted from this time on (the launch, when every swap is counted). */
+      coveredFrom: string | null;
+    };
   };
 };
 
 const TOP_SHOWN = 8;
+const WETH = '0x0bd7d308f8e1639fab988df18a8011f41eacad73';
+
+function poolActivity(
+  activity: NonNullable<TokenReport['market']['data']['activity']>,
+): NonNullable<ReportFacts['market']['poolActivity']> {
+  let volume: number | null = null;
+  if (activity.pairToken.toLowerCase() === WETH) {
+    try {
+      // Wei to ETH, kept to six decimals without going through a float of 1e18.
+      volume = Number(BigInt(activity.h24.volume) / 1_000_000_000_000n) / 1_000_000;
+    } catch {
+      volume = null;
+    }
+  }
+  return {
+    buys24h: activity.h24.buys,
+    sells24h: activity.h24.sells,
+    traders24h: activity.h24.traders,
+    volume24hEth: volume,
+    lastTradeAt: activity.sinceLaunch.lastTradeAt,
+    coveredFrom: activity.coveredFrom,
+  };
+}
 
 export function toFacts(report: TokenReport): ReportFacts {
   const { creator, holders, market } = report;
@@ -118,6 +155,7 @@ export function toFacts(report: TokenReport): ReportFacts {
       buys24h: market.data.txns?.h24.buys ?? null,
       sells24h: market.data.txns?.h24.sells ?? null,
       fdvUsd: market.data.fdvUsd,
+      ...(market.data.activity ? { poolActivity: poolActivity(market.data.activity) } : {}),
       graduation: market.data.graduation
         ? {
             progress: market.data.graduation.progress,

@@ -19,8 +19,17 @@ describe('GET /api/health', () => {
       logsRpcNodes: 1,
       holders: expect.any(String),
       store: 'redis',
+      indexer: 'absent',
     });
     expect(JSON.stringify(body)).not.toMatch(/secret/);
+  });
+
+  it('says whether the indexer is configured, never its URL or token', async () => {
+    vi.stubEnv('INDEXER_URL', 'http://127.0.0.1:8795');
+    vi.stubEnv('INDEXER_TOKEN', 'secret-secret-secret-secret');
+    const body = await GET().json();
+    expect(body.config.indexer).toBe('configured');
+    expect(JSON.stringify(body)).not.toMatch(/secret|8795/);
   });
 
   it('reports offline when no provider key is set', async () => {

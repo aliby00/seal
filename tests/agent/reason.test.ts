@@ -287,7 +287,7 @@ describe('renderReport : les dix questions', () => {
     {
       specialist: 'sell-path' as const,
       title: 'Sell Path',
-      question: 'Can holders sell, and can the rulebook stand in the way?',
+      question: 'Can holders sell, and can the trading rules (hook) stand in the way?',
       signal: 'unknown' as const,
       facts: [],
       limits: ['recent trades were not collected'],

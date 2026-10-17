@@ -65,9 +65,11 @@ const report = {
     {
       specialist: 'rule-change',
       title: 'Rule Change',
-      question: 'Can the rulebook be rewritten after people have bought?',
+      question: 'Can the trading rules (hook) be rewritten after people have bought?',
       signal: 'reassurance',
-      facts: ['The rulebook’s code (4120 bytes) has no standard upgrade slot set.'],
+      facts: [
+        'The code of the trading rules (hook) (4120 bytes) has no standard upgrade slot set.',
+      ],
       limits: [],
     },
     {

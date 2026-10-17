@@ -1,0 +1,32 @@
+services:
+  seal-indexer:
+    build: .
+    container_name: seal-indexer
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_OPTIONS: --max-old-space-size=1024
+      DB_PATH: /data/seal-indexer.db
+      PORT: '8795'
+    # Joignable depuis la machine seulement : l'application passe par un tunnel
+    # ou un proxy local, jamais par un port ouvert sur Internet.
+    ports:
+      - '127.0.0.1:8795:8795'
+    volumes:
+      - seal-indexer-data:/data
+    networks:
+      - seal-indexer-net
+    mem_limit: 2g
+    logging:
+      driver: json-file
+      options:
+        max-size: '20m'
+        max-file: '5'
+
+volumes:
+  seal-indexer-data:
+    name: seal-indexer-data
+
+networks:
+  seal-indexer-net:
+    name: seal-indexer-net
