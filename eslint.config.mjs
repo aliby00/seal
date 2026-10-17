@@ -21,6 +21,15 @@ export default tseslint.config(
     languageOptions: { globals: globals.node },
   },
   {
+    // Extension navigateur : scripts classiques sans build, partagés entre le
+    // content script, le service worker et la popup.
+    files: ['extension/**/*.js'],
+    languageOptions: {
+      sourceType: 'script',
+      globals: { ...globals.browser, ...globals.serviceworker, ...globals.webextensions },
+    },
+  },
+  {
     // Code applicatif Next : Node côté serveur, navigateur côté client.
     files: ['src/**/*.{ts,tsx}'],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },

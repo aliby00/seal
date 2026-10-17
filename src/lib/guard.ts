@@ -20,6 +20,12 @@ export type RateLimit = { capacity: number; perMinute: number };
 
 /** /api/analyze: a short burst, then one analysis every ten seconds. */
 export const ANALYZE_LIMIT: RateLimit = { capacity: 5, perMinute: 6 };
+/**
+ * /api/glance spends no model call, but an uncached glance is a full
+ * collection upstream. Hovering a list of tokens asks for several in a row:
+ * a larger burst than an analysis, then one glance every five seconds.
+ */
+export const GLANCE_LIMIT: RateLimit = { capacity: 12, perMinute: 12 };
 /** /api/agent may call the largest model tier: stricter. */
 export const AGENT_LIMIT: RateLimit = { capacity: 3, perMinute: 3 };
 

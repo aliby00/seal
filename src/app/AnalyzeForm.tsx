@@ -11,6 +11,7 @@ import { requestError } from './requestErrors';
 
 /** A real pons launch whose creator history and holders can be read in full. */
 const EXAMPLE_TOKEN = '0x10e848f9d5073d670201b111f1ba3d1c5be6f18b';
+const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 type State =
   | { status: 'idle' }
   | { status: 'loading' }
@@ -82,9 +83,24 @@ export function AnalyzeForm() {
     if (state.status === 'done') document.getElementById('report-title')?.focus();
   }, [state]);
 
-  async function analyze() {
-    const address = token.trim();
-    if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
+  // A link such as /?token=0x…#analysis (the browser extension's "Full
+  // reading") opens with the address filled in and the analysis started. The
+  // start waits a tick so a remount in development does not send it twice.
+  useEffect(() => {
+    const linked = new URLSearchParams(window.location.search).get('token')?.trim() ?? '';
+    if (!ADDRESS.test(linked)) return;
+    const timer = setTimeout(() => {
+      setToken(linked);
+      void analyze(linked);
+    }, 0);
+    return () => clearTimeout(timer);
+    // Once, on arrival: later edits of the field are the reader's own.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function analyze(value: string = token) {
+    const address = value.trim();
+    if (!ADDRESS.test(address)) {
       setValidation('Enter an address starting with 0x, followed by 40 hexadecimal characters.');
       input.current?.focus();
       return;

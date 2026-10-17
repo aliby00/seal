@@ -42,14 +42,18 @@ const ANALYSIS_TTL_MS = 3 * 60_000;
  * retrying on the next request rather than repeating for three minutes.
  */
 export function keepAnalysis(body: CachedAnalysis, modelConfigured: boolean): boolean {
-  // A source that failed (its note starts with the error kind, see collect.ts)
-  // is retried by the next request rather than repeated for three minutes.
+  if (sourcesFailed(body.sources)) return false;
+  return !(body.offline && modelConfigured);
+}
+
+/**
+ * A source that failed (its note starts with the error kind, see collect.ts)
+ * is retried by the next request rather than repeated from a cache.
+ */
+export function sourcesFailed(sources: readonly { note?: string }[]): boolean {
   const failed =
     /could not be read|rate-limit|busy|timed out|budget|unknown failure|^(?:timeout|incomplete|upstream) : /i;
-  if (body.sources.some((s) => failed.test(s.note ?? ''))) {
-    return false;
-  }
-  return !(body.offline && modelConfigured);
+  return sources.some((s) => failed.test(s.note ?? ''));
 }
 
 export const analysisCache = new SharedCache<CachedAnalysis>({

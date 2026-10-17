@@ -1,0 +1,63 @@
+{
+  "manifest_version": 3,
+  "name": "SEAL · In short",
+  "short_name": "SEAL",
+  "version": "0.1.0",
+  "description": "SEAL's In short for Robinhood Chain tokens, right on DexScreener, Blockscout and pons. Evidence and context, never a score.",
+  "homepage_url": "https://sealauth.dev",
+  "icons": {
+    "16": "icons/seal-16.png",
+    "32": "icons/seal-32.png",
+    "48": "icons/seal-48.png",
+    "128": "icons/seal-128.png"
+  },
+  "action": {
+    "default_title": "SEAL · In short",
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/seal-16.png",
+      "32": "icons/seal-32.png"
+    }
+  },
+  "background": {
+    "service_worker": "src/background.js",
+    "scripts": ["src/config.js", "src/detect.js", "src/client.js", "src/background.js"]
+  },
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://sealauth.dev/*",
+    "https://dexscreener.com/robinhood*",
+    "https://robinhoodchain.blockscout.com/*",
+    "https://ponsfamily.com/*",
+    "https://www.ponsfamily.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://dexscreener.com/robinhood*",
+        "https://robinhoodchain.blockscout.com/*",
+        "https://ponsfamily.com/*",
+        "https://www.ponsfamily.com/*"
+      ],
+      "js": [
+        "src/config.js",
+        "src/detect.js",
+        "src/client.js",
+        "src/card.js",
+        "src/styles.js",
+        "src/content.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; connect-src https://sealauth.dev http://127.0.0.1:* http://localhost:*"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "seal@sealauth.dev",
+      "strict_min_version": "121.0"
+    }
+  }
+}
