@@ -9,6 +9,8 @@ import {
   type MarketIndex,
 } from '../chain/pools';
 import type { RpcClient } from '../chain/rpc';
+import { indexer } from '../indexer/client';
+import { fundingFacts } from '../indexer/merge';
 import { log } from '../logger';
 import type { SpecialistContext } from './types';
 
@@ -91,7 +93,12 @@ export async function gatherContext(
     context.creatorNonce = null;
     context.tokenBeacon = null;
   }
-  // Le financement exige un indexeur : il reste `undefined` tant qu'il n'est
-  // pas collecté, et le spécialiste le dit.
+  // Le financement vient de l'indexeur : sans lui, ou tant qu'il ne l'a pas
+  // lu, il reste `undefined`, et le spécialiste le dit.
+  const ix = indexer();
+  if (ix && creator) {
+    const funding = fundingFacts(await ix.creator(creator));
+    if (funding !== undefined) context.funding = funding;
+  }
   return context;
 }

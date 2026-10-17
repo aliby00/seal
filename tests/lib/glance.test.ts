@@ -145,6 +145,37 @@ describe('buildGlance', () => {
     });
   });
 
+  it('counts the launch pool’s trades when no pair is listed', () => {
+    const f = facts({ measured: false });
+    f.holders.measured = false;
+    f.market = {
+      ...f.market,
+      measured: true,
+      note: 'no pair indexed by DexScreener for this token',
+      buys24h: 30,
+      sells24h: 12,
+      poolActivity: {
+        buys24h: 30,
+        sells24h: 12,
+        traders24h: 25,
+        volume24hEth: 2.5,
+        lastTradeAt: null,
+        coveredFrom: null,
+      },
+    };
+    const item = buildGlance({ facts: f })!.items.find((i) => i.id === 'market');
+    expect(item).toMatchObject({
+      tone: 'neutral',
+      figure: '42',
+      title: '30 buys and 12 sells by 25 wallets in the last 24 hours.',
+    });
+    // Without a trade in the day, the graduation line is the one shown.
+    f.market.poolActivity = { ...f.market.poolActivity!, buys24h: 0, sells24h: 0, traders24h: 0 };
+    expect(buildGlance({ facts: f })!.items.find((i) => i.id === 'market')?.title).toMatch(
+      /needed to graduate/,
+    );
+  });
+
   it('lists what was not measured instead of hiding it', () => {
     expect(buildGlance({ facts: facts() })!.unseen).toEqual(['live trading on an open market']);
   });

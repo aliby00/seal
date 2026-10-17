@@ -221,10 +221,10 @@ describe('les spécialistes de données', () => {
     expect(CATALOG['volume-reality'].run({ token, report }).signal).toBe('concern');
   });
 
-  it('funding-trace : dit qu’il lui manque un indexeur', () => {
+  it('funding-trace : dit en clair que le financement n’a pas été cherché', () => {
     const f = CATALOG['funding-trace'].run({ token });
     expect(f.signal).toBe('unknown');
-    expect(f.limits[0]).toMatch(/indexer/);
+    expect(f.limits[0]).toMatch(/was not looked up for this token/);
   });
 
   it('liquidity-move : un retrait déjà observé sur ce token', () => {
@@ -256,7 +256,7 @@ describe('tokens sans marché v4', () => {
   it('sell-path dit où le token s’échange et ce que montrent les ventes récentes', () => {
     const f = CATALOG['sell-path'].run({ token, report: pons, market: null, hook: null });
     expect(f.signal).toBe('quiet');
-    expect(f.facts[0]).toMatch(/pons launch pool/);
+    expect(f.facts[0]).toMatch(/its launch pool/);
     expect(f.facts[1]).toMatch(/4 sell\(s\)/);
     expect(f.facts.concat(f.limits).every((line) => isCompliant(line))).toBe(true);
   });
@@ -273,11 +273,19 @@ describe('tokens sans marché v4', () => {
   });
 
   it('les questions v4 nomment le marché réel au lieu d’un « not found » sec', () => {
-    for (const id of ['code-reuse', 'name-clone', 'rule-change'] as const) {
+    for (const id of ['code-reuse', 'rule-change'] as const) {
       const f = CATALOG[id].run({ token, report: pons, market: null, hook: null });
       expect(f.signal).toBe('unknown');
-      expect(f.limits[0]).toMatch(/trades on its pons launch pool, not on a Uniswap v4 pool/);
+      expect(f.limits[0]).toMatch(/trades on its launch pool, not on a Uniswap v4 pool/);
     }
+  });
+
+  it('name-clone donne sa propre raison, sans parler de règles d’échange', () => {
+    const f = CATALOG['name-clone'].run({ token, report: pons, market: null, hook: null });
+    expect(f.signal).toBe('unknown');
+    expect(f.limits[0]).toMatch(/the name was not checked/);
+    expect(f.limits[0]).toMatch(/trades on its launch pool/);
+    expect(f.limits[0]).not.toMatch(/trading rules|rulebook|hook/);
   });
 
   it('sans aucun marché, la raison le dit en clair', () => {
@@ -300,7 +308,7 @@ describe('sell-path sur un pool v4 sans rulebook', () => {
       report: makeReport(m.token),
     });
     expect(f.signal).toBe('reassurance');
-    expect(f.facts[0]).toMatch(/no rulebook \(hook\)/);
+    expect(f.facts[0]).toMatch(/no trading rules \(hook\)/);
     expect(f.facts[1]).toMatch(/30 sell\(s\)/);
   });
 });

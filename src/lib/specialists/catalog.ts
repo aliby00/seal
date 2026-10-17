@@ -34,7 +34,7 @@ const unknown = (id: SpecialistId, why: string): Finding => finding(id, 'unknown
 export function marketElsewhere(report: SpecialistContext['report']): string | null {
   const data = report?.market.data;
   if (!data) return null;
-  if (data.graduation && !data.graduation.graduated) return 'its pons launch pool';
+  if (data.graduation && !data.graduation.graduated) return 'its launch pool';
   if (data.pair)
     return `a trading pair listed by DexScreener (${data.pair.slice(0, 6)}…${data.pair.slice(-4)})`;
   return null;
@@ -44,8 +44,20 @@ export function marketElsewhere(report: SpecialistContext['report']): string | n
 export function noV4Market(report: SpecialistContext['report']): string {
   const where = marketElsewhere(report);
   return where
-    ? `this token trades on ${where}, not on a Uniswap v4 pool, so there is no v4 rulebook for this question to read`
-    : 'no market was found for this token: no Uniswap v4 pool, no pons pool, and no pair listed by DexScreener';
+    ? `this token trades on ${where}, not on a Uniswap v4 pool, so there are no Uniswap v4 trading rules (hook) for this question to read`
+    : 'no market was found for this token: no Uniswap v4 pool, no launch pool, and no pair listed by DexScreener';
+}
+
+/**
+ * Why the name question has no answer. Its comparison runs over the v4 market
+ * index, but it is about names, not trading rules: borrowing the v4 wording
+ * told the reader there was no hook to read, which was beside the point.
+ */
+export function namesNotCompared(report: SpecialistContext['report']): string {
+  const where = marketElsewhere(report);
+  return where
+    ? `the name was not checked: names are compared only across Uniswap v4 markets, and this token trades on ${where}`
+    : 'the name was not checked: no market was found for this token to compare it with earlier ones';
 }
 
 /**
@@ -78,11 +90,11 @@ export const MIN_TRADES_FOR_VOLUME = 20;
 const codeReuse: Specialist = {
   id: 'code-reuse',
   title: 'Code Reuse',
-  question: 'Has this market’s rulebook already been used by other markets?',
+  question: 'Have this market’s trading rules (hook) already been used by other markets?',
   run({ market, index, report }: SpecialistContext): Finding {
     if (!market) return unknown('code-reuse', noV4Market(report));
     if (market.hook === NATIVE) {
-      return finding('code-reuse', 'quiet', ['This market runs without a rulebook (no hook).']);
+      return finding('code-reuse', 'quiet', ['This market runs without trading rules (no hook).']);
     }
     if (!index || index.size === 0) {
       return unknown('code-reuse', 'the cross-market index was not loaded');
@@ -92,18 +104,18 @@ const codeReuse: Specialist = {
     const window = `blocks ${range[0]?.blockNumber} to ${range.at(-1)?.blockNumber}`;
     if (siblings.length + 1 < REUSE_NOTABLE) {
       return finding('code-reuse', 'quiet', [
-        `The rulebook ${market.hook} is used by ${siblings.length + 1} market(s) in the indexed window (${window}).`,
+        `The trading rules (hook) ${market.hook} are used by ${siblings.length + 1} market(s) in the indexed window (${window}).`,
       ]);
     }
     const facts = [
-      `The rulebook ${market.hook} is shared by ${siblings.length + 1} markets in the indexed window (${window}).`,
+      `The trading rules (hook) ${market.hook} are shared by ${siblings.length + 1} markets in the indexed window (${window}).`,
     ];
     const tokens = new Set(siblings.map((s) => s.token));
     facts.push(`Those markets list ${tokens.size} distinct other token(s).`);
     const judged = siblings.filter((s) => s.outcome === 'harmed' || s.outcome === 'unharmed');
     const harmed = judged.filter((s) => s.outcome === 'harmed').length;
     const limits = [
-      'A shared rulebook can be a launchpad’s standard one; reuse alone does not say what it does.',
+      'Shared trading rules can be a launchpad’s standard ones; reuse alone does not say what they do.',
     ];
     if (judged.length === 0) {
       limits.push('What happened afterwards to the other markets is not known yet.');
@@ -155,7 +167,7 @@ const fundingTrace: Specialist = {
     if (funding === undefined) {
       return unknown(
         'funding-trace',
-        'funding was not collected — it needs an indexer key (Blockscout); the creator’s first incoming transfer cannot be found by RPC alone',
+        'Who first sent money to the creator’s wallet was not looked up for this token.',
       );
     }
     if (funding === null) {
@@ -177,7 +189,7 @@ const nameClone: Specialist = {
   title: 'Name Clone',
   question: 'Does the token borrow a name it does not own, or reuse an earlier token’s name?',
   run({ market, index, tokenBeacon, report }: SpecialistContext): Finding {
-    if (!market) return unknown('name-clone', noV4Market(report));
+    if (!market) return unknown('name-clone', namesNotCompared(report));
     const { name, symbol } = market;
     const limits: string[] = [];
     if (!name && !symbol) return unknown('name-clone', 'name and symbol could not be read');
@@ -284,7 +296,9 @@ const creatorHistory: Specialist = {
       (t) => t.address.toLowerCase() !== token.toLowerCase(),
     );
     const limits =
-      creator.completeness === 'partial' ? [creator.sources[0]?.note ?? 'partial history'] : [];
+      creator.completeness === 'partial'
+        ? [creator.sources.find((s) => s.note)?.note ?? 'partial history']
+        : [];
     if (others.length === 0) {
       return finding(
         'creator-history',
@@ -308,13 +322,13 @@ const creatorHistory: Specialist = {
 const sellPath: Specialist = {
   id: 'sell-path',
   title: 'Sell Path',
-  question: 'Can holders sell, and can the rulebook stand in the way?',
+  question: 'Can holders sell, and can the trading rules (hook) stand in the way?',
   run({ hook, report, market }: SpecialistContext): Finding {
     if (market && hook === null) {
       // A v4 pool without a hook: nothing sits between a sell and the pool.
       const txns = report?.market.data.txns?.h24 ?? null;
       const facts = [
-        'This token’s Uniswap v4 pool has no rulebook (hook): no contract sits between a sell and the pool.',
+        'This token’s Uniswap v4 pool has no trading rules (hook): no contract sits between a sell and the pool.',
       ];
       if (txns)
         facts.push(
@@ -332,7 +346,7 @@ const sellPath: Specialist = {
       const txns = report?.market.data.txns?.h24 ?? null;
       if (!where) return unknown('sell-path', noV4Market(report));
       const facts = [
-        `No Uniswap v4 rulebook sits in front of trades: this token trades on ${where}.`,
+        `No Uniswap v4 trading rules (hook) sit in front of trades: this token trades on ${where}.`,
       ];
       if (txns && txns.sells > 0) {
         facts.push(
@@ -353,7 +367,7 @@ const sellPath: Specialist = {
     const facts: string[] = [];
     const limits = hook.inconsistent.length
       ? [
-          'the rulebook’s permission bits are inconsistent with the Uniswap v4 spec; this reading is unreliable',
+          'the permission bits of the trading rules (hook) are inconsistent with the Uniswap v4 spec; this reading is unreliable',
         ]
       : [];
     if (txns)
@@ -364,7 +378,7 @@ const sellPath: Specialist = {
 
     if (ids.has('alters-swap-amounts')) {
       facts.push(
-        'The rulebook may change the amount of any trade, which gives it the power to take a cut of a sell or to stop it; what it does with that power is not readable from its permissions.',
+        'The trading rules (hook) may change the amount of any trade, which gives them the power to take a cut of a sell or to stop it; what they do with that power is not readable from their permissions.',
       );
       if (txns && txns.buys >= 10 && txns.sells === 0) {
         facts.push('No sell has gone through despite repeated buys.');
@@ -373,10 +387,12 @@ const sellPath: Specialist = {
       return finding('sell-path', 'observation', facts, limits, ['rule-change']);
     }
     if (ids.has('intercepts-swaps')) {
-      facts.push('The rulebook is called on every trade but cannot change trade amounts.');
+      facts.push(
+        'The trading rules (hook) are called on every trade but cannot change trade amounts.',
+      );
       return finding('sell-path', 'quiet', facts, limits);
     }
-    facts.push('The rulebook has no permission over trades.');
+    facts.push('The trading rules (hook) have no permission over trades.');
     return finding('sell-path', 'reassurance', facts, limits);
   },
 };
@@ -393,31 +409,45 @@ const volumeReality: Specialist = {
     const { buys, sells } = market.data.txns.h24;
     const trades = buys + sells;
     const perTrade = volumePerTrade(market);
+    // Counted by the indexer from the launch pool's swaps when no pair is listed.
+    const activity = market.data.activity;
+    const limits: string[] = [];
+    if (activity) {
+      const from = activity.coveredFrom ? Date.parse(activity.coveredFrom) : NaN;
+      const dayBefore = Date.parse(report.collectedAt) - 86_400_000;
+      if (Number.isFinite(from) && from > dayBefore) {
+        limits.push(
+          `the launch pool’s swaps are counted only from ${activity.coveredFrom}, less than 24 hours`,
+        );
+      }
+    }
     const facts = [
       `${trades} trades in 24 hours` +
+        (activity ? ' in the token’s launch pool, counted from the pool’s own swaps' : '') +
         (perTrade !== null ? `, averaging ${perTrade.toFixed(2)} USD each.` : '.'),
     ];
     if (trades < MIN_TRADES_FOR_VOLUME) {
       return finding('volume-reality', 'quiet', facts, [
+        ...limits,
         'too few trades to say anything about their origin',
       ]);
     }
-    const traders = report?.holders.data.distinctTraders ?? null;
+    const traders = activity?.h24.traders ?? report?.holders.data.distinctTraders ?? null;
     if (traders !== null) {
       facts.push(`They came from ${traders} distinct address(es).`);
       if (traders / trades < TRADERS_PER_TRADE_CONCERN) {
-        return finding('volume-reality', 'concern', facts, [], ['holder-spread']);
+        return finding('volume-reality', 'concern', facts, limits, ['holder-spread']);
       }
-      return finding('volume-reality', 'quiet', facts);
+      return finding('volume-reality', 'quiet', facts, limits);
     }
-    return finding('volume-reality', 'quiet', facts, ['distinct traders not collected']);
+    return finding('volume-reality', 'quiet', facts, [...limits, 'distinct traders not collected']);
   },
 };
 
 const liquidityMove: Specialist = {
   id: 'liquidity-move',
   title: 'Liquidity Move',
-  question: 'Has liquidity been taken out, and can the rulebook touch withdrawals?',
+  question: 'Has liquidity been taken out, and can the trading rules (hook) touch withdrawals?',
   run({ report, token, hook }: SpecialistContext): Finding {
     const facts: string[] = [];
     const limits: string[] = [];
@@ -441,10 +471,10 @@ const liquidityMove: Specialist = {
     if (hook) {
       const ids = new Set(hook.capabilities.map((c) => c.id));
       if (ids.has('alters-liquidity-removal')) {
-        facts.push('The rulebook may change what comes out of a liquidity withdrawal.');
+        facts.push('The trading rules (hook) may change what comes out of a liquidity withdrawal.');
         if (signal !== 'concern') signal = 'observation';
       } else if (ids.has('intercepts-liquidity-removal')) {
-        facts.push('The rulebook is called whenever liquidity is withdrawn.');
+        facts.push('The trading rules (hook) are called whenever liquidity is withdrawn.');
         if (signal === 'unknown') signal = 'quiet';
       }
     }
@@ -455,14 +485,14 @@ const liquidityMove: Specialist = {
 const ruleChange: Specialist = {
   id: 'rule-change',
   title: 'Rule Change',
-  question: 'Can the rulebook be rewritten after people have bought?',
+  question: 'Can the trading rules (hook) be rewritten after people have bought?',
   run({ market, hookCode, report }: SpecialistContext): Finding {
     if (!market) return unknown('rule-change', noV4Market(report));
     if (market.hook === NATIVE) {
-      return finding('rule-change', 'quiet', ['There is no rulebook to rewrite.']);
+      return finding('rule-change', 'quiet', ['There are no trading rules (hook) to rewrite.']);
     }
     if (!hookCode || hookCode.codeSize === null) {
-      return unknown('rule-change', 'the rulebook’s code could not be read');
+      return unknown('rule-change', 'the code of the trading rules (hook) could not be read');
     }
     const limits = [
       'Only the standard upgrade slot (EIP-1967) is checked; other upgrade patterns exist.',
@@ -471,13 +501,13 @@ const ruleChange: Specialist = {
       return finding(
         'rule-change',
         'concern',
-        ['No code is deployed at the rulebook address.'],
+        ['No code is deployed at the address of the trading rules (hook).'],
         limits,
       );
     }
     if (hookCode.implementation) {
       const facts = [
-        `The rulebook is an upgradeable proxy: its code currently lives at ${hookCode.implementation} and can be replaced without changing address.`,
+        `The trading rules (hook) are an upgradeable proxy: their code currently lives at ${hookCode.implementation} and can be replaced without changing address.`,
       ];
       if (hookCode.admin) facts.push(`The upgrade admin is ${hookCode.admin}.`);
       return finding('rule-change', 'concern', facts, limits);
@@ -485,7 +515,9 @@ const ruleChange: Specialist = {
     return finding(
       'rule-change',
       'reassurance',
-      [`The rulebook’s code (${hookCode.codeSize} bytes) has no standard upgrade slot set.`],
+      [
+        `The code of the trading rules (hook) (${hookCode.codeSize} bytes) has no standard upgrade slot set.`,
+      ],
       limits,
     );
   },

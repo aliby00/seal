@@ -20,6 +20,8 @@ import { fetchHoldersFromChain, findFirstMint } from './holders/chain';
 import { fetchMarketState } from './market';
 import { log } from './logger';
 import { TtlCache } from './cache';
+import { indexer } from './indexer/client';
+import { withIndexedLaunches, withPoolActivity } from './indexer/merge';
 
 /**
  * L'historique d'un créateur est la partie chère de l'analyse — 30 M blocs
@@ -153,6 +155,12 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     },
   );
 
+  // A pons launch is what the indexer knows: its full launch list and the
+  // pool's trades are asked for now, in parallel, and never block the rest.
+  const ix = launch ? indexer() : undefined;
+  const indexedCreator = launch && ix ? ix.creator(launch.deployer) : Promise.resolve(undefined);
+  const indexedToken = launch && ix ? ix.token(address) : Promise.resolve(undefined);
+
   // Not a pons launch: the creator is traced from the transaction of the
   // token's first mint, and their other launches from the launch contract's
   // own record. Only when the node answered: a failed lookup is not "not pons".
@@ -191,7 +199,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     scannedRange: { fromBlock: 0, toBlock: 0 },
   });
 
-  const chain: CreatorHistory = launch
+  const chainRead: CreatorHistory = launch
     ? await settled(
         creatorHistoryCache
           .resolve(cacheKey, () =>
@@ -247,6 +255,8 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
             ),
           emptyHistory('0x'),
         ) as CreatorHistory);
+
+  const chain = withIndexedLaunches(chainRead, await indexedCreator, collectedAt);
 
   const graduation = await settled(
     (async () => {
@@ -321,7 +331,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
         )
       : Promise.resolve(undefined);
 
-  const [holders, market, launchReplay] = await Promise.all([
+  const [holders, marketRead, launchReplay] = await Promise.all([
     settled<HolderDistribution>(
       readHolders(),
       (error) =>
@@ -352,6 +362,9 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     ),
     replay,
   ]);
+
+  // No listed pair: the launch pool's own trades, counted by the indexer.
+  const market = withPoolActivity(marketRead, await indexedToken, collectedAt);
 
   const completeness = combineCompleteness([
     chain.completeness,

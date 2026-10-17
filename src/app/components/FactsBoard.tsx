@@ -445,6 +445,60 @@ function HoldersCard({
   );
 }
 
+const eth = (value: number | null): string =>
+  value === null
+    ? '—'
+    : `${value >= 100 ? value.toFixed(0) : value.toFixed(value >= 1 ? 2 : 4)} ETH`;
+
+/** No listed pair: the launch pool's own trades, counted by the SEAL indexer. No price. */
+function PoolActivity({
+  activity,
+}: {
+  activity: NonNullable<ReportFacts['market']['poolActivity']>;
+}) {
+  const trades = activity.buys24h + activity.sells24h;
+  return (
+    <>
+      <dl className="fact-pairs">
+        <div>
+          <dt>Trades 24h</dt>
+          <dd>{trades}</dd>
+        </div>
+        <div>
+          <dt>Wallets 24h</dt>
+          <dd>{activity.traders24h}</dd>
+        </div>
+        <div>
+          <dt>Volume 24h</dt>
+          <dd>{eth(activity.volume24hEth)}</dd>
+        </div>
+        <div>
+          <dt>Last trade</dt>
+          <dd>
+            {activity.lastTradeAt
+              ? `${activity.lastTradeAt.slice(0, 16).replace('T', ' ')} UTC`
+              : '—'}
+          </dd>
+        </div>
+      </dl>
+      {trades > 0 && (
+        <Split
+          label={`${activity.buys24h} buys and ${activity.sells24h} sells in 24 hours`}
+          parts={[
+            { value: activity.buys24h, tone: 'calm', name: 'buys' },
+            { value: activity.sells24h, tone: 'warm', name: 'sells' },
+          ]}
+        />
+      )}
+      <p className="fact-note">
+        Counted from the launch pool’s own trades
+        {activity.coveredFrom ? ` since ${activity.coveredFrom.slice(0, 10)}` : ''}. There is no
+        price: no trading pair is listed for this token.
+      </p>
+    </>
+  );
+}
+
 function MarketCard({ market }: { market: ReportFacts['market'] }) {
   const trades = (market.buys24h ?? 0) + (market.sells24h ?? 0);
   return (
@@ -460,6 +514,8 @@ function MarketCard({ market }: { market: ReportFacts['market'] }) {
       )}
       {!market.measured ? (
         <Missing note={market.note} />
+      ) : market.poolActivity ? (
+        <PoolActivity activity={market.poolActivity} />
       ) : (
         <>
           <dl className="fact-pairs">

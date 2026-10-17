@@ -23,6 +23,26 @@ describe('parseEnv', () => {
     expect(() => parseEnv({ RPC_URL: 'pas-une-url' })).toThrow(/RPC_URL/);
   });
 
+  it("accepte l'indexeur configuré en entier, ou pas du tout", () => {
+    expect(parseEnv({}).INDEXER_URL).toBeUndefined();
+    expect(parseEnv({ INDEXER_URL: '', INDEXER_TOKEN: '' }).INDEXER_TOKEN).toBeUndefined();
+    const env = parseEnv({
+      INDEXER_URL: 'http://127.0.0.1:8795',
+      INDEXER_TOKEN: 'a'.repeat(32),
+    });
+    expect(env.INDEXER_URL).toBe('http://127.0.0.1:8795');
+  });
+
+  it('rejette un indexeur à moitié configuré ou un jeton trop court', () => {
+    expect(() => parseEnv({ INDEXER_URL: 'http://127.0.0.1:8795' })).toThrow(/INDEXER_TOKEN/);
+    expect(() =>
+      parseEnv({ INDEXER_URL: 'http://127.0.0.1:8795', INDEXER_TOKEN: 'court' }),
+    ).toThrow(/INDEXER_TOKEN/);
+    expect(() => parseEnv({ INDEXER_URL: 'pas-une-url', INDEXER_TOKEN: 'a'.repeat(32) })).toThrow(
+      /INDEXER_URL/,
+    );
+  });
+
   it('distingue la production du reste', () => {
     expect(isProduction(parseEnv({ SEAL_ENV: 'production' }))).toBe(true);
     expect(isProduction(parseEnv({ SEAL_ENV: 'staging' }))).toBe(false);
