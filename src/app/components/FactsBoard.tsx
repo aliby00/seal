@@ -21,8 +21,8 @@ function pct(value: number): string {
  */
 export function plainNote(note: string | undefined): string | undefined {
   if (!note) return undefined;
-  if (/not a pons launch/i.test(note))
-    return 'Not launched through pons: there is no launch record to trace a creator from.';
+  if (/not a pons launch|no launch record found/i.test(note))
+    return 'No launch record names a creator, and the token’s first mint could not be traced.';
   if (/402|no api key/i.test(note)) return 'Not available for this token yet.';
   if (/rate-limit|request limit|could not be read/i.test(note))
     return 'The chain node was busy. Try again in a minute.';
@@ -299,6 +299,11 @@ function Missing({ note }: { note?: string }) {
 export function creatorOrigin(creator: ReportFacts['creator']): string | null {
   const via = creator.launchContract ? ` through ${short(creator.launchContract)}` : '';
   if (creator.source === 'pons') return 'Found from their pons launch record.';
+  if (creator.launchpad) {
+    return creator.creatorFrom === 'launch-record'
+      ? `Found from their ${creator.launchpad} launch record.`
+      : `Launched the token through ${creator.launchpad}: the sender of that transaction.`;
+  }
   switch (creator.role) {
     case 'deployer':
       return 'Deployed the token contract.';
@@ -342,15 +347,19 @@ function CreatorCard({
             </p>
           )}
           {creatorOrigin(creator) && <p className="fact-line">{creatorOrigin(creator)}</p>}
-          <Split
-            label={`Outcomes of ${creator.detailed} launches read in detail`}
-            parts={[
-              { value: creator.graduated, tone: 'calm', name: 'graduated' },
-              { value: creator.active, tone: 'neutral', name: 'active' },
-              { value: creator.undetermined, tone: 'faint', name: 'undetermined' },
-              { value: creator.abandoned, tone: 'warm', name: 'abandoned' },
-            ]}
-          />
+          {(creator.graduation ?? 'measured') === 'measured' ? (
+            <Split
+              label={`Outcomes of ${creator.detailed} launches read in detail`}
+              parts={[
+                { value: creator.graduated, tone: 'calm', name: 'graduated' },
+                { value: creator.active, tone: 'neutral', name: 'active' },
+                { value: creator.undetermined, tone: 'faint', name: 'undetermined' },
+                { value: creator.abandoned, tone: 'warm', name: 'abandoned' },
+              ]}
+            />
+          ) : (
+            <p className="fact-line">{graduationLine(creator)}</p>
+          )}
           {timeline && <Timeline launches={timeline} />}
           {salesChecked + liquidityChecked > 0 && (
             <dl className="fact-pairs">
@@ -380,11 +389,21 @@ function CreatorCard({
               </div>
             </dl>
           )}
+          {(creator.notListed?.length ?? 0) > 0 && (
+            <p className="fact-note">Not listed: {creator.notListed?.join(', ')}.</p>
+          )}
           {creator.note && <p className="fact-note">{plainNote(creator.note)}</p>}
         </>
       )}
     </section>
   );
+}
+
+/** Why there is no graduation split: never read here, or no such step for this token. */
+export function graduationLine(creator: ReportFacts['creator']): string {
+  return creator.graduation === 'not-applicable'
+    ? 'Graduation does not apply: this token had no launch curve to leave.'
+    : `Graduation is read for pons launches only: not measured${creator.launchpad ? ` on ${creator.launchpad}` : ' here'}.`;
 }
 
 function HoldersCard({

@@ -2,8 +2,9 @@
 
 Un petit service autonome qui lit Robinhood Chain (chainId 4663) en continu et
 répond aux questions que l'analyse en direct ne peut pas se payer en RPC :
-tous les lancements d'un créateur depuis le début, les échanges d'un pool de
-lancement pons, qui a financé un créateur, les marchés Uniswap v4 d'un token.
+tous les lancements d'un créateur depuis le début, sur chaque launchpad connu
+(`docs/launchpads.md`), les échanges d'un pool de lancement pons, qui a financé
+un créateur, les marchés Uniswap v4 d'un token.
 
 Aucune dépendance : Node 24 exécute le TypeScript tel quel, `node:sqlite` stocke
 (mode WAL), `node:http` sert l'API.
@@ -12,11 +13,20 @@ Aucune dépendance : Node 24 exécute le TypeScript tel quel, `node:sqlite` stoc
 
 | Flux            | Source                                                            | Curseur                       |
 | --------------- | ----------------------------------------------------------------- | ----------------------------- |
-| `launches`      | `TokenLaunched` de chaque factory pons, depuis son premier bloc   | `launches:<factory>`          |
+| `launches`      | l'événement de lancement de chaque launchpad, depuis son 1er bloc | `launches:<contrat>`          |
 | `swaps:forward` | `Swap` Uniswap V3 de toute la chaîne, filtrés sur les pools pons  | `swaps:forward`               |
 | `swaps:back`    | les mêmes, par listes de 999 pools, en remontant `BACKFILL_DAYS`  | `swaps:back` → `swaps:target` |
 | `markets`       | `Initialize` du PoolManager v4, tout l'historique                 | `markets`                     |
 | `funding`       | premier versement entrant de chaque créateur (API PRO Blockscout) | une ligne par créateur        |
+
+Les lancements portent une colonne `launchpad` (`pons`, `flap`, `curve-7ed5`…).
+Une base créée avant elle est migrée à l'ouverture (`ALTER TABLE … ADD COLUMN`
+avec `pons` par défaut : toutes ses lignes en étaient) ; les curseurs pons
+gardent leur nom, chaque nouveau contrat part de son propre premier bloc. Le
+premier rattrapage lit ~1,1 M de lancements de plus (flap.sh, `0x7ed5…`), une
+fois. Les swaps ne lisent que les pools pons, et seule la frontière des
+factories pons les retient. Le `Create` de l'Airlock Doppler n'est pas lu : il
+ne nomme pas de créateur.
 
 Chaque flux reprend à son curseur après un arrêt ; les insertions sont
 idempotentes sur (txHash, logIndex). Une erreur RPC (429, délai dépassé) fait
@@ -77,11 +87,14 @@ une adresse inconnue répond 404, une absence de jeton 401.
 
 - `GET /health` (sans jeton) : bloc de tête, curseur et retard de chaque flux,
   nombre de lignes, financement actif ou non, mémoire.
-- `GET /v1/creator/:address` : les lancements du créateur (token, pool, bloc,
-  date), et `fundingState` : `found` (avec `funding.funder`, `txHash`, `block`,
+- `GET /v1/creator/:address` : les lancements du créateur sur tous les
+  launchpads (token, `launchpad`, contrat, pool, bloc, date, `txHash`),
+  `launchpads` (dernier bloc lu par launchpad), et `fundingState` : `found` (avec `funding.funder`, `txHash`, `block`,
   `otherCreatorsFunded`), `none` (`funding: null`, rien trouvé), `pending` (pas
   encore lu, le créateur passe en tête de file) ou `disabled` (pas de clé).
-- `GET /v1/token/:address` : le lancement, puis sur 1 h, 24 h, 7 j et depuis le
+- `GET /v1/coverage` : le dernier bloc lu par launchpad, ce que vaut un 404 sur
+  `/v1/creator` (« aucun lancement sur les launchpads lus jusque-là »).
+- `GET /v1/token/:address` : pour un lancement pons, le lancement, puis sur 1 h, 24 h, 7 j et depuis le
   lancement : achats, ventes, traders distincts, volume côté token de paire (wei,
   en texte), dernier échange ; les 5 plus gros traders sur 7 j avec leur solde
   net ; si le créateur a échangé. `coveredFrom` dit à partir de quel bloc les

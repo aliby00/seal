@@ -17,9 +17,13 @@ function deployerAccount(report: TokenReport): string {
   const origin = data.origin;
   if (!origin) return '';
   const sentences: string[] = [
-    `Creator: this token was not launched through pons. It was ${ROLE[origin.role]} ${data.creator}` +
-      (origin.launchContract ? ` through the contract ${origin.launchContract}` : '') +
-      '.',
+    origin.launchpad
+      ? origin.creatorFrom === 'launch-record'
+        ? `Creator: this token was launched through ${origin.launchpad.name}, whose launch record names ${data.creator}.`
+        : `Creator: this token was launched through ${origin.launchpad.name}, in a transaction sent by ${data.creator}.`
+      : `Creator: no known launchpad recorded this token. It was ${ROLE[origin.role]} ${data.creator}` +
+        (origin.launchContract ? ` through the contract ${origin.launchContract}` : '') +
+        '.',
   ];
   if (origin.role === 'first-minter') {
     sentences.push(
@@ -32,11 +36,17 @@ function deployerAccount(report: TokenReport): string {
     );
   }
   const launched = data.counts.launched;
+  const where = origin.launchpadsRead?.length
+    ? `Looking on ${origin.launchpadsRead.join(', ')}`
+    : 'Through the same launch contract';
   sentences.push(
     origin.launchesListed
-      ? `Through the same launch contract, this address launched ${launched} token${launched === 1 ? '' : 's'}.`
-      : 'Its other launches cannot be listed from the chain.',
+      ? `${where}, this address launched ${launched} token${launched === 1 ? '' : 's'}.`
+      : 'Its other launches on this launchpad cannot be listed from the chain.',
   );
+  if (origin.launchpadsNotRead?.length) {
+    sentences.push(`Launches on ${origin.launchpadsNotRead.join(', ')} are not listed.`);
+  }
   const sales = data.tokens.filter((t) => t.creatorDumped !== null);
   const liquidity = data.tokens.filter((t) => t.liquidityPulled !== null);
   if (sales.length > 0) {
@@ -50,7 +60,9 @@ function deployerAccount(report: TokenReport): string {
     );
   }
   sentences.push(
-    'There is no graduation outside pons, so what became of these launches is not measured here.',
+    origin.role === 'deployer' && !origin.launchpad
+      ? 'The token was deployed on its own, with no launch curve: graduation does not apply.'
+      : 'Graduation is read on pons launches only, so what became of these launches is not measured here.',
   );
   return sentences.join(' ');
 }
@@ -66,9 +78,10 @@ export function offlineExplanation(report: TokenReport): string {
     // Say why: "not a pons launch" and "the node did not answer" are different facts.
     parts.push(
       creatorNote?.includes('first mint')
-        ? 'Creator: not found. This token was not launched through pons, and the transaction of its first mint could not be traced.'
-        : creatorNote?.startsWith('not a pons launch')
-          ? 'Creator history: this token was not launched through pons, so there is no launch record to read a creator history from.'
+        ? 'Creator: not found. No launch record names one, and the transaction of the token’s first mint could not be traced.'
+        : creatorNote?.startsWith('not a pons launch') ||
+            creatorNote?.startsWith('no launch record')
+          ? 'Creator history: no launch record names a creator for this token, so there is no history to read.'
           : `Creator history could not be read${creatorNote ? ` (${creatorNote})` : ''}.`,
     );
   } else if (creator.data.origin?.source === 'deployer') {

@@ -131,11 +131,11 @@ export function toMarketState(
   };
 }
 
-/** Récupère l'état du marché. Ne lève que si la source est franchement cassée. */
-export async function fetchMarketState(
+/** The token's pairs as DexScreener lists them. Throws only when the source is plainly broken. */
+export async function fetchPairs(
   token: string,
-  options: FetchMarketOptions = {},
-): Promise<MarketState> {
+  options: Pick<FetchMarketOptions, 'budget' | 'baseUrl'> = {},
+): Promise<DexScreenerPair[]> {
   const url = tokenPairsUrl(token, options.baseUrl);
   const body = await requestJson<unknown>(url, {
     source: 'dexscreener',
@@ -146,8 +146,37 @@ export async function fetchMarketState(
   if (!Array.isArray(body)) {
     throw new UpstreamError('dexscreener', 'unexpected response: expected an array');
   }
+  return body as DexScreenerPair[];
+}
 
-  return toMarketState(token, body as DexScreenerPair[], options);
+/** Récupère l'état du marché. Ne lève que si la source est franchement cassée. */
+export async function fetchMarketState(
+  token: string,
+  options: FetchMarketOptions = {},
+): Promise<MarketState> {
+  return toMarketState(token, await fetchPairs(token, options), options);
+}
+
+/**
+ * Where a token trades, from its listed pairs: V2/V3 pair contracts, and v4
+ * market ids (a 32-byte id rather than an address). A pair where the token is
+ * on either side is a place its tokens sit.
+ */
+export function venuesOf(
+  token: string,
+  pairs: readonly DexScreenerPair[],
+): { pools: string[]; v4Markets: string[] } {
+  const own = token.toLowerCase();
+  const pools = new Set<string>();
+  const v4Markets = new Set<string>();
+  for (const pair of pairs) {
+    const sides = [pair.baseToken?.address, pair.quoteToken?.address].map((a) => a?.toLowerCase());
+    if (!sides.includes(own)) continue;
+    const address = pair.pairAddress?.toLowerCase() ?? '';
+    if (/^0x[0-9a-f]{64}$/.test(address)) v4Markets.add(address);
+    else if (/^0x[0-9a-f]{40}$/.test(address)) pools.add(address);
+  }
+  return { pools: [...pools], v4Markets: [...v4Markets] };
 }
 
 /**

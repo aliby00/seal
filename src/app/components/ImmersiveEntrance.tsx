@@ -250,7 +250,7 @@ export function ImmersiveEntrance({
                 <em>another story.</em>
               </h1>
               <p className="entrance-description">
-                One pons token address. Three public sources.
+                One Robinhood Chain token address. Three public sources.
                 <br />
                 An explanation of what they reveal together.
               </p>
@@ -271,7 +271,7 @@ export function ImmersiveEntrance({
                 </span>
                 Scroll to explore <span aria-hidden="true">↓</span>
               </a>
-              <span>PONS / ROBINHOOD CHAIN</span>
+              <span>ROBINHOOD CHAIN</span>
             </div>
           </div>
         </section>
@@ -287,9 +287,7 @@ export function ImmersiveEntrance({
                 SEAL <span aria-hidden="true">/</span> Research workspace
               </span>
               <span>
-                {environment !== 'production'
-                  ? `Environment: ${environment}`
-                  : 'Pons / Robinhood Chain'}
+                {environment !== 'production' ? `Environment: ${environment}` : 'Robinhood Chain'}
               </span>
             </div>
             {children}

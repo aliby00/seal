@@ -1,6 +1,8 @@
+import type { IndexedListing, ListedLaunch } from '../chain/deployer';
+import { LAUNCHPADS, launchpadById } from '../chain/launchpads';
 import type { CreatorHistory, LaunchedToken, MarketState, PoolActivityWindow } from '../contracts';
 import type { FundingFacts } from '../specialists/types';
-import type { IndexerCreator, IndexerToken, IndexerWindow } from './client';
+import type { IndexerCoverage, IndexerCreator, IndexerToken, IndexerWindow } from './client';
 
 /**
  * Ce que l'indexeur ajoute à un rapport, en fonctions pures : chaque ajout
@@ -93,12 +95,21 @@ export function withIndexedLaunches(
   if (indexed.creator.toLowerCase() !== history.data.creator.toLowerCase()) return history;
   const known = new Set(history.data.tokens.map((t) => t.address.toLowerCase()));
   // Only what lies before the RPC window: inside it, the RPC read is the record.
+  // Only pons launches: the pons read is what this completes.
   const older = indexed.launches.filter(
-    (l) => l.block < history.data.scannedRange.fromBlock && !known.has(l.token.toLowerCase()),
+    (l) =>
+      (l.launchpad ?? 'pons') === 'pons' &&
+      l.block < history.data.scannedRange.fromBlock &&
+      !known.has(l.token.toLowerCase()),
   );
-  // A capped list still gives the true total.
+  // A capped list still gives the true total (of pons launches, when the
+  // indexer reads other launchpads too: the others are merged apart).
+  const ponsCount = indexed.launchpads
+    ? indexed.launchCount -
+      indexed.launches.filter((l) => (l.launchpad ?? 'pons') !== 'pons').length
+    : indexed.launchCount;
   const extra = indexed.truncated
-    ? Math.max(older.length, indexed.launchCount - history.data.counts.launched)
+    ? Math.max(older.length, ponsCount - history.data.counts.launched)
     : older.length;
   if (extra <= 0) return history;
 
@@ -151,4 +162,42 @@ export function fundingFacts(indexed: IndexerCreator | undefined): FundingFacts 
     funder: indexed.funding.funder,
     otherCreatorsFunded: indexed.funding.otherCreatorsFunded.length,
   };
+}
+
+/** An indexer this far behind the head does not list the latest launches. */
+export const INDEXER_MAX_LAG_BLOCKS = 6_000;
+
+/**
+ * A creator's launches on the launchpads the indexer has read up to the head:
+ * those the node is then not asked about — and the only list there is for a
+ * launchpad that records the creator in its event data (flap.sh). A list the
+ * indexer capped covers nothing: it would read as complete.
+ */
+export function indexedListing(
+  found: IndexerCreator | undefined,
+  coverage: IndexerCoverage | undefined,
+  latestBlock: number,
+): IndexedListing | undefined {
+  if (!coverage || found?.truncated) return undefined;
+  const covered = new Set(
+    Object.entries(coverage.launchpads)
+      .filter(([, indexedTo]) => indexedTo >= latestBlock - INDEXER_MAX_LAG_BLOCKS)
+      .map(([id]) => id)
+      .filter((id) => launchpadById(id) !== undefined),
+  );
+  if (covered.size === 0) return undefined;
+  const launches: ListedLaunch[] = (found?.launches ?? [])
+    .filter((l) => covered.has(l.launchpad ?? 'pons'))
+    .map((l) => {
+      const launchpad =
+        LAUNCHPADS.find((p) => p.address === l.factory.toLowerCase()) ??
+        launchpadById(l.launchpad ?? 'pons');
+      return {
+        token: l.token.toLowerCase(),
+        blockNumber: l.block,
+        transactionHash: l.txHash ?? '',
+        ...(launchpad ? { launchpad } : {}),
+      };
+    });
+  return { launches, covered };
 }

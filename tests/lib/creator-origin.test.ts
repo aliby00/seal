@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { creatorOrigin } from '../../src/app/components/FactsBoard';
+import { creatorOrigin, graduationLine } from '../../src/app/components/FactsBoard';
 import type { ReportFacts } from '../../src/lib/facts';
 
 const base: ReportFacts['creator'] = {
@@ -42,5 +42,33 @@ describe('creatorOrigin', () => {
 
   it('ne dit rien quand l’origine est inconnue', () => {
     expect(creatorOrigin({ ...base, source: null, role: null })).toBeNull();
+  });
+});
+
+describe('creator origin on a known launchpad', () => {
+  it('says where the creator was read', () => {
+    expect(
+      creatorOrigin({
+        ...base,
+        source: 'deployer',
+        launchpad: 'flap.sh',
+        creatorFrom: 'launch-record',
+      }),
+    ).toBe('Found from their flap.sh launch record.');
+    expect(
+      creatorOrigin({
+        ...base,
+        source: 'deployer',
+        launchpad: 'flap.sh',
+        creatorFrom: 'transaction',
+      }),
+    ).toBe('Launched the token through flap.sh: the sender of that transaction.');
+  });
+
+  it('says graduation does not apply, or was not measured, rather than drawing zeros', () => {
+    expect(graduationLine({ ...base, graduation: 'not-applicable' })).toMatch(/does not apply/);
+    expect(graduationLine({ ...base, graduation: 'not-measured', launchpad: 'flap.sh' })).toBe(
+      'Graduation is read for pons launches only: not measured on flap.sh.',
+    );
   });
 });

@@ -22,6 +22,10 @@ export type IndexerLaunch = {
   token: string;
   pool: string;
   factory: string;
+  /** Launchpad id (launchpads.ts). Absent from indexers that only read pons. */
+  launchpad?: string;
+  /** The launch transaction. Absent from indexers that only read pons. */
+  txHash?: string;
   pairToken: string;
   block: number;
   timestamp: string | null;
@@ -41,6 +45,8 @@ export type IndexerCreator = {
   launchCount: number;
   truncated: boolean;
   launches: IndexerLaunch[];
+  /** Last block read for each launchpad id. Absent from indexers that only read pons. */
+  launchpads?: Record<string, number>;
   /** `disabled` : l'indexeur n'a pas de clé Blockscout ; `pending` : pas encore lu. */
   fundingState: 'found' | 'none' | 'pending' | 'disabled';
   /** `null` = lu, aucun versement entrant trouvé. Absent tant que ce n'est pas lu. */
@@ -96,8 +102,13 @@ export type IndexerMarkets = {
   }[];
 };
 
+/** How far the indexer has read each launchpad's launches, by launchpad id. */
+export type IndexerCoverage = { head: number; launchpads: Record<string, number> };
+
 export type IndexerClient = {
   creator(address: string): Promise<IndexerCreator | undefined>;
+  /** `undefined` from an indexer that reads pons only, or does not answer. */
+  coverage(): Promise<IndexerCoverage | undefined>;
   token(address: string): Promise<IndexerToken | undefined>;
   funder(address: string): Promise<IndexerFunder | undefined>;
   markets(token: string): Promise<IndexerMarkets | undefined>;
@@ -165,7 +176,18 @@ export function createIndexerClient(
     return value;
   }
 
+  function coverage(): Promise<IndexerCoverage | undefined> {
+    if (!url || !token) return Promise.resolve(undefined);
+    const path = '/v1/coverage';
+    const hit = memo.get(path);
+    if (hit && now() - hit.at < MEMO_MS) return hit.value as Promise<IndexerCoverage | undefined>;
+    const value = read<IndexerCoverage>(path);
+    memo.set(path, { at: now(), value });
+    return value;
+  }
+
   return {
+    coverage,
     creator: (address) => get<IndexerCreator>('creator', address),
     token: (address) => get<IndexerToken>('token', address),
     funder: (address) => get<IndexerFunder>('funder', address),

@@ -2,10 +2,18 @@ import type { Address } from 'viem';
 import type { CreatorHistory, CreatorOrigin, LaunchedToken } from '../contracts';
 import { TRANSFER_TOPIC, topicFor, BURN_TOPIC } from './behavior';
 import { fetchBlockTimestamps } from './graduation';
-import { getLogsBatched, type RawLog } from './logs';
+import {
+  creatorFilter,
+  findLaunchRecord,
+  LAUNCHPADS,
+  readLaunchRecord,
+  type Launchpad,
+  type LaunchRecord,
+} from './launchpads';
+import { getLogsBatched, SINGLE_ADDRESS_SPAN, type RawLog } from './logs';
 import { POOL_MANAGER } from './pools';
-import type { RpcClient } from './rpc';
-import { readTxNatures } from './trades';
+import { classifyLogError, DEFAULT_RPC_URL, logsRpcUrl, type RpcClient } from './rpc';
+import { readTxNatures, SWAP_TOPICS } from './trades';
 
 /**
  * The creator of a token that is not a pons launch.
@@ -80,9 +88,18 @@ export type TradingVenues = {
   pools: string[];
   /** v4 market ids; their reserves sit in the PoolManager. */
   v4Markets: string[];
+  /**
+   * Bonding curves of a known launchpad. A transfer into one is a sale only
+   * when the curve emitted one of `curveTrades` in the same transaction.
+   */
+  curves?: string[];
+  curveTrades?: string[];
   /** Addresses a transfer from the creator into counts as a sale. */
   saleRecipients: string[];
 };
+
+/** The launchpad a token came from, as the report names it. */
+export type LaunchpadRef = { id: string; name: string; address: string };
 
 export type TokenOrigin = {
   token: string;
@@ -93,6 +110,14 @@ export type TokenOrigin = {
   transactionHash: string;
   registry?: CreatorRegistry;
   venues: TradingVenues;
+  /** The known launchpad whose launch event names this token. */
+  launchpad?: LaunchpadRef;
+  /**
+   * Where the creator was read: the launch event itself, or the sender of the
+   * transaction (no launch event, an event that does not name the creator, or
+   * one that names the contract relaying the call).
+   */
+  creatorFrom?: 'launch-record' | 'transaction';
 };
 
 const lower = (value: string) => value.toLowerCase();
@@ -182,23 +207,68 @@ export function findVenues(
   return { pools: uniquePools, v4Markets: uniqueMarkets, saleRecipients: [...new Set(recipients)] };
 }
 
+/** Adds what a launch event says about the token's markets to the venues found in its receipt. */
+export function withRecordVenues(
+  venues: TradingVenues,
+  record: LaunchRecord | null,
+): TradingVenues {
+  if (!record) return venues;
+  const pools = [...new Set([...venues.pools, ...(record.pool ? [record.pool] : [])])];
+  const v4Markets = [...new Set([...venues.v4Markets, ...(record.market ? [record.market] : [])])];
+  const curves = [...new Set([...(venues.curves ?? []), ...(record.curve ? [record.curve] : [])])];
+  const curveTrades = [
+    ...new Set([...(venues.curveTrades ?? []), ...(record.launchpad.curveTrades ?? [])]),
+  ];
+  const saleRecipients = [
+    ...new Set([
+      ...venues.saleRecipients,
+      ...pools,
+      ...(v4Markets.length > 0 ? [lower(POOL_MANAGER)] : []),
+      ...curves,
+    ]),
+  ];
+  return { pools, v4Markets, curves, curveTrades, saleRecipients };
+}
+
+export const launchpadRef = (launchpad: Launchpad): LaunchpadRef => ({
+  id: launchpad.id,
+  name: launchpad.name,
+  address: launchpad.address,
+});
+
 /** Reads one token's origin from the transaction that carried its first mint. */
 export function readOrigin(
   token: string,
   mint: RawLog,
   transaction: ChainTransaction,
   receipt: ChainReceipt,
+  /** The launch event names a contract (a router, a batch executor), not a wallet. */
+  creatorIsContract = false,
 ): TokenOrigin {
-  const creator = creatorOf(transaction, receipt, Number(mint.logIndex));
+  const sender = creatorOf(transaction, receipt, Number(mint.logIndex));
   const to = transaction.to ? lower(transaction.to) : null;
+  const record = findLaunchRecord(token, receipt.logs, sender);
+  // A launch event names who called the launchpad. When that is the very
+  // contract the transaction called — a router or a vault factory relaying
+  // the launch — or any other contract, the person is whoever sent it.
+  const relayed = Boolean(
+    record?.creator &&
+    ((to && record.creator === to && to !== record.launchpad.address) || creatorIsContract),
+  );
+  const fromRecord = Boolean(record?.creator) && !relayed;
+  const creator = fromRecord && record?.creator ? record.creator : sender;
   const created = receipt.contractAddress && lower(receipt.contractAddress) === lower(token);
   const role: CreatorOrigin['role'] = created
     ? 'deployer'
-    : to === lower(token)
-      ? 'first-minter'
-      : 'launcher';
-  const launchContract = role === 'launcher' && to && !ENTRY_POINTS.includes(to) ? to : undefined;
-  const registry = findRegistry(token, creator, receipt.logs);
+    : record || to !== lower(token)
+      ? 'launcher'
+      : 'first-minter';
+  const launchContract = record
+    ? record.launchpad.address
+    : role === 'launcher' && to && !ENTRY_POINTS.includes(to)
+      ? to
+      : undefined;
+  const registry = record ? undefined : findRegistry(token, creator, receipt.logs);
   return {
     token: lower(token),
     creator,
@@ -207,7 +277,15 @@ export function readOrigin(
     blockNumber: Number(mint.blockNumber),
     transactionHash: mint.transactionHash,
     ...(registry ? { registry } : {}),
-    venues: findVenues(token, receipt.logs, launchContract),
+    // A known launchpad's curve is confirmed by its own trade events; an
+    // unknown launch contract keeps the older reading, where a transfer into
+    // it is a sale on its curve.
+    venues: withRecordVenues(
+      findVenues(token, receipt.logs, record ? undefined : launchContract),
+      record,
+    ),
+    ...(record ? { launchpad: launchpadRef(record.launchpad) } : {}),
+    creatorFrom: fromRecord ? 'launch-record' : 'transaction',
   };
 }
 
@@ -242,12 +320,24 @@ export async function traceTokenOrigin(
     { method: 'eth_getTransactionReceipt', params: [mint.transactionHash] },
   ]);
   if (!transaction?.ok || !receipt?.ok || !transaction.value || !receipt.value) return undefined;
-  return readOrigin(
-    token,
-    mint,
-    transaction.value as ChainTransaction,
-    receipt.value as ChainReceipt,
-  );
+  const tx = transaction.value as ChainTransaction;
+  const rc = receipt.value as ChainReceipt;
+  // Whether the creator a launch event names is a contract: one more read,
+  // only when there is such an event.
+  const sender = creatorOf(tx, rc, Number(mint.logIndex));
+  const named = findLaunchRecord(token, rc.logs, sender)?.creator;
+  let isContract = false;
+  if (named && named !== sender) {
+    const code = await rpc.call<string>('eth_getCode', [named, 'latest']).catch(() => '0x');
+    isContract = isContractCode(code);
+  }
+  return readOrigin(token, mint, tx, rc, isContract);
+}
+
+/** Code at an address, read as a contract. A wallet delegating under EIP-7702 (`0xef0100…`) stays a wallet. */
+export function isContractCode(code: string | null | undefined): boolean {
+  if (!code || code === '0x') return false;
+  return !code.toLowerCase().startsWith('0xef0100');
 }
 
 type Launch = { token: string; blockNumber: number; transactionHash: string };
@@ -312,18 +402,26 @@ async function creatorRemovals(
   return pulled;
 }
 
-type WindowQuery = { address: string; fromBlock: number; toBlock: number; topics: string[] };
+type WindowQuery = {
+  address: string;
+  fromBlock: number;
+  toBlock: number;
+  topics: (string | null)[];
+};
 
-/** Queries that each fit one window, sent in one batch. Any refusal marks the result truncated. */
+/**
+ * Queries that each fit one window, sent in one batch. A query the busy node
+ * turned down is asked once more; any refusal left marks the result truncated.
+ */
 async function readWindows(
   rpc: RpcClient,
   queries: readonly WindowQuery[],
 ): Promise<{ logs: RawLog[]; truncated: boolean }> {
   if (queries.length === 0) return { logs: [], truncated: false };
   const hex = (n: number) => `0x${n.toString(16)}`;
-  try {
-    const outcomes = await rpc.callBatch<RawLog[]>(
-      queries.map((q) => ({
+  const send = (list: readonly WindowQuery[]) =>
+    rpc.callBatch<RawLog[]>(
+      list.map((q) => ({
         method: 'eth_getLogs',
         params: [
           {
@@ -335,27 +433,190 @@ async function readWindows(
         ],
       })),
     );
+  try {
     const logs: RawLog[] = [];
-    let truncated = false;
-    for (const outcome of outcomes) {
-      if (outcome.ok && Array.isArray(outcome.value)) logs.push(...outcome.value);
-      else truncated = true;
+    let pending = [...queries];
+    let tooBroad = false;
+    for (let attempt = 0; attempt < 2 && pending.length > 0; attempt += 1) {
+      const outcomes = await send(pending);
+      const again: WindowQuery[] = [];
+      pending.forEach((query, i) => {
+        const outcome = outcomes[i];
+        if (outcome?.ok && Array.isArray(outcome.value)) logs.push(...outcome.value);
+        // Too many results will not shrink by asking again.
+        else if (!outcome?.ok && classifyLogError(outcome?.error ?? '')) tooBroad = true;
+        else again.push(query);
+      });
+      pending = again;
     }
-    return { logs, truncated };
+    return { logs, truncated: tooBroad || pending.length > 0 };
   } catch {
     return { logs: [], truncated: true };
   }
 }
 
+/** A launch found for a creator, and the launchpad that recorded it. */
+export type ListedLaunch = Launch & { launchpad?: Launchpad };
+
+export type CreatorListing = {
+  launches: ListedLaunch[];
+  truncated: boolean;
+  /** Launchpads whose launches by this creator were read (names, once each). */
+  read: string[];
+  /** Launchpads whose launch event does not index the creator: not readable from the node. */
+  unread: string[];
+};
+
+const names = (list: readonly Launchpad[]) => [...new Set(list.map((l) => l.name))];
+
+/**
+ * Log queries a creator listing may send to the public node, which paces them
+ * at about four a second: the whole analysis has 30 s. A launchpad is read
+ * whole or not at all — the 0x7ed5 factory and its router need 14, the five
+ * pons factories 22, so on the
+ * public node pons is left to the indexer, and the report says it was not
+ * listed. A node named by `LOGS_RPC_URL` is not held to it.
+ */
+export const PUBLIC_LISTING_QUERIES = 18;
+
+export function listingQueryBudget(env: Record<string, string | undefined> = process.env): number {
+  return logsRpcUrl(env) === DEFAULT_RPC_URL ? PUBLIC_LISTING_QUERIES : Number.POSITIVE_INFINITY;
+}
+
+/** One 10 M-block window per query, over the launchpad's own range. */
+function windowsOf(launchpad: Launchpad, latest: number): { fromBlock: number; toBlock: number }[] {
+  const out: { fromBlock: number; toBlock: number }[] = [];
+  const until = Math.min(latest, launchpad.toBlock ?? latest);
+  for (let to = until; to >= launchpad.fromBlock; to -= SINGLE_ADDRESS_SPAN) {
+    out.push({
+      fromBlock: Math.max(launchpad.fromBlock, to - SINGLE_ADDRESS_SPAN + 1),
+      toBlock: to,
+    });
+  }
+  return out;
+}
+
+/**
+ * A creator's launches on every known launchpad whose event indexes the
+ * creator: one query per contract and per 10 M-block window, all in one
+ * batch. A launchpad that records the creator in its data (flap.sh) cannot be
+ * filtered by the node: the indexer lists those. Under a query budget, the
+ * token's own launchpad comes first, then the open ones, the newest first.
+ */
+export async function listCreatorLaunches(
+  rpc: RpcClient,
+  creator: string,
+  latest: number,
+  options: {
+    skip?: (launchpad: Launchpad) => boolean;
+    /** Read first: the token's own launchpad. */
+    first?: string;
+    maxQueries?: number;
+  } = {},
+): Promise<CreatorListing> {
+  const wanted = LAUNCHPADS.filter((l) => !options.skip?.(l));
+  const filterable = wanted.filter((l) => creatorFilter(l, creator) !== null);
+  // Grouped by launchpad: pons is five contracts, read together or not at all.
+  const groups = [...new Set(filterable.map((l) => l.id))].map((id) => {
+    const contracts = filterable.filter((l) => l.id === id);
+    return {
+      id,
+      contracts,
+      cost: contracts.reduce((n, l) => n + windowsOf(l, latest).length, 0),
+      open: contracts.some((l) => l.toBlock === undefined),
+      newest: Math.max(...contracts.map((l) => l.toBlock ?? l.fromBlock)),
+    };
+  });
+  groups.sort(
+    (a, b) =>
+      Number(b.id === options.first) - Number(a.id === options.first) ||
+      Number(b.open) - Number(a.open) ||
+      b.newest - a.newest,
+  );
+  let room = options.maxQueries ?? listingQueryBudget();
+  const listable: Launchpad[] = [];
+  for (const group of groups) {
+    if (group.cost > room) continue;
+    room -= group.cost;
+    listable.push(...group.contracts);
+  }
+  const queries: WindowQuery[] = listable.flatMap((launchpad) =>
+    windowsOf(launchpad, latest).map((w) => ({
+      address: launchpad.address,
+      ...w,
+      topics: creatorFilter(launchpad, creator) as (string | null)[],
+    })),
+  );
+  const { logs, truncated } = await readWindows(rpc, queries);
+  const launches: ListedLaunch[] = [];
+  const seen = new Set<string>();
+  for (const log of logs) {
+    for (const launchpad of listable) {
+      const record = readLaunchRecord(launchpad, log);
+      if (!record || record.creator !== lower(creator) || seen.has(record.token)) continue;
+      seen.add(record.token);
+      launches.push({
+        token: record.token,
+        blockNumber: record.blockNumber,
+        transactionHash: record.transactionHash,
+        launchpad,
+      });
+    }
+  }
+  launches.sort((a, b) => a.blockNumber - b.blockNumber);
+  const read = names(listable);
+  return {
+    launches,
+    truncated,
+    read,
+    unread: names(wanted).filter((n) => !read.includes(n)),
+  };
+}
+
+/** What the node cannot list, whatever the launchpad: contracts an address deployed itself. */
+export const DIRECT_DEPLOYS = 'contracts deployed directly';
+
+/**
+ * A creator's launches as the indexer lists them, for the launchpads it has
+ * read up to the head (`covered`, by id): the node is not asked for those.
+ */
+export type IndexedListing = { launches: ListedLaunch[]; covered: ReadonlySet<string> };
+
+/** Joins what the node listed and what the indexer listed, the coverage of both said once. */
+export function mergeListings(
+  listing: CreatorListing,
+  indexed: IndexedListing | undefined,
+): CreatorListing {
+  if (!indexed) return listing;
+  const coveredNames = names(LAUNCHPADS.filter((l) => indexed.covered.has(l.id)));
+  const seen = new Set(listing.launches.map((l) => l.token));
+  const launches = [
+    ...listing.launches,
+    ...indexed.launches.filter((l) => !seen.has(l.token) && seen.add(l.token)),
+  ].sort((a, b) => a.blockNumber - b.blockNumber);
+  return {
+    launches,
+    truncated: listing.truncated,
+    read: [...new Set([...listing.read, ...coveredNames])],
+    unread: listing.unread.filter((n) => !coveredNames.includes(n)),
+  };
+}
+
 export type DeployerHistoryOptions = {
   latestBlock: number;
+  indexed?: IndexedListing;
+  /** Log queries the listing may send; defaults to what the logs node allows. */
+  maxListingQueries?: number;
+  /** Markets the token trades on that its launch transaction did not create (DexScreener pairs, v4 markets). */
+  venues?: { pools?: readonly string[]; v4Markets?: readonly string[] };
   now?: () => Date;
 };
 
 /**
- * The creator's launches through the same launch contract, and for the most
- * recent ones, whether the creator sold into the market and whether liquidity
- * was removed — read over each launch's first ~11 days, like pons launches.
+ * The creator's launches on every known launchpad (and through the same
+ * launch contract, for one that is not known), and for the most recent ones,
+ * whether the creator sold into the market and whether liquidity was removed
+ * — read over each launch's first ~11 days, like pons launches.
  */
 export async function fetchDeployerHistory(
   rpc: RpcClient,
@@ -373,7 +634,13 @@ export async function fetchDeployerHistory(
       )
     : [];
 
-  const [listed, account] = await Promise.all([
+  const covered = options.indexed?.covered ?? new Set<string>();
+  const [nodeListing, listed, account] = await Promise.all([
+    listCreatorLaunches(rpc, creator, latest, {
+      skip: (l) => covered.has(l.id),
+      ...(origin.launchpad ? { first: origin.launchpad.id } : {}),
+      ...(options.maxListingQueries !== undefined ? { maxQueries: options.maxListingQueries } : {}),
+    }).catch((): CreatorListing => ({ launches: [], truncated: true, read: [], unread: [] })),
     registry
       ? getLogsBatched(
           rpc,
@@ -392,9 +659,15 @@ export async function fetchDeployerHistory(
 
   const isWallet = account[0]?.ok ? account[0].value === '0x' : null;
   const transactionCount = isWallet && account[1]?.ok ? Number(account[1].value) : null;
+  const listing = mergeListings(nodeListing, options.indexed);
 
   const seen = new Set<string>();
-  const all: Launch[] = [];
+  const all: ListedLaunch[] = [];
+  for (const launch of listing.launches) {
+    if (seen.has(launch.token)) continue;
+    seen.add(launch.token);
+    all.push(launch);
+  }
   for (const log of listed?.logs ?? []) {
     const token = registry ? fromTopic(log.topics[registry.tokenIndex]) : '';
     if (!token || seen.has(token)) continue;
@@ -412,9 +685,18 @@ export async function fetchDeployerHistory(
       blockNumber: origin.blockNumber,
       transactionHash: origin.transactionHash,
     });
-    all.sort((a, b) => a.blockNumber - b.blockNumber);
   }
-  const launchesListed = Boolean(registry) && !listed?.truncated;
+  all.sort((a, b) => a.blockNumber - b.blockNumber);
+
+  // The list covers this token's own launchpad only when its event indexes
+  // the creator and named this very address; else other launches there are missed.
+  const ownLaunchpad = LAUNCHPADS.find((l) => l.address === origin.launchpad?.address);
+  const ownListable = ownLaunchpad
+    ? origin.creatorFrom === 'launch-record' &&
+      (creatorFilter(ownLaunchpad, creator) !== null || covered.has(ownLaunchpad.id))
+    : Boolean(registry);
+  const truncated = listing.truncated || Boolean(listed?.truncated);
+  const launchesListed = ownListable && !truncated;
 
   const detailed = all.slice(-MAX_DETAILED_DEPLOYER_LAUNCHES);
   if (!detailed.some((l) => l.token === origin.token)) {
@@ -425,16 +707,47 @@ export async function fetchDeployerHistory(
     (l, i) => i >= detailed.length - MAX_CHECKED_DEPLOYER_LAUNCHES || l.token === origin.token,
   );
 
-  // Each checked launch's markets come from its own launch transaction.
+  // Each checked launch's markets come from its own launch transaction. The
+  // analysed token also trades where its launch did not put it: the pairs and
+  // markets found since.
+  const extra = options.venues;
+  const own: TradingVenues = extra
+    ? (() => {
+        const pools = [...new Set([...origin.venues.pools, ...(extra.pools ?? []).map(lower)])];
+        const v4Markets = [
+          ...new Set([...origin.venues.v4Markets, ...(extra.v4Markets ?? []).map(lower)]),
+        ];
+        return {
+          ...origin.venues,
+          pools,
+          v4Markets,
+          saleRecipients: [
+            ...new Set([
+              ...origin.venues.saleRecipients,
+              ...pools,
+              ...(v4Markets.length > 0 ? [lower(POOL_MANAGER)] : []),
+            ]),
+          ],
+        };
+      })()
+    : origin.venues;
+  const heuristic = origin.launchpad ? undefined : origin.launchContract;
   const others = checked.filter((l) => l.token !== origin.token);
   const receipts = await rpc.callBatch<ChainReceipt | null>(
     others.map((l) => ({ method: 'eth_getTransactionReceipt', params: [l.transactionHash] })),
   );
-  const venues = new Map<string, TradingVenues>([[origin.token, origin.venues]]);
+  const venues = new Map<string, TradingVenues>([[origin.token, own]]);
   others.forEach((l, i) => {
     const receipt = receipts[i];
     if (receipt?.ok && receipt.value) {
-      venues.set(l.token, findVenues(l.token, receipt.value.logs, origin.launchContract));
+      const logs = receipt.value.logs;
+      venues.set(
+        l.token,
+        withRecordVenues(
+          findVenues(l.token, logs, l.launchpad ? undefined : heuristic),
+          findLaunchRecord(l.token, logs),
+        ),
+      );
     }
   });
 
@@ -493,26 +806,31 @@ export async function fetchDeployerHistory(
     ).catch(() => detailed.map(() => null)),
   ]);
 
-  // A transfer into a curve is a sale on it. A transfer into a pool is one
-  // only when the pool swapped in that transaction: without a swap, it is the
-  // creator providing liquidity, not selling.
+  // A transfer into a pool or a known curve is a sale only when it traded in
+  // that transaction: a pool's `Swap`, or the curve's own trade event. Without
+  // one, it is the creator providing liquidity, not selling. An unknown launch
+  // contract keeps the older reading: a transfer into it is a sale on its curve.
   const sold = new Map(salesTargets.map((l) => [l.token, false]));
-  const intoPool: { token: string; hash: string }[] = [];
+  const intoMarket: { token: string; hash: string }[] = [];
   for (const log of sales.logs) {
     const token = lower(log.address);
     const to = fromTopic(log.topics[2]);
-    if (!venues.get(token)?.saleRecipients.includes(to)) continue;
-    if (origin.launchContract && to === lower(origin.launchContract)) sold.set(token, true);
-    else intoPool.push({ token, hash: log.transactionHash });
+    const venue = venues.get(token);
+    if (!venue?.saleRecipients.includes(to)) continue;
+    if (heuristic && to === lower(heuristic) && !venue.curves?.includes(to)) sold.set(token, true);
+    else intoMarket.push({ token, hash: log.transactionHash });
   }
-  const marketAddresses = new Set([...tokenOfPool.keys(), lower(POOL_MANAGER)]);
+  const curves = [...venues.values()].flatMap((v) => v.curves ?? []);
+  const curveTrades = [...venues.values()].flatMap((v) => v.curveTrades ?? []);
+  const marketAddresses = new Set([...tokenOfPool.keys(), lower(POOL_MANAGER), ...curves]);
   const natures = await readTxNatures(
     rpc,
-    intoPool.map((t) => t.hash),
+    intoMarket.map((t) => t.hash),
     marketAddresses,
+    new Set([...SWAP_TOPICS, ...curveTrades]),
   ).catch(() => new Map<string, never>());
   const unread = new Set<string>();
-  for (const { token, hash } of intoPool) {
+  for (const { token, hash } of intoMarket) {
     const nature = natures.get(hash);
     if (nature === 'swap') sold.set(token, true);
     else if (nature === undefined) unread.add(token);
@@ -549,15 +867,18 @@ export async function fetchDeployerHistory(
     const venue = venues.get(l.token);
     return {
       address: l.token,
-      pool: venue?.pools[0] ?? (venue?.v4Markets.length ? lower(POOL_MANAGER) : '0x'),
+      pool:
+        venue?.pools[0] ??
+        (venue?.v4Markets.length ? lower(POOL_MANAGER) : (venue?.curves?.[0] ?? '0x')),
       launchedAtBlock: l.blockNumber,
       launchedAt: timestamps[i] ?? null,
-      // There is no graduation outside pons: whether a launch "made it" is
-      // not something this history can say.
+      // Graduation is read on pons only: whether a launch "made it" is not
+      // something this history can say.
       outcome: 'undetermined',
       graduationProgress: 0,
       liquidityPulled: checkedTokens.has(l.token) ? (pulledKnown.get(l.token) ?? null) : null,
       creatorDumped: checkedTokens.has(l.token) ? (soldKnown.get(l.token) ?? null) : null,
+      ...(l.launchpad ? { launchpad: l.launchpad.name } : {}),
     };
   });
 
@@ -570,14 +891,21 @@ export async function fetchDeployerHistory(
     creatorDumped: tokens.filter((t) => t.creatorDumped === true).length,
   };
 
+  const read = [...listing.read, ...(registry ? ['its launch contract'] : [])];
+  const notRead = [...listing.unread, DIRECT_DEPLOYS];
   const capped = all.length > detailed.length;
-  const note = listed?.truncated
+  const traced = origin.launchpad
+    ? `creator read from its ${origin.launchpad.name} launch${origin.creatorFrom === 'launch-record' ? ' record' : ' transaction'}`
+    : 'traced from the token’s first mint';
+  const note = truncated
     ? 'some launch windows could not be read — history may be incomplete'
-    : !registry
-      ? 'traced from the token’s first mint; this address’s other launches cannot be listed from the chain'
+    : !launchesListed
+      ? origin.launchpad
+        ? `${traced}; this address’s other launches on ${origin.launchpad.name} cannot be listed from the chain`
+        : `${traced}; its other launches outside the known launchpads cannot be listed from the chain`
       : capped
-        ? `traced from the token’s first mint; ${detailed.length} most recent of ${all.length} launches read in detail`
-        : `traced from the token’s first mint; ${all.length} launch${all.length === 1 ? '' : 'es'} found through the same launch contract`;
+        ? `${traced}; ${detailed.length} most recent of ${all.length} launches read in detail`
+        : `${traced}; ${all.length} launch${all.length === 1 ? '' : 'es'} found across the known launchpads`;
 
   return {
     completeness: 'partial',
@@ -588,7 +916,11 @@ export async function fetchDeployerHistory(
         source: 'deployer',
         role: origin.role,
         ...(origin.launchContract ? { launchContract: origin.launchContract } : {}),
+        ...(origin.launchpad ? { launchpad: origin.launchpad } : {}),
+        ...(origin.creatorFrom ? { creatorFrom: origin.creatorFrom } : {}),
         launchesListed,
+        launchpadsRead: read,
+        launchpadsNotRead: notRead,
         transactionCount,
       },
       tokens,

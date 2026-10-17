@@ -79,7 +79,7 @@ describe('offlineExplanation', () => {
     expect(text).toContain('Limit: fenêtre tronquée.');
   });
 
-  it('says a token is not a pons launch instead of "could not be read"', () => {
+  it('says no launch record names a creator instead of "could not be read"', () => {
     const notPons = offlineExplanation(
       report({
         creator: {
@@ -89,7 +89,18 @@ describe('offlineExplanation', () => {
         },
       }),
     );
-    expect(notPons).toMatch(/not launched through pons/);
+    expect(notPons).toMatch(/no launch record names a creator/);
+    // The newer wording of the same fact reads the same way.
+    const unrecorded = offlineExplanation(
+      report({
+        creator: {
+          ...report().creator,
+          completeness: 'unavailable',
+          sources: [{ name: 'robinhood-rpc', fetchedAt: 'x', note: 'no launch record found' }],
+        },
+      }),
+    );
+    expect(unrecorded).toMatch(/no launch record names a creator/);
     expect(notPons).not.toMatch(/could not be read/);
   });
 
@@ -122,7 +133,7 @@ describe('offlineExplanation', () => {
       }),
     );
     expect(traced).toMatch(
-      /not launched through pons\. It was launched by 0xc47f through the contract 0xd4cc/,
+      /no known launchpad recorded this token\. It was launched by 0xc47f through the contract 0xd4cc/,
     );
     expect(traced).toMatch(/launched 31 tokens/);
     expect(traced).toMatch(/Of 1 launch checked, the creator sold into the market on 1/);

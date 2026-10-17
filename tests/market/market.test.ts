@@ -2,6 +2,7 @@ import { describe, expect, it, vi, afterEach } from 'vitest';
 import livePair from './fixtures/pair-live.json' with { type: 'json' };
 import {
   fetchMarketState,
+  venuesOf,
   pickPrimaryPair,
   toMarketState,
   tokenPairsUrl,
@@ -133,5 +134,25 @@ describe('fetchMarketState', () => {
     vi.stubGlobal('fetch', async () => new Response(JSON.stringify(livePair), { status: 200 }));
     const state = await fetchMarketState(TOKEN, { now: at });
     expect(state.data.priceUsd).toBeCloseTo(0.000003654);
+  });
+});
+
+describe('venuesOf', () => {
+  it('sorts the listed pairs into pair contracts and v4 market ids, on either side', () => {
+    const token = '0x00000000000000000000000000000000000000aa';
+    const market = `0x${'cd'.repeat(32)}`;
+    expect(
+      venuesOf(token, [
+        {
+          pairAddress: '0x00000000000000000000000000000000000000B1',
+          baseToken: { address: token },
+        },
+        { pairAddress: market, quoteToken: { address: token.toUpperCase().replace('0X', '0x') } },
+        {
+          pairAddress: '0x00000000000000000000000000000000000000b2',
+          baseToken: { address: '0x01' },
+        },
+      ]),
+    ).toEqual({ pools: ['0x00000000000000000000000000000000000000b1'], v4Markets: [market] });
   });
 });
