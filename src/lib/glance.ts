@@ -1,5 +1,6 @@
 import type { LaunchReplayData } from './contracts/launch';
 import type { ReportFacts, TimelineLaunch } from './facts';
+import { buildStory } from './launch-story';
 import type { SpecialistAnswer } from './specialists/brief';
 
 /**
@@ -182,6 +183,22 @@ const EARLY_SECONDS = 60;
 
 function launchBuysItem(launch: LaunchReplayData | undefined): GlanceItem | null {
   if (!launch) return null;
+  // Many wallets served by one transaction is the stronger fact: say that.
+  const bundle = buildStory(launch).bundle;
+  if (bundle && bundle.share >= 0.01) {
+    const at =
+      bundle.seconds < 1
+        ? 'in its first second'
+        : `${Math.round(bundle.seconds)} seconds after launch`;
+    return {
+      id: 'launch-buys',
+      tone: bundle.share >= 0.05 ? 'attention' : 'neutral',
+      figure: pct(bundle.share),
+      title: `${bundle.wallets} wallets received ${pct(bundle.share)} of the supply in one single transaction, ${at}.`,
+      detail: 'One transaction delivering a purchase to many wallets at once.',
+      href: '#launch-title',
+    };
+  }
   const early = launch.moves.filter(
     (m) => m.kind === 'buy' && !m.actorIsCreator && m.seconds <= EARLY_SECONDS,
   );
@@ -192,7 +209,7 @@ function launchBuysItem(launch: LaunchReplayData | undefined): GlanceItem | null
   const last = Math.max(...early.map((m) => m.seconds));
   const when =
     last === 0
-      ? 'in the very block the token was created'
+      ? 'in its first second'
       : `within ${last} second${last === 1 ? '' : 's'} of its launch`;
   return {
     id: 'launch-buys',

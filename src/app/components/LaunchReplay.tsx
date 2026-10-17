@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useState } from 'react';
 import type { LaunchMove, LaunchReplayData } from '@/lib/contracts/launch';
+import { BUYERS_LISTED, buildStory, type Buyer, type LaunchStory } from '@/lib/launch-story';
 
 /**
  * The first minutes of the token, replayed. Every dot is one move read from
@@ -11,20 +12,6 @@ import type { LaunchMove, LaunchReplayData } from '@/lib/contracts/launch';
  */
 
 const EXPLORER = 'https://robinhoodchain.blockscout.com';
-
-type Lane = 'mint' | 'allocation' | 'buy' | 'sell' | 'liquidity';
-
-const LANES: { lane: Lane; label: string }[] = [
-  { lane: 'mint', label: 'Created' },
-  { lane: 'allocation', label: 'Passed on' },
-  { lane: 'buy', label: 'Bought' },
-  { lane: 'sell', label: 'Sold' },
-  { lane: 'liquidity', label: 'Liquidity' },
-];
-
-/** Liquidity put in and taken out share one lane: neither is a trade. */
-const laneOf = (kind: LaunchMove['kind']): Lane =>
-  kind === 'provide' || kind === 'withdraw' ? 'liquidity' : kind;
 
 const KIND_WORD: Record<LaunchMove['kind'], string> = {
   mint: 'Created for',
@@ -62,70 +49,11 @@ function when(seconds: number): string {
   return s ? `+${m} min ${s} s` : `+${m} min`;
 }
 
-const CHART_LEFT = 120;
-const CHART_WIDTH = 850;
-
-/** Square-root time: the launch block gets room, the tenth minute still fits. */
-function x(seconds: number, window: number): number {
-  return CHART_LEFT + Math.sqrt(Math.max(0, seconds) / Math.max(1, window)) * CHART_WIDTH;
-}
-
-function radius(share: number): number {
-  return Math.max(4.5, Math.min(22, Math.sqrt(share) * 44));
-}
-
 function holding(move: LaunchMove): 'holds' | 'reduced' | 'gone' | 'unknown' {
   if (move.heldNow === null) return 'unknown';
   if (move.heldNow === 0) return 'gone';
   if (move.actorKind === 'pool') return 'holds';
   return move.heldNow < move.share * 0.99 ? 'reduced' : 'holds';
-}
-
-/**
- * A burst — the same kind of move from the same source within a few seconds,
- * such as one wallet seeding twenty-seven others — is drawn as one dot with
- * its count, so the chart shows the pattern instead of a tower of dots.
- */
-type Burst = {
-  first: LaunchMove;
-  moves: LaunchMove[];
-  share: number;
-  state: ReturnType<typeof holding>;
-};
-
-const BURST_SECONDS = 5;
-
-function bursts(moves: readonly LaunchMove[]): Burst[] {
-  const out: Burst[] = [];
-  for (const move of moves) {
-    const open = out.find(
-      (b) =>
-        b.first.kind === move.kind &&
-        b.first.counterparty === move.counterparty &&
-        b.first.actorIsCreator === move.actorIsCreator &&
-        move.seconds - b.first.seconds <= BURST_SECONDS &&
-        move.kind !== 'mint',
-    );
-    if (open) {
-      open.moves.push(move);
-      open.share += move.share;
-    } else {
-      out.push({ first: move, moves: [move], share: move.share, state: 'unknown' });
-    }
-  }
-  for (const burst of out) {
-    const states = burst.moves.map(holding);
-    burst.state = states.every((s) => s === 'gone')
-      ? 'gone'
-      : states.some((s) => s === 'holds')
-        ? 'holds'
-        : states.some((s) => s === 'reduced')
-          ? 'reduced'
-          : states.includes('gone')
-            ? 'gone'
-            : 'unknown';
-  }
-  return out;
 }
 
 const HOLDING_WORD = {
@@ -135,51 +63,59 @@ const HOLDING_WORD = {
   unknown: 'Unknown',
 } as const;
 
-function Summary({ launch }: { launch: LaunchReplayData }) {
-  const people = launch.moves.filter((m) => m.actorKind !== 'pool' && m.actorKind !== 'burn');
-  // Created straight into a holder's hands; what is passed on later is drawn, not added again.
-  const given = new Set(
-    people.filter((m) => m.kind === 'mint' || m.kind === 'allocation').map((m) => m.actor),
-  );
-  const launchBlock = people.filter((m) => m.kind === 'buy' && m.block === 0);
-  const buys = people.filter((m) => m.kind === 'buy');
-  const buyers = new Map(buys.map((m) => [m.actor, m]));
-  const bought = buys.reduce((sum, m) => sum + m.share, 0);
-  const known = [...buyers.values()].filter((m) => m.heldNow !== null);
-  const stillHeld = known.reduce((sum, m) => sum + (m.heldNow ?? 0), 0);
-  // An unread balance is not a zero: say how many could not be read.
-  const unread = buyers.size - known.length;
-  const holdToday =
-    unread === buyers.size
-      ? 'what they hold today could not be read'
-      : unread > 0
-        ? `the ${known.length} read hold ${pct(stillHeld)} today`
-        : `they hold ${pct(stillHeld)} today`;
-  const creatorMoves = launch.moves.filter((m) => m.actorIsCreator || m.counterpartyIsCreator);
-
-  const items: { value: string; label: string }[] = [
-    {
-      value: String(given.size),
-      label: `address${given.size === 1 ? '' : 'es'} handed tokens without buying them`,
-    },
-    {
-      value: String(launchBlock.length),
-      label: `purchase${launchBlock.length === 1 ? '' : 's'} in the launch block itself${launchBlock.length ? `, ${pct(launchBlock.reduce((s, m) => s + m.share, 0))} of supply` : ''}`,
-    },
-    {
-      value: pct(bought),
-      label: `bought by ${buyers.size} address${buyers.size === 1 ? '' : 'es'} ${launch.movesInWindow > launch.moves.length ? 'among the moves shown' : 'in the window'}; ${holdToday}`,
-    },
-    {
-      value: String(creatorMoves.length),
-      label: `move${creatorMoves.length === 1 ? '' : 's'} involving the creator`,
-    },
-  ];
+function Story({ story }: { story: LaunchStory }) {
+  const { early } = story;
+  const items: { tone: string; figure: string; label: string }[] = [];
+  if (story.creatorAtLaunch > 0) {
+    items.push({
+      tone: story.creatorAtLaunch >= 0.05 ? 'attention' : 'neutral',
+      figure: pct(story.creatorAtLaunch),
+      label: 'taken by the creator in the launch block itself',
+    });
+  }
+  if (early.wallets > 0) {
+    items.push({
+      tone: early.share >= 0.05 ? 'attention' : 'neutral',
+      figure: pct(early.share),
+      label: `bought by ${early.wallets} wallet${early.wallets === 1 ? '' : 's'} ${
+        early.within < 1 ? 'in the first second' : `within ${Math.round(early.within)} s of launch`
+      }${
+        story.bundle && story.bundle.share >= 0.01
+          ? `, ${pct(story.bundle.share)} of it through one single transaction to ${story.bundle.wallets} wallets`
+          : ''
+      }`,
+    });
+    items.push(
+      early.heldNow === null
+        ? {
+            tone: 'neutral',
+            figure: '?',
+            label: 'what those first buyers hold today could not be read',
+          }
+        : {
+            tone: early.heldNow < early.share * 0.1 ? 'attention' : 'calm',
+            figure: pct(early.heldNow),
+            label:
+              early.heldNow === 0
+                ? 'still held by them today: they sold everything'
+                : `still held by them today${early.unread ? ` (${early.unread} not read)` : ''}`,
+          },
+    );
+  } else {
+    items.push({ tone: 'calm', figure: '0', label: 'wallets bought in the first minute' });
+  }
+  if (story.creatorSold > 0) {
+    items.push({
+      tone: 'attention',
+      figure: pct(story.creatorSold),
+      label: 'sold by the creator in these first minutes',
+    });
+  }
   return (
-    <ul className="launch-summary">
-      {items.map((item) => (
-        <li key={item.label}>
-          <strong>{item.value}</strong>
+    <ul className="launch-story">
+      {items.slice(0, 4).map((item) => (
+        <li key={item.label} data-tone={item.tone}>
+          <strong>{item.figure}</strong>
           <span>{item.label}</span>
         </li>
       ))}
@@ -187,108 +123,193 @@ function Summary({ launch }: { launch: LaunchReplayData }) {
   );
 }
 
-function Chart({ launch, run }: { launch: LaunchReplayData; run: number }) {
-  const window = Math.max(1, launch.windowSeconds);
-  const ticks = [0, 10, 60, 300, 600].filter((t) => t <= window);
-  const laneY = (lane: Lane) => 40 + LANES.findIndex((l) => l.lane === lane) * 52;
-  // Moves at the same moment in the same lane are fanned out above and below
-  // the line instead of hiding one another.
-  const placed: { kind: string; cx: number; r: number }[] = [];
-  const dots = bursts(launch.moves).map((burst) => {
-    const move = burst.first;
-    const cx = x(move.seconds, window);
-    const r = radius(burst.share);
-    const clashes = placed.filter(
-      (p) => p.kind === move.kind && Math.abs(p.cx - cx) < p.r + r,
-    ).length;
-    placed.push({ kind: move.kind, cx, r });
-    // Within the lane's own band: never over the next lane.
-    const offset =
-      clashes === 0 ? 0 : (clashes % 2 ? -1 : 1) * Math.min(20, Math.ceil(clashes / 2) * 10);
-    return { burst, move, cx, cy: laneY(laneOf(move.kind)) + offset, r };
-  });
-  const labelled: number[] = [];
+const PLOT = { left: 52, top: 24, bottom: 236 };
+
+/** A ceiling the eye can read: 1, 2, 5, 10, 20, 50 or 100% of supply. */
+function niceMax(value: number): number {
+  for (const step of [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1]) if (value <= step) return step;
+  return 1;
+}
+
+/** The chart is drawn at its real width, so its labels stay readable on a phone. */
+function useWidth(fallback: number) {
+  const [node, setNode] = useState<HTMLDivElement | null>(null);
+  const [width, setWidth] = useState(fallback);
+  useEffect(() => {
+    if (!node) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setWidth(Math.max(300, Math.round(entry.contentRect.width)));
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [node]);
+  return [width, setNode] as const;
+}
+
+function Curve({
+  story,
+  window,
+  run,
+  width,
+}: {
+  story: LaunchStory;
+  window: number;
+  run: number;
+  width: number;
+}) {
+  const right = width - 16;
+  const top = niceMax(Math.max(0.001, ...story.curve.map((p) => p.bought)));
+  const sx = (seconds: number) =>
+    PLOT.left + Math.sqrt(Math.max(0, seconds) / window) * (right - PLOT.left);
+  const sy = (share: number) => PLOT.bottom - (share / top) * (PLOT.bottom - PLOT.top);
+  // Steps, not slopes: supply changes hands at an instant.
+  const path = (key: 'bought' | 'held') =>
+    story.curve
+      .map((p, i) => {
+        const y = sy(p[key]).toFixed(1);
+        return i === 0 ? `M${sx(p.seconds).toFixed(1)},${y}` : `H${sx(p.seconds).toFixed(1)}V${y}`;
+      })
+      .join('') + `H${sx(window).toFixed(1)}`;
+  const area = (key: 'bought' | 'held') => `${path(key)}V${PLOT.bottom}H${PLOT.left}Z`;
+  // A tick too close to the previous one is left out rather than overlapping it.
+  const ticks = [0, 10, 60, 300, 600]
+    .filter((t) => t <= window)
+    .filter((t, i, all) => i === 0 || sx(t) - sx(all[i - 1]!) >= 44);
+  const levels = [0, top / 2, top];
+  const end = story.curve.at(-1)!;
   return (
     <svg
       key={run}
-      className="launch-chart"
-      viewBox="0 0 1000 310"
+      className="story-chart"
+      viewBox={`0 0 ${width} 280`}
       role="img"
-      aria-label={`${launch.moves.length} moves in the first ${span(window)}, listed in the table below`}
+      aria-label={`Share of supply bought over the first ${span(window)}: ${pct(end.bought)} bought, ${pct(end.held)} still held by those buyers today.`}
     >
-      {LANES.map((lane) => (
-        <g key={lane.lane}>
-          <line
-            className="launch-lane"
-            x1={CHART_LEFT}
-            x2={CHART_LEFT + CHART_WIDTH + 10}
-            y1={laneY(lane.lane)}
-            y2={laneY(lane.lane)}
-          />
-          <text className="launch-lane-label" x={0} y={laneY(lane.lane) + 4}>
-            {lane.label}
+      {levels.map((level) => (
+        <g key={level}>
+          <line className="story-grid" x1={PLOT.left} x2={right} y1={sy(level)} y2={sy(level)} />
+          <text className="story-axis" x={PLOT.left - 10} y={sy(level) + 4} textAnchor="end">
+            {pct(level)}
           </text>
         </g>
       ))}
       {ticks.map((t) => (
-        <g key={t}>
-          <line className="launch-tick" x1={x(t, window)} x2={x(t, window)} y1={18} y2={270} />
-          <text className="launch-tick-label" x={x(t, window)} y={296} textAnchor="middle">
-            {t === 0 ? 'launch' : t < 60 ? `${t} s` : `${t / 60} min`}
-          </text>
+        <text key={t} className="story-axis" x={sx(t)} y={PLOT.bottom + 22} textAnchor="middle">
+          {t === 0 ? 'launch' : t < 60 ? `${t} s` : `${t / 60} min`}
+        </text>
+      ))}
+      <g className="story-draw">
+        <path className="story-area story-bought" d={area('bought')} />
+        <path className="story-line story-bought" d={path('bought')} />
+        <path className="story-area story-held" d={area('held')} />
+        <path className="story-line story-held" d={path('held')} />
+      </g>
+      {story.creatorSales.slice(0, 6).map((sale, i) => (
+        <g key={`${sale.seconds}-${i}`} className="story-sale">
+          <line x1={sx(sale.seconds)} x2={sx(sale.seconds)} y1={PLOT.top} y2={PLOT.bottom} />
+          <path d={`M${sx(sale.seconds) - 6},${PLOT.top - 10}h12l-6,9z`} />
+          <title>{`${when(sale.seconds)} · the creator sold ${pct(sale.share)} of the supply`}</title>
         </g>
       ))}
-      <line
-        className="launch-sweep"
-        x1={CHART_LEFT}
-        x2={CHART_LEFT}
-        y1={14}
-        y2={274}
-        style={{ '--sweep': `${CHART_WIDTH}px` } as CSSProperties}
-      />
-      {dots.map(({ burst, move, cx, cy, r }, i) => {
-        const state = burst.state;
-        const count = burst.moves.length;
-        const who =
-          count > 1
-            ? `${count} addresses`
-            : move.actorIsCreator
-              ? 'the creator'
-              : short(move.actor);
-        const from = move.counterpartyIsCreator ? ' from the creator' : '';
-        // A count sits above its dot, unless it would run into the previous one.
-        const label = count > 1 && !labelled.some((lx) => Math.abs(lx - cx) < 34);
-        if (label) labelled.push(cx);
+      <text className="story-end story-bought" x={right} y={sy(end.bought) - 8} textAnchor="end">
+        {pct(end.bought)} bought
+      </text>
+      {end.held < end.bought * 0.85 && (
+        <text
+          className="story-end story-held"
+          x={right}
+          y={Math.min(PLOT.bottom - 8, sy(end.held) - 8)}
+          textAnchor="end"
+        >
+          {pct(end.held)} still held
+        </text>
+      )}
+    </svg>
+  );
+}
+
+/** Bought against still held, on one scale: the whole supply. */
+function Compare({ story }: { story: LaunchStory }) {
+  const end = story.curve.at(-1)!;
+  const rows = [
+    { key: 'bought', label: 'Bought in the first second', value: end.bought },
+    { key: 'held', label: 'Still held by those buyers today', value: end.held },
+  ];
+  return (
+    <div
+      className="story-compare"
+      role="img"
+      aria-label={rows.map((r) => `${r.label}: ${pct(r.value)}`).join('; ')}
+    >
+      {rows.map((r) => (
+        <div key={r.key} className="story-compare-row" data-key={r.key}>
+          <span className="story-compare-label">{r.label}</span>
+          <span className="story-compare-track">
+            <span
+              className="story-compare-fill"
+              style={{ width: `${Math.max(0.6, r.value * 100)}%` }}
+            />
+          </span>
+          <strong>{pct(r.value)}</strong>
+        </div>
+      ))}
+      <p className="story-note">
+        Out of the whole supply. Nearly every purchase happened in the very first second.
+      </p>
+    </div>
+  );
+}
+
+function Buyers({ buyers, bundle }: { buyers: Buyer[]; bundle: string | null }) {
+  const shown = buyers.slice(0, BUYERS_LISTED);
+  const widest = Math.max(...shown.map((b) => b.bought), 0.0001);
+  return (
+    <ol className="first-buyers" aria-label="The first buyers, in the order they bought">
+      {shown.map((b, i) => {
+        const kept = b.heldNow === null ? null : Math.min(b.heldNow, b.bought);
+        const status =
+          kept === null
+            ? 'Not read'
+            : kept === 0
+              ? 'Sold everything'
+              : kept >= b.bought * 0.99
+                ? 'Still holds it all'
+                : `Still holds ${pct(kept)}`;
+        const tone =
+          kept === null
+            ? 'unknown'
+            : kept === 0
+              ? 'gone'
+              : kept >= b.bought * 0.99
+                ? 'holds'
+                : 'reduced';
         return (
-          <g
-            key={`${move.transaction}-${move.actor}-${move.kind}`}
-            className="launch-dot"
-            data-kind={move.kind}
-            data-holding={state}
-            data-creator={move.actorIsCreator || undefined}
-            style={
-              {
-                '--at': `${(Math.sqrt(move.seconds / window) * 3.2).toFixed(2)}s`,
-                '--i': i,
-              } as CSSProperties
-            }
-          >
-            <title>
-              {`${when(move.seconds)} · ${KIND_WORD[move.kind]} ${who}${from} · ${pct(burst.share)} · ${HOLDING_WORD[state]}`}
-            </title>
-            <circle cx={cx} cy={cy} r={r} />
-            {(move.actorIsCreator || move.counterpartyIsCreator) && (
-              <circle className="launch-creator-ring" cx={cx} cy={cy} r={r + 5} />
-            )}
-            {label && (
-              <text className="launch-count" x={cx} y={cy - r - 7} textAnchor="middle">
-                ×{count}
-              </text>
-            )}
-          </g>
+          <li key={b.address} data-tone={tone}>
+            <span className="buyer-rank">{i + 1}</span>
+            <span className="buyer-who">
+              <a href={`${EXPLORER}/address/${b.address}`} target="_blank" rel="noreferrer">
+                {short(b.address)}
+              </a>
+              {b.isCreator && <span className="launch-flag">creator</span>}
+              {bundle && b.transaction === bundle && (
+                <span className="launch-role">same transaction</span>
+              )}
+              <small>{when(b.firstAt)}</small>
+            </span>
+            <span className="buyer-bar" aria-hidden="true">
+              <span className="buyer-bought" style={{ width: `${(b.bought / widest) * 100}%` }}>
+                <span
+                  className="buyer-kept"
+                  style={{ width: `${kept === null ? 0 : (kept / b.bought) * 100}%` }}
+                />
+              </span>
+            </span>
+            <span className="buyer-share">{pct(b.bought)}</span>
+            <span className="buyer-status">{status}</span>
+          </li>
         );
       })}
-    </svg>
+    </ol>
   );
 }
 
@@ -304,6 +325,8 @@ export function LaunchReplay({
   const [all, setAll] = useState(false);
   const firstSpan = span(launch.windowSeconds);
   const rows = all ? launch.moves : launch.moves.slice(0, 8);
+  const story = buildStory(launch);
+  const [chartWidth, setChartNode] = useWidth(900);
 
   return (
     <section className="launch-replay" aria-labelledby="launch-title">
@@ -311,99 +334,121 @@ export function LaunchReplay({
         <p className="report-kicker">
           {index} — The first {firstSpan}
         </p>
-        <h3 id="launch-title">Where the supply went when the token was born.</h3>
+        <h3 id="launch-title">Who got in first, and who is still there.</h3>
         <p className="questions-intro">
-          Every move read from the token’s own transfers, from the launch block on. Dots are sized
-          by the share of supply they carried; a hollow dot is an address that holds none of it
-          today.
+          Read from the token’s own transfers, from the moment it was created.
         </p>
       </div>
-      <Summary launch={launch} />
+      <Story story={story} />
       <div className="launch-stage">
-        <div className="launch-stage-top">
-          <span>
-            Block {launch.launchBlock.toLocaleString('en-US')}
-            {launch.launchedAt &&
-              ` · ${new Date(launch.launchedAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}`}
-          </span>
-          <button
-            type="button"
-            className="launch-replay-button"
-            onClick={() => setRun((n) => n + 1)}
-          >
-            Replay <span aria-hidden="true">↻</span>
-          </button>
-        </div>
-        <div className="launch-chart-scroll">
-          <Chart launch={launch} run={run} />
-        </div>
-        <ul className="launch-legend" aria-label="Legend">
-          <li data-kind="mint">Created</li>
-          <li data-kind="allocation">Passed on</li>
-          <li data-kind="buy">Bought</li>
-          <li data-kind="sell">Sold</li>
-          <li data-kind="liquidity">Liquidity</li>
-          <li data-legend="creator">Involves the creator</li>
-          <li data-legend="gone">Holds nothing today</li>
-        </ul>
+        {!story.frontLoaded && (
+          <div className="launch-stage-top">
+            <span className="story-key">
+              <i className="story-key-bought" aria-hidden="true" /> Bought
+              <i className="story-key-held" aria-hidden="true" /> Still held today
+              {story.creatorSales.length > 0 && (
+                <>
+                  <i className="story-key-sale" aria-hidden="true" /> Creator sold
+                </>
+              )}
+            </span>
+            <button
+              type="button"
+              className="launch-replay-button"
+              onClick={() => setRun((n) => n + 1)}
+            >
+              Replay <span aria-hidden="true">↻</span>
+            </button>
+          </div>
+        )}
+        {story.frontLoaded ? (
+          <Compare story={story} />
+        ) : (
+          <div className="launch-chart-box" ref={setChartNode}>
+            <Curve
+              story={story}
+              window={Math.max(1, launch.windowSeconds)}
+              run={run}
+              width={chartWidth}
+            />
+          </div>
+        )}
+        {story.partial && (
+          <p className="story-note">
+            Drawn from the {launch.moves.length} largest moves and every move of the creator, out of{' '}
+            {launch.movesInWindow.toLocaleString('en-US')} in the window.
+          </p>
+        )}
       </div>
-      <div className="launch-table-scroll">
-        <table className="launch-table">
-          <thead>
-            <tr>
-              <th scope="col">When</th>
-              <th scope="col">Move</th>
-              <th scope="col">Address</th>
-              <th scope="col">Share</th>
-              <th scope="col">Today</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((move) => {
-              const state = holding(move);
-              return (
-                <tr key={`${move.transaction}-${move.actor}-${move.kind}`} data-kind={move.kind}>
-                  <td>{when(move.seconds)}</td>
-                  <td>
-                    <span className="launch-kind">{KIND_WORD[move.kind]}</span>
-                    {move.counterpartyIsCreator && (
-                      <span className="launch-flag">from the creator</span>
-                    )}
-                  </td>
-                  <td>
-                    <a href={`${EXPLORER}/address/${move.actor}`} target="_blank" rel="noreferrer">
-                      {short(move.actor)}
-                    </a>
-                    {move.actorIsCreator ? (
-                      <span className="launch-flag">creator</span>
-                    ) : (
-                      move.actorKind !== 'wallet' && (
-                        <span className="launch-role">{move.actorKind}</span>
-                      )
-                    )}
-                  </td>
-                  <td>{pct(move.share)}</td>
-                  <td data-holding={state}>
-                    {move.heldNow === null ? '—' : pct(move.heldNow)}
-                    <small>{HOLDING_WORD[state]}</small>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      {(launch.moves.length > 8 || launch.movesInWindow > launch.moves.length) && (
-        <p className="launch-more">
-          {launch.moves.length > 8 && (
+      {story.buyers.length > 0 && (
+        <div className="first-buyers-block">
+          <h4>The first buyers</h4>
+          <p className="story-note">
+            In the order they bought. The bright part of each bar is what they still hold today.
+          </p>
+          <Buyers buyers={story.buyers} bundle={story.bundle?.transaction ?? null} />
+        </div>
+      )}
+      <details className="launch-all">
+        <summary>Every move, one by one</summary>
+        <div className="launch-table-scroll">
+          <table className="launch-table">
+            <thead>
+              <tr>
+                <th scope="col">When</th>
+                <th scope="col">Move</th>
+                <th scope="col">Address</th>
+                <th scope="col">Share</th>
+                <th scope="col">Today</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((move) => {
+                const state = holding(move);
+                return (
+                  <tr key={`${move.transaction}-${move.actor}-${move.kind}`} data-kind={move.kind}>
+                    <td>{when(move.seconds)}</td>
+                    <td>
+                      <span className="launch-kind">{KIND_WORD[move.kind]}</span>
+                      {move.counterpartyIsCreator && (
+                        <span className="launch-flag">from the creator</span>
+                      )}
+                    </td>
+                    <td>
+                      <a
+                        href={`${EXPLORER}/address/${move.actor}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {short(move.actor)}
+                      </a>
+                      {move.actorIsCreator ? (
+                        <span className="launch-flag">creator</span>
+                      ) : (
+                        move.actorKind !== 'wallet' && (
+                          <span className="launch-role">{move.actorKind}</span>
+                        )
+                      )}
+                    </td>
+                    <td>{pct(move.share)}</td>
+                    <td data-holding={state}>
+                      {move.heldNow === null ? '—' : pct(move.heldNow)}
+                      <small>{HOLDING_WORD[state]}</small>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {launch.moves.length > 8 && (
+          <p className="launch-more">
             <button type="button" className="text-link" onClick={() => setAll((v) => !v)}>
               {all ? 'Show fewer' : `Show all ${launch.moves.length} moves`}
             </button>
-          )}
-          {launch.movesInWindow > launch.moves.length &&
-            ` ${launch.movesInWindow - launch.moves.length} other moves in the window are not drawn: every move of the creator and the largest ones are.`}
-        </p>
-      )}
+          </p>
+        )}
+      </details>
     </section>
   );
 }

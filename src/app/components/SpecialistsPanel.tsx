@@ -4,7 +4,9 @@ import { useEffect, useRef, type CSSProperties } from 'react';
 import type { FunderKind } from '@/lib/chain/funder-kind';
 import type { SpecialistAnswer } from '@/lib/specialists/brief';
 import type { FundingPathStep } from '@/lib/specialists/types';
-import { SignalBadge } from './signals';
+import { PLAIN_LABEL, shortAnswer } from '@/lib/specialists/plain';
+import { SIGNAL_LABEL } from './signal-labels';
+import { SignalIcon } from './signals';
 
 const KIND_LABEL: Record<FunderKind, string> = {
   wallet: 'wallet',
@@ -47,9 +49,42 @@ function FundingPath({ path }: { path: FundingPathStep[] }) {
   );
 }
 
+function Details({ answer }: { answer: SpecialistAnswer }) {
+  return (
+    <div className="question-body">
+      <p className="question-asked">{answer.question}</p>
+      {answer.facts.length > 0 && (
+        <>
+          <h4>What was read</h4>
+          <ul>
+            {answer.facts.map((fact) => (
+              <li key={fact}>{fact}</li>
+            ))}
+          </ul>
+        </>
+      )}
+      {answer.funding && answer.funding.path.length > 0 && (
+        <FundingPath path={answer.funding.path} />
+      )}
+      {answer.limits.length > 0 && (
+        <>
+          <h4>What it could not see</h4>
+          <ul className="question-limits">
+            {answer.limits.map((limit) => (
+              <li key={limit}>{limit}</li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  );
+}
+
 /**
- * The ten questions, one tile each, always in the same order. A tile is read
- * on its own: there is no total, no count of answers per kind, no ranking.
+ * The ten questions as one checklist, always in the same order: a plain name,
+ * a one-line answer, the detail on demand. Questions nothing could be read for
+ * are gathered at the end so they do not drown the answers. There is no total
+ * and no ranking.
  */
 export function SpecialistsPanel({
   answers,
@@ -59,90 +94,84 @@ export function SpecialistsPanel({
   /** Section number: the launch replay, when shown, comes before. */
   index?: string;
 }) {
-  const grid = useRef<HTMLDivElement>(null);
-  // A link to a question (from the summary) opens its tile.
+  const list = useRef<HTMLDivElement>(null);
+  // A link to a question (from the summary) opens it, and its group if folded.
   useEffect(() => {
     const open = () => {
       const id = decodeURIComponent(window.location.hash.slice(1));
       if (!id.startsWith('question-')) return;
-      const tile = document.getElementById(id);
-      if (tile instanceof HTMLDetailsElement) tile.open = true;
+      const row = document.getElementById(id);
+      if (row instanceof HTMLDetailsElement) row.open = true;
+      const group = row?.parentElement?.closest('details');
+      if (group) group.open = true;
     };
     open();
     window.addEventListener('hashchange', open);
     return () => window.removeEventListener('hashchange', open);
   }, []);
-  const setAll = (open: boolean) =>
-    grid.current?.querySelectorAll('details').forEach((d) => {
-      d.open = open;
-    });
+
+  const measured = answers.filter((a) => a.signal !== 'unknown');
+  const unmeasured = answers.filter((a) => a.signal === 'unknown');
 
   return (
     <section className="questions" aria-labelledby="questions-title">
       <div className="report-section-head">
-        <p className="report-kicker">{index} — Ten questions</p>
-        <h3 id="questions-title">Asked of every token, answered one by one.</h3>
+        <p className="report-kicker">{index} — Ten checks</p>
+        <h3 id="questions-title">Ten checks, in plain words.</h3>
         <p className="questions-intro">
-          Each specialist reads the chain for one question. The answers are not added up: each tile
-          stands on its own, with what it could not see.
+          Each line reads one thing on the chain. Open a line to see exactly what was read.
         </p>
-        <div className="questions-tools">
-          <button type="button" className="text-link" onClick={() => setAll(true)}>
-            Open all
-          </button>
-          <button type="button" className="text-link" onClick={() => setAll(false)}>
-            Close all
-          </button>
-        </div>
       </div>
-      <div className="question-grid" ref={grid}>
-        {answers.map((answer, i) => (
+      <div className="check-list" ref={list}>
+        {measured.map((answer, i) => (
           <details
             key={answer.specialist}
             id={`question-${answer.specialist}`}
-            className="question-tile"
+            className="check-row"
             data-signal={answer.signal}
             style={{ '--i': i } as CSSProperties}
           >
             <summary>
-              <span className="question-top">
-                <span className="question-title">{answer.title}</span>
-                <SignalBadge signal={answer.signal} />
+              <span className="check-icon" data-signal={answer.signal}>
+                <SignalIcon signal={answer.signal} />
               </span>
-              <span className="question-text">{answer.question}</span>
-              {answer.facts[0] && <span className="question-preview">{answer.facts[0]}</span>}
-              {!answer.facts[0] && answer.limits[0] && (
-                <span className="question-preview">{answer.limits[0]}</span>
-              )}
-              <span className="question-more" aria-hidden="true" />
+              <span className="check-name">{PLAIN_LABEL[answer.specialist]}</span>
+              <span className="check-answer">{shortAnswer(answer)}</span>
+              <span className="check-tag" data-signal={answer.signal}>
+                {SIGNAL_LABEL[answer.signal]}
+              </span>
             </summary>
-            <div className="question-body">
-              {answer.facts.length > 0 && (
-                <>
-                  <h4>What was read</h4>
-                  <ul>
-                    {answer.facts.map((fact) => (
-                      <li key={fact}>{fact}</li>
-                    ))}
-                  </ul>
-                </>
-              )}
-              {answer.funding && answer.funding.path.length > 0 && (
-                <FundingPath path={answer.funding.path} />
-              )}
-              {answer.limits.length > 0 && (
-                <>
-                  <h4>What it could not see</h4>
-                  <ul className="question-limits">
-                    {answer.limits.map((limit) => (
-                      <li key={limit}>{limit}</li>
-                    ))}
-                  </ul>
-                </>
-              )}
-            </div>
+            <Details answer={answer} />
           </details>
         ))}
+        {unmeasured.length > 0 && (
+          <details className="check-row check-unmeasured" data-signal="unknown">
+            <summary>
+              <span className="check-icon" data-signal="unknown">
+                <SignalIcon signal="unknown" />
+              </span>
+              <span className="check-name">Not measured for this token</span>
+              <span className="check-answer">
+                {unmeasured.map((a) => PLAIN_LABEL[a.specialist]).join(' · ')}
+              </span>
+            </summary>
+            <div className="check-sublist">
+              {unmeasured.map((answer) => (
+                <details
+                  key={answer.specialist}
+                  id={`question-${answer.specialist}`}
+                  className="check-subrow"
+                >
+                  <summary>
+                    <span className="check-name">{PLAIN_LABEL[answer.specialist]}</span>
+                    <span className="check-answer">{shortAnswer(answer)}</span>
+                  </summary>
+                  <Details answer={answer} />
+                </details>
+              ))}
+            </div>
+          </details>
+        )}
       </div>
     </section>
   );
