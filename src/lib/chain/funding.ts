@@ -1,5 +1,14 @@
+import { TtlCache } from '../cache';
 import { BLOCKSCOUT_BASE } from '../holders/blockscout';
 import { requestJson } from '../http';
+import {
+  classifyFunder,
+  effectiveFunder,
+  parseProfile,
+  type FunderKind,
+  type FunderProfile,
+} from './funder-kind';
+import type { RpcClient } from './rpc';
 
 /**
  * Who first sent ETH to a wallet, read straight from Blockscout.
@@ -103,4 +112,116 @@ export async function findFirstFunding(
   const b = firstIncoming(wallet, internal);
   if (a && b) return a.block <= b.block ? a : b;
   return a ?? b;
+}
+
+export function addressProfileUrl(
+  address: string,
+  apiKey: string,
+  counters: boolean,
+  base = BLOCKSCOUT_BASE,
+): string {
+  const url = new URL(
+    `${base}/${CHAIN_ID}/api/v2/addresses/${address.toLowerCase()}${counters ? '/counters' : ''}`,
+  );
+  url.searchParams.set('apikey', apiKey);
+  return url.toString();
+}
+
+/** A day: an address does not turn from a private wallet into an exchange overnight. */
+export const PROFILE_TTL_MS = 24 * 60 * 60_000;
+
+/** Profiles read on this instance; a failed read is not kept, so it is tried again. */
+const profiles = new TtlCache<FunderProfile | null>({
+  ttlMs: PROFILE_TTL_MS,
+  maxEntries: 2_000,
+  keep: (value) => value !== null,
+});
+
+/**
+ * What Blockscout says of an address: contract or not, verified name, tags,
+ * transaction count. `null` when it could not be read: the caller then says
+ * "unknown", never "wallet".
+ */
+export async function readFunderProfile(
+  address: string,
+  apiKey: string,
+  base = BLOCKSCOUT_BASE,
+): Promise<FunderProfile | null> {
+  const key = address.toLowerCase();
+  const { value } = await profiles.resolve(key, async () => {
+    try {
+      const options = { source: 'blockscout' as const, timeoutMs: 6_000, retries: 1 };
+      const [body, counters] = await Promise.all([
+        requestJson<unknown>(addressProfileUrl(key, apiKey, false, base), options),
+        requestJson<unknown>(addressProfileUrl(key, apiKey, true, base), options),
+      ]);
+      return parseProfile(key, body, counters);
+    } catch {
+      return null;
+    }
+  });
+  return value;
+}
+
+export function resetFunderProfiles(): void {
+  profiles.clear();
+}
+
+export type FundingClassification = {
+  funderKind: FunderKind;
+  funderName: string | null;
+  funderTxCount: number | null;
+  /** The sender behind a batch-sending tool, when the funding went through one. */
+  origin?: string | null;
+  originKind?: FunderKind | null;
+  originTxCount?: number | null;
+  /** The address to group by, and its kind. */
+  effective: string | null;
+  effectiveKind: FunderKind;
+};
+
+/**
+ * What first funded a wallet: a service, a tool, a wallet, or unknown. For a
+ * batch-sending tool, the sender of the funding transaction is read and
+ * classified in turn, one level only.
+ */
+export async function classifyFunding(
+  rpc: Pick<RpcClient, 'call'>,
+  funding: { funder: string; txHash?: string | null },
+  apiKey: string,
+  base = BLOCKSCOUT_BASE,
+): Promise<FundingClassification> {
+  const profile = await readFunderProfile(funding.funder, apiKey, base);
+  const funderKind = classifyFunder(profile);
+  const own = {
+    funderKind,
+    funderName: profile?.name ?? null,
+    funderTxCount: profile?.txCount ?? null,
+  };
+  if (funderKind !== 'tool') {
+    return { ...own, effective: funding.funder.toLowerCase(), effectiveKind: funderKind };
+  }
+  let origin: string | null = null;
+  if (funding.txHash) {
+    const tx = await rpc
+      .call<{ from?: string } | null>('eth_getTransactionByHash', [funding.txHash])
+      .catch(() => null);
+    origin = tx?.from?.toLowerCase() ?? null;
+  }
+  const sender = origin ? await readFunderProfile(origin, apiKey, base) : null;
+  const originKind = origin ? classifyFunder(sender) : null;
+  const { effective, kind } = effectiveFunder({
+    funder: funding.funder,
+    kind: funderKind,
+    origin,
+    originKind,
+  });
+  return {
+    ...own,
+    origin,
+    originKind,
+    originTxCount: sender?.txCount ?? null,
+    effective,
+    effectiveKind: kind,
+  };
 }

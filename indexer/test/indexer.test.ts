@@ -456,17 +456,47 @@ describe('API', () => {
       block: 5,
       kind: 'tx',
     });
+    const other = '0x00000000000000000000000000000000000000d2';
+    on.db.insertLaunches([
+      {
+        ...decodeLaunch(
+          launchLog({
+            factory: FACTORY,
+            token: '0x000000000000000000000000000000000000000c',
+            creator: other,
+            pool: POOL,
+            block: 11,
+          }),
+        ),
+        ts: 1_700_000_001,
+      },
+    ]);
     on.db.setFunding({
-      creator: '0xother',
+      creator: other,
       status: 'found',
       funder: '0xf0',
       txHash: '0x2',
       block: 6,
       kind: 'tx',
     });
+    // Not profiled yet: its creators are not listed as linked.
     expect(on.get(`/v1/creator/${CREATOR}`).body).toMatchObject({
       fundingState: 'found',
-      funding: { funder: '0xf0', otherCreatorsFunded: ['0xother'] },
+      funding: { funder: '0xf0', funderKind: 'unknown', otherCreatorsFunded: [] },
+    });
+    on.db.setFunder(
+      { address: '0xf0', isContract: false, name: null, txCount: 33, tags: [] },
+      'wallet',
+    );
+    expect(on.get(`/v1/creator/${CREATOR}`).body).toMatchObject({
+      fundingState: 'found',
+      funding: {
+        funder: '0xf0',
+        funderKind: 'wallet',
+        funderTxCount: 33,
+        effective: '0xf0',
+        otherCreatorsFunded: [other],
+      },
     });
   });
 

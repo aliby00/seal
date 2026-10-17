@@ -179,6 +179,8 @@ export function ImmersiveEntrance({
         const target = document.getElementById(anchor.hash.slice(1));
         if (!target) return;
         event.preventDefault();
+        // A link to a question opens its tile.
+        if (target instanceof HTMLDetailsElement) target.open = true;
         if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
         target.focus({ preventScroll: true });
         target.scrollIntoView({

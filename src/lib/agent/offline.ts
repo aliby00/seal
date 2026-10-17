@@ -1,4 +1,5 @@
 import type { TokenReport } from '../contracts';
+import type { SpecialistAnswer } from '../specialists/brief';
 import { volumePerTrade } from '../market';
 
 function pct(value: number): string {
@@ -68,7 +69,7 @@ function deployerAccount(report: TokenReport): string {
 }
 
 /** Plain factual fallback. Explicitly does not claim to perform agent reasoning. */
-export function offlineExplanation(report: TokenReport): string {
+export function offlineExplanation(report: TokenReport, specialists?: SpecialistAnswer[]): string {
   const parts: string[] = [
     'This account is produced without the reasoning agent: it lists the observed facts without cross-examining or interpreting them.',
   ];
@@ -140,6 +141,12 @@ export function offlineExplanation(report: TokenReport): string {
         `Over 24 hours: ${m.volumeUsd?.h24.toFixed(2)} USD in volume across ${trades} trades, averaging ${perTrade.toFixed(2)} USD per trade.`,
       );
     }
+  }
+  // Who funded the creator, as the funding question says it: an exchange is
+  // named as one, so it is never read as a link between creators.
+  const funding = specialists?.find((a) => a.specialist === 'funding-trace');
+  if (funding && funding.signal !== 'unknown' && funding.facts.length > 0) {
+    parts.push(`Funding: ${funding.facts.join(' ')}`);
   }
   if (report.completeness !== 'full')
     parts.push(

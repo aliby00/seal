@@ -1,5 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import type { LaunchRow, MarketRow } from './abi.ts';
+import type { FunderKind, FunderProfile } from './funder-kind.ts';
 
 /**
  * Stockage SQLite (WAL). Toutes les insertions sont idempotentes sur
@@ -84,6 +85,15 @@ CREATE TABLE IF NOT EXISTS funding (
   checked_at INTEGER NOT NULL
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS funding_funder ON funding (funder);
+CREATE TABLE IF NOT EXISTS funders (
+  address TEXT PRIMARY KEY,
+  -- 'service' | 'tool' | 'wallet' | 'unknown', from funder-kind.ts.
+  kind TEXT NOT NULL,
+  name TEXT,
+  is_contract INTEGER NOT NULL,
+  tx_count INTEGER,
+  checked_at INTEGER NOT NULL
+) WITHOUT ROWID;
 `;
 
 export type SwapInsert = {
@@ -110,6 +120,29 @@ export type FundingInsert = {
   kind: 'tx' | 'internal' | null;
 };
 
+export type FunderRow = {
+  address: string;
+  kind: FunderKind;
+  name: string | null;
+  is_contract: number;
+  tx_count: number | null;
+  checked_at: number;
+};
+
+export type FundingRow = {
+  creator: string;
+  status: 'found' | 'none';
+  funder: string | null;
+  tx_hash: string | null;
+  block: number | null;
+  kind: 'tx' | 'internal' | null;
+  /** The sender of the funding transaction, read when the funder is a batch-sending tool. */
+  origin: string | null;
+  /** The address the funding is grouped by: the funder, or the sender behind a tool. */
+  effective: string | null;
+  checked_at: number;
+};
+
 export type Db = ReturnType<typeof openDb>;
 
 /**
@@ -124,6 +157,14 @@ function migrate(db: DatabaseSync): void {
   if (!columns.includes('launchpad')) {
     db.exec("ALTER TABLE launches ADD COLUMN launchpad TEXT NOT NULL DEFAULT 'pons'");
   }
+  // Funder profiles came later: the rows already there are grouped once
+  // their funder is profiled (`effective` stays NULL until then).
+  const funding = (db.prepare('PRAGMA table_info(funding)').all() as { name: string }[]).map(
+    (c) => c.name,
+  );
+  if (!funding.includes('origin')) db.exec('ALTER TABLE funding ADD COLUMN origin TEXT');
+  if (!funding.includes('effective')) db.exec('ALTER TABLE funding ADD COLUMN effective TEXT');
+  db.exec('CREATE INDEX IF NOT EXISTS funding_effective ON funding (effective)');
 }
 
 export function openDb(path: string, now: () => number = Date.now) {
@@ -157,11 +198,28 @@ export function openDb(path: string, now: () => number = Date.now) {
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const insertFunding = db.prepare(
-    `INSERT INTO funding (creator, status, funder, tx_hash, block, kind, checked_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO funding (creator, status, funder, tx_hash, block, kind, checked_at, origin, effective)
+     VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL)
      ON CONFLICT (creator) DO UPDATE SET status = excluded.status, funder = excluded.funder,
        tx_hash = excluded.tx_hash, block = excluded.block, kind = excluded.kind,
+       checked_at = excluded.checked_at, origin = NULL, effective = NULL`,
+  );
+  const getFunding = db.prepare('SELECT * FROM funding WHERE creator = ?');
+  const getFunder = db.prepare('SELECT * FROM funders WHERE address = ?');
+  const upsertFunder = db.prepare(
+    `INSERT INTO funders (address, kind, name, is_contract, tx_count, checked_at)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT (address) DO UPDATE SET kind = excluded.kind, name = excluded.name,
+       is_contract = excluded.is_contract, tx_count = excluded.tx_count,
        checked_at = excluded.checked_at`,
+  );
+  // A tool groups by the sender behind it (NULL until read); anything else by itself.
+  const regroup = db.prepare(
+    `UPDATE funding SET effective = CASE WHEN ? = 'tool' THEN origin ELSE funder END
+     WHERE funder = ? AND status = 'found'`,
+  );
+  const setOrigin = db.prepare(
+    'UPDATE funding SET origin = ?, effective = ? WHERE creator = ? AND status = ?',
   );
   // Swaps are read for pons launch pools only: another launchpad's row names
   // a curve or nothing, never a Uniswap V3 pool of the token.
@@ -281,15 +339,44 @@ export function openDb(path: string, now: () => number = Date.now) {
       return inserted;
     },
     setFunding(row: FundingInsert): void {
-      insertFunding.run(
-        row.creator,
-        row.status,
-        row.funder,
-        row.txHash,
-        row.block,
-        row.kind,
-        now(),
-      );
+      transaction(() => {
+        insertFunding.run(
+          row.creator,
+          row.status,
+          row.funder,
+          row.txHash,
+          row.block,
+          row.kind,
+          now(),
+        );
+        // A funder already profiled groups the new row at once.
+        const known = row.funder ? (getFunder.get(row.funder) as FunderRow | undefined) : undefined;
+        if (known && row.funder) regroup.run(known.kind, row.funder);
+      });
+    },
+    funding(address: string): FundingRow | undefined {
+      return getFunding.get(address) as FundingRow | undefined;
+    },
+    funder(address: string): FunderRow | undefined {
+      return getFunder.get(address) as FunderRow | undefined;
+    },
+    /** Stores a funder's profile and regroups every funding it made. */
+    setFunder(profile: FunderProfile, kind: FunderKind): void {
+      transaction(() => {
+        upsertFunder.run(
+          profile.address,
+          kind,
+          profile.name,
+          profile.isContract ? 1 : 0,
+          profile.txCount,
+          now(),
+        );
+        regroup.run(kind, profile.address);
+      });
+    },
+    /** The sender behind a funding sent through a batch-sending tool. */
+    setOrigin(creator: string, origin: string): void {
+      setOrigin.run(origin, origin, creator, 'found');
     },
 
     poolInfo(pool: string): { token: string; pair_token: string } | undefined {
@@ -317,7 +404,7 @@ export function openDb(path: string, now: () => number = Date.now) {
     poolsAfter(after: string, maxBlock: number, limit: number): string[] {
       return (poolsPage.all(after, maxBlock, limit) as { pool: string }[]).map((r) => r.pool);
     },
-    count(table: 'launches' | 'swaps' | 'markets' | 'funding'): number {
+    count(table: 'launches' | 'swaps' | 'markets' | 'funding' | 'funders'): number {
       return (db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
     },
   };

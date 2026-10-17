@@ -8,7 +8,13 @@ import { CATALOG } from './catalog';
 import { gatherContext } from './context';
 import { liveIndex } from './live-index';
 import { displayName } from './names';
-import { SPECIALIST_IDS, type Signal, type SpecialistContext, type SpecialistId } from './types';
+import {
+  SPECIALIST_IDS,
+  type FundingDisplay,
+  type Signal,
+  type SpecialistContext,
+  type SpecialistId,
+} from './types';
 
 /**
  * The ten specialists, run on every analysis.
@@ -26,6 +32,8 @@ export type SpecialistAnswer = {
   signal: Signal;
   facts: string[];
   limits: string[];
+  /** The funding question only: what the funder is, and the path up from the creator. */
+  funding?: FundingDisplay;
 };
 
 export type SpecialistBrief = {
@@ -49,6 +57,21 @@ function screened(lines: readonly string[]): string[] {
   return lines.map((line) => (findViolations(line).length > 0 ? WITHHELD_LINE : line));
 }
 
+/** A contract name is chosen by its deployer: one that reads as a verdict is not shown. */
+const shownName = (name: string | null): string | null =>
+  name && findViolations(name).length === 0 ? name : null;
+
+function screenedFunding(display: FundingDisplay): FundingDisplay {
+  return {
+    ...display,
+    path: display.path.map((step) => ({
+      ...step,
+      name: shownName(step.name),
+      ...(step.via ? { via: { ...step.via, name: shownName(step.via.name) } } : {}),
+    })),
+  };
+}
+
 /**
  * Asks every specialist its question. One that throws — a report missing a
  * block, an unexpected shape — answers "not measured" and says so; it never
@@ -63,11 +86,13 @@ export function answerAll(
     let signal: Signal = 'unknown';
     let facts: string[] = [];
     let limits: string[] = [FAILED];
+    let funding: FundingDisplay | undefined;
     try {
       const finding = specialist.run(context);
       signal = finding.signal;
       facts = finding.facts;
       limits = finding.limits;
+      funding = finding.funding;
     } catch (error) {
       log.warn('spécialiste en échec', { specialist: id, error: String(error) });
     }
@@ -81,6 +106,7 @@ export function answerAll(
       signal,
       facts: screened(facts),
       limits: screened(limits),
+      ...(funding ? { funding: screenedFunding(funding) } : {}),
     };
   });
 }

@@ -51,7 +51,11 @@ const ONLY_AFTER_INIT = '0x0000000000000000000000000000000000001000';
 const divergent: SpecialistContext = {
   token,
   creatorNonce: 1,
-  funding: { funder: '0x1111111111111111111111111111111111111111', otherCreatorsFunded: 3 },
+  funding: {
+    funder: '0x1111111111111111111111111111111111111111',
+    funderKind: 'wallet',
+    otherCreatorsFunded: 3,
+  },
   market: {
     id: '0x1',
     token,
