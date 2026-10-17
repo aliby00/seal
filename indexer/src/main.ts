@@ -33,7 +33,12 @@ await clock.observeHead().catch((error: unknown) => log('head-error', { error: S
 
 const swaps = swapStream({ rpc, db, clock, log, backfillDays: config.backfillDays });
 const funding = config.blockscoutApiKey
-  ? fundingStream({ db, apiKey: config.blockscoutApiKey, log })
+  ? fundingStream({
+      db,
+      apiKey: config.blockscoutApiKey,
+      log,
+      dailyCalls: config.fundingDailyCalls,
+    })
   : undefined;
 const streams: Stream[] = [
   head,
@@ -51,6 +56,7 @@ const handle = createApi({
   token: config.token,
   fundingEnabled: Boolean(funding),
   prioritizeFunding: funding?.prioritize,
+  fundingUsage: funding?.usage,
 });
 const server = serve(handle, config.port);
 

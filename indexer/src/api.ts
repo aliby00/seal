@@ -22,6 +22,8 @@ export type ApiDeps = {
   token: string;
   fundingEnabled: boolean;
   prioritizeFunding?: (creator: string) => void;
+  /** Blockscout calls spent today against the daily cap, for /health. */
+  fundingUsage?: () => { callsToday: number; dailyCalls: number };
   nowSec?: () => number;
   startedAt?: number;
 };
@@ -121,6 +123,7 @@ export function createApi(deps: ApiDeps) {
           funding: db.count('funding'),
         },
         funding: deps.fundingEnabled ? 'enabled' : 'disabled: no BLOCKSCOUT_API_KEY',
+        ...(deps.fundingUsage ? { fundingBudget: deps.fundingUsage() } : {}),
         rpc: deps.rpc.stats(),
         rssMb: Math.round(process.memoryUsage().rss / 1_048_576),
         uptimeS: Math.round((Date.now() - startedAt) / 1000),

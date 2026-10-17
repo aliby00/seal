@@ -30,15 +30,16 @@ pas le `sender` du swap, qui est presque toujours un routeur.
 
 ## Variables d'environnement
 
-| Variable             | Défaut                                    | Rôle                                                      |
-| -------------------- | ----------------------------------------- | --------------------------------------------------------- |
-| `INDEXER_TOKEN`      | — (obligatoire, 24 caractères au moins)   | jeton Bearer exigé partout sauf `/health`                 |
-| `RPC_URL`            | `https://rpc.mainnet.chain.robinhood.com` | nœud Robinhood Chain                                      |
-| `RPC_RATE`           | `4`                                       | requêtes `eth_getLogs` par seconde                        |
-| `BLOCKSCOUT_API_KEY` | vide                                      | sans elle, le financement n'est pas lu (`/health` le dit) |
-| `BACKFILL_DAYS`      | `30`                                      | jours de swaps relus au premier démarrage                 |
-| `PORT`               | `8795`                                    | port HTTP                                                 |
-| `DB_PATH`            | `/data/seal-indexer.db`                   | fichier SQLite                                            |
+| Variable              | Défaut                                    | Rôle                                                                             |
+| --------------------- | ----------------------------------------- | -------------------------------------------------------------------------------- |
+| `INDEXER_TOKEN`       | — (obligatoire, 24 caractères au moins)   | jeton Bearer exigé partout sauf `/health`                                        |
+| `RPC_URL`             | `https://rpc.mainnet.chain.robinhood.com` | nœud Robinhood Chain                                                             |
+| `RPC_RATE`            | `4`                                       | requêtes `eth_getLogs` par seconde                                               |
+| `BLOCKSCOUT_API_KEY`  | vide                                      | sans elle, le financement n'est pas lu (`/health` le dit)                        |
+| `FUNDING_DAILY_CALLS` | `2000`                                    | plafond d'appels Blockscout par jour, étalés ; le quota est partagé avec le site |
+| `BACKFILL_DAYS`       | `30`                                      | jours de swaps relus au premier démarrage                                        |
+| `PORT`                | `8795`                                    | port HTTP                                                                        |
+| `DB_PATH`             | `/data/seal-indexer.db`                   | fichier SQLite                                                                   |
 
 Côté application : `INDEXER_URL` (par exemple `http://127.0.0.1:8795`) et
 `INDEXER_TOKEN` (le même jeton). Sans eux, l'application fonctionne comme avant.

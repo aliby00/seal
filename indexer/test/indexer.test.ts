@@ -515,4 +515,49 @@ describe('funding', () => {
     ]);
     expect(await stream.step()).toBe(false);
   });
+
+  it('stays within its daily Blockscout calls, spread over the day, the queue first', async () => {
+    const db = memoryDb();
+    const other = '0x00000000000000000000000000000000000000b2';
+    db.insertLaunches(
+      [CREATOR, other].map((creator, i) => ({
+        ...decodeLaunch(
+          launchLog({
+            factory: FACTORY,
+            token: `0x${String(i + 1).padStart(40, '0')}`,
+            creator,
+            pool: POOL,
+            block: 10 + i,
+          }),
+        ),
+        ts: 1,
+      })),
+    );
+    let clock = 1_000_000_000_000;
+    let calls = 0;
+    const stream = fundingStream({
+      db,
+      apiKey: 'k',
+      log: silent,
+      now: () => clock,
+      sleep: async () => undefined,
+      dailyCalls: 2,
+      fetch: (async () => {
+        calls += 1;
+        return Response.json({ status: '0', message: 'No transactions found', result: [] });
+      }) as unknown as typeof fetch,
+    });
+    // A creator asked for through the API goes first.
+    stream.prioritize(other);
+    expect(await stream.step()).toBe(true);
+    expect(calls).toBe(2);
+    expect(stream.usage()).toEqual({ callsToday: 2, dailyCalls: 2 });
+    // The day's calls are spent: nothing more until tomorrow, even when asked.
+    stream.prioritize(CREATOR);
+    expect(await stream.step()).toBe(false);
+    expect(calls).toBe(2);
+    clock += 86_400_000;
+    expect(await stream.step()).toBe(true);
+    expect(calls).toBe(4);
+  });
 });

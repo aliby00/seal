@@ -10,9 +10,12 @@ import type { Logger, Stream } from '../loop.ts';
  * premier transfert entrant de valeur non nulle, des deux listes, est le
  * financement. RPC seul, il faudrait relire toute la chaîne.
  *
- * Tier gratuit : 5 req/s et 100 000 crédits/jour. On reste à 2 req/s, les
- * créateurs les plus récents d'abord ; un créateur demandé par l'API passe
- * devant.
+ * Tier gratuit : 5 req/s et 100 000 crédits/jour, PARTAGÉS avec le site (la
+ * carte des détenteurs passe par la même clé). Relire les ~92 000 créateurs à
+ * 2 req/s épuisait ce quota en moins d'une heure et faisait tomber le site :
+ * les appels sont donc plafonnés par jour (`dailyCalls`) et étalés sur la
+ * journée. Les créateurs les plus récents d'abord ; un créateur demandé par
+ * l'API passe devant, sans attendre l'étalement, mais dans le même plafond.
  */
 export const BLOCKSCOUT_BASE = 'https://api.blockscout.com';
 export const CHAIN_ID = 4663;
@@ -20,6 +23,11 @@ export const CHAIN_ID = 4663;
 const PAGE = 50;
 const MIN_GAP_MS = 500;
 const RETRY_LATER_MS = 10 * 60_000;
+const DAY_MS = 86_400_000;
+/** Normal and internal transactions: two calls per creator. */
+const CALLS_PER_CREATOR = 2;
+/** ~20 credits a call: 2,000 calls leave most of the 100,000 daily credits to the site. */
+export const DEFAULT_DAILY_CALLS = 2_000;
 
 type EtherscanTx = {
   blockNumber?: string;
@@ -84,13 +92,33 @@ export function fundingStream(deps: {
   sleep?: (ms: number) => Promise<void>;
   now?: () => number;
   base?: string;
-}): Stream & { prioritize(creator: string): void } {
+  /** Appels Blockscout permis par jour UTC, file prioritaire comprise. */
+  dailyCalls?: number;
+}): Stream & {
+  prioritize(creator: string): void;
+  usage(): { callsToday: number; dailyCalls: number };
+} {
   const doFetch = deps.fetch ?? fetch;
   const sleep = deps.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
   const now = deps.now ?? Date.now;
   const urgent = new Set<string>();
   const retryAt = new Map<string, number>();
   let last = 0;
+  const dailyCalls = deps.dailyCalls ?? DEFAULT_DAILY_CALLS;
+  // Background reads spread over the day instead of spending the budget at midnight.
+  const spreadMs = Math.max(MIN_GAP_MS, Math.floor(DAY_MS / dailyCalls) * CALLS_PER_CREATOR);
+  let day = -1;
+  let callsToday = 0;
+  let lastBackground = -Infinity;
+  /** Two calls per creator: room for both, or none started. */
+  function budgetLeft(): boolean {
+    const today = Math.floor(now() / DAY_MS);
+    if (today !== day) {
+      day = today;
+      callsToday = 0;
+    }
+    return callsToday + CALLS_PER_CREATOR <= dailyCalls;
+  }
   const pick = deps.db.raw.prepare(
     `SELECT creator FROM launches l
      WHERE NOT EXISTS (SELECT 1 FROM funding f WHERE f.creator = l.creator)
@@ -106,6 +134,7 @@ export function fundingStream(deps: {
       const gap = last + MIN_GAP_MS - now();
       if (gap > 0) await sleep(gap);
       last = now();
+      callsToday += 1;
       try {
         const response = await doFetch(accountUrl(action, address, deps.apiKey, deps.base), {
           signal: AbortSignal.timeout(15_000),
@@ -161,9 +190,12 @@ export function fundingStream(deps: {
     const t = now();
     const ready = (c: string) => (retryAt.get(c) ?? 0) <= t;
     const first = [...urgent].filter(ready);
-    if (first.length > 0) return first.slice(0, 10);
+    if (first.length > 0) return first.slice(0, 1);
+    if (t - lastBackground < spreadMs) return [];
     const rows = pick.all() as { creator: string }[];
-    return [...new Set(rows.map((r) => r.creator))].filter(ready).slice(0, 10);
+    const background = [...new Set(rows.map((r) => r.creator))].filter(ready).slice(0, 1);
+    if (background.length > 0) lastBackground = t;
+    return background;
   }
 
   return {
@@ -171,7 +203,12 @@ export function fundingStream(deps: {
     prioritize(creator: string) {
       urgent.add(creator.toLowerCase());
     },
+    usage() {
+      budgetLeft();
+      return { callsToday, dailyCalls };
+    },
     async step() {
+      if (!budgetLeft()) return false;
       const batch = next();
       if (batch.length === 0) return false;
       const started = now();

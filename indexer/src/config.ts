@@ -18,6 +18,8 @@ export type Config = {
   port: number;
   dbPath: string;
   backfillDays: number;
+  /** Appels Blockscout par jour pour le financement (le quota est partagé avec le site). */
+  fundingDailyCalls: number;
   /** Pause entre deux lectures de la tête de chaîne. */
   pollMs: number;
 };
@@ -43,6 +45,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     port: positive('PORT', env.PORT, 8795),
     dbPath: env.DB_PATH?.trim() || '/data/seal-indexer.db',
     backfillDays: positive('BACKFILL_DAYS', env.BACKFILL_DAYS, 30),
+    fundingDailyCalls: positive('FUNDING_DAILY_CALLS', env.FUNDING_DAILY_CALLS, 2_000),
     pollMs: positive('POLL_MS', env.POLL_MS, 5_000),
   };
 }
