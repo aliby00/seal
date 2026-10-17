@@ -2,12 +2,14 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { Arch, Wordmark } from './brand';
 
-/**
- * Shell shared by the legal pages. These texts are drafts: every page says so
- * at the top until a lawyer has read them, and the facts only the company can
- * state (its name, address, governing law) stay as visible placeholders rather
- * than invented ones.
- */
+/** Shell shared by the legal pages. */
+
+/** The date shown on every legal page: bump it whenever one of them changes. */
+export const LEGAL_UPDATED = 'October 17, 2026';
+
+/** Where questions about the terms or about data go. */
+export const CONTACT_URL = 'https://github.com/aliby00/seal/issues';
+
 export const LEGAL_LINKS = [
   { href: '/terms', label: 'Terms' },
   { href: '/privacy', label: 'Privacy' },
@@ -37,9 +39,6 @@ export function LegalPage({
 }) {
   return (
     <div className="legal">
-      <p className="legal-draft" role="note">
-        Draft — pending legal review. This text is not final and may change.
-      </p>
       <header className="legal-header">
         <Link href="/" className="legal-home" aria-label="SEAL home">
           <Arch className="brand-arch" strips={5} />
