@@ -154,6 +154,26 @@ describe('fetchHolderDistribution', () => {
     expect(result.data.holderCount).toBe(900);
   });
 
+  it('dit quelle part de l’offre totale reste dans le pool', () => {
+    const pool = '0x3333333333333333333333333333333333333333';
+    const data = computeDistribution(
+      TOKEN,
+      [
+        { address: { hash: pool }, value: '990' },
+        { address: { hash: '0x1111111111111111111111111111111111111111' }, value: '7' },
+        { address: { hash: '0x2222222222222222222222222222222222222222' }, value: '3' },
+      ] as BlockscoutHolder[],
+      { poolAddress: pool },
+      { holders: 3, supply: 1000n },
+    );
+    expect(data.pooledShare).toBeCloseTo(0.99, 6);
+    // The shares themselves stay measured outside the pool.
+    expect(data.concentration.top1).toBeCloseTo(0.7, 6);
+    expect(computeDistribution(TOKEN, [], {}, { holders: null, supply: null }).pooledShare).toBe(
+      null,
+    );
+  });
+
   it('garde la liste quand /tokens échoue', async () => {
     vi.stubGlobal('fetch', async (url: string) =>
       String(url).includes('/holders')

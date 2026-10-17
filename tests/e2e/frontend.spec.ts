@@ -242,9 +242,11 @@ test('loading describes sources; report keeps limits before prose and sources gl
   release();
   await expect(page.getByRole('article')).toBeVisible();
   const text = await page.getByRole('article').innerText();
-  expect(text.indexOf('A partial picture')).toBeLessThan(text.indexOf('The creator launched'));
-  expect(text.indexOf('Earlier history not covered')).toBeLessThan(
-    text.indexOf('The creator launched'),
+  // The short version comes first, with what it could not see, before any prose.
+  expect(text.indexOf('In short')).toBeLessThan(text.indexOf('Not measured here'));
+  expect(text.indexOf('Not measured here')).toBeLessThan(text.indexOf('The creator launched'));
+  await expect(page.locator('.glance-lead')).toContainText(
+    'The creator sold into the pool on 7 of 10 launches checked.',
   );
   await expect(page.locator('.divergent')).toHaveCount(1);
   await expect(page.getByText('Sources apply to the report as a whole.')).toBeVisible();
@@ -277,11 +279,9 @@ for (const completeness of ['full', 'unavailable']) {
     await expect(page.locator('.divergent')).toHaveCount(0);
     await expect(page.locator('.explanation p')).toHaveCount(3);
     await expect(page.getByText('No cost: no model call.')).toBeVisible();
-    await expect(
-      page.getByText(completeness === 'full' ? 'All sources responded.' : 'No usable sources.', {
-        exact: true,
-      }),
-    ).toBeVisible();
+    // With measured facts the short version stands in for the banner, except when nothing is usable.
+    if (completeness === 'full') await expect(page.locator('.glance')).toBeVisible();
+    else await expect(page.getByText('No usable sources.', { exact: true })).toBeVisible();
     await accessible(page);
   });
 }

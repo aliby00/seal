@@ -9,6 +9,8 @@ import type { ReportFacts, TimelineLaunch } from '@/lib/facts';
 
 function pct(value: number): string {
   if (value > 0 && value < 0.001) return '<0.1%';
+  // 99.96% rounded would read as the whole supply.
+  if (value > 0.999 && value < 1) return '>99.9%';
   return `${(value * 100).toFixed(value < 0.1 ? 1 : 0)}%`;
 }
 
@@ -400,6 +402,12 @@ function HoldersCard({
         <Missing note={holders.note} />
       ) : (
         <>
+          {holders.pooled != null && holders.pooled > 0 && (
+            <p className="fact-pooled">
+              <strong>{pct(holders.pooled)}</strong> of the supply is still in the pool. The shares
+              below split the other {pct(1 - holders.pooled)}, held in wallets and contracts.
+            </p>
+          )}
           <Donut top1={holders.top1} top10={holders.top10} count={holders.holderCount} />
           <p className="sr-only">{`Concentration: largest ${pct(holders.top1)} · top 10 ${pct(holders.top10)}`}</p>
           {holders.holderCount !== null && (
@@ -490,14 +498,17 @@ function MarketCard({ market }: { market: ReportFacts['market'] }) {
 export function FactsBoard({
   facts,
   timeline,
+  index = '02',
 }: {
   facts: ReportFacts;
   timeline?: TimelineLaunch[];
+  /** Section number in the report. */
+  index?: string;
 }) {
   return (
     <section className="facts-section" aria-labelledby="facts-title">
       <div className="report-section-head">
-        <p className="report-kicker">01 — Measured</p>
+        <p className="report-kicker">{index} — Measured</p>
         <h3 id="facts-title">What the chain and the market show.</h3>
       </div>
       <div className="facts-board" role="region" aria-label="Measured facts">

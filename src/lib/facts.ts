@@ -44,6 +44,8 @@ export type ReportFacts = {
     measured: boolean;
     note?: string;
     holderCount: number | null;
+    /** Share of the whole supply still in pools and burn addresses; null when unknown. */
+    pooled: number | null;
     top1: number;
     top10: number;
     /** Largest holders, pools and burn addresses excluded. */
@@ -96,6 +98,7 @@ export function toFacts(report: TokenReport): ReportFacts {
       measured: holders.completeness !== 'unavailable',
       note: note(holders.sources),
       holderCount: holders.data.holderCount,
+      pooled: holders.data.pooledShare ?? null,
       top1: holders.data.concentration.top1,
       top10: holders.data.concentration.top10,
       top: holders.data.top
