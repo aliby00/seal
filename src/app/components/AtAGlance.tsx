@@ -38,7 +38,7 @@ export function AtAGlance({ glance }: { glance: Glance }) {
         <p className="glance-headline">{glance.headline}</p>
       )}
       {rest.length > 0 && (
-        <ul className="glance-list">
+        <ul className="glance-list" data-count={rest.length}>
           {rest.map((item) => (
             <li key={item.id}>
               <a className="glance-item" href={item.href} data-tone={item.tone}>
