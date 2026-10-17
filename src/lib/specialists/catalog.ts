@@ -1,3 +1,4 @@
+import { launchpadById } from '../chain/launchpads';
 import { NATIVE } from '../chain/pools';
 import { MAX_BEHAVIOR_TOKENS } from '../chain';
 import { volumePerTrade } from '../market';
@@ -304,7 +305,7 @@ const fundingTrace: Specialist = {
     );
     if (walked && launches !== null && launches > 0) {
       const pads = Object.entries(walked.launchpads)
-        .map(([pad, n]) => `${pad} ${n}`)
+        .map(([pad, n]) => `${launchpadById(pad)?.name ?? pad}: ${n}`)
         .join(', ');
       if (pads) facts.push(`Their launches by launchpad: ${pads}.`);
     } else if (!walked) {
