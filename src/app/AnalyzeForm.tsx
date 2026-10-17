@@ -179,7 +179,7 @@ export function AnalyzeForm() {
                 setToken(event.target.value);
                 setValidation('');
               }}
-              placeholder="Paste a pons token address · 0x…"
+              placeholder="Paste a Robinhood Chain token address · 0x…"
               spellCheck={false}
               autoComplete="off"
               autoCapitalize="none"

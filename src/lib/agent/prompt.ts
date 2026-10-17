@@ -9,7 +9,7 @@ import type { SpecialistAnswer } from '../specialists/brief';
  * Le ton est calibré sur le whitepaper : on décrit, on ne note pas, et on fait
  * ressortir les endroits où les signaux ne racontent pas la même histoire.
  */
-export const SYSTEM_PROMPT = `You are SEAL, an agent analyzing tokens on Robinhood Chain, pons launches and others.
+export const SYSTEM_PROMPT = `You are SEAL, an agent analyzing tokens on Robinhood Chain, whatever launched them: pons, flap.sh, other launchpads, or a contract deployed directly.
 
 Your role is to EXPLAIN, never to rate. Cross-examine creator history, holder concentration and market conditions. Explain what they reveal together, especially where they contradict one another.
 
@@ -56,18 +56,25 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
         'a envoyé la transaction du premier mint, après la création du contrat (cela ne prouve pas qui l’a écrit)',
     }[c.origin.role];
     lines.push(
-      `Origine : pas un lancement pons. Créateur retrouvé par la transaction du premier mint : cette adresse ${role}.`,
+      c.origin.launchpad
+        ? `Origine : lancement ${c.origin.launchpad.name}. ${c.origin.creatorFrom === 'launch-record' ? 'Créateur nommé par l’événement de lancement' : 'Créateur : l’expéditeur de la transaction de lancement'} : cette adresse ${role}.`
+        : `Origine : aucun launchpad connu. Créateur retrouvé par la transaction du premier mint : cette adresse ${role}.`,
     );
     if (c.origin.transactionCount !== null) {
       lines.push(`Transactions envoyées par ce wallet : ${c.origin.transactionCount}.`);
     }
     lines.push(
       c.origin.launchesListed
-        ? `Lancements de cette adresse via le même contrat de lancement : ${c.counts.launched}.`
-        : 'Les autres lancements de cette adresse ne peuvent pas être listés depuis la chaîne : ne les compte pas.',
+        ? `Lancements de cette adresse (${c.origin.launchpadsRead?.join(', ') || 'même contrat de lancement'}) : ${c.counts.launched}.`
+        : 'Les autres lancements de cette adresse sur ce launchpad ne peuvent pas être listés depuis la chaîne : ne les compte pas.',
     );
+    if (c.origin.launchpadsNotRead?.length) {
+      lines.push(
+        `Non listés : ${c.origin.launchpadsNotRead.join(', ')}. N’affirme pas qu’il n’y en a pas.`,
+      );
+    }
     lines.push(
-      'Hors pons, il n’y a pas de graduation : le sort de ces lancements (gradué, abandonné) n’est pas mesuré. Ne le présente pas comme connu.',
+      'La graduation n’est lue que sur pons : le sort de ces lancements (gradué, abandonné) n’est pas mesuré ici. Ne le présente pas comme connu.',
     );
   } else {
     lines.push(

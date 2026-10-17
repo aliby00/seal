@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   metadataBase: siteUrl(),
   title: { default: 'SEAL — token evidence on Robinhood Chain', template: '%s · SEAL' },
   description:
-    'Understand pons tokens on Robinhood Chain through evidence, context and plain-language analysis. No scores.',
+    'Understand any token on Robinhood Chain, whatever launched it, through evidence, context and plain-language analysis. No scores.',
   openGraph: { type: 'website', siteName: 'SEAL', url: '/' },
 };
 

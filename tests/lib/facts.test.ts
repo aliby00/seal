@@ -178,3 +178,59 @@ describe('toFacts · creator origin', () => {
     expect(facts.creator.launchesListed).toBe(true);
   });
 });
+
+describe('graduation, by launchpad', () => {
+  const withOrigin = (origin: Record<string, unknown> | undefined) =>
+    toFacts({
+      ...report,
+      creator: { ...report.creator, data: { ...report.creator.data, origin } },
+    } as unknown as TokenReport).creator;
+
+  it('is measured on pons, not measured on a curve launchpad, and does not apply to a lone contract', () => {
+    expect(withOrigin(undefined).graduation).toBe('measured');
+    expect(
+      withOrigin({ source: 'pons', role: 'launcher', launchesListed: true, transactionCount: null })
+        .graduation,
+    ).toBe('measured');
+    const flap = withOrigin({
+      source: 'deployer',
+      role: 'launcher',
+      launchpad: {
+        id: 'flap',
+        name: 'flap.sh',
+        address: '0x26605f322f7ff986f381bb9a6e3f5dab0beaeb09',
+      },
+      creatorFrom: 'transaction',
+      launchesListed: false,
+      launchpadsNotRead: ['flap.sh', 'contracts deployed directly'],
+      transactionCount: 4,
+    });
+    expect(flap).toMatchObject({
+      graduation: 'not-measured',
+      launchpad: 'flap.sh',
+      creatorFrom: 'transaction',
+      notListed: ['flap.sh', 'contracts deployed directly'],
+    });
+    expect(
+      withOrigin({
+        source: 'deployer',
+        role: 'launcher',
+        launchpad: {
+          id: 'v4-f05a',
+          name: 'launchpad 0xf05a…',
+          address: '0xf05a26e92e27b8f0385f6895f5507db26a2f4b8d',
+        },
+        launchesListed: true,
+        transactionCount: 1,
+      }).graduation,
+    ).toBe('not-applicable');
+    expect(
+      withOrigin({
+        source: 'deployer',
+        role: 'deployer',
+        launchesListed: false,
+        transactionCount: 1,
+      }).graduation,
+    ).toBe('not-applicable');
+  });
+});

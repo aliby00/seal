@@ -189,3 +189,14 @@ describe('buildGlance', () => {
     expect(buildGlance({})).toBeNull();
   });
 });
+
+describe('graduation outside pons', () => {
+  it('does not say none graduated where graduation was never read', () => {
+    const glance = buildGlance({
+      facts: facts({ source: 'deployer', graduation: 'not-measured', launchpad: 'flap.sh' }),
+    });
+    const record = glance?.items.find((i) => i.id === 'record');
+    expect(record?.title).toMatch(/launched 4 tokens/);
+    expect(record?.title).not.toMatch(/graduat/);
+  });
+});
