@@ -9,6 +9,7 @@ export type DexScreenerPair = {
   labels?: string[];
   pairAddress?: string;
   baseToken?: { address?: string; symbol?: string };
+  quoteToken?: { address?: string; symbol?: string };
   priceUsd?: string;
   priceNative?: string;
   liquidity?: { usd?: number; base?: number; quote?: number };

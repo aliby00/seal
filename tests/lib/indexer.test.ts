@@ -8,7 +8,12 @@ import {
   type IndexerCreator,
   type IndexerToken,
 } from '../../src/lib/indexer/client';
-import { fundingFacts, withIndexedLaunches, withPoolActivity } from '../../src/lib/indexer/merge';
+import {
+  fundingFacts,
+  indexedListing,
+  withIndexedLaunches,
+  withPoolActivity,
+} from '../../src/lib/indexer/merge';
 import { CATALOG } from '../../src/lib/specialists/catalog';
 import { makeReport } from '../specialists/helpers';
 
@@ -340,5 +345,53 @@ describe('creator launches from the indexer', () => {
     ).toBe(h);
     expect(withIndexedLaunches(h, undefined, at)).toBe(h);
     expect(withIndexedLaunches(h, creatorAnswer({ creator: '0xsomeoneelse' }), at)).toBe(h);
+  });
+});
+
+describe('indexedListing', () => {
+  const FLAP_TOKEN = '0x00000000000000000000000000000000000f7777';
+  const flapLaunch = {
+    token: FLAP_TOKEN,
+    pool: '',
+    factory: '0x26605f322f7ff986f381bb9a6e3f5dab0beaeb09',
+    pairToken: '',
+    block: 90_000_000,
+    timestamp: null,
+    launchpad: 'flap',
+    txHash: '0xf1',
+  };
+
+  it('covers only the launchpads the indexer has read up to the head', () => {
+    const listing = indexedListing(
+      creatorAnswer({ launches: [flapLaunch], launchpads: { flap: 90_999_000, pons: 80_000_000 } }),
+      { head: 91_000_000, launchpads: { flap: 90_999_000, pons: 80_000_000 } },
+      91_000_000,
+    );
+    expect([...(listing?.covered ?? [])]).toEqual(['flap']);
+    expect(listing?.launches).toEqual([
+      {
+        token: FLAP_TOKEN,
+        blockNumber: 90_000_000,
+        transactionHash: '0xf1',
+        launchpad: expect.objectContaining({ id: 'flap', name: 'flap.sh' }),
+      },
+    ]);
+  });
+
+  it('covers a launchpad with no launch by this creator when the indexer has nothing on them', () => {
+    const listing = indexedListing(
+      undefined,
+      { head: 91_000_000, launchpads: { flap: 91_000_000 } },
+      91_000_000,
+    );
+    expect([...(listing?.covered ?? [])]).toEqual(['flap']);
+    expect(listing?.launches).toEqual([]);
+  });
+
+  it('covers nothing from a capped list or an indexer that reads pons only', () => {
+    expect(
+      indexedListing(creatorAnswer({ truncated: true }), { head: 1, launchpads: { flap: 1 } }, 1),
+    ).toBeUndefined();
+    expect(indexedListing(creatorAnswer(), undefined, 1)).toBeUndefined();
   });
 });

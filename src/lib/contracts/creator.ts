@@ -23,6 +23,8 @@ export type LaunchedToken = {
   outcome: TokenOutcome;
   /** Part du seuil de graduation atteinte, de 0 à 1. */
   graduationProgress: number;
+  /** The launchpad that recorded this launch, when a known one did (its name). */
+  launchpad?: string;
   /** La liquidité a-t-elle été retirée après coup. `null` si indéterminable. */
   liquidityPulled: boolean | null;
   /** Le créateur a-t-il vendu son allocation. `null` si indéterminable. */
@@ -45,8 +47,22 @@ export type CreatorOrigin = {
   role: 'deployer' | 'launcher' | 'first-minter';
   /** The contract the launch transaction called, when a contract made the token. */
   launchContract?: string;
+  /** The known launchpad whose launch event names the token (launchpads.ts). */
+  launchpad?: { id: string; name: string; address: string };
+  /**
+   * Where the creator was read: the launch event, or the sender of the
+   * transaction (no event naming them, or a contract relaying the launch).
+   */
+  creatorFrom?: 'launch-record' | 'transaction';
   /** Whether the address's other launches could be listed from the chain. */
   launchesListed: boolean;
+  /** Where the address's launches were looked for (launchpad names). */
+  launchpadsRead?: string[];
+  /**
+   * Where they could not be: launchpads whose event does not index the
+   * creator (unless the indexer listed them), and contracts deployed directly.
+   */
+  launchpadsNotRead?: string[];
   /** Transactions sent by the address, when it is a wallet (null for a contract). */
   transactionCount: number | null;
 };

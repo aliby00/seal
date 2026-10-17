@@ -99,8 +99,10 @@ function recordItem(
     };
   }
   const span = spanOf(timeline);
+  // Graduation is read on pons only: elsewhere, saying none graduated would
+  // state what was never looked at.
   const graduated =
-    creator.detailed === 0
+    creator.detailed === 0 || (creator.graduation ?? 'measured') !== 'measured'
       ? ''
       : creator.graduated === 0
         ? creator.detailed === 1

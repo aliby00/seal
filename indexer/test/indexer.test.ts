@@ -1,15 +1,26 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { describe, expect, it } from 'vitest';
-import { decodeLaunch, decodeSwap, swapSide } from '../src/abi.ts';
+import {
+  decodeLaunch,
+  decodeLaunchOf,
+  decodeSwap,
+  LAUNCHPADS,
+  swapSide,
+  type LaunchpadSource,
+} from '../src/abi.ts';
 import { createApi, sameToken } from '../src/api.ts';
 import { createClock } from '../src/clock.ts';
-import type { SwapInsert } from '../src/db.ts';
+import { openDb, type SwapInsert } from '../src/db.ts';
 import { classifyLogError, createRpc, TooBroadError, TooManySelectorsError } from '../src/rpc.ts';
 import { newWindow, readChunk } from '../src/scan.ts';
 import { tokenStats } from '../src/stats.ts';
 import { firstIncoming, fundingStream } from '../src/streams/funding.ts';
 import { cursorName, launchFrontier, launchStream } from '../src/streams/launches.ts';
 import { BACK, FORWARD, swapStream, TARGET } from '../src/streams/swaps.ts';
-import { fakeRpc, fixedClock, launchLog, memoryDb, swapLog } from './helpers.ts';
+import { fakeRpc, fixedClock, launchLog, memoryDb, pad, swapLog, topic } from './helpers.ts';
 
 const FACTORY = '0x00000000000000000000000000000000000000f1';
 const TOKEN = '0x000000000000000000000000000000000000000b';
@@ -559,5 +570,184 @@ describe('funding', () => {
     clock += 86_400_000;
     expect(await stream.step()).toBe(true);
     expect(calls).toBe(4);
+  });
+});
+
+describe('launchpads', () => {
+  const FLAP = LAUNCHPADS.find((l) => l.id === 'flap') as LaunchpadSource;
+  const CURVE = LAUNCHPADS.find((l) => l.id === 'curve-7ed5') as LaunchpadSource;
+  const FLAP_TOKEN = '0x00000000000000000000000000000000000f7777';
+  const CURVE_TOKEN = '0x000000000000000000000000000000000000c0de';
+
+  /** flap.sh `TokenCreated(ts, creator, nonce, token, name, symbol, meta)`: nothing indexed. */
+  function flapLog(block: number, creator = CREATOR, token = FLAP_TOKEN) {
+    const words = [
+      pad('6ad2a579'),
+      pad(creator),
+      pad('5add6'),
+      pad(token),
+      pad('e0'),
+      pad('120'),
+      pad('160'),
+    ];
+    return {
+      address: FLAP.address,
+      topics: [FLAP.topic0],
+      data: `0x${words.join('')}`,
+      blockNumber: `0x${block.toString(16)}`,
+      transactionHash: `0x${pad(`f${block.toString(16)}`)}`,
+      logIndex: '0x0',
+    };
+  }
+
+  /** `TokenLaunched(token, curve, creator indexed; …)` of 0x7ed5. */
+  function curveLog(block: number) {
+    return {
+      address: CURVE.address,
+      topics: [
+        CURVE.topic0,
+        topic(CURVE_TOKEN),
+        topic('0x00000000000000000000000000000000000000c7'),
+        topic(CREATOR),
+      ],
+      data: `0x${pad('0')}${pad('0')}${pad('1')}`,
+      blockNumber: `0x${block.toString(16)}`,
+      transactionHash: `0x${pad(`c${block.toString(16)}`)}`,
+      logIndex: '0x1',
+    };
+  }
+
+  it('reads the creator where each launchpad puts it: a data word, or a topic', () => {
+    expect(decodeLaunchOf(FLAP, flapLog(5_000_000))).toMatchObject({
+      launchpad: 'flap',
+      token: FLAP_TOKEN,
+      creator: CREATOR,
+      factory: FLAP.address,
+      // No pool is named: never mistaken for a pons pool by the swap stream.
+      pool: '',
+    });
+    expect(decodeLaunchOf(CURVE, curveLog(30_000_000))).toMatchObject({
+      launchpad: 'curve-7ed5',
+      token: CURVE_TOKEN,
+      creator: CREATOR,
+    });
+    // A pons launch keeps its full reading.
+    const pons = LAUNCHPADS.find((l) => l.id === 'pons') as LaunchpadSource;
+    expect(
+      decodeLaunchOf(
+        pons,
+        launchLog({
+          factory: pons.address,
+          token: TOKEN,
+          creator: CREATOR,
+          pool: POOL,
+          block: 40_000_001,
+        }),
+      ),
+    ).toMatchObject({ launchpad: 'pons', pool: POOL, pairToken: WETH });
+  });
+
+  it('starts each new launchpad at its own first block, without touching the pons cursors', async () => {
+    const db = memoryDb();
+    const pons = { address: FACTORY, fromBlock: 100 };
+    db.setCursor(cursorName(FACTORY), 6_000_000);
+    const rpc = fakeRpc({
+      logs: (f) =>
+        f.address === FLAP.address && f.fromBlock <= 5_000_000 && f.toBlock >= 5_000_000
+          ? [flapLog(5_000_000)]
+          : [],
+    });
+    const stream = launchStream({
+      rpc,
+      db,
+      clock: fixedClock(6_000_000),
+      log: silent,
+      factories: [pons, FLAP],
+    });
+    while (await stream.step());
+    const flapQueries = rpc.queries.filter((q) => q.address === FLAP.address);
+    expect(flapQueries[0]?.fromBlock).toBe(FLAP.fromBlock);
+    expect(rpc.queries.some((q) => q.address === FACTORY)).toBe(false);
+    expect(db.cursor(cursorName(FACTORY))).toBe(6_000_000);
+    expect(db.cursor(cursorName(FLAP.address))).toBe(6_000_000);
+    const row = db.raw
+      .prepare('SELECT launchpad, creator FROM launches WHERE token = ?')
+      .get(FLAP_TOKEN);
+    expect(row).toEqual({ launchpad: 'flap', creator: CREATOR });
+    // The pons frontier is what the swaps wait on: another launchpad never holds it back.
+    expect(launchFrontier(db, [pons])).toBe(6_000_000);
+  });
+
+  it('adds the launchpad column to a database created before it, the old rows read as pons', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'seal-indexer-'));
+    const path = join(dir, 'old.db');
+    const old = new DatabaseSync(path);
+    old.exec(`CREATE TABLE launches (
+      tx_hash TEXT NOT NULL, log_index INTEGER NOT NULL, token TEXT NOT NULL, creator TEXT NOT NULL,
+      pool TEXT NOT NULL, factory TEXT NOT NULL, dex_factory TEXT NOT NULL, pair_token TEXT NOT NULL,
+      position_id TEXT NOT NULL, initial_buy TEXT NOT NULL, block INTEGER NOT NULL, ts INTEGER,
+      PRIMARY KEY (tx_hash, log_index)) WITHOUT ROWID;
+    CREATE TABLE cursors (stream TEXT PRIMARY KEY, block INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+    INSERT INTO launches VALUES ('0xold', 0, '${TOKEN}', '${CREATOR}', '${POOL}', '${FACTORY}', '', '${WETH}', '1', '0', 10, NULL);
+    INSERT INTO cursors VALUES ('launches:${FACTORY}', 1234, 0);`);
+    old.close();
+
+    const db = openDb(path);
+    try {
+      expect(
+        db.raw.prepare('SELECT launchpad FROM launches WHERE tx_hash = ?').get('0xold'),
+      ).toEqual({
+        launchpad: 'pons',
+      });
+      expect(db.cursor(cursorName(FACTORY))).toBe(1234);
+      // Opening it again is harmless.
+      db.close();
+      const again = openDb(path);
+      expect(again.count('launches')).toBe(1);
+      again.close();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('lists a creator’s launches across launchpads, and says how far each one is read', () => {
+    const db = memoryDb();
+    db.insertLaunches([
+      {
+        ...decodeLaunch(
+          launchLog({ factory: FACTORY, token: TOKEN, creator: CREATOR, pool: POOL, block: 10 }),
+        ),
+        ts: null,
+      },
+      {
+        ...(decodeLaunchOf(FLAP, flapLog(20)) as NonNullable<ReturnType<typeof decodeLaunchOf>>),
+        ts: null,
+      },
+    ]);
+    db.setCursor(cursorName(FLAP.address), 450);
+    const handle = createApi({
+      db,
+      clock: fixedClock(500),
+      rpc: { stats: () => ({ requests: 0, rateLimited: 0 }) },
+      token: SECRET,
+      fundingEnabled: false,
+    });
+    const get = (url: string) => handle({ method: 'GET', url, authorization: `Bearer ${SECRET}` });
+    const creator = get(`/v1/creator/${CREATOR}`).body as {
+      launchCount: number;
+      launches: { token: string; launchpad: string; txHash: string }[];
+      launchpads: Record<string, number>;
+    };
+    expect(creator.launchCount).toBe(2);
+    expect(creator.launches.map((l) => l.launchpad).sort()).toEqual(['flap', 'pons']);
+    expect(creator.launches.every((l) => l.txHash.startsWith('0x'))).toBe(true);
+    expect(creator.launchpads.flap).toBe(450);
+    const coverage = get('/v1/coverage');
+    expect(coverage.status).toBe(200);
+    expect((coverage.body as { launchpads: Record<string, number> }).launchpads.flap).toBe(450);
+    // Swaps are counted for pons pools only: another launchpad's token is not one.
+    expect(get(`/v1/token/${FLAP_TOKEN}`).status).toBe(404);
+    expect(get(`/v1/token/${TOKEN}`).status).toBe(200);
+    expect(handle({ method: 'GET', url: '/v1/coverage' }).status).toBe(401);
   });
 });

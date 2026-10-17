@@ -1,3 +1,4 @@
+import { launchpadById } from './chain/launchpads';
 import type { TokenReport } from './contracts';
 
 /**
@@ -39,6 +40,17 @@ export type ReportFacts = {
     launchesListed: boolean;
     /** Transactions the creator's wallet has sent (null for a contract, or when unknown). */
     transactionCount: number | null;
+    /** The known launchpad that made the token, by name. Optional: absent from reports cached before launchpads. */
+    launchpad?: string | null;
+    /** Whether the creator is named by the launch record, or is the sender of the launch transaction. */
+    creatorFrom?: 'launch-record' | 'transaction' | null;
+    /** Where the creator's launches could not be listed (launchpad names, direct deploys). */
+    notListed?: string[];
+    /**
+     * Graduation: read (pons), a step this launchpad has but SEAL does not
+     * read, or a step that does not exist for this token.
+     */
+    graduation?: 'measured' | 'not-measured' | 'not-applicable';
   };
   holders: {
     measured: boolean;
@@ -103,6 +115,17 @@ function poolActivity(
   };
 }
 
+function graduationOf(
+  origin: TokenReport['creator']['data']['origin'],
+): ReportFacts['creator']['graduation'] {
+  // A history without an origin is a pons read from before origins existed.
+  if (!origin || origin.source === 'pons') return 'measured';
+  const launchpad = origin.launchpad ? launchpadById(origin.launchpad.id) : undefined;
+  if (launchpad) return launchpad.graduates ? 'not-measured' : 'not-applicable';
+  // A contract deployed on its own has no launch curve to leave.
+  return origin.role === 'deployer' ? 'not-applicable' : 'not-measured';
+}
+
 export function toFacts(report: TokenReport): ReportFacts {
   const { creator, holders, market } = report;
   const tokens = creator.data.tokens;
@@ -130,6 +153,10 @@ export function toFacts(report: TokenReport): ReportFacts {
       launchContract: creator.data.origin?.launchContract ?? null,
       launchesListed: creator.data.origin?.launchesListed ?? creator.completeness !== 'unavailable',
       transactionCount: creator.data.origin?.transactionCount ?? null,
+      launchpad: creator.data.origin?.launchpad?.name ?? null,
+      creatorFrom: creator.data.origin?.creatorFrom ?? null,
+      notListed: creator.data.origin?.launchpadsNotRead ?? [],
+      graduation: graduationOf(creator.data.origin),
     },
     holders: {
       measured: holders.completeness !== 'unavailable',
@@ -182,6 +209,8 @@ export type TimelineLaunch = {
   sold: boolean | null;
   pulled: boolean | null;
   current: boolean;
+  /** The launchpad that recorded it, when a known one did. */
+  launchpad?: string;
 };
 
 export function toTimeline(report: TokenReport): TimelineLaunch[] {
@@ -198,5 +227,6 @@ export function toTimeline(report: TokenReport): TimelineLaunch[] {
       sold: t.creatorDumped,
       pulled: t.liquidityPulled,
       current: t.address.toLowerCase() === token,
+      ...(t.launchpad ? { launchpad: t.launchpad } : {}),
     }));
 }

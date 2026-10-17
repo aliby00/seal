@@ -77,7 +77,7 @@ describe('collect', () => {
     const report = await collect(TOKEN, { now: at });
     expect(report.creator.sources[0]?.note).toBeTruthy();
     // A node that cannot be reached says so; it does not claim the token is not a pons launch.
-    expect(report.creator.sources[0]?.note).not.toMatch(/not a pons launch/);
+    expect(report.creator.sources[0]?.note).not.toMatch(/no launch record found/);
   });
 
   it("sans clé Blockscout, la source est unavailable et l'analyse continue", async () => {
@@ -175,7 +175,7 @@ describe("résolution du créateur depuis l'adresse du token", () => {
     });
     const report = await collect(TOKEN, { now: at });
     expect(report.creator.completeness).toBe('unavailable');
-    expect(report.creator.sources[0]?.note).toMatch(/not a pons launch/);
+    expect(report.creator.sources[0]?.note).toMatch(/no launch record found/);
   });
 });
 
@@ -242,6 +242,98 @@ describe('créateur d’un token hors pons', () => {
       transactionCount: 11,
     });
     expect(report.creator.data.counts.launched).toBe(1);
+  });
+});
+
+describe('token d’un launchpad connu', () => {
+  const FLAP_TOKEN = '0xb417a5dab44c607520bba70a6e08d826c4c57777';
+  const PORTAL = '0x26605f322f7ff986f381bb9a6e3f5dab0beaeb09';
+  const ROUTER = '0xd3de039292dbe0ba6b845c6a22863f73c8906666';
+  const SENDER = '0x498b1bee7a146a4d10514f2d8eb1201b447ad384';
+  const PAIR = '0xc10f2b32cfe7e3088e589c80521669cf01b6359e';
+  const TRANSFER = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+  const word = (a: string) => a.toLowerCase().replace(/^0x/, '').padStart(64, '0');
+  const pad = (a: string) => `0x${word(a)}`;
+
+  it('names flap.sh, takes the sender behind its router, and replays the curve as a market', async () => {
+    const mint = {
+      address: FLAP_TOKEN,
+      topics: [TRANSFER, pad('0x0'), pad(PORTAL)],
+      data: `0x${word('3e8')}`,
+      blockNumber: '0x5640000',
+      transactionHash: '0xmint',
+      logIndex: '0x7',
+    };
+    const created = {
+      address: PORTAL,
+      topics: ['0x504e7f360b2e5fe33cbaaae4c593bc55305328341bf79009e43e0e3b7f699603'],
+      data: `0x${word('6ad2a579')}${word(ROUTER)}${word('5add6')}${word(FLAP_TOKEN)}`,
+      blockNumber: '0x5640000',
+      transactionHash: '0xmint',
+      logIndex: '0x8',
+    };
+    const asked: { address?: string; topics: (string | null)[] }[] = [];
+    const answer = (method: string, params: unknown[]): unknown => {
+      if (method === 'eth_blockNumber') return '0x5700000';
+      if (method === 'eth_getTransactionByHash')
+        return { from: SENDER, to: ROUTER, hash: '0xmint' };
+      if (method === 'eth_getTransactionReceipt')
+        return { contractAddress: null, logs: [mint, created] };
+      if (method === 'eth_getCode') return '0x';
+      if (method === 'eth_getTransactionCount') return '0x2';
+      if (method === 'eth_getBlockByNumber') return { timestamp: '0x68000000' };
+      if (method === 'eth_call') return `0x${word('3e8')}`;
+      if (method === 'eth_getLogs') {
+        const f = params[0] as { address?: string; topics: (string | null)[] };
+        asked.push(f);
+        if (f.address === FLAP_TOKEN && f.topics[1] === pad('0x0')) return [mint];
+        if (f.address === FLAP_TOKEN && f.topics.length === 1) return [mint];
+        return [];
+      }
+      return '0x';
+    };
+    vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('dexscreener')) {
+        return new Response(
+          JSON.stringify([
+            {
+              pairAddress: PAIR,
+              dexId: 'flapsh',
+              baseToken: { address: FLAP_TOKEN },
+              priceUsd: '0.0001',
+              liquidity: { usd: 10 },
+            },
+          ]),
+          { status: 200 },
+        );
+      }
+      if (!isChainNode(url)) return new Response('[]', { status: 200 });
+      const raw = JSON.parse(String(init?.body ?? '{}')) as
+        { method: string; params: unknown[] } | { id: number; method: string; params: unknown[] }[];
+      const body = Array.isArray(raw)
+        ? raw.map((r) => ({ id: r.id, result: answer(r.method, r.params) }))
+        : { result: answer(raw.method, raw.params) };
+      return new Response(JSON.stringify(body), { status: 200 });
+    });
+    const report = await collect(FLAP_TOKEN, { now: at });
+    expect(report.creator.data.creator).toBe(SENDER);
+    expect(report.creator.data.origin).toMatchObject({
+      source: 'deployer',
+      role: 'launcher',
+      launchContract: PORTAL,
+      launchpad: { id: 'flap', name: 'flap.sh' },
+      creatorFrom: 'transaction',
+      // flap.sh does not index the creator, and no indexer is configured.
+      launchesListed: false,
+    });
+    expect(report.creator.data.origin?.launchpadsNotRead).toContain('flap.sh');
+    // The node is never asked to filter flap.sh by creator: it cannot.
+    expect(asked.some((f) => f.address === PORTAL)).toBe(false);
+    // The listed pair is where the creator's sales are looked for.
+    const sales = asked.find((f) => f.address === FLAP_TOKEN && f.topics[1] === pad(SENDER));
+    expect(sales).toBeDefined();
+    expect(report.market.data.pair).toBe(PAIR);
   });
 });
 
