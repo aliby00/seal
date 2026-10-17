@@ -127,5 +127,9 @@ L'entrée immersive et l'analyse partagent un paysage original de montagnes et d
 brume. Le scroll natif pilote une avancée douce dans les nuages, puis révèle le
 formulaire ; aucun événement wheel/touch n'est intercepté. « Ouvrir SEAL » et le
 lien d'évitement donnent un accès direct. Avec `prefers-reduced-motion`, l'entrée
-reste statique. La provenance des visuels et le prompt sont dans
-[public/images/README.md](public/images/README.md).
+reste statique.
+
+## Licence
+
+Tous droits réservés. Le code est public pour que chacun puisse vérifier la méthode,
+pas pour être réutilisé : voir [LICENSE](LICENSE).

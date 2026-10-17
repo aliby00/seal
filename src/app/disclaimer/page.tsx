@@ -1,16 +1,14 @@
 import type { Metadata } from 'next';
-import { LegalPage } from '../components/LegalPage';
+import { LEGAL_UPDATED, LegalPage } from '../components/LegalPage';
 
 export const metadata: Metadata = {
   title: 'Disclaimer',
   alternates: { canonical: '/disclaimer' },
-  // A draft awaiting legal review is not offered to search engines.
-  robots: { index: false, follow: true },
 };
 
 export default function DisclaimerPage() {
   return (
-    <LegalPage title="Disclaimer" updated="[DATE]">
+    <LegalPage title="Disclaimer" updated={LEGAL_UPDATED}>
       <h2>Not financial advice</h2>
       <p>
         SEAL describes what public sources show about a token. It does not tell you to buy, sell or
@@ -58,8 +56,8 @@ export default function DisclaimerPage() {
       <h2>No warranty</h2>
       <p>
         SEAL is provided &ldquo;as is&rdquo;, without any warranty of accuracy, completeness or
-        availability. To the extent the law allows, [COMPANY NAME] is not liable for losses
-        resulting from the use of this site.
+        availability. To the fullest extent the law allows, SEAL is not liable for losses resulting
+        from the use of this site.
       </p>
     </LegalPage>
   );

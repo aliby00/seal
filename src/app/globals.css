@@ -2263,7 +2263,7 @@
   }
 }
 
-/* Legal pages: plain reading layout, drafts flagged at the top. */
+/* Legal pages: plain reading layout. */
 .legal-links {
   display: flex;
   flex-wrap: wrap;
@@ -2273,15 +2273,6 @@
   min-height: 100vh;
   background: var(--background);
   color: var(--foreground);
-}
-.legal-draft {
-  margin: 0;
-  padding: 10px 16px;
-  text-align: center;
-  font-weight: 600;
-  background: var(--muted);
-  color: var(--foreground);
-  border-bottom: 1px solid var(--border);
 }
 .legal-header,
 .legal-body,

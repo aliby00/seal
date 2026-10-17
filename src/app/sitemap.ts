@@ -1,7 +1,14 @@
 import type { MetadataRoute } from 'next';
 import { siteUrl } from '@/lib/site';
 
-/** The legal pages join once they are out of draft. */
 export default function sitemap(): MetadataRoute.Sitemap {
-  return [{ url: new URL('/', siteUrl()).toString(), changeFrequency: 'weekly', priority: 1 }];
+  const page = (path: string) => new URL(path, siteUrl()).toString();
+  return [
+    { url: page('/'), changeFrequency: 'weekly', priority: 1 },
+    ...['/terms', '/privacy', '/disclaimer'].map((path) => ({
+      url: page(path),
+      changeFrequency: 'yearly' as const,
+      priority: 0.2,
+    })),
+  ];
 }

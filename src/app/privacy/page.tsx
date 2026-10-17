@@ -1,18 +1,19 @@
 import type { Metadata } from 'next';
-import { LegalPage } from '../components/LegalPage';
+import { CONTACT_URL, LEGAL_UPDATED, LegalPage } from '../components/LegalPage';
 
 export const metadata: Metadata = {
   title: 'Privacy',
   alternates: { canonical: '/privacy' },
-  // A draft awaiting legal review is not offered to search engines.
-  robots: { index: false, follow: true },
 };
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy" updated="[DATE]">
-      <h2>Controller</h2>
-      <p>[COMPANY NAME], [COMPANY ADDRESS]. For any question about your data: [CONTACT EMAIL].</p>
+    <LegalPage title="Privacy" updated={LEGAL_UPDATED}>
+      <h2>In short</h2>
+      <p>
+        SEAL has no accounts, sets no advertising or tracking cookies, and never asks for your
+        wallet. It processes the least it can to run.
+      </p>
 
       <h2>What we process</h2>
       <ul>
@@ -25,10 +26,6 @@ export default function PrivacyPage() {
           available, and kept in technical logs by our host.
         </li>
       </ul>
-      <p>
-        SEAL has no accounts, sets no advertising or tracking cookies, and does not ask for your
-        wallet.
-      </p>
 
       <h2>Who receives data</h2>
       <ul>
@@ -42,18 +39,21 @@ export default function PrivacyPage() {
           Your IP address is not sent to it.
         </li>
       </ul>
+      <p>We do not sell data and do not share it for advertising.</p>
 
       <h2>How long</h2>
       <p>
-        Request-limit counters last about a minute. Analysis results may be cached for a few
-        minutes. Host logs are kept for [LOG RETENTION PERIOD].
+        Request-limit counters last about a minute. Analysis results, which hold only public data,
+        may be cached for a few minutes. Host logs are kept for a short period set by Vercel, then
+        deleted.
       </p>
 
       <h2>Your rights</h2>
       <p>
         Depending on where you live, you may have the right to access, correct or erase your data,
-        or to object to its processing. Write to [CONTACT EMAIL]. You may also complain to the data
-        protection authority of [JURISDICTION].
+        or to object to its processing. Since SEAL keeps no account and no profile, there is usually
+        nothing tied to you to return; you can still ask through the{' '}
+        <a href={CONTACT_URL}>project&apos;s contact page</a>.
       </p>
     </LegalPage>
   );
