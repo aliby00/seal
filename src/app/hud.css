@@ -1480,6 +1480,10 @@ tr[data-kind='withdraw'] .launch-kind::before {
   padding: 0;
   list-style: none;
 }
+/* Three cards share one row rather than leaving the third alone on the next. */
+.glance-list[data-count='3'] {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11.5rem), 1fr));
+}
 .glance-list li {
   display: grid;
   min-width: 0;
