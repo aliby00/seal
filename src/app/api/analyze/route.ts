@@ -24,6 +24,7 @@ export const maxDuration = 60;
  * kills the function.
  */
 const COLLECT_TIMEOUT_MS = 30_000;
+const COLLECT_TIMEOUT_MESSAGE = 'timeout global';
 /** What the whole request may take, under maxDuration with a margin. */
 const REQUEST_BUDGET_MS = 56_000;
 /** Kept for the model: the provider's own timeout. */
@@ -108,7 +109,7 @@ export async function POST(request: Request): Promise<Response> {
         blockscoutApiKey: process.env.BLOCKSCOUT_API_KEY || undefined,
       }),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('timeout global')), COLLECT_TIMEOUT_MS),
+        setTimeout(() => reject(new Error(COLLECT_TIMEOUT_MESSAGE)), COLLECT_TIMEOUT_MS),
       ),
     ]);
 
@@ -169,6 +170,14 @@ export async function POST(request: Request): Promise<Response> {
       log.warn('analyse en échec', { token, kind: error.kind, message: error.message });
       // Upstream wording (node error text, provider messages) stays in the logs.
       return errorResponse(status, PUBLIC_MESSAGE[error.kind] ?? 'A data source failed');
+    }
+    // Reading the chain ran past its budget: a busy token, not a broken one.
+    if (error instanceof Error && error.message === COLLECT_TIMEOUT_MESSAGE) {
+      log.warn('analyse trop longue', { token, ms: Date.now() - started });
+      return errorResponse(
+        504,
+        'This token has a long history and took too long to read. Try again in a moment.',
+      );
     }
     log.error('analyse en échec', { token, error: String(error) });
     return errorResponse(500, 'The analysis could not be completed');

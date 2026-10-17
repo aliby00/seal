@@ -50,6 +50,21 @@ describe('POST /api/analyze', () => {
     expect(collect).not.toHaveBeenCalled();
   });
 
+  it('dit clairement qu’un token trop long à lire peut être relancé', async () => {
+    vi.useFakeTimers();
+    try {
+      collect.mockReturnValue(new Promise(() => {}));
+      const pending = POST(post({ token: TOKEN }));
+      await vi.advanceTimersByTimeAsync(30_001);
+      const res = await pending;
+      expect(res.status).toBe(504);
+      expect(((await res.json()) as { error: string }).error).toMatch(/took too long/);
+      expect(explain).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('refuse un corps illisible', async () => {
     expect((await POST(post('{'))).status).toBe(400);
   });

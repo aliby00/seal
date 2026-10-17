@@ -49,6 +49,12 @@ const byStatus: Record<number, RequestError> = {
     message: 'A data source or the explanation could not be reached. Please try again.',
     retry: true,
   },
+  // A token with a long history: the second try reuses what was already read.
+  504: {
+    title: 'Still reading.',
+    message: 'This token has a long history and took too long to read. Try again in a moment.',
+    retry: true,
+  },
 };
 
 export function requestError(status: number): RequestError {
