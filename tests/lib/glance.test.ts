@@ -128,7 +128,7 @@ describe('buildGlance', () => {
     const glance = buildGlance({ facts: facts({ salesChecked: 0, checked: 0 }), launch })!;
     expect(glance.items.find((i) => i.id === 'launch-buys')).toMatchObject({
       tone: 'attention',
-      title: '2 wallets bought 8.0% of the supply in the very block the token was created.',
+      title: '2 wallets bought 8.0% of the supply in its first second.',
     });
     // Dust buys are left out; later ones say when.
     launch.moves = [{ ...launch.moves[0]!, share: 0.002 }];
@@ -142,6 +142,45 @@ describe('buildGlance', () => {
       ),
     ).toMatchObject({
       title: '1 wallet bought 6.3% of the supply within 14 seconds of its launch.',
+    });
+  });
+
+  it('says when one transaction delivered the supply to many wallets at once', () => {
+    const move = (actor: string, share: number, transaction: string) => ({
+      kind: 'buy' as const,
+      seconds: 0,
+      block: 2,
+      actor,
+      counterparty: '0xpool',
+      actorKind: 'wallet' as const,
+      share,
+      actorIsCreator: false,
+      counterpartyIsCreator: false,
+      heldNow: 0,
+      transaction,
+    });
+    const launch: LaunchReplayData = {
+      token: '0xt',
+      launchBlock: 1,
+      launchedAt: null,
+      windowSeconds: 600,
+      supply: '1',
+      moves: [
+        move('0xa', 0.06, '0xbundle'),
+        move('0xb', 0.06, '0xbundle'),
+        move('0xc', 0.06, '0xbundle'),
+        move('0xd', 0.01, '0xother'),
+      ],
+      movesInWindow: 4,
+    };
+    expect(
+      buildGlance({ facts: facts({ salesChecked: 0, checked: 0 }), launch })!.items.find(
+        (i) => i.id === 'launch-buys',
+      ),
+    ).toMatchObject({
+      tone: 'attention',
+      figure: '18%',
+      title: '3 wallets received 18% of the supply in one single transaction, in its first second.',
     });
   });
 

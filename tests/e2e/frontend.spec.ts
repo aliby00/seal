@@ -148,7 +148,7 @@ test('report draws the measured facts, says what is missing, and gives no score'
   await accessible(page);
 });
 
-test('report opens with the token, then asks the ten questions one by one, without a tally', async ({
+test('report opens with the token, then gives ten plain checks, without a tally', async ({
   page,
 }) => {
   await mockReport(page);
@@ -163,17 +163,25 @@ test('report opens with the token, then asks the ten questions one by one, witho
   await expect(coverage).toContainText('Market');
   await expect(coverage).toContainText('Not measured');
 
-  const panel = page.getByRole('region', { name: 'Asked of every token, answered one by one.' });
+  const panel = page.getByRole('region', { name: 'Ten checks, in plain words.' });
   await expect(panel).toBeVisible();
   // Every answer carries an icon and a word; colour is never the only carrier.
-  await expect(panel.getByText('Worth attention')).toBeVisible();
-  await expect(panel.getByText('Rules a mechanism out')).toBeVisible();
-  await expect(panel.getByText('Not measured')).toBeVisible();
+  await expect(panel.getByText('Worth attention').first()).toBeVisible();
+  await expect(panel.getByText('Reassuring').first()).toBeVisible();
+  // Each check has a plain name and a one-line answer.
+  await expect(panel.getByText('Supply held by a few')).toBeVisible();
+  await expect(
+    panel.getByText('Largest wallet 31.0% · top 10 78.0% (pool left out)'),
+  ).toBeVisible();
+  // What could not be measured is gathered in one line, not spread among the answers.
+  const unmeasured = panel.locator('.check-unmeasured');
+  await expect(unmeasured).toContainText('Not measured for this token');
+  await expect(unmeasured).toContainText('Who funded the creator');
   // Nothing adds the answers up.
   await expect(panel).not.toContainText(/\d+\s*(?:\/|of|out of)\s*10\b|score|safe|risky/i);
 
   await expect(panel.getByText('Pool and burn addresses are excluded.')).toBeHidden();
-  await panel.getByRole('button', { name: 'Open all' }).click();
+  await panel.getByText('Supply held by a few').click();
   await expect(panel.getByText('Pool and burn addresses are excluded.')).toBeVisible();
   await expect(panel.getByText('What it could not see').first()).toBeVisible();
   await accessible(page);

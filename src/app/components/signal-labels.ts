@@ -7,8 +7,8 @@ import type { Signal } from '@/lib/specialists/types';
  */
 export const SIGNAL_LABEL: Record<Signal, string> = {
   concern: 'Worth attention',
-  reassurance: 'Rules a mechanism out',
-  observation: 'Notable',
+  reassurance: 'Reassuring',
+  observation: 'Worth knowing',
   quiet: 'Nothing notable',
   unknown: 'Not measured',
 };
