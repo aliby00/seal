@@ -21,6 +21,10 @@ describe('requestError', () => {
     expect(requestError(502).retry).toBe(true);
   });
 
+  it('tells a reader a long history can be read on a second try', () => {
+    expect(requestError(504)).toMatchObject({ title: 'Still reading.', retry: true });
+  });
+
   it('falls back to a generic retryable message for an unknown status', () => {
     expect(requestError(503)).toMatchObject({ retry: true });
   });
