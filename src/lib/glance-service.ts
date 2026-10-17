@@ -177,9 +177,12 @@ const pairCache = new TtlCache<string | null>({ ttlMs: 60 * 60_000, maxEntries: 
  * caller falls back to it.
  */
 export async function tokenOfPair(pair: string): Promise<string | null> {
-  const { value } = await pairCache.resolve(pair.toLowerCase(), async () => {
+  // Checked here too, not only by the route: this value ends up in a URL.
+  if (!PAIR_PATTERN.test(pair)) return null;
+  const id = pair.toLowerCase();
+  const { value } = await pairCache.resolve(id, async () => {
     const answer = await requestJson<PairsAnswer>(
-      `${DEXSCREENER_BASE}/latest/dex/pairs/${ROBINHOOD_SLUG}/${pair}`,
+      `${DEXSCREENER_BASE}/latest/dex/pairs/${ROBINHOOD_SLUG}/${encodeURIComponent(id)}`,
       { source: 'dexscreener', timeoutMs: 6_000, retries: 1 },
     );
     const address = answer.pairs?.[0]?.baseToken?.address;
