@@ -69,7 +69,7 @@
     host.setAttribute('data-seal', 'overlay');
     // The host itself never takes space nor events.
     host.style.cssText =
-      'all:initial;position:fixed;inset:0;width:0;height:0;z-index:2147483646;pointer-events:none;';
+      'all:initial;position:fixed;inset:0;width:0;height:0;z-index:2147483647;pointer-events:none;';
     shadow = host.attachShadow({ mode: 'open' });
     let styled = false;
     try {

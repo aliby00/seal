@@ -35,7 +35,7 @@
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 2147483646;
+  z-index: 2147483647;
   font-family: var(--body);
   color: var(--text);
 }
