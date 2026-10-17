@@ -1,8 +1,14 @@
 import type { IndexedListing, ListedLaunch } from '../chain/deployer';
 import { LAUNCHPADS, launchpadById } from '../chain/launchpads';
 import type { CreatorHistory, LaunchedToken, MarketState, PoolActivityWindow } from '../contracts';
-import type { FundingFacts } from '../specialists/types';
-import type { IndexerCoverage, IndexerCreator, IndexerToken, IndexerWindow } from './client';
+import type { FundingFacts, FundingNetwork } from '../specialists/types';
+import type {
+  IndexerCoverage,
+  IndexerCreator,
+  IndexerNetwork,
+  IndexerToken,
+  IndexerWindow,
+} from './client';
 
 /**
  * Ce que l'indexeur ajoute à un rapport, en fonctions pures : chaque ajout
@@ -158,9 +164,49 @@ export function fundingFacts(indexed: IndexerCreator | undefined): FundingFacts 
   if (!indexed) return undefined;
   if (indexed.fundingState === 'none') return null;
   if (indexed.fundingState !== 'found' || !indexed.funding) return undefined;
+  const f = indexed.funding;
+  // An indexer that does not profile funders says nothing of their kind:
+  // unknown, and never read as a wallet.
+  const funderKind = f.funderKind ?? 'unknown';
+  const effectiveKind = f.effectiveKind ?? (funderKind === 'tool' ? 'unknown' : funderKind);
   return {
-    funder: indexed.funding.funder,
-    otherCreatorsFunded: indexed.funding.otherCreatorsFunded.length,
+    funder: f.funder,
+    funderKind,
+    ...(f.funderName !== undefined ? { funderName: f.funderName } : {}),
+    ...(f.funderTxCount !== undefined ? { funderTxCount: f.funderTxCount } : {}),
+    ...(f.txHash ? { txHash: f.txHash } : {}),
+    ...(funderKind === 'tool'
+      ? {
+          origin: f.origin ?? null,
+          originKind: f.originKind ?? null,
+          originTxCount: f.originTxCount ?? null,
+        }
+      : {}),
+    otherCreatorsFunded: effectiveKind === 'wallet' ? f.otherCreatorsFunded.length : 0,
+  };
+}
+
+/** The indexer's network walk, as the funding question reads it. */
+export function fundingNetwork(answer: IndexerNetwork | undefined): FundingNetwork | undefined {
+  const n = answer?.network;
+  if (!n) return undefined;
+  return {
+    creators: n.creators,
+    launches: n.launches,
+    launchpads: n.launchpads,
+    depth: n.depth,
+    incomplete: n.incomplete,
+    ...(n.reason ? { reason: n.reason } : {}),
+    capped: n.capped,
+    firstLaunchAt: n.firstLaunchAt,
+    lastLaunchAt: n.lastLaunchAt,
+    path: n.path.map((s) => ({
+      address: s.address,
+      kind: s.kind,
+      name: s.name,
+      txCount: s.txCount,
+      ...(s.via ? { via: s.via } : {}),
+    })),
   };
 }
 

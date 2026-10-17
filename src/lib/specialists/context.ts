@@ -10,10 +10,10 @@ import {
 } from '../chain/pools';
 import type { RpcClient } from '../chain/rpc';
 import { indexer } from '../indexer/client';
-import { fundingFacts } from '../indexer/merge';
-import { findFirstFunding } from '../chain/funding';
+import { fundingFacts, fundingNetwork } from '../indexer/merge';
+import { classifyFunding, findFirstFunding } from '../chain/funding';
 import { log } from '../logger';
-import type { SpecialistContext } from './types';
+import type { FundingFacts, SpecialistContext } from './types';
 
 /** Profondeur de recherche du marché v4 d'un token : ~35 jours, comme l'historique créateur. */
 export const MARKET_LOOKBACK_BLOCKS = 30_000_000;
@@ -94,33 +94,94 @@ export async function gatherContext(
     context.creatorNonce = null;
     context.tokenBeacon = null;
   }
-  // Le financement vient de l'indexeur. Tant qu'il n'a pas lu ce créateur, on
-  // le demande à Blockscout directement : la première analyse n'a pas à
-  // attendre. Sans réponse, il reste `undefined`, et le spécialiste le dit.
+  context.funding = await gatherFunding(rpc, token, creator);
+  if (context.funding === undefined) delete context.funding;
+  return context;
+}
+
+/**
+ * Who first funded the creator, what that funder is, and the creators linked
+ * through it.
+ *
+ * From the indexer first. While it has not read this creator, or not yet
+ * profiled its funder, Blockscout is asked directly, so the first analysis
+ * does not wait: the first funding, then the funder's profile (and the
+ * sender behind a batch-sending tool, by the RPC). The other creators and
+ * the network come from the indexer's records only. `undefined` = not
+ * looked up; `null` = looked up, no incoming funding found.
+ */
+export async function gatherFunding(
+  rpc: RpcClient,
+  token: string,
+  creator: string | null,
+): Promise<FundingFacts | null | undefined> {
+  if (!creator) return undefined;
   const ix = indexer();
-  if (ix && creator) {
-    const funding = fundingFacts(await ix.creator(creator));
-    if (funding !== undefined) context.funding = funding;
-  }
   const apiKey = process.env.BLOCKSCOUT_API_KEY;
-  if (context.funding === undefined && creator && apiKey) {
+  let funding: FundingFacts | null | undefined = ix
+    ? fundingFacts(await ix.creator(creator))
+    : undefined;
+
+  if (funding === undefined && apiKey) {
     try {
       const first = await findFirstFunding(creator, apiKey);
-      if (first === null) {
-        context.funding = null;
-      } else {
-        // Who else that wallet funded comes from the indexer's records only.
-        const funded = ix ? await ix.funder(first.funder) : undefined;
-        const others = new Set(
-          (funded?.creators ?? [])
-            .map((c) => c.creator.toLowerCase())
-            .filter((c) => c !== creator.toLowerCase()),
-        );
-        context.funding = { funder: first.funder, otherCreatorsFunded: others.size };
-      }
+      funding =
+        first === null
+          ? null
+          : {
+              funder: first.funder,
+              funderKind: 'unknown',
+              txHash: first.txHash,
+              otherCreatorsFunded: 0,
+            };
     } catch (error) {
       log.warn('financement illisible', { token, error: String(error) });
     }
   }
-  return context;
+  if (!funding) return funding;
+
+  // Not profiled by the indexer yet: profiled here, and grouped by the
+  // effective funder in the indexer's records.
+  const unprofiled =
+    funding.funderKind === 'unknown' ||
+    (funding.funderKind === 'tool' && (funding.originKind ?? 'unknown') === 'unknown');
+  if (unprofiled && apiKey) {
+    try {
+      const c = await classifyFunding(rpc, funding, apiKey);
+      funding = {
+        ...funding,
+        funderKind: c.funderKind,
+        funderName: c.funderName,
+        funderTxCount: c.funderTxCount,
+        ...(c.funderKind === 'tool'
+          ? {
+              origin: c.origin ?? null,
+              originKind: c.originKind ?? null,
+              originTxCount: c.originTxCount ?? null,
+            }
+          : {}),
+        otherCreatorsFunded: 0,
+        ...(ix ? {} : { otherCreatorsChecked: false }),
+      };
+      if (c.effectiveKind === 'wallet' && c.effective && ix) {
+        const funded = await ix.funder(c.effective);
+        const others = new Set(
+          (funded?.creators ?? [])
+            .map((r) => r.creator.toLowerCase())
+            .filter((r) => r !== creator.toLowerCase()),
+        );
+        funding.otherCreatorsFunded = others.size;
+      }
+    } catch (error) {
+      log.warn('financeur non profilé', { token, error: String(error) });
+    }
+  }
+
+  const effectiveKind =
+    funding.funderKind === 'tool' ? (funding.originKind ?? 'unknown') : funding.funderKind;
+  if (effectiveKind === 'wallet' && ix) {
+    const network = fundingNetwork(await ix.network(creator));
+    if (network) funding.network = network;
+  }
+  return funding;
 }

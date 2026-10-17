@@ -76,7 +76,7 @@ export async function explain(
       reason: resolved ? 'plafond de dépense' : 'aucun fournisseur configuré',
       costUsd: 0,
     });
-    return served(offlineExplanation(report), computeCost('offline', {}));
+    return served(offlineExplanation(report, options.specialists), computeCost('offline', {}));
   }
 
   const { provider } = resolved;
@@ -95,7 +95,7 @@ export async function explain(
       model,
       error: error instanceof Error ? error.message : String(error),
     });
-    return served(offlineExplanation(report), computeCost('offline', {}));
+    return served(offlineExplanation(report, options.specialists), computeCost('offline', {}));
   }
 
   const text = result.text.trim();
@@ -126,7 +126,7 @@ export async function explain(
       truncated,
       violations: violations.map((v) => v.kind),
     });
-    return { ...served(offlineExplanation(report), cost), rejected: true };
+    return { ...served(offlineExplanation(report, options.specialists), cost), rejected: true };
   }
 
   return { text, cost, violations, offline: false, provider: provider.name };

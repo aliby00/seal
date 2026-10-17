@@ -61,6 +61,7 @@ export function fromAnalysis(analysis: CachedAnalysis): CachedGlance | null {
     facts: analysis.facts,
     timeline: analysis.timeline,
     launch: analysis.launch,
+    specialists: analysis.specialists,
   });
   if (!glance) return null;
   return {

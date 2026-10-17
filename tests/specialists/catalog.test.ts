@@ -44,7 +44,11 @@ describe('catalogue', () => {
           implementation: '0x3690df68db6eff764c5321552eff3a414562eb17',
           admin: null,
         },
-        funding: { funder: '0x1111111111111111111111111111111111111111', otherCreatorsFunded: 4 },
+        funding: {
+          funder: '0x1111111111111111111111111111111111111111',
+          funderKind: 'wallet',
+          otherCreatorsFunded: 4,
+        },
       }),
     ];
     for (const context of contexts) {

@@ -179,6 +179,55 @@ test('report opens with the token, then asks the ten questions one by one, witho
   await accessible(page);
 });
 
+test('a creator funded by a wallet that funded others: summary line, then the path in its tile', async ({
+  page,
+}) => {
+  const funder = '0xf0fc311800000000000000000000000000000016';
+  const above = '0x2274993900000000000000000000000000000029';
+  const linked = {
+    ...report,
+    specialists: [
+      ...report.specialists.filter((a) => a.specialist !== 'funding-trace'),
+      {
+        specialist: 'funding-trace',
+        title: 'Funding Trace',
+        question: 'Who paid for the creator’s wallet, and did they fund other creators?',
+        signal: 'concern',
+        facts: [
+          `The wallet that funded the creator (${funder}, 33 transactions) also funded 16 other token creators, linked through 2 funding steps. Together they launched 41 tokens.`,
+        ],
+        limits: [],
+        funding: {
+          kind: 'wallet',
+          linkedCreators: 16,
+          launches: 41,
+          depth: 2,
+          path: [
+            { address: funder, kind: 'wallet', name: null, txCount: 33 },
+            { address: above, kind: 'wallet', name: null, txCount: 232 },
+          ],
+        },
+      },
+    ],
+  };
+  await page.route('**/api/analyze', (route) => route.fulfill({ json: linked }));
+  await page.goto('/#analysis');
+  await submit(page);
+  const line = page.locator('.glance a').filter({
+    hasText: 'also funded 16 other token creators, who launched 41 tokens between them.',
+  });
+  await expect(line).toHaveAttribute('href', '#question-funding-trace');
+  await line.click();
+  const tile = page.locator('#question-funding-trace');
+  await expect(tile).toHaveAttribute('open', '');
+  const path = tile.getByRole('list').filter({ hasText: 'Creator funded by' });
+  await expect(path.getByRole('listitem')).toHaveCount(2);
+  await expect(path).toContainText('0xf0fc…0016');
+  await expect(path).toContainText('wallet, 33 transactions');
+  await expect(path).toContainText('232 transactions');
+  await accessible(page);
+});
+
 test('a ?token= link fills the address and starts the analysis', async ({ page }) => {
   const posted: unknown[] = [];
   await page.route('**/api/analyze', (route) => {
