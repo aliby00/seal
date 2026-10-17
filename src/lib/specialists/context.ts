@@ -11,6 +11,7 @@ import {
 import type { RpcClient } from '../chain/rpc';
 import { indexer } from '../indexer/client';
 import { fundingFacts } from '../indexer/merge';
+import { findFirstFunding } from '../chain/funding';
 import { log } from '../logger';
 import type { SpecialistContext } from './types';
 
@@ -93,12 +94,33 @@ export async function gatherContext(
     context.creatorNonce = null;
     context.tokenBeacon = null;
   }
-  // Le financement vient de l'indexeur : sans lui, ou tant qu'il ne l'a pas
-  // lu, il reste `undefined`, et le spécialiste le dit.
+  // Le financement vient de l'indexeur. Tant qu'il n'a pas lu ce créateur, on
+  // le demande à Blockscout directement : la première analyse n'a pas à
+  // attendre. Sans réponse, il reste `undefined`, et le spécialiste le dit.
   const ix = indexer();
   if (ix && creator) {
     const funding = fundingFacts(await ix.creator(creator));
     if (funding !== undefined) context.funding = funding;
+  }
+  const apiKey = process.env.BLOCKSCOUT_API_KEY;
+  if (context.funding === undefined && creator && apiKey) {
+    try {
+      const first = await findFirstFunding(creator, apiKey);
+      if (first === null) {
+        context.funding = null;
+      } else {
+        // Who else that wallet funded comes from the indexer's records only.
+        const funded = ix ? await ix.funder(first.funder) : undefined;
+        const others = new Set(
+          (funded?.creators ?? [])
+            .map((c) => c.creator.toLowerCase())
+            .filter((c) => c !== creator.toLowerCase()),
+        );
+        context.funding = { funder: first.funder, otherCreatorsFunded: others.size };
+      }
+    } catch (error) {
+      log.warn('financement illisible', { token, error: String(error) });
+    }
   }
   return context;
 }
