@@ -2,7 +2,8 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import { LAUNCHPADS } from './abi.ts';
 import type { Clock } from './clock.ts';
-import type { Db } from './db.ts';
+import type { Db, FundingRow } from './db.ts';
+import { createNetwork, MAX_DEPTH, NETWORK_CAP, type Needs } from './network.ts';
 import type { Rpc } from './rpc.ts';
 import { tokenStats } from './stats.ts';
 import { launchFrontier, launchpadCoverage } from './streams/launches.ts';
@@ -22,6 +23,10 @@ export type ApiDeps = {
   token: string;
   fundingEnabled: boolean;
   prioritizeFunding?: (creator: string) => void;
+  /** Profiles a funder first: its kind decides whether its creators are linked. */
+  prioritizeProfile?: (address: string) => void;
+  /** Reads first the sender behind a funding sent through a batch-sending tool. */
+  prioritizeOrigin?: (creator: string) => void;
   /** Blockscout calls spent today against the daily cap, for /health. */
   fundingUsage?: () => { callsToday: number; dailyCalls: number };
   nowSec?: () => number;
@@ -72,12 +77,14 @@ export function createApi(deps: ApiDeps) {
     `SELECT token, creator, pool, factory, dex_factory, pair_token, position_id, initial_buy, block, ts, tx_hash
      FROM launches WHERE token = ? AND launchpad = 'pons' ORDER BY block LIMIT 1`,
   );
-  const fundingOf = db.raw.prepare(
-    'SELECT status, funder, tx_hash, block, kind FROM funding WHERE creator = ?',
-  );
-  const fundedBy = db.raw.prepare(
-    `SELECT creator, tx_hash, block, kind FROM funding
-     WHERE funder = ? AND status = 'found' ORDER BY block LIMIT ${MAX_ROWS}`,
+  const network = createNetwork(db);
+  const needs: Needs = {
+    funding: deps.fundingEnabled ? deps.prioritizeFunding : undefined,
+    profile: deps.fundingEnabled ? deps.prioritizeProfile : undefined,
+    origin: deps.prioritizeOrigin,
+  };
+  const directlyFunded = db.raw.prepare(
+    `SELECT COUNT(*) AS n FROM funding WHERE funder = ? AND status = 'found'`,
   );
   const marketsOf = db.raw.prepare(
     `SELECT id, currency0, currency1, fee, tick_spacing, hook, block, ts, tx_hash FROM markets
@@ -124,6 +131,7 @@ export function createApi(deps: ApiDeps) {
           swaps: db.count('swaps'),
           markets: db.count('markets'),
           funding: db.count('funding'),
+          funders: db.count('funders'),
         },
         funding: deps.fundingEnabled ? 'enabled' : 'disabled: no BLOCKSCOUT_API_KEY',
         ...(deps.fundingUsage ? { fundingBudget: deps.fundingUsage() } : {}),
@@ -160,9 +168,7 @@ export function createApi(deps: ApiDeps) {
       launchpad: l.launchpad,
       txHash: l.tx_hash,
     }));
-    const row = fundingOf.get(address) as
-      | { status: 'found' | 'none'; funder: string; tx_hash: string; block: number; kind: string }
-      | undefined;
+    const row = db.funding(address);
     let funding: unknown;
     let fundingState: 'found' | 'none' | 'pending' | 'disabled';
     if (!deps.fundingEnabled && !row) {
@@ -170,16 +176,19 @@ export function createApi(deps: ApiDeps) {
     } else if (!row) {
       fundingState = 'pending';
       deps.prioritizeFunding?.(address);
-    } else if (row.status === 'none') {
+    } else if (row.status === 'none' || !row.funder) {
       fundingState = 'none';
       funding = null;
     } else {
       fundingState = 'found';
-      const others = (fundedBy.all(row.funder) as { creator: string }[])
+      const v = network.view(row as FundingRow & { funder: string }, needs);
+      // Grouped by the effective funder, and only when it is a wallet.
+      const others = network
+        .creatorsOf(v.effective, v.effectiveKind)
         .map((r) => r.creator)
         .filter((c) => c !== address);
       funding = {
-        funder: row.funder,
+        ...v,
         txHash: row.tx_hash,
         block: row.block,
         kind: row.kind,
@@ -255,16 +264,26 @@ export function createApi(deps: ApiDeps) {
 
   function funder(address: string): ApiResponse {
     const indexedTo = launchesTo();
-    const rows = fundedBy.all(address) as {
-      creator: string;
-      tx_hash: string;
-      block: number;
-      kind: string;
-    }[];
-    if (rows.length === 0) return notFound(indexedTo);
+    const profile = db.funder(address);
+    const direct = (directlyFunded.get(address) as { n: number }).n;
+    const rows = network.groupedUnder(address);
+    if (rows.length === 0 && direct === 0 && !profile) return notFound(indexedTo);
+    if (!profile && deps.fundingEnabled) deps.prioritizeProfile?.(address);
     return json(200, {
       funder: address,
       indexedTo,
+      profile: profile
+        ? {
+            kind: profile.kind,
+            name: profile.name,
+            isContract: profile.is_contract === 1,
+            txCount: profile.tx_count,
+            checkedAt: new Date(profile.checked_at).toISOString(),
+          }
+        : null,
+      // Fundings this address made directly, grouped or not yet.
+      fundedDirectly: direct,
+      // Creators grouped under this address: funded by it, or sent by it through a tool.
       creators: rows.map((r) => ({
         creator: r.creator,
         txHash: r.tx_hash,
@@ -305,6 +324,23 @@ export function createApi(deps: ApiDeps) {
     });
   }
 
+  /** The creators linked to this one through the wallets that funded it, up to three levels. */
+  function networkOf(address: string): ApiResponse {
+    const indexedTo = launchesTo();
+    const known = (launchCount.get(address) as { n: number }).n > 0 || db.funding(address);
+    if (!known) return notFound(indexedTo);
+    if (!deps.fundingEnabled && !db.funding(address)) {
+      return json(200, { creator: address, indexedTo, fundingState: 'disabled' });
+    }
+    return json(200, {
+      creator: address,
+      indexedTo,
+      cap: NETWORK_CAP,
+      maxDepth: MAX_DEPTH,
+      network: network.walk(address, needs),
+    });
+  }
+
   /** How far each launchpad's launches are read: what a 404 on /v1/creator is worth. */
   function coverage(): ApiResponse {
     const head = deps.clock.head();
@@ -316,6 +352,7 @@ export function createApi(deps: ApiDeps) {
     token,
     funder,
     markets,
+    network: networkOf,
   };
 
   return function handle(request: {
@@ -331,7 +368,7 @@ export function createApi(deps: ApiDeps) {
     if (!sameToken(bearer, deps.token)) return json(401, { error: 'unauthorized' }, 'no-store');
     if (path === '/v1/coverage') return coverage();
 
-    const match = /^\/v1\/(creator|token|funder|markets)\/([^/]+)$/.exec(path);
+    const match = /^\/v1\/(creator|token|funder|markets|network)\/([^/]+)$/.exec(path);
     if (!match) return json(404, { error: 'not found' });
     const address = match[2] as string;
     if (!ADDRESS.test(address)) return json(400, { error: 'invalid address' });

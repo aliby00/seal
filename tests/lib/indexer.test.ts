@@ -192,13 +192,40 @@ describe('funding from the indexer', () => {
           },
         }),
       ),
-    ).toEqual({ funder: '0xf0', otherCreatorsFunded: 2 });
+    ).toEqual({ funder: '0xf0', funderKind: 'unknown', txHash: '0x1', otherCreatorsFunded: 0 });
+    // A profiled wallet groups the creators it funded.
+    expect(
+      fundingFacts(
+        creatorAnswer({
+          fundingState: 'found',
+          funding: {
+            funder: '0xf0',
+            txHash: '0x1',
+            block: 3,
+            kind: 'tx',
+            funderKind: 'wallet',
+            funderName: null,
+            funderTxCount: 33,
+            effective: '0xf0',
+            effectiveKind: 'wallet',
+            otherCreatorsFunded: ['0xa', '0xb'],
+          },
+        }),
+      ),
+    ).toEqual({
+      funder: '0xf0',
+      funderKind: 'wallet',
+      funderName: null,
+      funderTxCount: 33,
+      txHash: '0x1',
+      otherCreatorsFunded: 2,
+    });
   });
 
   it('funding-trace reports the funder, and says it plainly when nothing was looked up', () => {
     const found = CATALOG['funding-trace'].run({
       token: TOKEN,
-      funding: { funder: '0xf0', otherCreatorsFunded: 2 },
+      funding: { funder: '0xf0', funderKind: 'wallet', otherCreatorsFunded: 2 },
     });
     expect(found.signal).toBe('concern');
     expect(found.facts.join(' ')).toMatch(/funded 2 other token creator/);

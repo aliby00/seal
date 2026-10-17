@@ -37,6 +37,7 @@ const funding = config.blockscoutApiKey
       db,
       apiKey: config.blockscoutApiKey,
       log,
+      rpc,
       dailyCalls: config.fundingDailyCalls,
     })
   : undefined;
@@ -56,6 +57,8 @@ const handle = createApi({
   token: config.token,
   fundingEnabled: Boolean(funding),
   prioritizeFunding: funding?.prioritize,
+  prioritizeProfile: funding?.prioritizeProfile,
+  prioritizeOrigin: funding?.prioritizeOrigin,
   fundingUsage: funding?.usage,
 });
 const server = serve(handle, config.port);

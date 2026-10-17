@@ -2,7 +2,16 @@ import { NATIVE } from '../chain/pools';
 import { MAX_BEHAVIOR_TOKENS } from '../chain';
 import { volumePerTrade } from '../market';
 import { addressesSoftware, imitatedName, normalizeName, quoteName } from './names';
-import type { Finding, Signal, Specialist, SpecialistContext, SpecialistId } from './types';
+import type { FunderKind } from '../chain/funder-kind';
+import type {
+  Finding,
+  FundingDisplay,
+  FundingPathStep,
+  Signal,
+  Specialist,
+  SpecialistContext,
+  SpecialistId,
+} from './types';
 
 /**
  * Les dix spécialistes.
@@ -159,6 +168,23 @@ const walletAge: Specialist = {
   },
 };
 
+const plural = (n: number, word: string) =>
+  `${n.toLocaleString('en-US')} ${word}${n === 1 ? '' : 's'}`;
+
+/** A Blockscout contract name is chosen by its deployer: quoted as data, like a token name. */
+const contractName = (name: string | null | undefined): string =>
+  name ? quoteName(name) : 'unnamed';
+
+function fundingFinding(
+  signal: Signal,
+  facts: string[],
+  limits: string[],
+  display: FundingDisplay,
+  followUps?: SpecialistId[],
+): Finding {
+  return { ...finding('funding-trace', signal, facts, limits, followUps), funding: display };
+}
+
 const fundingTrace: Specialist = {
   id: 'funding-trace',
   title: 'Funding Trace',
@@ -175,12 +201,118 @@ const fundingTrace: Specialist = {
         'No incoming funding transfer was found for the creator.',
       ]);
     }
-    const facts = [`The creator wallet was first funded by ${funding.funder}.`];
-    if (funding.otherCreatorsFunded > 0) {
-      facts.push(`That same address funded ${funding.otherCreatorsFunded} other token creator(s).`);
-      return finding('funding-trace', 'concern', facts, [], ['creator-history']);
+    const facts: string[] = [];
+    const limits: string[] = [];
+    // Who the funding really came from: the funder, or the sender behind a tool.
+    let who = funding.funder;
+    let kind: FunderKind = funding.funderKind;
+    let txCount = funding.funderTxCount ?? null;
+    let name = funding.funderName ?? null;
+    const viaTool = kind === 'tool';
+    if (viaTool) {
+      const tool = contractName(funding.funderName);
+      if (!funding.origin) {
+        facts.push(
+          `The creator wallet was first funded through a batch-sending tool (${tool}, ${funding.funder}).`,
+        );
+        limits.push(
+          'who sent the funding through that tool was not read, so the funder behind it is not known',
+        );
+        return fundingFinding('unknown', facts, limits, {
+          kind: 'unknown',
+          linkedCreators: 0,
+          launches: null,
+          depth: 0,
+          path: [
+            { address: funding.funder, kind: 'tool', name: funding.funderName ?? null, txCount },
+          ],
+        });
+      }
+      facts.push(
+        `The creator wallet was first funded with a transfer sent through a batch-sending tool (${tool}) by ${funding.origin}.`,
+      );
+      who = funding.origin;
+      kind = funding.originKind === 'tool' ? 'unknown' : (funding.originKind ?? 'unknown');
+      txCount = funding.originTxCount ?? null;
+      name = null;
     }
-    return finding('funding-trace', 'quiet', facts);
+    const ownPath: FundingPathStep[] = [
+      {
+        address: who,
+        kind,
+        name,
+        txCount,
+        ...(viaTool ? { via: { address: funding.funder, name: funding.funderName ?? null } } : {}),
+      },
+    ];
+    const network = funding.network;
+    const path = network && network.path.length > 0 ? network.path : ownPath;
+    const display = (linked: number, launches: number | null, depth: number): FundingDisplay => ({
+      kind,
+      linkedCreators: linked,
+      launches,
+      depth,
+      path,
+    });
+
+    if (kind === 'service') {
+      const what = `${contractName(name)}${txCount !== null ? `, ${plural(txCount, 'transaction')}` : ''}`;
+      facts.push(
+        viaTool
+          ? `That sender is a high-volume service (${what}), such as an exchange, bridge or router. That says nothing about who is behind the wallet.`
+          : `The creator wallet was first funded from a high-volume service (${what}), such as an exchange, bridge or router. That says nothing about who is behind the wallet.`,
+      );
+      return fundingFinding('quiet', facts, limits, display(0, null, 0));
+    }
+    if (kind !== 'wallet') {
+      if (!viaTool) facts.push(`The creator wallet was first funded by ${who}.`);
+      limits.push(
+        'what that address is (an exchange, another service or a private wallet) could not be read, so other creators it funded are not counted',
+      );
+      return fundingFinding('unknown', facts, limits, display(0, null, 0));
+    }
+
+    const tx = txCount !== null ? `, ${plural(txCount, 'transaction')}` : '';
+    // The network walk, when it found more than the direct count, says more.
+    const walked = network && network.creators >= funding.otherCreatorsFunded ? network : undefined;
+    const linked = walked ? walked.creators : funding.otherCreatorsFunded;
+    if (network?.incomplete && network.reason) {
+      limits.push(`the funding chain could not be followed further: ${network.reason}`);
+    }
+    if (walked?.capped) limits.push('only the first linked creators were counted: there are more');
+    if (linked === 0) {
+      facts.push(
+        viaTool
+          ? `That sender is a wallet (${txCount !== null ? plural(txCount, 'transaction') : 'transaction count not read'}).`
+          : `The creator wallet was first funded by ${who}${tx}.`,
+      );
+      if (funding.otherCreatorsChecked === false) {
+        limits.push('whether that wallet funded other token creators was not looked up');
+      } else {
+        facts.push('No other token creator funded by that wallet is on record.');
+      }
+      return fundingFinding('quiet', facts, limits, display(0, null, walked?.depth ?? 1));
+    }
+    const depth = walked?.depth ?? 1;
+    const steps = depth > 1 ? `, linked through ${depth} funding steps` : '';
+    const launches = walked ? walked.launches : null;
+    facts.push(
+      `The wallet that funded the creator (${who}${tx}) also funded ${plural(linked, 'other token creator')}${steps}.` +
+        (launches !== null && launches > 0
+          ? ` Together they launched ${plural(launches, 'token')}.`
+          : ''),
+    );
+    if (walked && launches !== null && launches > 0) {
+      const pads = Object.entries(walked.launchpads)
+        .map(([pad, n]) => `${pad} ${n}`)
+        .join(', ');
+      if (pads) facts.push(`Their launches by launchpad: ${pads}.`);
+    } else if (!walked) {
+      limits.push('the tokens those creators launched were not counted');
+    }
+    return fundingFinding('concern', facts, limits, display(linked, launches, depth), [
+      'creator-history',
+    ]);
   },
 };
 

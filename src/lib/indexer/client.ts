@@ -1,3 +1,4 @@
+import type { FunderKind } from '../chain/funder-kind';
 import { log } from '../logger';
 
 /**
@@ -36,7 +37,48 @@ export type IndexerFunding = {
   txHash: string;
   block: number;
   kind: 'tx' | 'internal';
+  /** Absent from indexers that do not profile funders. */
+  funderKind?: FunderKind;
+  funderName?: string | null;
+  funderTxCount?: number | null;
+  /** The sender behind a batch-sending tool. */
+  origin?: string | null;
+  originKind?: FunderKind | null;
+  originTxCount?: number | null;
+  /** The address the funding is grouped by. */
+  effective?: string | null;
+  effectiveKind?: FunderKind;
+  effectiveTxCount?: number | null;
+  /** Grouped by the effective funder; empty unless it is a wallet. */
   otherCreatorsFunded: string[];
+};
+
+export type IndexerPathStep = {
+  level: number;
+  address: string;
+  kind: FunderKind;
+  name: string | null;
+  txCount: number | null;
+  via?: { address: string; name: string | null };
+  creatorsFunded: number;
+};
+
+export type IndexerNetwork = {
+  creator: string;
+  indexedTo: number;
+  /** Absent when the indexer reads no funding. */
+  network?: {
+    creators: number;
+    capped: boolean;
+    launches: number;
+    launchpads: Record<string, number>;
+    firstLaunchAt: string | null;
+    lastLaunchAt: string | null;
+    depth: number;
+    path: IndexerPathStep[];
+    incomplete: boolean;
+    reason?: string;
+  };
 };
 
 export type IndexerCreator = {
@@ -83,6 +125,15 @@ export type IndexerToken = {
 export type IndexerFunder = {
   funder: string;
   indexedTo: number;
+  /** Absent from indexers that do not profile funders; `null` while not profiled. */
+  profile?: {
+    kind: FunderKind;
+    name: string | null;
+    isContract: boolean;
+    txCount: number | null;
+    checkedAt: string;
+  } | null;
+  /** Creators grouped under this address (funded by it, or sent by it through a tool). */
   creators: { creator: string; txHash: string; block: number; kind: string }[];
 };
 
@@ -112,6 +163,8 @@ export type IndexerClient = {
   token(address: string): Promise<IndexerToken | undefined>;
   funder(address: string): Promise<IndexerFunder | undefined>;
   markets(token: string): Promise<IndexerMarkets | undefined>;
+  /** Creators linked through the wallets that funded this one. */
+  network(creator: string): Promise<IndexerNetwork | undefined>;
 };
 
 export const INDEXER_TIMEOUT_MS = 2_000;
@@ -192,6 +245,7 @@ export function createIndexerClient(
     token: (address) => get<IndexerToken>('token', address),
     funder: (address) => get<IndexerFunder>('funder', address),
     markets: (token) => get<IndexerMarkets>('markets', token),
+    network: (creator) => get<IndexerNetwork>('network', creator),
   };
 }
 

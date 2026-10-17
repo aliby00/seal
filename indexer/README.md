@@ -38,6 +38,31 @@ L'heure d'un bloc est interpolée entre deux ancres lues tous les 50 000 blocs
 Le trader d'un swap est le signataire de la transaction (`eth_getTransactionByHash`),
 pas le `sender` du swap, qui est presque toujours un routeur.
 
+## Financeurs
+
+Le premier financeur d'un créateur est souvent une infrastructure : le hot
+wallet d'un exchange, un bridge, un routeur. Chaque financeur est donc profilé
+(API v2 Blockscout : `is_contract`, nom vérifié, tags, `transactions_count`),
+dans le même plafond `FUNDING_DAILY_CALLS` (deux appels par profil), les plus
+utilisés d'abord, relus après 30 jours. Table `funders` ; règles dans
+`src/funder-kind.ts` (copie identique de `src/lib/chain/funder-kind.ts` côté
+application, un test compare les deux) :
+
+- `tool` : contrat nommé comme un outil d'envoi groupé (BatchTransfer, Disperse,
+  GasliteDrop, MultiSend, Airdrop…). Le vrai financeur est l'expéditeur de la
+  transaction (`eth_getTransactionByHash`, par le RPC, hors plafond), stocké dans
+  `funding.origin` puis reclassé (un niveau seulement) ;
+- `service` : 50 000 transactions ou plus, ou contrat nommé comme une
+  infrastructure (Router, Relay, Depository, Bridge, Portal, Multicall, Exchange,
+  Vault…), ou tag d'exchange ;
+- `wallet` : le reste, nombre de transactions connu ;
+- `unknown` : profil illisible, jamais traité comme un wallet.
+
+`funding.effective` est l'adresse de regroupement : le financeur, ou
+l'expéditeur derrière un outil. Les deux colonnes sont ajoutées à une base
+existante à l'ouverture (`ALTER TABLE … ADD COLUMN`) et remplies au fil des
+profils. Seul un `wallet` regroupe des créateurs.
+
 ## Variables d'environnement
 
 | Variable              | Défaut                                    | Rôle                                                                             |
@@ -90,7 +115,9 @@ une adresse inconnue répond 404, une absence de jeton 401.
 - `GET /v1/creator/:address` : les lancements du créateur sur tous les
   launchpads (token, `launchpad`, contrat, pool, bloc, date, `txHash`),
   `launchpads` (dernier bloc lu par launchpad), et `fundingState` : `found` (avec `funding.funder`, `txHash`, `block`,
-  `otherCreatorsFunded`), `none` (`funding: null`, rien trouvé), `pending` (pas
+  `funderKind`, `funderName`, `funderTxCount`, `origin`, `effective`, `effectiveKind` et
+  `otherCreatorsFunded`, regroupés par financeur effectif et vides pour un service ou un
+  financeur non profilé), `none` (`funding: null`, rien trouvé), `pending` (pas
   encore lu, le créateur passe en tête de file) ou `disabled` (pas de clé).
 - `GET /v1/coverage` : le dernier bloc lu par launchpad, ce que vaut un 404 sur
   `/v1/creator` (« aucun lancement sur les launchpads lus jusque-là »).
@@ -99,7 +126,18 @@ une adresse inconnue répond 404, une absence de jeton 401.
   en texte), dernier échange ; les 5 plus gros traders sur 7 j avec leur solde
   net ; si le créateur a échangé. `coveredFrom` dit à partir de quel bloc les
   swaps sont comptés, `sinceLaunchComplete` si tout depuis le lancement l'est.
-- `GET /v1/funder/:address` : les créateurs financés par cette adresse.
+- `GET /v1/funder/:address` : `profile` (`kind`, `name`, `isContract`, `txCount`,
+  `checkedAt`, ou `null` tant que l'adresse n'est pas profilée), `fundedDirectly`,
+  et `creators` : les créateurs regroupés sous cette adresse (financés par elle,
+  ou envoyés par elle à travers un outil d'envoi groupé).
+- `GET /v1/network/:address` : en remontant les financeurs effectifs d'un
+  créateur sur trois niveaux au plus (créateur ← w1 ← w2 ← w3), arrêt au premier
+  service, financeur non profilé ou outil dont l'expéditeur n'est pas lu : les
+  créateurs financés à chaque niveau (`creators`, 500 au plus, `capped`), leurs
+  tokens (`launches`, `launchpads`, `firstLaunchAt`, `lastLaunchAt`), `depth`,
+  `path` (adresse, `kind`, `name`, `txCount`, `via`, `creatorsFunded`), et
+  `incomplete` + `reason` quand un financement ou un profil manque (il passe
+  alors en tête de file).
 - `GET /v1/markets/:token` : les marchés v4 où ce token est l'une des deux monnaies.
 
 ```bash

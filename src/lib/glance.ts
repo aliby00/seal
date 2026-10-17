@@ -1,5 +1,6 @@
 import type { LaunchReplayData } from './contracts/launch';
 import type { ReportFacts, TimelineLaunch } from './facts';
+import type { SpecialistAnswer } from './specialists/brief';
 
 /**
  * The report's opening: what a reader should know in ten seconds, in plain
@@ -11,7 +12,7 @@ import type { ReportFacts, TimelineLaunch } from './facts';
 export type GlanceTone = 'attention' | 'reassuring' | 'neutral';
 
 export type GlanceItem = {
-  id: 'sales' | 'record' | 'liquidity' | 'supply' | 'launch-buys' | 'market';
+  id: 'sales' | 'record' | 'liquidity' | 'supply' | 'launch-buys' | 'market' | 'network';
   tone: GlanceTone;
   /** The number the line is about, set large. */
   figure: string;
@@ -35,6 +36,8 @@ export type GlanceInput = {
   facts?: ReportFacts;
   timeline?: TimelineLaunch[];
   launch?: LaunchReplayData;
+  /** The ten questions' answers: the funding one can link this creator to others. */
+  specialists?: SpecialistAnswer[];
 };
 
 const MAX_ITEMS = 4;
@@ -252,12 +255,47 @@ function marketItem(market: ReportFacts['market']): GlanceItem | null {
   return null;
 }
 
+/** Fewer linked creators than this is not worth a line of its own: the question says it. */
+const MIN_LINKED_CREATORS = 2;
+
+/**
+ * Other token creators funded by the wallet that funded this one. Only for a
+ * wallet: an exchange, a bridge or an unread address funds everyone, and
+ * links nobody.
+ */
+function networkItem(specialists: SpecialistAnswer[] | undefined): GlanceItem | null {
+  const funding = specialists?.find((a) => a.specialist === 'funding-trace')?.funding;
+  if (!funding || funding.kind !== 'wallet') return null;
+  const n = funding.linkedCreators;
+  if (n < MIN_LINKED_CREATORS) return null;
+  const who =
+    funding.depth > 1
+      ? 'The wallets behind this creator’s funding'
+      : 'The wallet that funded this creator';
+  const launched =
+    funding.launches !== null && funding.launches > 0
+      ? `, who launched ${plural(funding.launches, 'token')} between them`
+      : '';
+  return {
+    id: 'network',
+    tone: 'attention',
+    figure: `${n}`,
+    title: `${who} also funded ${n} other token creators${launched}.`,
+    detail:
+      funding.depth > 1
+        ? `Followed up ${funding.depth} funding steps, exchanges and other services left out.`
+        : 'From who first funded each creator wallet, exchanges and other services left out.',
+    href: '#question-funding-trace',
+  };
+}
+
 const ORDER: Record<GlanceTone, number> = { attention: 0, neutral: 1, reassuring: 2 };
 
-export function buildGlance({ facts, timeline, launch }: GlanceInput): Glance | null {
+export function buildGlance({ facts, timeline, launch, specialists }: GlanceInput): Glance | null {
   if (!facts) return null;
   const candidates = [
     salesItem(facts.creator),
+    networkItem(specialists),
     recordItem(facts.creator, timeline),
     liquidityItem(facts.creator),
     supplyItem(facts, launch),

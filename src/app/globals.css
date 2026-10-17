@@ -2917,6 +2917,25 @@
 .question-limits {
   color: var(--muted-foreground);
 }
+.funding-path {
+  margin: 0;
+  padding-left: 22px;
+  display: grid;
+  gap: 6px;
+}
+.question-body .funding-path li {
+  padding-left: 0;
+}
+.question-body .funding-path li::before {
+  content: none;
+}
+.funding-path code {
+  font-family: 'Courier New', monospace;
+}
+.funding-path-step,
+.funding-path-via {
+  color: var(--muted-foreground);
+}
 
 /* Reading. */
 .reading-section .reading-layout {

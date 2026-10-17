@@ -1,5 +1,6 @@
 import type { TokenReport } from '../contracts';
 import type { HookCode } from '../chain/facts';
+import type { FunderKind } from '../chain/funder-kind';
 import type { HookCapability, HookPermissions } from '../chain/hooks';
 import type { IndexedMarket, MarketIndex } from '../chain/pools';
 
@@ -52,13 +53,69 @@ export type Finding = {
   limits: string[];
   /** Spécialistes que ce constat rend pertinents, pour l'enquête. */
   followUps?: SpecialistId[];
+  /** The funding question only: the classification and path, for the report and the summary. */
+  funding?: FundingDisplay;
 };
 
-/** Ce qui se sait d'un créateur côté financement. Collecté seulement avec un indexeur. */
+/** One address on the way up from the creator to whoever funded it. */
+export type FundingPathStep = {
+  address: string;
+  kind: FunderKind;
+  name: string | null;
+  txCount: number | null;
+  /** The batch-sending tool the funding went through, when it did. */
+  via?: { address: string; name: string | null };
+};
+
+/** The creators linked to this one through the wallets that funded it (indexer only). */
+export type FundingNetwork = {
+  /** Linked creators, this one left out. */
+  creators: number;
+  /** Distinct tokens they launched. */
+  launches: number;
+  launchpads: Record<string, number>;
+  /** Wallet levels walked above the creator. */
+  depth: number;
+  incomplete: boolean;
+  /** What is missing, when incomplete. */
+  reason?: string;
+  /** More creators were linked than collected. */
+  capped: boolean;
+  firstLaunchAt?: string | null;
+  lastLaunchAt?: string | null;
+  path: FundingPathStep[];
+};
+
+/** What the funding question shows beside its facts. */
+export type FundingDisplay = {
+  /** The kind of the effective funder: the sender, for a batch-sending tool. */
+  kind: FunderKind;
+  /** Other token creators linked: 0 unless the effective funder is a wallet. */
+  linkedCreators: number;
+  /** Tokens those creators launched, when read. */
+  launches: number | null;
+  depth: number;
+  path: FundingPathStep[];
+};
+
+/** What is known of who first funded the creator. */
 export type FundingFacts = {
   funder: string;
-  /** Autres créateurs de token financés par la même adresse. */
+  /** What the funder is (funder-kind.ts). `unknown` is never read as a wallet. */
+  funderKind: FunderKind;
+  funderName?: string | null;
+  funderTxCount?: number | null;
+  /** The funding transaction: its sender is the funder when it went through a tool. */
+  txHash?: string;
+  /** The sender behind a batch-sending tool, and what it is. */
+  origin?: string | null;
+  originKind?: FunderKind | null;
+  originTxCount?: number | null;
+  /** Other token creators funded by the same wallet. 0 for anything but a wallet. */
   otherCreatorsFunded: number;
+  /** `false` when other creators were not looked up (no index to look in). */
+  otherCreatorsChecked?: boolean;
+  network?: FundingNetwork;
 };
 
 export type SpecialistContext = {
