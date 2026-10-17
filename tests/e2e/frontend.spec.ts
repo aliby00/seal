@@ -464,9 +464,7 @@ test('source study exposes each method using accessible controls', async ({ page
   await accessible(page);
 });
 
-test('legal pages are reachable from the footer, flagged as drafts, and accessible', async ({
-  page,
-}) => {
+test('legal pages are reachable from the footer, final, and accessible', async ({ page }) => {
   await page.goto('/');
   const legal = page.getByRole('contentinfo').getByRole('navigation', { name: 'Legal' });
   for (const [label, path, heading] of [
@@ -477,13 +475,13 @@ test('legal pages are reachable from the footer, flagged as drafts, and accessib
     await expect(legal.getByRole('link', { name: label })).toHaveAttribute('href', path);
     await page.goto(path);
     await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
-    await expect(page.getByRole('note')).toContainText('Draft — pending legal review');
-    // Nothing invented about the company: its details stay as placeholders.
-    if (path !== '/disclaimer')
-      await expect(page.getByText(/\[COMPANY NAME\]/).first()).toBeVisible();
+    // No placeholder left for a reader to see.
+    await expect(page.getByText(/\[[A-Z ]{4,}\]/)).toHaveCount(0);
     await accessible(page);
     await page.goto('/');
   }
   await page.goto('/disclaimer');
   await expect(page.getByText('Not financial advice')).toBeVisible();
+  await page.goto('/terms');
+  await expect(page.getByRole('heading', { name: 'What you may not do' })).toBeVisible();
 });

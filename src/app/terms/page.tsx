@@ -1,18 +1,20 @@
 import type { Metadata } from 'next';
-import { LegalPage } from '../components/LegalPage';
+import { CONTACT_URL, LEGAL_UPDATED, LegalPage } from '../components/LegalPage';
 
 export const metadata: Metadata = {
   title: 'Terms of use',
   alternates: { canonical: '/terms' },
-  // A draft awaiting legal review is not offered to search engines.
-  robots: { index: false, follow: true },
 };
 
 export default function TermsPage() {
   return (
-    <LegalPage title="Terms of use" updated="[DATE]">
-      <h2>Who we are</h2>
-      <p>SEAL is operated by [COMPANY NAME], [COMPANY ADDRESS]. Contact: [CONTACT EMAIL].</p>
+    <LegalPage title="Terms of use" updated={LEGAL_UPDATED}>
+      <h2>Agreement</h2>
+      <p>
+        By using SEAL (the site at sealauth.dev, its API and its analyses) you accept these terms.
+        If you do not accept them, do not use SEAL. Questions go through the{' '}
+        <a href={CONTACT_URL}>project&apos;s contact page</a>.
+      </p>
 
       <h2>What SEAL does</h2>
       <p>
@@ -24,16 +26,45 @@ export default function TermsPage() {
 
       <h2>Using the service</h2>
       <ul>
-        <li>You may use SEAL for your own information.</li>
+        <li>You may use SEAL for your own personal information.</li>
         <li>
           Do not overload the service, get around its request limits, or use it to attack others.
         </li>
         <li>
-          Automated or commercial access through the API requires a key issued by [COMPANY NAME] and
-          follows the limits attached to it.
+          Automated or commercial access through the API requires a key issued by SEAL and follows
+          the limits attached to it.
         </li>
         <li>We may limit, suspend or stop the service, or a user&apos;s access, at any time.</li>
       </ul>
+
+      <h2>What you may not do</h2>
+      <p>Without SEAL&apos;s prior written permission, you may not:</p>
+      <ul>
+        <li>
+          copy, reproduce, republish, resell or redistribute SEAL&apos;s analyses, explanations,
+          texts, design, interface or brand, in whole or in substantial part;
+        </li>
+        <li>
+          scrape, crawl or bulk-collect the site or the API, or store their output to build a
+          database;
+        </li>
+        <li>
+          copy, modify, host or run SEAL&apos;s source code, or reverse-engineer its method, its
+          prompts or its interface;
+        </li>
+        <li>
+          use SEAL, its output or its code to build, train or improve a similar or competing
+          service, including a machine-learning model;
+        </li>
+        <li>
+          present SEAL&apos;s work as your own, or use the SEAL name or logo in a way that suggests
+          an endorsement.
+        </li>
+      </ul>
+      <p>
+        Sharing a link to an analysis, or quoting a short extract with a link back to SEAL, is
+        allowed.
+      </p>
 
       <h2>Your responsibility</h2>
       <p>
@@ -43,21 +74,24 @@ export default function TermsPage() {
 
       <h2>Intellectual property</h2>
       <p>
-        The SEAL name, logo and site design belong to [COMPANY NAME]. The source code is published
-        under its own licence, stated in the code repository. Public blockchain data belongs to no
-        one.
+        The SEAL name and logo, the site&apos;s design and texts, the analyses and explanations it
+        produces, and its source code belong to SEAL. All rights are reserved. The source code is
+        visible publicly so that anyone can check the method; that visibility grants no right to
+        reuse it, as its licence states. Public blockchain data itself belongs to no one.
       </p>
 
       <h2>Liability</h2>
       <p>
-        The service is provided &ldquo;as is&rdquo;. To the extent the law allows, [COMPANY NAME] is
-        not liable for any loss arising from the use of SEAL or from the unavailability of a source.
+        The service is provided &ldquo;as is&rdquo;, without any warranty. To the fullest extent the
+        law allows, SEAL is not liable for any loss arising from the use of SEAL, from relying on
+        its content, or from the unavailability of the service or of a source.
       </p>
 
-      <h2>Changes and governing law</h2>
+      <h2>Changes</h2>
       <p>
-        These terms may change; the date above shows the latest version. They are governed by the
-        law of [JURISDICTION].
+        These terms may change; the date above shows the latest version. Continuing to use SEAL
+        after a change means you accept the new version. If a clause is found unenforceable, the
+        rest still applies.
       </p>
     </LegalPage>
   );
