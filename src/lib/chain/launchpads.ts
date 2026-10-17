@@ -136,7 +136,7 @@ export const LAUNCHPADS: readonly Launchpad[] = [
   },
   {
     id: 'curve-7ed5',
-    name: 'launchpad 0x7ed5…',
+    name: 'launchpad 0x7ed5… (used by pons)',
     address: '0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e',
     event:
       'TokenLaunched(address indexed token, address indexed curve, address indexed creator, address, uint256, uint256)',
@@ -153,7 +153,7 @@ export const LAUNCHPADS: readonly Launchpad[] = [
     // and it names the wallet that called it where the factory may name a
     // contract in between (0xeec4…: the factory names 0x274a…, a contract).
     id: 'curve-7ed5',
-    name: 'launchpad 0x7ed5…',
+    name: 'launchpad 0x7ed5… (used by pons)',
     address: '0xe33e9e479df8802cb0866d5d05258bec4cf62948',
     event:
       'Launched(address indexed token, address indexed curve, address indexed creator, address, uint256, uint256)',
