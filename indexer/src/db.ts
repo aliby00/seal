@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS launches (
   initial_buy TEXT NOT NULL,
   block INTEGER NOT NULL,
   ts INTEGER,
+  launchpad TEXT NOT NULL DEFAULT 'pons',
   PRIMARY KEY (tx_hash, log_index)
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS launches_token ON launches (token);
@@ -111,6 +112,20 @@ export type FundingInsert = {
 
 export type Db = ReturnType<typeof openDb>;
 
+/**
+ * Brings a database created before a column existed up to the schema. Only
+ * additions, each with a default, so every row already there keeps its
+ * meaning: a launch indexed before launchpads existed is a pons launch.
+ */
+function migrate(db: DatabaseSync): void {
+  const columns = (db.prepare('PRAGMA table_info(launches)').all() as { name: string }[]).map(
+    (c) => c.name,
+  );
+  if (!columns.includes('launchpad')) {
+    db.exec("ALTER TABLE launches ADD COLUMN launchpad TEXT NOT NULL DEFAULT 'pons'");
+  }
+}
+
 export function openDb(path: string, now: () => number = Date.now) {
   const db = new DatabaseSync(path);
   db.exec('PRAGMA journal_mode = WAL');
@@ -119,6 +134,7 @@ export function openDb(path: string, now: () => number = Date.now) {
   db.exec('PRAGMA cache_size = -32000');
   db.exec('PRAGMA busy_timeout = 5000');
   db.exec(SCHEMA);
+  migrate(db);
 
   const getCursor = db.prepare('SELECT block FROM cursors WHERE stream = ?');
   const setCursor = db.prepare(
@@ -127,8 +143,8 @@ export function openDb(path: string, now: () => number = Date.now) {
   );
   const insertLaunch = db.prepare(
     `INSERT OR IGNORE INTO launches
-       (tx_hash, log_index, token, creator, pool, factory, dex_factory, pair_token, position_id, initial_buy, block, ts)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (tx_hash, log_index, token, creator, pool, factory, dex_factory, pair_token, position_id, initial_buy, block, ts, launchpad)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const insertSwap = db.prepare(
     `INSERT OR IGNORE INTO swaps
@@ -147,7 +163,11 @@ export function openDb(path: string, now: () => number = Date.now) {
        tx_hash = excluded.tx_hash, block = excluded.block, kind = excluded.kind,
        checked_at = excluded.checked_at`,
   );
-  const poolInfo = db.prepare('SELECT token, pair_token FROM launches WHERE pool = ? LIMIT 1');
+  // Swaps are read for pons launch pools only: another launchpad's row names
+  // a curve or nothing, never a Uniswap V3 pool of the token.
+  const poolInfo = db.prepare(
+    "SELECT token, pair_token FROM launches WHERE pool = ? AND launchpad = 'pons' LIMIT 1",
+  );
   const getToken0 = db.prepare('SELECT token0 FROM pool_token0 WHERE pool = ?');
   const setToken0 = db.prepare('INSERT OR REPLACE INTO pool_token0 (pool, token0) VALUES (?, ?)');
   const getTime = db.prepare('SELECT ts FROM block_times WHERE block = ?');
@@ -159,7 +179,7 @@ export function openDb(path: string, now: () => number = Date.now) {
     'SELECT block, ts FROM block_times WHERE block >= ? ORDER BY block ASC LIMIT 1',
   );
   const poolsPage = db.prepare(
-    'SELECT DISTINCT pool FROM launches WHERE pool > ? AND block <= ? ORDER BY pool LIMIT ?',
+    "SELECT DISTINCT pool FROM launches WHERE pool > ? AND block <= ? AND launchpad = 'pons' ORDER BY pool LIMIT ?",
   );
 
   function transaction<T>(fn: () => T): T {
@@ -212,6 +232,7 @@ export function openDb(path: string, now: () => number = Date.now) {
             r.initialBuyAmount,
             r.block,
             r.ts,
+            r.launchpad ?? 'pons',
           ).changes,
         );
       }

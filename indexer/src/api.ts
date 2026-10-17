@@ -1,11 +1,11 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
-import { PONS_FACTORIES } from './abi.ts';
+import { LAUNCHPADS } from './abi.ts';
 import type { Clock } from './clock.ts';
 import type { Db } from './db.ts';
 import type { Rpc } from './rpc.ts';
 import { tokenStats } from './stats.ts';
-import { launchFrontier } from './streams/launches.ts';
+import { launchFrontier, launchpadCoverage } from './streams/launches.ts';
 import { BACK, FORWARD, TARGET } from './streams/swaps.ts';
 import { MARKETS } from './streams/markets.ts';
 
@@ -61,13 +61,16 @@ export function createApi(deps: ApiDeps) {
   const startedAt = deps.startedAt ?? Date.now();
 
   const launchesOf = db.raw.prepare(
-    `SELECT token, pool, factory, pair_token, block, ts FROM launches
+    `SELECT token, pool, factory, pair_token, block, ts, launchpad, tx_hash FROM launches
      WHERE creator = ? ORDER BY block DESC LIMIT ${MAX_ROWS}`,
   );
-  const launchCount = db.raw.prepare('SELECT COUNT(*) AS n FROM launches WHERE creator = ?');
+  // A launch seen by a launchpad's factory and by its router is one launch.
+  const launchCount = db.raw.prepare(
+    'SELECT COUNT(DISTINCT token) AS n FROM launches WHERE creator = ?',
+  );
   const launchOf = db.raw.prepare(
     `SELECT token, creator, pool, factory, dex_factory, pair_token, position_id, initial_buy, block, ts, tx_hash
-     FROM launches WHERE token = ? ORDER BY block LIMIT 1`,
+     FROM launches WHERE token = ? AND launchpad = 'pons' ORDER BY block LIMIT 1`,
   );
   const fundingOf = db.raw.prepare(
     'SELECT status, funder, tx_hash, block, kind FROM funding WHERE creator = ?',
@@ -93,7 +96,7 @@ export function createApi(deps: ApiDeps) {
       if (c.stream === TARGET) continue;
       // The backfill moves down: its lag is what is left to read.
       // A closed factory, read to its end, has nothing left: its lag is 0.
-      const closed = PONS_FACTORIES.find(
+      const closed = LAUNCHPADS.find(
         (f) => c.stream === `launches:${f.address}` && f.toBlock !== undefined,
       );
       const lag =
@@ -144,6 +147,8 @@ export function createApi(deps: ApiDeps) {
         pair_token: string;
         block: number;
         ts: number | null;
+        launchpad: string;
+        tx_hash: string;
       }[]
     ).map((l) => ({
       token: l.token,
@@ -152,6 +157,8 @@ export function createApi(deps: ApiDeps) {
       pairToken: l.pair_token,
       block: l.block,
       timestamp: iso(l.ts),
+      launchpad: l.launchpad,
+      txHash: l.tx_hash,
     }));
     const row = fundingOf.get(address) as
       | { status: 'found' | 'none'; funder: string; tx_hash: string; block: number; kind: string }
@@ -185,6 +192,7 @@ export function createApi(deps: ApiDeps) {
       launchCount: total,
       truncated: total > launches.length,
       launches,
+      launchpads: launchpadCoverage(db, deps.clock.head()),
       fundingState,
       ...(funding !== undefined ? { funding } : {}),
     });
@@ -297,6 +305,12 @@ export function createApi(deps: ApiDeps) {
     });
   }
 
+  /** How far each launchpad's launches are read: what a 404 on /v1/creator is worth. */
+  function coverage(): ApiResponse {
+    const head = deps.clock.head();
+    return json(200, { head, launchpads: launchpadCoverage(db, head) });
+  }
+
   const routes: Record<string, (address: string) => ApiResponse> = {
     creator,
     token,
@@ -315,6 +329,7 @@ export function createApi(deps: ApiDeps) {
 
     const bearer = /^Bearer (.+)$/.exec(request.authorization ?? '')?.[1] ?? '';
     if (!sameToken(bearer, deps.token)) return json(401, { error: 'unauthorized' }, 'no-store');
+    if (path === '/v1/coverage') return coverage();
 
     const match = /^\/v1\/(creator|token|funder|markets)\/([^/]+)$/.exec(path);
     if (!match) return json(404, { error: 'not found' });
