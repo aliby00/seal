@@ -11,7 +11,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['tests/**/*.test.ts'],
+    include: ['tests/**/*.test.ts', 'indexer/test/**/*.test.ts'],
     // Mocked nodes have no rate limit: pacing would only slow the suite down.
     // The pacing itself is tested with an injected clock.
     // Live runs (SEAL_LIVE=1) keep the real pacing: they talk to the real node.
