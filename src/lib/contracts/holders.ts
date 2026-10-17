@@ -27,6 +27,13 @@ export type HolderDistributionData = {
     top1: number;
     top10: number;
   };
+  /**
+   * Part de l'offre TOTALE encore dans les pools et les adresses de burn, de 0
+   * à 1 ; `null` quand l'offre totale n'est pas connue. Sans elle, « 70 % pour
+   * le premier détenteur » se lisait comme 70 % du token alors que ce n'était
+   * que 70 % du reliquat hors pool.
+   */
+  pooledShare?: number | null;
   /** Nombre d'adresses distinctes ayant échangé sur la période observée. */
   distinctTraders: number | null;
 };

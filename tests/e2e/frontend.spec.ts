@@ -65,9 +65,11 @@ const report = {
     {
       specialist: 'rule-change',
       title: 'Rule Change',
-      question: 'Can the rulebook be rewritten after people have bought?',
+      question: 'Can the trading rules (hook) be rewritten after people have bought?',
       signal: 'reassurance',
-      facts: ['The rulebook’s code (4120 bytes) has no standard upgrade slot set.'],
+      facts: [
+        'The code of the trading rules (hook) (4120 bytes) has no standard upgrade slot set.',
+      ],
       limits: [],
     },
     {
@@ -177,6 +179,30 @@ test('report opens with the token, then asks the ten questions one by one, witho
   await accessible(page);
 });
 
+test('a ?token= link fills the address and starts the analysis', async ({ page }) => {
+  const posted: unknown[] = [];
+  await page.route('**/api/analyze', (route) => {
+    posted.push(route.request().postDataJSON());
+    return route.fulfill({ json: report });
+  });
+  await page.goto(`/?token=${token}#analysis`);
+  await expect(page.getByLabel('Token address', { exact: true })).toHaveValue(token);
+  await expect(page.getByRole('article')).toBeVisible();
+  expect(posted).toEqual([{ token }]);
+});
+
+test('a ?token= link that is not an address starts nothing', async ({ page }) => {
+  let requests = 0;
+  await page.route('**/api/analyze', (route) => {
+    requests++;
+    return route.fulfill({ json: report });
+  });
+  await page.goto(`/?token=${token}00#analysis`);
+  await expect(page.getByLabel('Token address', { exact: true })).toHaveValue('');
+  await page.waitForTimeout(300);
+  expect(requests).toBe(0);
+});
+
 async function submit(page: Page) {
   await page.getByLabel('Token address', { exact: true }).fill(token);
   await page.getByRole('button', { name: 'Analyze token' }).click();
@@ -242,9 +268,11 @@ test('loading describes sources; report keeps limits before prose and sources gl
   release();
   await expect(page.getByRole('article')).toBeVisible();
   const text = await page.getByRole('article').innerText();
-  expect(text.indexOf('A partial picture')).toBeLessThan(text.indexOf('The creator launched'));
-  expect(text.indexOf('Earlier history not covered')).toBeLessThan(
-    text.indexOf('The creator launched'),
+  // The short version comes first, with what it could not see, before any prose.
+  expect(text.indexOf('In short')).toBeLessThan(text.indexOf('Not measured here'));
+  expect(text.indexOf('Not measured here')).toBeLessThan(text.indexOf('The creator launched'));
+  await expect(page.locator('.glance-lead')).toContainText(
+    'The creator sold into the pool on 7 of 10 launches checked.',
   );
   await expect(page.locator('.divergent')).toHaveCount(1);
   await expect(page.getByText('Sources apply to the report as a whole.')).toBeVisible();
@@ -277,11 +305,9 @@ for (const completeness of ['full', 'unavailable']) {
     await expect(page.locator('.divergent')).toHaveCount(0);
     await expect(page.locator('.explanation p')).toHaveCount(3);
     await expect(page.getByText('No cost: no model call.')).toBeVisible();
-    await expect(
-      page.getByText(completeness === 'full' ? 'All sources responded.' : 'No usable sources.', {
-        exact: true,
-      }),
-    ).toBeVisible();
+    // With measured facts the short version stands in for the banner, except when nothing is usable.
+    if (completeness === 'full') await expect(page.locator('.glance')).toBeVisible();
+    else await expect(page.getByText('No usable sources.', { exact: true })).toBeVisible();
     await accessible(page);
   });
 }

@@ -1,4 +1,6 @@
+import { buildGlance } from '@/lib/glance';
 import type { AnalyzeResponse } from '../api/analyze/route';
+import { AtAGlance } from './AtAGlance';
 import { Explanation } from './Explanation';
 import { FactsBoard, plainNote } from './FactsBoard';
 import { LaunchReplay } from './LaunchReplay';
@@ -12,55 +14,55 @@ const labels: Record<string, string> = {
 };
 
 /**
- * The report, top to bottom: who the token is and what could be read, the
- * measured numbers, the ten questions, then the written reading. Nothing is
- * scored and nothing is summed: every block reads on its own.
+ * The report, top to bottom: who the token is, the few facts to know in ten
+ * seconds, the written reading, then every measure in full. Nothing is scored
+ * and nothing is summed: every block reads on its own.
  */
 export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
+  const glance = buildGlance(result);
+  const replay = Boolean(result.launch && result.launch.moves.length > 0);
+  // Sections are numbered in reading order; the replay only exists for some tokens.
+  const number = (n: number) => String(n).padStart(2, '0');
   return (
     <article className="report" aria-labelledby="report-title">
       <ReportHeader result={result} />
-      <section
-        className={`completeness completeness-${result.completeness}`}
-        aria-label="Data availability"
-      >
-        <h3>{labels[result.completeness] ?? 'Data availability was not specified.'}</h3>
-        {result.completeness === 'partial' && (
-          <p>Some observations are incomplete. These limitations are part of the analysis.</p>
-        )}
-        {result.completeness === 'unavailable' && (
-          <p>
-            The available data cannot support an analysis. Missing data does not justify any
-            conclusion about this token.
-          </p>
-        )}
-        {/* With the cards, each limit is shown once, on the card it concerns. */}
-        {!result.facts &&
-          result.sources
-            .filter((source) => source.note)
-            .map((source, index) => (
-              <p className="source-limit" key={`${source.name}-${index}`}>
-                <strong>{source.name}</strong> — {source.note}
-              </p>
-            ))}
-      </section>
+      {glance && <AtAGlance glance={glance} />}
+      {/* The summary already lists what was not measured; the banner stays for the other cases. */}
+      {(!glance || result.completeness === 'unavailable') && (
+        <section
+          className={`completeness completeness-${result.completeness}`}
+          aria-label="Data availability"
+        >
+          <h3>{labels[result.completeness] ?? 'Data availability was not specified.'}</h3>
+          {result.completeness === 'partial' && (
+            <p>Some observations are incomplete. These limitations are part of the analysis.</p>
+          )}
+          {result.completeness === 'unavailable' && (
+            <p>
+              The available data cannot support an analysis. Missing data does not justify any
+              conclusion about this token.
+            </p>
+          )}
+          {/* With the cards, each limit is shown once, on the card it concerns. */}
+          {!result.facts &&
+            result.sources
+              .filter((source) => source.note)
+              .map((source, index) => (
+                <p className="source-limit" key={`${source.name}-${index}`}>
+                  <strong>{source.name}</strong> — {source.note}
+                </p>
+              ))}
+        </section>
+      )}
       {result.offline && (
         <section className="offline-note" aria-label="Offline mode">
           <h3>Offline mode</h3>
           <p>Facts are presented without being cross-examined by the reasoning agent.</p>
         </section>
       )}
-      {result.facts && <FactsBoard facts={result.facts} timeline={result.timeline} />}
-      {result.launch && result.launch.moves.length > 0 && <LaunchReplay launch={result.launch} />}
-      {result.specialists && result.specialists.length > 0 && (
-        <SpecialistsPanel
-          answers={result.specialists}
-          index={result.launch?.moves.length ? '03' : '02'}
-        />
-      )}
       <section className="reading-section" aria-labelledby="reading-title">
         <div className="report-section-head">
-          <p className="report-kicker">{result.launch?.moves.length ? '04' : '03'} — Reading</p>
+          <p className="report-kicker">{number(1)} — Reading</p>
           <h3 id="reading-title">How the facts fit together.</h3>
         </div>
         <div className="reading-layout">
@@ -85,6 +87,13 @@ export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
           </aside>
         </div>
       </section>
+      {result.facts && (
+        <FactsBoard facts={result.facts} timeline={result.timeline} index={number(2)} />
+      )}
+      {replay && result.launch && <LaunchReplay launch={result.launch} index={number(3)} />}
+      {result.specialists && result.specialists.length > 0 && (
+        <SpecialistsPanel answers={result.specialists} index={number(replay ? 4 : 3)} />
+      )}
       <footer className="report-footer">
         <p>
           Analyzed on{' '}

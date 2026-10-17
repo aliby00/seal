@@ -292,7 +292,14 @@ function Chart({ launch, run }: { launch: LaunchReplayData; run: number }) {
   );
 }
 
-export function LaunchReplay({ launch }: { launch: LaunchReplayData }) {
+export function LaunchReplay({
+  launch,
+  index = '03',
+}: {
+  launch: LaunchReplayData;
+  /** Section number in the report. */
+  index?: string;
+}) {
   const [run, setRun] = useState(0);
   const [all, setAll] = useState(false);
   const firstSpan = span(launch.windowSeconds);
@@ -301,7 +308,9 @@ export function LaunchReplay({ launch }: { launch: LaunchReplayData }) {
   return (
     <section className="launch-replay" aria-labelledby="launch-title">
       <div className="report-section-head">
-        <p className="report-kicker">02 — The first {firstSpan}</p>
+        <p className="report-kicker">
+          {index} — The first {firstSpan}
+        </p>
         <h3 id="launch-title">Where the supply went when the token was born.</h3>
         <p className="questions-intro">
           Every move read from the token’s own transfers, from the launch block on. Dots are sized

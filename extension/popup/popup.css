@@ -1,0 +1,143 @@
+html,
+body {
+  margin: 0;
+  background: #05080b;
+}
+body {
+  width: 380px;
+  min-height: 200px;
+}
+.popup {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+  font-family:
+    Inter,
+    'Segoe UI',
+    system-ui,
+    -apple-system,
+    Arial,
+    sans-serif;
+  color: #eef2f4;
+  background: radial-gradient(120% 60% at 0% 0%, rgb(255 138 42 / 0.12), transparent 60%), #05080b;
+}
+.popup-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.popup-mark svg {
+  display: block;
+  width: 34px;
+  height: 34px;
+}
+.popup-mark .strip {
+  fill: #ff8a2a;
+}
+.popup-mark .frame {
+  fill: #eef2f4;
+}
+.popup-head h1 {
+  margin: 0;
+  font:
+    600 18px/1 'Space Grotesk',
+    'Segoe UI',
+    system-ui,
+    sans-serif;
+  letter-spacing: 0.12em;
+}
+.popup-head p,
+.help {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #9aa6ae;
+}
+.lookup label,
+.site h2 {
+  display: block;
+  margin: 0 0 6px;
+  font:
+    500 10.5px/1.2 'JetBrains Mono',
+    ui-monospace,
+    Menlo,
+    Consolas,
+    monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #ffb15e;
+}
+.row {
+  display: flex;
+  gap: 8px;
+}
+.row input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid rgb(255 255 255 / 0.18);
+  border-radius: 12px;
+  background: rgb(0 0 0 / 0.35);
+  color: #eef2f4;
+  font:
+    400 13px/1.2 'JetBrains Mono',
+    ui-monospace,
+    Menlo,
+    Consolas,
+    monospace;
+}
+.row input[aria-invalid='true'] {
+  border-color: #ffc857;
+}
+.row button {
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: #ff8a2a;
+  color: #160b02;
+  font:
+    600 13px/1 'Space Grotesk',
+    'Segoe UI',
+    system-ui,
+    sans-serif;
+  cursor: pointer;
+}
+.row button:hover {
+  background: #ffb15e;
+}
+input:focus-visible,
+button:focus-visible {
+  outline: 2px solid #ff8a2a;
+  outline-offset: 2px;
+}
+.result:empty {
+  display: none;
+}
+.result .card {
+  width: 100%;
+  max-height: none;
+  box-shadow: none;
+}
+.site {
+  padding-top: 12px;
+  border-top: 1px solid rgb(255 255 255 / 0.09);
+}
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.toggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: #ff8a2a;
+}
+.validation {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #ffc857;
+}
+#result {
+  display: block;
+}

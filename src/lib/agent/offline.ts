@@ -114,6 +114,12 @@ export function offlineExplanation(report: TokenReport): string {
         `graduation at ${pct(m.graduation.progress)} of the ${m.graduation.thresholdEth} ETH threshold`,
       );
     if (bits.length) parts.push(`Market: ${bits.join(', ')}.`);
+    const pool = m.activity;
+    if (pool && m.pair === null) {
+      parts.push(
+        `Over 24 hours, counted from the launch pool’s own trades: ${pool.h24.buys} buys and ${pool.h24.sells} sells by ${pool.h24.traders} wallets (no price, as no trading pair is listed).`,
+      );
+    }
     const perTrade = volumePerTrade(market);
     if (perTrade !== null && m.txns) {
       const trades = m.txns.h24.buys + m.txns.h24.sells;

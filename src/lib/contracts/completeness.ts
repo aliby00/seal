@@ -16,7 +16,8 @@ export type Completeness =
 
 /** D'où vient une donnée, et quand. Permet à l'agent de citer ses sources. */
 export type SourceRef = {
-  name: 'robinhood-rpc' | 'blockscout' | 'dexscreener';
+  /** `indexer` : l'indexeur SEAL, qui lit la chaîne en continu (`indexer/`). */
+  name: 'robinhood-rpc' | 'blockscout' | 'dexscreener' | 'indexer';
   fetchedAt: string;
   /** Renseigné quand la source a échoué ou n'a répondu que partiellement. */
   note?: string;

@@ -17,8 +17,17 @@ export default tseslint.config(
   },
   {
     // Scripts et configuration : contexte Node, pas navigateur.
-    files: ['scripts/**/*.mjs', '*.config.{ts,mjs}'],
+    files: ['scripts/**/*.mjs', '*.config.{ts,mjs}', 'indexer/**/*.ts'],
     languageOptions: { globals: globals.node },
+  },
+  {
+    // Extension navigateur : scripts classiques sans build, partagés entre le
+    // content script, le service worker et la popup.
+    files: ['extension/**/*.js'],
+    languageOptions: {
+      sourceType: 'script',
+      globals: { ...globals.browser, ...globals.serviceworker, ...globals.webextensions },
+    },
   },
   {
     // Code applicatif Next : Node côté serveur, navigateur côté client.

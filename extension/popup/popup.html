@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SEAL · In short</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <header class="popup-head">
+        <span id="popup-mark" class="popup-mark"></span>
+        <div>
+          <h1>SEAL</h1>
+          <p>Evidence and context. Never a score.</p>
+        </div>
+      </header>
+
+      <form id="lookup" class="lookup" novalidate>
+        <label for="address">Token address on Robinhood Chain</label>
+        <div class="row">
+          <input
+            id="address"
+            name="address"
+            placeholder="0x…"
+            spellcheck="false"
+            autocomplete="off"
+            autocapitalize="none"
+            aria-describedby="address-help"
+          />
+          <button type="submit">Read</button>
+        </div>
+        <p id="address-help" class="help">Only this address is sent to sealauth.dev.</p>
+      </form>
+
+      <div id="result" class="scope result" aria-live="polite"></div>
+
+      <section class="site" aria-labelledby="site-title">
+        <h2 id="site-title">On this site</h2>
+        <p id="site-none" class="help" hidden>
+          SEAL appears on DexScreener (Robinhood Chain), Blockscout and the pons launchpad.
+        </p>
+        <label id="site-toggle" class="toggle" hidden>
+          <input id="site-enabled" type="checkbox" />
+          <span>Show SEAL on <strong id="site-name"></strong></span>
+        </label>
+      </section>
+    </main>
+    <script src="../src/config.js"></script>
+    <script src="../src/detect.js"></script>
+    <script src="../src/client.js"></script>
+    <script src="../src/card.js"></script>
+    <script src="../src/styles.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

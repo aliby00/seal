@@ -2,6 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { collect, creatorHistoryCache } from '../../src/lib/collect';
 import { NotFoundError } from '../../src/lib/errors';
 
+/** The chain node, told apart by its host rather than by a substring of the URL. */
+const isChainNode = (url: string) => new URL(url).hostname.endsWith('.robinhood.com');
+
 const TOKEN = '0x494ddf6f7b4b045ede0abbb9ae86e4d59fa62ec9';
 const at = () => new Date('2026-09-25T00:00:00.000Z');
 
@@ -14,7 +17,7 @@ function stubNetwork(handlers: {
 }) {
   vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
-    if (url.includes('robinhood.com')) {
+    if (isChainNode(url)) {
       const body = JSON.parse(String(init?.body ?? '{}')) as { method: string };
       const out = handlers.rpc?.(body.method);
       if (out instanceof Error) throw out;
@@ -122,7 +125,7 @@ describe("résolution du créateur depuis l'adresse du token", () => {
     const topicsSeen: unknown[][] = [];
     vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
-      if (url.includes('robinhood.com')) {
+      if (isChainNode(url)) {
         type Call = { id?: number; method: string; params: [{ topics?: unknown[] }] };
         const raw = JSON.parse(String(init?.body ?? '{}')) as Call | Call[];
         const answer = (body: Call) => {
@@ -155,7 +158,7 @@ describe("résolution du créateur depuis l'adresse du token", () => {
   it('le signale proprement si le lancement est introuvable', async () => {
     vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
-      if (url.includes('robinhood.com')) {
+      if (isChainNode(url)) {
         const raw = JSON.parse(String(init?.body ?? '{}')) as
           { method: string } | { id: number; method: string }[];
         if (Array.isArray(raw)) {
@@ -220,7 +223,7 @@ describe('créateur d’un token hors pons', () => {
     };
     vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
-      if (!url.includes('robinhood.com')) return new Response('[]', { status: 200 });
+      if (!isChainNode(url)) return new Response('[]', { status: 200 });
       const raw = JSON.parse(String(init?.body ?? '{}')) as
         { method: string; params: unknown[] } | { id: number; method: string; params: unknown[] }[];
       const body = Array.isArray(raw)
@@ -255,7 +258,7 @@ describe("cache de l'historique du créateur", () => {
     let rpcCalls = 0;
     vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
-      if (!url.includes('robinhood.com')) return new Response('[]', { status: 200 });
+      if (!isChainNode(url)) return new Response('[]', { status: 200 });
       rpcCalls += 1;
       const raw = JSON.parse(String(init?.body ?? '{}')) as
         { method: string } | { id: number; method: string }[];

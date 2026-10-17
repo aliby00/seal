@@ -11,7 +11,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p indexer/tsconfig.json",
     "lint": "eslint .",
     "format": "prettier --check .",
     "test": "vitest run",

@@ -128,6 +128,11 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
     );
     lines.push(`Part cumulée du top 10 : ${(h.concentration.top10 * 100).toFixed(2)} %`);
     lines.push('(Le pool de liquidité et les adresses de burn sont exclus de ces parts.)');
+    if (h.pooledShare != null) {
+      lines.push(
+        `Part de l'offre TOTALE encore dans les pools et le burn : ${(h.pooledShare * 100).toFixed(2)} %`,
+      );
+    }
     const creator = report.creator.data.creator.toLowerCase();
     for (const holder of h.top
       .filter((t) => t.kind === 'wallet' || t.kind === 'contract')
@@ -159,6 +164,14 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
     const trades = m.txns.h24.buys + m.txns.h24.sells;
     lines.push(
       `Volume 24 h : ${m.volumeUsd.h24} USD réparti sur ${trades} échanges (${m.txns.h24.buys} achats, ${m.txns.h24.sells} ventes).`,
+    );
+  } else if (m.activity && m.txns) {
+    // No listed pair: the launch pool's own swaps, counted by the indexer.
+    const a = m.activity;
+    lines.push(
+      `Échanges 24 h (comptés par l'indexeur SEAL sur les swaps du pool de lancement, sans prix) : ${a.h24.buys} achats, ${a.h24.sells} ventes, ${a.h24.traders} adresses distinctes, volume ${a.h24.volume} wei du token de paire.`,
+      `Échanges 7 j : ${a.d7.buys} achats, ${a.d7.sells} ventes, ${a.d7.traders} adresses. Dernier échange : ${a.sinceLaunch.lastTradeAt ?? 'aucun'}.`,
+      `Fenêtre couverte : depuis ${a.coveredFrom ?? 'inconnu'}${a.sinceLaunch.complete ? ' (tout depuis le lancement)' : ''}. Le créateur a échangé dans ce pool : ${a.creatorTraded ? 'oui' : 'non'}.`,
     );
   } else {
     lines.push('Volume : non disponible');

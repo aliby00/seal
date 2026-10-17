@@ -9,6 +9,8 @@ import type { ReportFacts, TimelineLaunch } from '@/lib/facts';
 
 function pct(value: number): string {
   if (value > 0 && value < 0.001) return '<0.1%';
+  // 99.96% rounded would read as the whole supply.
+  if (value > 0.999 && value < 1) return '>99.9%';
   return `${(value * 100).toFixed(value < 0.1 ? 1 : 0)}%`;
 }
 
@@ -400,6 +402,12 @@ function HoldersCard({
         <Missing note={holders.note} />
       ) : (
         <>
+          {holders.pooled != null && holders.pooled > 0 && (
+            <p className="fact-pooled">
+              <strong>{pct(holders.pooled)}</strong> of the supply is still in the pool. The shares
+              below split the other {pct(1 - holders.pooled)}, held in wallets and contracts.
+            </p>
+          )}
           <Donut top1={holders.top1} top10={holders.top10} count={holders.holderCount} />
           <p className="sr-only">{`Concentration: largest ${pct(holders.top1)} · top 10 ${pct(holders.top10)}`}</p>
           {holders.holderCount !== null && (
@@ -437,6 +445,60 @@ function HoldersCard({
   );
 }
 
+const eth = (value: number | null): string =>
+  value === null
+    ? '—'
+    : `${value >= 100 ? value.toFixed(0) : value.toFixed(value >= 1 ? 2 : 4)} ETH`;
+
+/** No listed pair: the launch pool's own trades, counted by the SEAL indexer. No price. */
+function PoolActivity({
+  activity,
+}: {
+  activity: NonNullable<ReportFacts['market']['poolActivity']>;
+}) {
+  const trades = activity.buys24h + activity.sells24h;
+  return (
+    <>
+      <dl className="fact-pairs">
+        <div>
+          <dt>Trades 24h</dt>
+          <dd>{trades}</dd>
+        </div>
+        <div>
+          <dt>Wallets 24h</dt>
+          <dd>{activity.traders24h}</dd>
+        </div>
+        <div>
+          <dt>Volume 24h</dt>
+          <dd>{eth(activity.volume24hEth)}</dd>
+        </div>
+        <div>
+          <dt>Last trade</dt>
+          <dd>
+            {activity.lastTradeAt
+              ? `${activity.lastTradeAt.slice(0, 16).replace('T', ' ')} UTC`
+              : '—'}
+          </dd>
+        </div>
+      </dl>
+      {trades > 0 && (
+        <Split
+          label={`${activity.buys24h} buys and ${activity.sells24h} sells in 24 hours`}
+          parts={[
+            { value: activity.buys24h, tone: 'calm', name: 'buys' },
+            { value: activity.sells24h, tone: 'warm', name: 'sells' },
+          ]}
+        />
+      )}
+      <p className="fact-note">
+        Counted from the launch pool’s own trades
+        {activity.coveredFrom ? ` since ${activity.coveredFrom.slice(0, 10)}` : ''}. There is no
+        price: no trading pair is listed for this token.
+      </p>
+    </>
+  );
+}
+
 function MarketCard({ market }: { market: ReportFacts['market'] }) {
   const trades = (market.buys24h ?? 0) + (market.sells24h ?? 0);
   return (
@@ -452,6 +514,8 @@ function MarketCard({ market }: { market: ReportFacts['market'] }) {
       )}
       {!market.measured ? (
         <Missing note={market.note} />
+      ) : market.poolActivity ? (
+        <PoolActivity activity={market.poolActivity} />
       ) : (
         <>
           <dl className="fact-pairs">
@@ -490,14 +554,17 @@ function MarketCard({ market }: { market: ReportFacts['market'] }) {
 export function FactsBoard({
   facts,
   timeline,
+  index = '02',
 }: {
   facts: ReportFacts;
   timeline?: TimelineLaunch[];
+  /** Section number in the report. */
+  index?: string;
 }) {
   return (
     <section className="facts-section" aria-labelledby="facts-title">
       <div className="report-section-head">
-        <p className="report-kicker">01 — Measured</p>
+        <p className="report-kicker">{index} — Measured</p>
         <h3 id="facts-title">What the chain and the market show.</h3>
       </div>
       <div className="facts-board" role="region" aria-label="Measured facts">

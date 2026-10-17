@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>ALP / ETH · Robinhood · stand-in page</title>
+    <style>
+      /* Hostile site CSS: none of it may reach the overlay. */
+      * {
+        font-family: 'Comic Sans MS', cursive !important;
+        color: lime !important;
+      }
+      button {
+        background: magenta !important;
+      }
+      body {
+        margin: 0;
+        padding: 24px;
+        min-height: 2000px;
+        background: #111;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>ALP / ETH</h1>
+    <label>Search <input id="search" value="0x10e848f9d5073d670201b111f1ba3d1c5be6f18b" /></label>
+    <p>
+      Other pair:
+      <a id="other" href="/robinhood/0x2222222222222222222222222222222222222222">BETA / ETH</a>
+    </p>
+    <p>
+      Transaction:
+      <a
+        id="tx"
+        href="https://robinhoodchain.blockscout.com/tx/0xabababababababababababababababababababababababababababababababab"
+        >0xabab…abab</a
+      >
+    </p>
+    <button id="page-button" type="button">A button of the page</button>
+    <p id="clicked" hidden>clicked</p>
+    <script>
+      document.getElementById('page-button').addEventListener('click', () => {
+        document.getElementById('clicked').hidden = false;
+      });
+    </script>
+  </body>
+</html>
