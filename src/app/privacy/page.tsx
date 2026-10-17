@@ -41,6 +41,17 @@ export default function PrivacyPage() {
       </ul>
       <p>We do not sell data and do not share it for advertising.</p>
 
+      <h2>The browser extension</h2>
+      <p>
+        The SEAL browser extension shows the same short summary on DexScreener, Blockscout and the
+        pons launchpad. When it finds a Robinhood Chain token on the page you are viewing, it sends
+        that token&apos;s address (or the trading pair&apos;s address on DexScreener) to
+        sealauth.dev, and nothing else: not the page you are on, not your browsing history, not a
+        cookie or an identifier. Answers are kept in your browser for five minutes, then forgotten.
+        The only setting it stores is the list of sites where you switched it off, kept by your
+        browser.
+      </p>
+
       <h2>How long</h2>
       <p>
         Request-limit counters last about a minute. Analysis results, which hold only public data,

@@ -177,6 +177,30 @@ test('report opens with the token, then asks the ten questions one by one, witho
   await accessible(page);
 });
 
+test('a ?token= link fills the address and starts the analysis', async ({ page }) => {
+  const posted: unknown[] = [];
+  await page.route('**/api/analyze', (route) => {
+    posted.push(route.request().postDataJSON());
+    return route.fulfill({ json: report });
+  });
+  await page.goto(`/?token=${token}#analysis`);
+  await expect(page.getByLabel('Token address', { exact: true })).toHaveValue(token);
+  await expect(page.getByRole('article')).toBeVisible();
+  expect(posted).toEqual([{ token }]);
+});
+
+test('a ?token= link that is not an address starts nothing', async ({ page }) => {
+  let requests = 0;
+  await page.route('**/api/analyze', (route) => {
+    requests++;
+    return route.fulfill({ json: report });
+  });
+  await page.goto(`/?token=${token}00#analysis`);
+  await expect(page.getByLabel('Token address', { exact: true })).toHaveValue('');
+  await page.waitForTimeout(300);
+  expect(requests).toBe(0);
+});
+
 async function submit(page: Page) {
   await page.getByLabel('Token address', { exact: true }).fill(token);
   await page.getByRole('button', { name: 'Analyze token' }).click();
