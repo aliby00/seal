@@ -40,9 +40,14 @@ export const MAX_RECEIPTS = 60;
  */
 export type TxNature = 'swap' | 'liquidity' | 'other';
 
-export function natureOf(logs: readonly RawLog[], pools: ReadonlySet<string>): TxNature {
+export function natureOf(
+  logs: readonly RawLog[],
+  pools: ReadonlySet<string>,
+  /** What counts as a trade: the Uniswap swaps, plus a launchpad curve's own trade events. */
+  swapTopics: ReadonlySet<string> = SWAP_TOPICS,
+): TxNature {
   const fromPool = logs.filter((l) => pools.has(l.address.toLowerCase()));
-  if (fromPool.some((l) => SWAP_TOPICS.has((l.topics[0] ?? '').toLowerCase()))) return 'swap';
+  if (fromPool.some((l) => swapTopics.has((l.topics[0] ?? '').toLowerCase()))) return 'swap';
   if (fromPool.some((l) => LIQUIDITY_TOPICS.has((l.topics[0] ?? '').toLowerCase()))) {
     return 'liquidity';
   }
@@ -57,6 +62,7 @@ export async function readTxNatures(
   rpc: RpcClient,
   hashes: readonly string[],
   pools: ReadonlySet<string>,
+  swapTopics: ReadonlySet<string> = SWAP_TOPICS,
 ): Promise<Map<string, TxNature>> {
   const unique = [...new Set(hashes)].slice(0, MAX_RECEIPTS);
   const natures = new Map<string, TxNature>();
@@ -67,7 +73,7 @@ export async function readTxNatures(
   unique.forEach((hash, i) => {
     const outcome = outcomes[i];
     const logs = outcome?.ok ? outcome.value?.logs : undefined;
-    if (Array.isArray(logs)) natures.set(hash, natureOf(logs, pools));
+    if (Array.isArray(logs)) natures.set(hash, natureOf(logs, pools, swapTopics));
   });
   return natures;
 }

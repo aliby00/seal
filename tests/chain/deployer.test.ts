@@ -277,13 +277,19 @@ describe('fetchDeployerHistory', () => {
     });
     const history = await fetchDeployerHistory(rpc, ORIGIN, { latestBlock: 1_000 });
     expect(history.completeness).toBe('partial');
-    expect(history.data.origin).toEqual({
+    expect(history.data.origin).toMatchObject({
       source: 'deployer',
       role: 'launcher',
       launchContract: LAUNCHPAD,
       launchesListed: true,
       transactionCount: 11,
     });
+    // Where the launches were looked for, and where they cannot be.
+    expect(history.data.origin?.launchpadsRead).toContain('its launch contract');
+    expect(history.data.origin?.launchpadsRead).toContain('pons');
+    expect(history.data.origin?.launchpadsNotRead).toEqual(
+      expect.arrayContaining(['flap.sh', 'contracts deployed directly']),
+    );
     expect(history.data.counts.launched).toBe(2);
     const own = history.data.tokens.find((t) => t.address === TOKEN);
     expect(own).toMatchObject({

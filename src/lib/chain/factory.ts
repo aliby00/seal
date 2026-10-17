@@ -7,6 +7,7 @@ import {
 } from 'viem';
 import type { RawLog } from './logs';
 import { getLogsChunked, type GetLogsOptions } from './logs';
+import { LAUNCHPADS } from './launchpads';
 import type { RpcClient } from './rpc';
 
 /**
@@ -21,8 +22,9 @@ export const TOKEN_LAUNCHED_TOPIC =
   '0xdb51ea9ad51ab453a65a4cb7e60c3cb378c9501bb002609f8f97778fb6c4235a';
 
 /**
- * The pons factories and the blocks where they launched tokens. Read off the
- * chain on 14/10/2026 by querying `TokenLaunched` on each of them:
+ * The pons factories and the blocks where they launched tokens, taken from
+ * the launchpad registry (launchpads.ts). Read off the chain on 14/10/2026,
+ * then 17/10/2026 for the first generation:
  *
  * | factory   | launches | first block | last block  |
  * | --------- | -------- | ----------- | ----------- |
@@ -30,14 +32,12 @@ export const TOKEN_LAUNCHED_TOPIC =
  * | `0xa24d…` | 183      | 12,278,587  | 86,025,151  |
  * | `0xa5aa…` | > 10,000 | 8,991,118   | ~38,650,000 |
  * | `0x0c37…` | 1,895    | 8,621,658   | 34,545,113  |
+ * | `0xd9ec…` | 60,142   | 61,869      | 6,880,646   |
  *
- * `0xa5aa…` and `0x0c37…` are the two the pons docs list; they stopped
- * launching, so they get an upper bound. The two others are still open-ended.
  * Bounding each factory to its own range is what makes the whole history fit
- * in one batched request (19 windows of 10 M blocks).
- *
- * The launchpad has moved before — hard-coding the docs address is what broke
- * the first version — so a new generation must be added here.
+ * in one batched request. The launchpad has moved before — hard-coding the
+ * docs address is what broke the first version — so a new generation must be
+ * added to the registry.
  */
 export type FactoryRange = {
   address: Address;
@@ -47,24 +47,14 @@ export type FactoryRange = {
   getter: boolean;
 };
 
-export const PONS_FACTORIES: readonly FactoryRange[] = [
-  { address: '0xf4fc0cd27fc8ecf17e55ee4c3f7201897df3eb75', fromBlock: 39_000_000, getter: true },
-  // Same event, but `getLaunchedToken` returns another layout and
-  // `graduationStatus` does not answer: probably a fork of the launchpad.
-  { address: '0xa24d48d50fd7985c6de816eaf77c1a17d3593bbe', fromBlock: 12_000_000, getter: false },
-  {
-    address: '0xa5aab3f0c6eeadf30ef1d3eb997108e976351feb',
-    fromBlock: 8_991_118,
-    toBlock: 40_000_000,
-    getter: true,
-  },
-  {
-    address: '0x0c37a24f5d23a486fa692d1500881d698b1f77a4',
-    fromBlock: 8_600_612,
-    toBlock: 35_000_000,
-    getter: true,
-  },
-];
+export const PONS_FACTORIES: readonly FactoryRange[] = LAUNCHPADS.filter(
+  (l) => l.id === 'pons',
+).map((l) => ({
+  address: l.address,
+  fromBlock: l.fromBlock,
+  ...(l.toBlock !== undefined ? { toBlock: l.toBlock } : {}),
+  getter: l.getter === true,
+}));
 
 /** `getLaunchedToken(address)`, as documented by pons. Verified on `0xf4fc…` on 14/10/2026. */
 export const GET_LAUNCHED_TOKEN = parseAbiItem(

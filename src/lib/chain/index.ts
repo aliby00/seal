@@ -29,6 +29,7 @@ export * from './graduation';
 export * from './behavior';
 export * from './deployer';
 export * from './launch';
+export * from './launchpads';
 
 /**
  * Where each watched token's launch liquidity sits: its position id comes with
