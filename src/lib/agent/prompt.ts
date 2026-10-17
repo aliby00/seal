@@ -128,6 +128,11 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
     );
     lines.push(`Part cumulée du top 10 : ${(h.concentration.top10 * 100).toFixed(2)} %`);
     lines.push('(Le pool de liquidité et les adresses de burn sont exclus de ces parts.)');
+    if (h.pooledShare != null) {
+      lines.push(
+        `Part de l'offre TOTALE encore dans les pools et le burn : ${(h.pooledShare * 100).toFixed(2)} %`,
+      );
+    }
     const creator = report.creator.data.creator.toLowerCase();
     for (const holder of h.top
       .filter((t) => t.kind === 'wallet' || t.kind === 'contract')

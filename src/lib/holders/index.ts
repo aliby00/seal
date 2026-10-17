@@ -129,6 +129,10 @@ export function computeDistribution(
       top1: counted[0]?.share ?? 0,
       top10: counted.slice(0, 10).reduce((sum, h) => sum + h.share, 0),
     },
+    pooledShare:
+      totals.supply !== null && totals.supply > 0n
+        ? Number((setAside * 1_000_000n) / totals.supply) / 1_000_000
+        : null,
     distinctTraders: null,
   };
 }
