@@ -21,6 +21,7 @@ import { combineCompleteness, type Completeness, type CreatorOrigin } from './co
 import type {
   CreatorHistory,
   HolderDistribution,
+  SetAsideRole,
   LaunchedToken,
   MarketState,
   TokenReport,
@@ -28,7 +29,7 @@ import type {
 import { IncompleteDataError, NotFoundError, RateLimitError, SealError } from './errors';
 import { createBudget, type RequestBudget } from './http';
 import { fetchHolderDistribution } from './holders';
-import { fetchHoldersFromChain, findFirstMint } from './holders/chain';
+import { fetchHoldersFromChain, findFirstMint, recheckContracts } from './holders/chain';
 import { fetchPairs, toMarketState, venuesOf, type DexScreenerPair } from './market';
 import { log } from './logger';
 import { TtlCache } from './cache';
@@ -68,13 +69,16 @@ export const RPC_BUDGET = 40;
 /** Blockscout pages, or RPC requests when holders are rebuilt from transfers. */
 export const HOLDERS_BUDGET = 20;
 export const MARKET_BUDGET = 4;
+/** One batch of codes: the largest holders Blockscout calls contracts, re-read. */
+const RECHECK_BUDGET = 2;
 /**
  * The launch replay: the log read and the supply, then block times, codes and
- * balances in batches of 20 — up to 42 blocks and 40 addresses, so 9 at most,
- * plus two batches of receipts and the halvings of a launch too busy to read
- * at once. Retries on a busy public node count too: room is left for them.
+ * balances in batches of 20 — up to 42 blocks and 160 addresses (the moves
+ * drawn, the first buyers, the addresses one transaction served), so 19 at
+ * most, plus three batches of receipts and the halvings of a launch too busy
+ * to read at once. Retries on a busy public node count too: room is left.
  */
-export const LAUNCH_BUDGET = 30;
+export const LAUNCH_BUDGET = 50;
 /** The pause before the replay is asked again of a node that turned it away. */
 const REPLAY_RETRY_MS = 4_000;
 
@@ -408,6 +412,22 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
   const launchBlock = chain.data.tokens.find(
     (t) => t.address.toLowerCase() === address.toLowerCase(),
   )?.launchedAtBlock;
+  // Every address that holds the token for trading or for its launch, and
+  // why: none of them is a holder. The launch pool alone was passed before,
+  // and a launchpad's curve (99.9 % of a flap.sh token), the pairs listed
+  // since, the launchpad's own contracts and its lock contract all read as
+  // the largest holders.
+  const setAside: { address: string; role: SetAsideRole }[] = [
+    ...(launch?.pool && launch.pool !== '0x'
+      ? [{ address: launch.pool, role: 'pool' as const }]
+      : []),
+    ...(origin?.venues.pools ?? []).map((address) => ({ address, role: 'pool' as const })),
+    ...(listedVenues?.pools ?? []).map((address) => ({ address, role: 'pool' as const })),
+    ...(origin?.venues.curves ?? []).map((address) => ({ address, role: 'curve' as const })),
+    ...(origin?.launchContract
+      ? [{ address: origin.launchContract, role: 'launchpad' as const }]
+      : []),
+  ];
   function readHolders(): Promise<HolderDistribution> {
     if (!options.blockscoutApiKey && latest > 0) {
       return (async () => {
@@ -427,7 +447,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
         return fetchHoldersFromChain(holdersRpc, address, {
           fromBlock: from,
           toBlock: latest,
-          poolAddress: launch?.pool ?? origin?.venues.pools[0],
+          setAside,
           now,
         });
       })();
@@ -435,9 +455,20 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     return fetchHolderDistribution(address, {
       apiKey: options.blockscoutApiKey,
       budget: holdersBudget,
-      poolAddress: launch?.pool ?? origin?.venues.pools[0],
+      setAside,
       now,
-    });
+    }).then(async (distribution) =>
+      distribution.completeness === 'unavailable' || latest === 0
+        ? distribution
+        : {
+            ...distribution,
+            // Blockscout calls a wallet delegating under EIP-7702 a contract.
+            data: await recheckContracts(
+              createRpcClient(options.rpcUrl, createBudget(RECHECK_BUDGET)),
+              distribution.data,
+            ).catch(() => distribution.data),
+          },
+    );
   }
 
   // The first minutes, read on their own budget: they never cost the three blocks anything.

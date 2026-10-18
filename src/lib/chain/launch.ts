@@ -1,12 +1,21 @@
 import type { Address } from 'viem';
-import type { LaunchMove, LaunchMoveKind, LaunchReplay } from '../contracts/launch';
+import {
+  BUNDLE_MIN_WALLETS,
+  EARLY_SECONDS,
+  type LaunchMove,
+  type LaunchMoveKind,
+  type LaunchReplay,
+  type LaunchSummary,
+} from '../contracts/launch';
 import { IncompleteDataError } from '../errors';
 import { TRANSFER_TOPIC } from './behavior';
 import { fetchBlockTimestamps } from './graduation';
 import type { RawLog } from './logs';
 import { POOL_MANAGER } from './pools';
 import { LogQueryTooBroadError, type RpcClient } from './rpc';
-import { readTxNatures } from './trades';
+import { isContractCode } from './code';
+import { LAUNCHPADS } from './launchpads';
+import { readTxNatures, SWAP_TOPICS, type TxNature } from './trades';
 
 /**
  * The first minutes of a token, replayed from its own `Transfer` events.
@@ -27,6 +36,12 @@ const WINDOW_BLOCKS = 12_000;
 const MIN_WINDOW_BLOCKS = 150;
 /** Moves listed. Beyond, they are counted, not drawn. */
 export const MAX_MOVES = 40;
+/**
+ * Addresses whose code and balance today are read, at most: every actor
+ * drawn, then the first buyers and the addresses one transaction served.
+ * Eight batches of twenty; beyond, the summary says how many were not read.
+ */
+export const MAX_BALANCES_READ = 160;
 
 const ZERO = '0x0000000000000000000000000000000000000000';
 const BURN = new Set([ZERO, '0x000000000000000000000000000000000000dead']);
@@ -181,6 +196,17 @@ export function selectMoves<T extends DraftMove>(moves: readonly T[], creator: s
 }
 
 /**
+ * What counts as a trade in a launch: the Uniswap swaps, and every known
+ * launchpad's own curve events. With the swaps alone, three vaults buying 71 %
+ * of MUT8 on its 0x7ed5 curve (`CurveBuy`) then adding v4 liquidity read as
+ * liquidity "withdrawn" from the curve.
+ */
+export const TRADE_TOPICS: ReadonlySet<string> = new Set([
+  ...SWAP_TOPICS,
+  ...LAUNCHPADS.flatMap((l) => l.curveTrades ?? []),
+]);
+
+/**
  * A transfer into or out of a pool reads the same for a trade and for a
  * liquidity change: the transaction's receipt tells them apart. A move whose
  * receipt could not be read keeps its trade reading.
@@ -189,19 +215,25 @@ export async function separateLiquidity<T extends DraftMove>(
   rpc: RpcClient,
   moves: readonly T[],
   pools: ReadonlySet<string>,
+  natures?: ReadonlyMap<string, TxNature>,
 ): Promise<T[]> {
   const pooled = moves.filter((m) => m.kind === 'buy' || m.kind === 'sell');
   if (pooled.length === 0) return [...moves];
-  const natures = await readTxNatures(
-    rpc,
-    pooled.map((m) => m.transaction),
-    pools,
-  ).catch(() => new Map<string, never>());
-  return moves.map((m) =>
-    (m.kind === 'buy' || m.kind === 'sell') && natures.get(m.transaction) === 'liquidity'
-      ? { ...m, kind: m.kind === 'sell' ? 'provide' : 'withdraw' }
-      : m,
-  );
+  const read =
+    natures ??
+    (await readTxNatures(
+      rpc,
+      pooled.map((m) => m.transaction),
+      pools,
+      TRADE_TOPICS,
+    ).catch(() => new Map<string, never>()));
+  return moves.map((m) => relabel(m, read));
+}
+
+function relabel<T extends DraftMove>(m: T, natures: ReadonlyMap<string, TxNature>): T {
+  return (m.kind === 'buy' || m.kind === 'sell') && natures.get(m.transaction) === 'liquidity'
+    ? { ...m, kind: m.kind === 'sell' ? 'provide' : 'withdraw' }
+    : m;
 }
 
 /**
@@ -253,6 +285,159 @@ function secondsAt(block: number, known: readonly [number, number][]): number {
   return (before ?? after)?.[1] ?? 0;
 }
 
+type TimedMove = DraftMove & { seconds: number };
+
+/** What the totals rest on, before any balance is read. */
+type LaunchTally = {
+  creatorAtLaunch: number;
+  creatorBought: number;
+  creatorSold: number;
+  creatorFirstBuyAt: number | null;
+  creatorLastSaleAt: number | null;
+  /** First buyers (not the creator), in the order they bought, with what they bought early. */
+  early: string[];
+  earlyBought: Map<string, bigint>;
+  earlyWithin: number;
+  /** The transaction serving the most supply to several addresses, and what each got. */
+  bundle: { transaction: string; seconds: number; bought: Map<string, bigint> } | null;
+  bundled: string[];
+  supply: bigint;
+};
+
+/**
+ * The launch's totals over every move read in the window. Buys are purchases
+ * out of a pool or a curve by anyone but the creator; a move turned into a
+ * liquidity change by its receipt is not one.
+ */
+export function tallyLaunch(
+  moves: readonly TimedMove[],
+  context: { creator: string | null; from: number; pools: ReadonlySet<string>; supply: bigint },
+): LaunchTally {
+  const { creator, from, pools, supply } = context;
+  const buys = moves.filter((m) => m.kind === 'buy' && !pools.has(m.actor) && !BURN.has(m.actor));
+  const own = (m: DraftMove) => creator !== null && m.actor === creator;
+  const sum = (list: readonly DraftMove[]) => list.reduce((n, m) => n + m.value, 0n);
+
+  const creatorAtLaunch = sum(
+    moves.filter(
+      (m) =>
+        own(m) &&
+        m.block === from &&
+        (m.kind === 'buy' || m.kind === 'mint' || m.kind === 'allocation'),
+    ),
+  );
+  const creatorBuys = buys.filter(own);
+  const creatorSales = moves.filter((m) => m.kind === 'sell' && own(m));
+
+  const others = buys.filter((m) => !own(m)).sort((a, b) => a.seconds - b.seconds);
+  const firstAt = new Map<string, number>();
+  for (const m of others) if (!firstAt.has(m.actor)) firstAt.set(m.actor, m.seconds);
+  const earlyBought = new Map<string, bigint>();
+  let earlyWithin = 0;
+  for (const m of others) {
+    if (m.seconds > EARLY_SECONDS) continue;
+    earlyBought.set(m.actor, (earlyBought.get(m.actor) ?? 0n) + m.value);
+    earlyWithin = Math.max(earlyWithin, m.seconds);
+  }
+
+  const byTx = new Map<string, { seconds: number; bought: Map<string, bigint>; total: bigint }>();
+  for (const m of others) {
+    const key = m.transaction.toLowerCase();
+    const group = byTx.get(key) ?? { seconds: m.seconds, bought: new Map(), total: 0n };
+    group.bought.set(m.actor, (group.bought.get(m.actor) ?? 0n) + m.value);
+    group.total += m.value;
+    byTx.set(key, group);
+  }
+  const bundle =
+    [...byTx.entries()]
+      .filter(([, g]) => g.bought.size >= BUNDLE_MIN_WALLETS)
+      .sort((a, b) => (b[1].total > a[1].total ? 1 : b[1].total < a[1].total ? -1 : 0))
+      .map(([transaction, g]) => ({ transaction, seconds: g.seconds, bought: g.bought }))[0] ??
+    null;
+
+  return {
+    creatorAtLaunch: shareOf(creatorAtLaunch, supply),
+    creatorBought: shareOf(sum(creatorBuys), supply),
+    creatorSold: shareOf(sum(creatorSales), supply),
+    creatorFirstBuyAt: creatorBuys[0]?.seconds ?? null,
+    creatorLastSaleAt: creatorSales.at(-1)?.seconds ?? null,
+    early: [...earlyBought.keys()],
+    earlyBought,
+    earlyWithin,
+    bundle,
+    bundled: bundle ? [...bundle.bought.keys()] : [],
+    supply,
+  };
+}
+
+/** The totals, with what the addresses read hold today. */
+export function summarize(
+  tally: LaunchTally,
+  info: ReadonlyMap<string, { kind: LaunchMove['actorKind'] | null; held: number | null }>,
+  counts: Pick<
+    LaunchSummary,
+    'receiptsRead' | 'receiptsWanted' | 'balancesRead' | 'balancesWanted' | 'moves'
+  >,
+): LaunchSummary {
+  // What an address holds today counts up to what it bought here, never more.
+  const held = (bought: ReadonlyMap<string, bigint>) => {
+    let sum = 0;
+    let read = 0;
+    let contracts = 0;
+    let typed = 0;
+    for (const [address, value] of bought) {
+      const known = info.get(address);
+      if (known?.kind === 'contract') contracts += 1;
+      if (known?.kind) typed += 1;
+      if (known?.held === null || known?.held === undefined) continue;
+      read += 1;
+      sum += Math.min(known.held, shareOf(value, tally.supply));
+    }
+    return {
+      heldNow: read > 0 ? Math.round(sum * 1_000_000) / 1_000_000 : null,
+      unread: bought.size - read,
+      contracts: typed === bought.size ? contracts : null,
+    };
+  };
+  const total = (bought: ReadonlyMap<string, bigint>) =>
+    shareOf(
+      [...bought.values()].reduce((n, v) => n + v, 0n),
+      tally.supply,
+    );
+  const early = held(tally.earlyBought);
+  const bundle = tally.bundle ? { ...tally.bundle, ...held(tally.bundle.bought) } : null;
+  return {
+    moves: counts.moves,
+    earlySeconds: EARLY_SECONDS,
+    creatorAtLaunch: tally.creatorAtLaunch,
+    creatorBought: tally.creatorBought,
+    creatorSold: tally.creatorSold,
+    creatorFirstBuyAt: tally.creatorFirstBuyAt,
+    creatorLastSaleAt: tally.creatorLastSaleAt,
+    early: {
+      wallets: tally.early.length,
+      share: total(tally.earlyBought),
+      within: Math.round(tally.earlyWithin * 10) / 10,
+      ...early,
+    },
+    bundle: bundle
+      ? {
+          transaction: bundle.transaction,
+          wallets: bundle.bought.size,
+          share: total(bundle.bought),
+          seconds: Math.round(bundle.seconds * 10) / 10,
+          heldNow: bundle.heldNow,
+          unread: bundle.unread,
+          contracts: bundle.contracts,
+        }
+      : null,
+    receiptsRead: counts.receiptsRead,
+    receiptsWanted: counts.receiptsWanted,
+    balancesRead: counts.balancesRead,
+    balancesWanted: counts.balancesWanted,
+  };
+}
+
 export async function readLaunchReplay(
   rpc: RpcClient,
   token: Address,
@@ -298,7 +483,27 @@ export async function readLaunchReplay(
   const inWindow = drafts.filter(
     (m) => secondsAt(m.block, edgeTimes) - launchTime <= windowSeconds,
   );
-  const kept = await separateLiquidity(rpc, selectMoves(inWindow, creator), pools);
+  const selected = selectMoves(inWindow, creator);
+
+  // Trades and liquidity changes look alike: the receipts tell them apart.
+  // Those of the moves drawn first, then those of the first minute's buys,
+  // which the totals rest on.
+  const early = (m: DraftMove) =>
+    m.kind === 'buy' && secondsAt(m.block, edgeTimes) - launchTime <= EARLY_SECONDS;
+  const wantedReceipts = [
+    ...new Set(
+      [
+        ...selected.filter((m) => m.kind === 'buy' || m.kind === 'sell'),
+        ...inWindow.filter(early),
+        ...inWindow.filter((m) => m.kind === 'buy' || m.kind === 'sell'),
+      ].map((m) => m.transaction),
+    ),
+  ];
+  const natures = await readTxNatures(rpc, wantedReceipts, pools, TRADE_TOPICS).catch(
+    () => new Map<string, TxNature>(),
+  );
+  const kept = await separateLiquidity(rpc, selected, pools, natures);
+  const everyMove = inWindow.map((m) => relabel(m, natures));
 
   const blocks = [...new Set([from, ...kept.map((m) => m.block), to])];
   const times = await fetchBlockTimestamps(rpc, blocks);
@@ -306,33 +511,47 @@ export async function readLaunchReplay(
     .map((b, i) => [b, times[i] ? Date.parse(times[i]!) / 1000 : NaN] as [number, number])
     .filter(([, t]) => Number.isFinite(t))
     .sort((a, b) => a[0] - b[0]);
-  const listed = kept.map((m) => ({
-    ...m,
-    seconds: Math.min(windowSeconds, Math.max(0, secondsAt(m.block, known) - launchTime)),
-  }));
+  const at = (block: number) =>
+    Math.min(windowSeconds, Math.max(0, secondsAt(block, known) - launchTime));
+  const listed = kept.map((m) => ({ ...m, seconds: at(m.block) }));
 
-  // Who each actor is, and what it holds today.
-  const actors = [...new Set(listed.map((m) => m.actor))];
+  const totals = tallyLaunch(
+    everyMove.map((m) => ({ ...m, seconds: at(m.block) })),
+    { creator, from, pools, supply },
+  );
+
+  // Who each actor is, and what it holds today: the moves drawn first, then
+  // the first buyers and the addresses one transaction served, up to a cap.
+  const shown = [...new Set(listed.map((m) => m.actor))];
+  const wanted = [...new Set([...shown, ...totals.bundled, ...totals.early])];
+  const actors = wanted.slice(0, Math.max(MAX_BALANCES_READ, shown.length));
   const [codes, balances] = await Promise.all([
-    rpc.callBatch<string>(actors.map((a) => ({ method: 'eth_getCode', params: [a, 'latest'] }))),
-    rpc.callBatch<string>(
-      actors.map((a) => ({
-        method: 'eth_call',
-        params: [{ to: token, data: `${BALANCE_OF}${a.slice(2).padStart(64, '0')}` }, 'latest'],
-      })),
-    ),
+    rpc
+      .callBatch<string>(actors.map((a) => ({ method: 'eth_getCode', params: [a, 'latest'] })))
+      .catch(() => []),
+    rpc
+      .callBatch<string>(
+        actors.map((a) => ({
+          method: 'eth_call',
+          params: [{ to: token, data: `${BALANCE_OF}${a.slice(2).padStart(64, '0')}` }, 'latest'],
+        })),
+      )
+      .catch(() => []),
   ]);
   const info = new Map(
     actors.map((address, i) => {
       const code = codes[i];
       const balance = balances[i];
-      const kind: LaunchMove['actorKind'] = pools.has(address)
+      const kind: LaunchMove['actorKind'] | null = pools.has(address)
         ? 'pool'
         : BURN.has(address)
           ? 'burn'
-          : code?.ok && code.value !== '0x'
-            ? 'contract'
-            : 'wallet';
+          : code?.ok
+            ? // A wallet delegating under EIP-7702 has code and is still a wallet.
+              isContractCode(code.value)
+              ? 'contract'
+              : 'wallet'
+            : null;
       const held =
         balance?.ok && balance.value && balance.value !== '0x'
           ? shareOf(BigInt(balance.value), supply)
@@ -355,13 +574,29 @@ export async function readLaunchReplay(
     transaction: m.transaction,
   }));
 
+  const summary = summarize(totals, info, {
+    receiptsRead: Math.min(wantedReceipts.length, natures.size),
+    receiptsWanted: wantedReceipts.length,
+    balancesRead: [...info.values()].filter((v) => v.held !== null).length,
+    balancesWanted: wanted.length,
+    moves: inWindow.length,
+  });
+
   const cut = inWindow.length > listed.length;
   const minutes =
     windowSeconds < 90 ? `${windowSeconds} seconds` : `${Math.round(windowSeconds / 60)} minutes`;
   const notes = [
     cut
-      ? `${inWindow.length} moves in the first ${minutes}; ${listed.length} shown: every move of the creator, the largest, then the earliest`
+      ? `${inWindow.length} moves in the first ${minutes}, all counted in the totals; ${listed.length} shown: every move of the creator, the largest, then the earliest`
       : `${inWindow.length} moves in the first ${minutes}, read from the token’s transfers`,
+    ...(summary.receiptsWanted > summary.receiptsRead
+      ? [
+          `${summary.receiptsRead} of ${summary.receiptsWanted} trading transactions were read to tell trades from liquidity changes; the others are counted as trades`,
+        ]
+      : []),
+    ...(summary.balancesWanted > summary.balancesRead
+      ? [`what ${summary.balancesRead} of ${summary.balancesWanted} addresses hold today was read`]
+      : []),
     ...(narrowed
       ? [`the launch was too busy to read over ten minutes: only the first ${minutes} are covered`]
       : []),
@@ -378,6 +613,7 @@ export async function readLaunchReplay(
       supply: supply.toString(),
       moves,
       movesInWindow: inWindow.length,
+      summary,
     },
   };
 }

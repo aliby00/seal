@@ -89,7 +89,7 @@ describe('buildGlance', () => {
     f.holders.pooled = 0.9994;
     const glance = buildGlance({ facts: f })!;
     expect(glance.items.find((i) => i.id === 'supply')?.title).toBe(
-      '>99.9% of the supply is still in the launch pool: only <0.1% has reached wallets so far.',
+      '>99.9% of the supply is still in its pools: only <0.1% is held outside them so far.',
     );
   });
 
@@ -98,7 +98,7 @@ describe('buildGlance', () => {
     f.holders.pooled = 0.5;
     const supply = buildGlance({ facts: f })!.items.find((i) => i.id === 'supply');
     expect(supply?.title).toBe(
-      'The creator holds 70% of the tokens held outside the pool (35% of the whole supply).',
+      'The creator holds 70% of the tokens held outside its pools (35% of the whole supply).',
     );
   });
 
@@ -132,6 +132,7 @@ describe('buildGlance', () => {
     });
     // Dust buys are left out; later ones say when.
     launch.moves = [{ ...launch.moves[0]!, share: 0.002 }];
+    launch.movesInWindow = 1;
     expect(
       buildGlance({ facts: facts(), launch })!.items.find((i) => i.id === 'launch-buys'),
     ).toBeUndefined();

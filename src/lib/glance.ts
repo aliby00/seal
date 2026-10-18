@@ -1,6 +1,7 @@
 import type { LaunchReplayData } from './contracts/launch';
 import type { ReportFacts, TimelineLaunch } from './facts';
-import { buildStory } from './launch-story';
+import { addressesWord, buildStory } from './launch-story';
+import { whereSetAside } from './set-aside';
 import type { SpecialistAnswer } from './specialists/brief';
 
 /**
@@ -142,18 +143,19 @@ function liquidityItem(creator: ReportFacts['creator']): GlanceItem | null {
   };
 }
 
-/** Where the supply sits: still in the pool, or in wallets. */
+/** Where the supply sits: still in its pools, curve or launch contracts, or with holders. */
 function supplyItem(facts: ReportFacts, launch: LaunchReplayData | undefined): GlanceItem | null {
   const fromReplay = launch?.moves
     .filter((m) => m.actorKind === 'pool' && m.heldNow !== null)
     .reduce<number | null>((max, m) => Math.max(max ?? 0, m.heldNow ?? 0), null);
   const pooled = facts.holders.pooled ?? fromReplay ?? null;
+  const where = whereSetAside(facts.holders.setAside);
   if (pooled !== null && pooled >= 0.9) {
     return {
       id: 'supply',
       tone: 'neutral',
       figure: pct(pooled),
-      title: `${pct(pooled)} of the supply is still in the launch pool: only ${pct(1 - pooled)} has reached wallets so far.`,
+      title: `${pct(pooled)} of the supply is still in ${where}: only ${pct(1 - pooled)} is held outside ${/(curve|contract)$/.test(where) ? 'it' : 'them'} so far.`,
       detail: 'Shares of the whole supply, read from the holders list.',
       href: '#fact-holders',
     };
@@ -164,27 +166,41 @@ function supplyItem(facts: ReportFacts, launch: LaunchReplayData | undefined): G
   // are restated against the whole supply so 70% does not read as 70% of it.
   const whole = pooled !== null ? largest.share * (1 - pooled) : null;
   const creator = facts.creator.address?.toLowerCase();
-  const who = creator && largest.address.toLowerCase() === creator ? 'The creator' : 'One wallet';
+  // A contract is never "one wallet": what kind of address it is, is part of the fact.
+  const who =
+    creator && largest.address.toLowerCase() === creator
+      ? 'The creator'
+      : largest.kind === 'contract'
+        ? 'One contract'
+        : 'One wallet';
   return {
     id: 'supply',
     tone: largest.share >= 0.2 ? 'attention' : 'neutral',
     figure: pct(largest.share),
     title:
       whole !== null
-        ? `${who} holds ${pct(largest.share)} of the tokens held outside the pool (${pct(whole)} of the whole supply).`
-        : `${who} holds ${pct(largest.share)} of the tokens held outside the pool.`,
-    detail: 'The largest holder, pools and burn addresses left out.',
+        ? `${who} holds ${pct(largest.share)} of the tokens held outside ${where} (${pct(whole)} of the whole supply).`
+        : `${who} holds ${pct(largest.share)} of the tokens held outside ${where}.`,
+    detail:
+      'The largest holder; pools, launch curves, launch contracts and burn addresses left out.',
     href: '#fact-holders',
   };
 }
 
-/** Buys in the first minute, when few people could have seen the token yet. */
-const EARLY_SECONDS = 60;
-
 function launchBuysItem(launch: LaunchReplayData | undefined): GlanceItem | null {
   if (!launch) return null;
-  // Many wallets served by one transaction is the stronger fact: say that.
-  const bundle = buildStory(launch).bundle;
+  // The totals of every move read when the replay kept them; an older replay
+  // only has the moves listed, and says so.
+  const story = buildStory(launch);
+  const among = story.counted === 'shown' && story.partial ? ', among the moves shown' : '';
+  const detail =
+    story.counted === 'all'
+      ? 'Counted over every transfer of the window, not only the moves drawn.'
+      : story.partial
+        ? 'Counted over the moves drawn only: the window had more.'
+        : 'Counted over every transfer of the window.';
+  // Many addresses served by one transaction is the stronger fact: say that.
+  const bundle = story.bundle;
   if (bundle && bundle.share >= 0.01) {
     const at =
       bundle.seconds < 1
@@ -194,29 +210,28 @@ function launchBuysItem(launch: LaunchReplayData | undefined): GlanceItem | null
       id: 'launch-buys',
       tone: bundle.share >= 0.05 ? 'attention' : 'neutral',
       figure: pct(bundle.share),
-      title: `${bundle.wallets} wallets received ${pct(bundle.share)} of the supply in one single transaction, ${at}.`,
-      detail: 'One transaction delivering a purchase to many wallets at once.',
+      title: `${bundle.wallets} ${addressesWord(bundle.wallets, bundle.contracts)} received ${pct(bundle.share)} of the supply in one single transaction, ${at}${among}.`,
+      detail,
       href: '#launch-title',
     };
   }
-  const early = launch.moves.filter(
-    (m) => m.kind === 'buy' && !m.actorIsCreator && m.seconds <= EARLY_SECONDS,
-  );
-  const share = early.reduce((sum, m) => sum + m.share, 0);
+  const early = story.early;
   // A few dust buys say nothing; a visible slice of the supply does.
-  if (early.length === 0 || share < 0.01) return null;
-  const buyers = new Set(early.map((m) => m.actor.toLowerCase())).size;
-  const last = Math.max(...early.map((m) => m.seconds));
+  if (early.wallets === 0 || early.share < 0.01) return null;
+  const last = Math.round(early.within);
   const when =
-    last === 0
+    early.within < 1
       ? 'in its first second'
       : `within ${last} second${last === 1 ? '' : 's'} of its launch`;
   return {
     id: 'launch-buys',
-    tone: share >= 0.05 ? 'attention' : 'neutral',
-    figure: pct(share),
-    title: `${plural(buyers, 'wallet')} bought ${pct(share)} of the supply ${when}.`,
-    detail: 'Purchases in the first minute, before most people could see the token.',
+    tone: early.share >= 0.05 ? 'attention' : 'neutral',
+    figure: pct(early.share),
+    title:
+      early.share > 1
+        ? `${early.wallets} ${addressesWord(early.wallets, early.contracts)} bought ${pct(early.share)} of the supply ${when}${among}: more than the whole supply, as the same tokens were bought and sold back several times.`
+        : `${early.wallets} ${addressesWord(early.wallets, early.contracts)} bought ${pct(early.share)} of the supply ${when}${among}.`,
+    detail,
     href: '#launch-title',
   };
 }

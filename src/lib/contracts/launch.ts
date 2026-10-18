@@ -41,6 +41,66 @@ export type LaunchMove = {
   transaction: string;
 };
 
+/** Buys in this many seconds count as "the first buyers". */
+export const EARLY_SECONDS = 60;
+/** Addresses served by one transaction before it reads as "bought together". */
+export const BUNDLE_MIN_WALLETS = 3;
+
+/**
+ * The launch's totals, counted over EVERY transfer read in the window — not
+ * over the moves kept for the drawing. Counting the forty moves shown made one
+ * transaction serving 100 wallets and 87.5 % of the supply read as 35 wallets
+ * and 32 %.
+ */
+export type LaunchSummary = {
+  /** Moves counted, the same as `movesInWindow`. */
+  moves: number;
+  /** Seconds that make "the first buyers". */
+  earlySeconds: number;
+  /** What the creator received or bought in the launch block itself, share of supply. */
+  creatorAtLaunch: number;
+  /** What the creator bought in the window, share of supply. */
+  creatorBought: number;
+  /** Creator sales in the window, share of supply. */
+  creatorSold: number;
+  /** Seconds of the creator's first buy and last sale in the window, when there are some. */
+  creatorFirstBuyAt: number | null;
+  creatorLastSaleAt: number | null;
+  early: {
+    /** Distinct addresses (not the creator) whose first buy came within `earlySeconds`. */
+    wallets: number;
+    /** What they bought within `earlySeconds`, share of supply. */
+    share: number;
+    /** When the last of those buys came. */
+    within: number;
+    /** What they hold today, capped at what they bought; `null` when none could be read. */
+    heldNow: number | null;
+    /** How many of them were not read (beyond the cap, or a refused read). */
+    unread: number;
+    /** How many of them are contracts rather than wallets; `null` when not read. */
+    contracts: number | null;
+  };
+  /**
+   * The transaction that delivered the largest purchase to several addresses
+   * at once (at least three), counted over all its transfers.
+   */
+  bundle: {
+    transaction: string;
+    wallets: number;
+    share: number;
+    seconds: number;
+    heldNow: number | null;
+    unread: number;
+    contracts: number | null;
+  } | null;
+  /** Receipts read to tell trades from liquidity changes, of those wanted. */
+  receiptsRead: number;
+  receiptsWanted: number;
+  /** Balances read today, of those wanted. */
+  balancesRead: number;
+  balancesWanted: number;
+};
+
 export type LaunchReplayData = {
   token: string;
   launchBlock: number;
@@ -52,6 +112,8 @@ export type LaunchReplayData = {
   moves: LaunchMove[];
   /** Moves in the window, including any beyond those listed. */
   movesInWindow: number;
+  /** Totals over every move read. Absent from replays cached before it existed. */
+  summary?: LaunchSummary;
 };
 
 export type LaunchReplay = Sourced<LaunchReplayData>;
