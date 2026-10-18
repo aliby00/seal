@@ -76,6 +76,29 @@ describe('POST /api/analyze', () => {
     }
   });
 
+  // COVENANT (staging, 18/10/2026): no answer in 320 s. Whatever hangs past
+  // every read's own timeout, the route answers before maxDuration.
+  it('answers 504 by its own deadline when a step hangs past every timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      collect.mockResolvedValue(report);
+      // A provider that ignores its abort signal and never answers.
+      explain.mockReturnValue(new Promise(() => {}));
+      const pending = POST(post({ token: TOKEN }));
+      await vi.advanceTimersByTimeAsync(56_000);
+      let settled = false;
+      void pending.then(() => (settled = true));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(settled).toBe(false);
+      await vi.advanceTimersByTimeAsync(1_500);
+      const res = await pending;
+      expect(res.status).toBe(504);
+      expect(((await res.json()) as { error: string }).error).toMatch(/took too long/);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('refuse un corps illisible', async () => {
     expect((await POST(post('{'))).status).toBe(400);
   });

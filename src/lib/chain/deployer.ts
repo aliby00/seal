@@ -1,5 +1,11 @@
 import type { Address } from 'viem';
-import type { CreatorHistory, CreatorOrigin, LaunchedToken, SalesWindow } from '../contracts';
+import type {
+  CreatorHistory,
+  CreatorOrigin,
+  LaunchedToken,
+  LiquidityRemoval,
+  SalesWindow,
+} from '../contracts';
 import {
   BURN_TOPIC,
   creatorSendsOf,
@@ -386,7 +392,8 @@ export async function traceTokenOrigin(
   const named = findLaunchRecord(token, rc.logs, sender)?.creator;
   let isContract = false;
   if (named && named !== sender) {
-    const code = await rpc.call<string>('eth_getCode', [named, 'latest']).catch(() => '0x');
+    // Not read is not "a wallet": the trace fails, and the creator is said unread.
+    const code = await rpc.call<string>('eth_getCode', [named, 'latest']);
     isContract = isContractCode(code);
   }
   return readOrigin(token, mint, tx, rc, isContract);
@@ -437,10 +444,17 @@ async function creatorRemovals(
   targets: ReadonlySet<string>,
   removals: readonly { token: string; log: RawLog }[],
   collections: readonly { token: string; log: RawLog }[] = [],
-): Promise<{ pulled: Map<string, boolean>; collected: Map<string, boolean> }> {
+): Promise<{
+  pulled: Map<string, boolean>;
+  collected: Map<string, boolean>;
+  /** Who sent each removal or collection read; `null` when its transaction was not read. */
+  sender: Map<string, string | null>;
+}> {
   const pulled = new Map([...targets].map((t) => [t, false]));
   const collected = new Map([...targets].map((t) => [t, false]));
-  if (removals.length === 0 && collections.length === 0) return { pulled, collected };
+  if (removals.length === 0 && collections.length === 0) {
+    return { pulled, collected, sender: new Map() };
+  }
   // The most recent first: a pull ends a market's life, it rarely starts it.
   const hashes = [
     ...new Set([...removals, ...collections].reverse().map((r) => r.log.transactionHash)),
@@ -468,7 +482,147 @@ async function creatorRemovals(
   };
   settle(removals, pulled);
   settle(collections, collected);
-  return { pulled, collected };
+  return { pulled, collected, sender };
+}
+
+/** Removals of the analysed token detailed (receipt, recipients, their balances), at most. */
+export const MAX_REMOVALS_DETAILED = 3;
+/** Recipients of one removal whose balance today is read, at most. */
+const MAX_RETURNED_READ = 5;
+const TOTAL_SUPPLY_CALL = '0x18160ddd';
+const BALANCE_OF_CALL = '0x70a08231';
+const TRANSFER_SIGNATURE = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+
+/**
+ * Who got the token back from its markets in one transaction: each address's
+ * net receipt of the token (what it received less what it passed on), for
+ * the addresses that are not markets nor burn, as raw amounts.
+ */
+export function returnedFrom(
+  logs: readonly RawLog[],
+  token: string,
+  markets: ReadonlySet<string>,
+): Map<string, bigint> {
+  const own = lower(token);
+  const net = new Map<string, bigint>();
+  let fromMarket = false;
+  for (const log of logs) {
+    if (lower(log.address) !== own || log.topics.length !== 3) continue;
+    if (lower(log.topics[0] ?? '') !== TRANSFER_SIGNATURE) continue;
+    const raw = log.data.startsWith('0x') ? log.data.slice(2) : log.data;
+    if (raw.length < 64) continue;
+    const value = BigInt(`0x${raw.slice(0, 64)}`);
+    const from = fromTopic(log.topics[1]);
+    const to = fromTopic(log.topics[2]);
+    if (markets.has(from)) fromMarket = true;
+    net.set(from, (net.get(from) ?? 0n) - value);
+    net.set(to, (net.get(to) ?? 0n) + value);
+  }
+  if (!fromMarket) return new Map();
+  return new Map([...net].filter(([a, v]) => v > 0n && !markets.has(a) && !BURN_ADDRESSES.has(a)));
+}
+
+/**
+ * The analysed token's liquidity removals, the most recent first: who sent
+ * each, and to whom the market returned the token. `failed` when a part of
+ * it could not be read: who removed it is then unknown, never "nobody".
+ */
+export async function detailRemovals(
+  rpc: RpcClient,
+  token: string,
+  creator: string,
+  events: readonly { log: RawLog }[],
+  sender: ReadonlyMap<string, string | null>,
+  markets: ReadonlySet<string>,
+): Promise<{ removals: LiquidityRemoval[]; failed: boolean }> {
+  const latestFirst = [...events].sort(
+    (a, b) => Number(b.log.blockNumber) - Number(a.log.blockNumber),
+  );
+  const hashes = [...new Set(latestFirst.map((e) => e.log.transactionHash))].slice(
+    0,
+    MAX_REMOVALS_DETAILED,
+  );
+  if (hashes.length === 0) return { removals: [], failed: false };
+  let failed = false;
+  const outcomes = await rpc
+    .callBatch<{ logs: RawLog[] } | string | null>([
+      ...hashes.map((hash) => ({ method: 'eth_getTransactionReceipt', params: [hash] })),
+      { method: 'eth_call', params: [{ to: token, data: TOTAL_SUPPLY_CALL }, 'latest'] },
+    ])
+    .catch(() => {
+      failed = true;
+      return [];
+    });
+  const supplyOutcome = outcomes[hashes.length];
+  const supply =
+    supplyOutcome?.ok && typeof supplyOutcome.value === 'string' && supplyOutcome.value !== '0x'
+      ? BigInt(supplyOutcome.value)
+      : 0n;
+  if (supply <= 0n) return { removals: [], failed: true };
+  const share = (v: bigint) => Number((v * 1_000_000n) / supply) / 1_000_000;
+  const own = lower(creator);
+  const read: { hash: string; block: number; from: string; got: Map<string, bigint> }[] = [];
+  hashes.forEach((hash, i) => {
+    const receipt = outcomes[i];
+    const from = sender.get(hash) ?? null;
+    const logs =
+      receipt?.ok && receipt.value && typeof receipt.value === 'object' ? receipt.value.logs : null;
+    if (!logs || !from) {
+      failed = true;
+      return;
+    }
+    const block = Number(
+      latestFirst.find((e) => e.log.transactionHash === hash)?.log.blockNumber ?? 0,
+    );
+    read.push({ hash, block, from, got: returnedFrom(logs, token, markets) });
+  });
+  // What the recipients hold today, in one batch.
+  const holders = [...new Set(read.flatMap((r) => [...r.got.keys()].slice(0, MAX_RETURNED_READ)))];
+  const balances =
+    holders.length > 0
+      ? await rpc
+          .callBatch<string>(
+            holders.map((a) => ({
+              method: 'eth_call',
+              params: [
+                { to: token, data: `${BALANCE_OF_CALL}${a.slice(2).padStart(64, '0')}` },
+                'latest',
+              ],
+            })),
+          )
+          .catch(() => {
+            failed = true;
+            return [];
+          })
+      : [];
+  const heldNow = new Map(
+    holders.map((a, i) => {
+      const b = balances[i];
+      if (!(b?.ok && typeof b.value === 'string' && /^0x[0-9a-f]*$/i.test(b.value))) failed = true;
+      return [
+        a,
+        b?.ok && typeof b.value === 'string' && b.value !== '0x' ? share(BigInt(b.value)) : null,
+      ] as const;
+    }),
+  );
+  return {
+    removals: read.map((r) => ({
+      transaction: r.hash,
+      block: r.block,
+      sender: r.from,
+      by: r.from === own ? 'creator' : 'other',
+      returned: [...r.got]
+        .sort((a, b) => (b[1] > a[1] ? 1 : b[1] < a[1] ? -1 : 0))
+        .slice(0, MAX_RETURNED_READ)
+        .map(([address, value]) => ({
+          address,
+          share: share(value),
+          isCreator: address === own,
+          heldNow: heldNow.get(address) ?? null,
+        })),
+    })),
+    failed,
+  };
 }
 
 type WindowQuery = {
@@ -1021,12 +1175,22 @@ export async function fetchDeployerHistory(
   // Anyone can add liquidity to a market and take it back: only a removal the
   // creator signed is theirs. Verified live, where a third party rebalancing
   // its own range made SEAL report the creator's liquidity as pulled.
-  const { pulled, collected } = await creatorRemovals(
+  const { pulled, collected, sender } = await creatorRemovals(
     rpc,
     creator,
     liquidityTargets,
     removals,
     collections,
+  );
+  // Who removed the analysed token's liquidity, and to whom it went: said,
+  // whoever sent it (MOON: the creator, 48.07 % of the supply back to it).
+  const ownRemovals = await detailRemovals(
+    rpc,
+    origin.token,
+    creator,
+    removals.filter((r) => r.token === origin.token),
+    sender,
+    ownMarkets,
   );
   const pulledKnown = unseenAsUnknown(pulled, liquidityLogs.truncated);
   const collectedKnown = unseenAsUnknown(collected, liquidityLogs.truncated);
@@ -1062,6 +1226,9 @@ export async function fetchDeployerHistory(
           }
         : {}),
       ...(l.token === origin.token ? { creatorRecipients, creatorSends } : {}),
+      ...(l.token === origin.token && ownRemovals.removals.length > 0
+        ? { liquidityRemovals: ownRemovals.removals }
+        : {}),
     };
   });
 
@@ -1094,13 +1261,23 @@ export async function fetchDeployerHistory(
 
   // This token's own sales, when they were looked for and could not be told.
   const ownUnread = Boolean(ownTarget) && !soldKnown.has(origin.token);
+  // The other launches' sales or liquidity, asked and not read: unknown, and said.
+  const othersUnread =
+    !othersUnchecked &&
+    ((otherTargets.length > 0 && otherSales.truncated) ||
+      (liquidityLogs.truncated && [...liquidityTargets].some((t) => t !== origin.token)));
+  // This token's liquidity, asked and not read.
+  const ownLiquidityUnread = liquidityLogs.truncated && liquidityTargets.has(origin.token);
   return {
     completeness: 'partial',
     sources: [
       { name: 'robinhood-rpc', fetchedAt, note },
       ...(ownUnread ? [{ name: 'robinhood-rpc' as const, fetchedAt, note: UNREAD.ownSales }] : []),
-      ...(othersUnchecked
+      ...(othersUnchecked || othersUnread
         ? [{ name: 'robinhood-rpc' as const, fetchedAt, note: UNREAD.otherChecks }]
+        : []),
+      ...(ownRemovals.failed || ownLiquidityUnread
+        ? [{ name: 'robinhood-rpc' as const, fetchedAt, note: UNREAD.removals }]
         : []),
     ],
     data: {

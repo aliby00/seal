@@ -68,6 +68,9 @@ export async function gatherContext(
     ...(report ? { report } : {}),
     ...(index ? { index } : {}),
   };
+  // Every lookup that failed is named: an answer it leaves unmeasured is a partial report.
+  const unread: string[] = [];
+  context.unread = unread;
 
   // The creator named by the launch record: the market they opened is the
   // token's market, whoever else opened one beside it.
@@ -78,6 +81,7 @@ export async function gatherContext(
   const fundingOfReported = reported
     ? gatherFunding(rpc, token, reported).catch((error: unknown) => {
         log.warn('financement non lu', { token, error: String(error) });
+        unread.push('who funded the creator');
         return undefined;
       })
     : undefined;
@@ -98,7 +102,10 @@ export async function gatherContext(
     market = null;
   } else if (main) {
     market = await mainMarket(rpc, token, main, discovery);
-    if (!market) context.mainRulesUnread = true;
+    if (!market) {
+      context.mainRulesUnread = true;
+      unread.push('the main pool’s trading rules');
+    }
   } else {
     try {
       const { latest, found } = await (discovery ?? discoverMarkets(rpc, token, index));
@@ -111,7 +118,10 @@ export async function gatherContext(
   context.market = market;
 
   if (market && market.name === undefined) {
-    const meta = await readTokenMetas(rpc, [market.token]).catch(() => undefined);
+    const meta = await readTokenMetas(rpc, [market.token]).catch(() => {
+      unread.push('the token’s name');
+      return undefined;
+    });
     const m = meta?.get(market.token);
     // A copy: the market comes from an index shared by every request on this
     // instance, and writing into it made one user's results depend on others'.
@@ -132,13 +142,17 @@ export async function gatherContext(
   if (!creator && market) {
     const tx = await rpc
       .call<{ from?: string } | null>('eth_getTransactionByHash', [market.transactionHash])
-      .catch(() => null);
+      .catch(() => {
+        unread.push('who opened the market');
+        return null;
+      });
     creator = tx?.from?.toLowerCase() ?? null;
   }
   context.creator = creator;
   const [facts, funding] = await Promise.all([
     readOnchainFacts(rpc, { hook, creator, token: context.token }).catch((error: unknown) => {
       log.warn('faits on-chain illisibles', { token, error: String(error) });
+      unread.push('the hook’s code and the creator’s wallet');
       return null;
     }),
     fundingOfReported && creator === reported

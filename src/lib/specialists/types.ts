@@ -146,6 +146,12 @@ export type SpecialistContext = {
   otherPools?: PoolRules[];
   /** True when the main pool is v4 and its trading rules could not be read this time. */
   mainRulesUnread?: boolean;
+  /**
+   * The lookups of the questions that failed this time (the creator's
+   * funding, the hook's code, the market's creator): their answers fell back
+   * to "not measured", and the report says it is partial.
+   */
+  unread?: string[];
   /** Markets on the main pool's hook, all history (indexer); absent when not read. */
   hookUse?: HookUse | null;
   hookCode?: HookCode | null;

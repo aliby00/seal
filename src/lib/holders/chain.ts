@@ -156,14 +156,23 @@ export async function recheckContracts(
   rpc: RpcClient,
   data: HolderDistributionData,
   cap = RECHECKED_CONTRACTS,
+  /** Told when some codes could not be read: what was read is still applied. */
+  onUnread?: (error: unknown) => void,
 ): Promise<HolderDistributionData> {
   const flagged = [...new Set(data.top.filter((h) => h.kind === 'contract').map((h) => h.address))]
     .slice(0, cap)
     .map((a) => a.toLowerCase());
   if (flagged.length === 0) return data;
-  const codes = await rpc
-    .callBatch<string>(flagged.map((a) => ({ method: 'eth_getCode', params: [a, 'latest'] })))
-    .catch(() => []);
+  // A batch that fails is a read that failed: thrown, never "no wallet among them".
+  const codes = await rpc.callBatch<string>(
+    flagged.map((a) => ({ method: 'eth_getCode', params: [a, 'latest'] })),
+  );
+  const unread = flagged.filter((_, i) => !codes[i]?.ok).length;
+  if (unread > 0) {
+    onUnread?.(
+      new IncompleteDataError('robinhood-rpc', `${unread} of ${flagged.length} codes not read`),
+    );
+  }
   const wallets = new Set(
     flagged.filter((_, i) => {
       const code = codes[i];
@@ -189,7 +198,8 @@ export type PoolsHolding = { share: number; tokens: number };
 /**
  * The part of the supply the token's pools hold today, read on chain in one
  * batch: the total supply, the decimals and each pool's balance. `null` when
- * any of them could not be read.
+ * there is no pool to read, or no share to give; a value that could not be
+ * read throws.
  */
 export async function readPoolsShare(
   rpc: RpcClient,
@@ -209,8 +219,15 @@ export async function readPoolsShare(
   const values = outcomes.map((o) =>
     o?.ok && typeof o.value === 'string' && /^0x[0-9a-f]+$/i.test(o.value) ? BigInt(o.value) : null,
   );
-  if (values.some((v) => v === null)) return null;
+  // A balance not read is a read that failed, never a pool holding nothing.
+  if (values.some((v) => v === null)) {
+    throw new IncompleteDataError(
+      'robinhood-rpc',
+      `${values.filter((v) => v === null).length} of ${values.length} pool balances not read`,
+    );
+  }
   const [supply, decimals, ...balances] = values as bigint[];
+  // A token without a supply or with odd decimals has no share to give: not applicable.
   if (!supply || supply <= 0n || decimals === undefined || decimals > 36n) return null;
   const held = balances.reduce((sum, b) => sum + b, 0n);
   const unit = 10n ** decimals;

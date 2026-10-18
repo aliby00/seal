@@ -5,6 +5,7 @@ import { feePayerWords, roleWord, whereSetAside } from '../set-aside';
 import type { SpecialistAnswer } from '../specialists/brief';
 import { mostHoldersFromCreator } from '../contracts/holders';
 import { READ_WORDS, readFailed, UNREAD } from '../failed-reads';
+import { partyOf } from '../facts';
 
 /**
  * Le system prompt est un préfixe **stable** : il ne contient aucune donnée de
@@ -199,6 +200,7 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
         `${liquidityChecked.filter((t) => t.liquidityPulled === true).length} (same window).`,
     );
   }
+  lines.push(...renderRemovals(report, funderOf(specialists)));
   const fees = c.tokens.filter((t) => t.feesCollected === true);
   if (fees.length > 0) {
     lines.push(
@@ -386,13 +388,52 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
   }
 
   // Who first funded the creator, so the replay can name it where it traded (KEL).
-  const funder = specialists
-    ?.find((a) => a.specialist === 'funding-trace')
-    ?.funding?.path[0]?.address?.toLowerCase();
+  const funder = funderOf(specialists);
   if (report.launch) lines.push('', ...renderLaunch(report.launch, funder ? { funder } : {}));
   if (specialists && specialists.length > 0) lines.push('', ...renderSpecialists(specialists));
 
   return lines.join('\n');
+}
+
+/** Who first funded the creator's wallet, as the funding question traced it. */
+export function funderOf(specialists?: readonly SpecialistAnswer[]): string | undefined {
+  return specialists
+    ?.find((a) => a.specialist === 'funding-trace')
+    ?.funding?.path[0]?.address?.toLowerCase();
+}
+
+const PARTY_WORD = {
+  creator: 'the creator',
+  funder: 'the wallet that first funded the creator',
+  other: 'an address that is neither the creator nor its first funder',
+} as const;
+
+/**
+ * The analysed token's liquidity removals: who sent each, and to whom the
+ * market returned the token (MOON: "who removed it is not stated here",
+ * while the creator sent tx 0xf58e531e… and got 48.07 % of the supply back).
+ */
+function renderRemovals(report: TokenReport, funder?: string): string[] {
+  const token = report.creator.data.tokens.find(
+    (t) => String(t.address).toLowerCase() === report.token.toLowerCase(),
+  );
+  const removals = token?.liquidityRemovals ?? [];
+  const creator = report.creator.data.creator;
+  const pc = (x: number) => `${(x * 100).toFixed(2)}%`;
+  return removals.map((r) => {
+    const by = partyOf(r.sender, creator, funder);
+    const back = r.returned.map((x) => {
+      const to = partyOf(x.address, creator, funder);
+      return `${pc(x.share)} of the supply to ${to === 'other' ? x.address : PARTY_WORD[to]}${x.heldNow === null ? '' : `, which holds ${pc(x.heldNow)} of the supply today`}`;
+    });
+    return (
+      `Liquidity removal on this token (transaction ${r.transaction}): sent by ${PARTY_WORD[by]}${by === 'other' ? ` (${r.sender})` : ''}. ` +
+      (back.length > 0
+        ? `In it the market returned ${back.join('; ')}. `
+        : 'No token of this one came back out of its markets in that transaction. ') +
+      'Say who removed it and where the tokens went; never write that who removed it is unknown or not stated.'
+    );
+  });
 }
 
 const MOVE_WORD: Record<LaunchMove['kind'], string> = {
@@ -449,7 +490,82 @@ export function renderLaunch(launch: LaunchReplay, options: { funder?: string } 
   if (d.movesInWindow > d.moves.length) {
     lines.push(`(${d.movesInWindow - d.moves.length} more moves in the window, not listed)`);
   }
-  lines.push(...roundTrips(d.moves, options.funder));
+  lines.push(
+    ...(sm?.roundTrips
+      ? windowRoundTrips(sm.roundTrips, sm.bundle, options.funder)
+      : roundTrips(d.moves, options.funder)),
+  );
+  return lines;
+}
+
+/** Round trips listed to the model, at most: the count is over all of them. */
+const ROUND_TRIPS_SHOWN = 8;
+
+/**
+ * Round trips over every move of the window, counted like the other totals
+ * (TOPBLAST: "five wallets" bought at +15 s and sold back at +225 s, seven
+ * on chain; ELON: "five wallets", seven; RH: "three of the addresses that
+ * bought at +433 s", 27). The list is a selection, and says so.
+ */
+function windowRoundTrips(
+  trips: NonNullable<NonNullable<LaunchReplay['data']['summary']>['roundTrips']>,
+  bundle: NonNullable<LaunchReplay['data']['summary']>['bundle'],
+  funder?: string,
+): string[] {
+  if (trips.wallets === 0) {
+    return ['- Round trips: no address bought and then sold back within the window.'];
+  }
+  // The creator's trip comes first in the list, when it made one.
+  const creator = trips.creator ? trips.listed[0]?.address : undefined;
+  const first = (t: { address: string }) =>
+    t.address === creator || (funder && t.address.toLowerCase() === funder) ? 0 : 1;
+  const shown = [...trips.listed]
+    .sort((a, b) => first(a) - first(b))
+    .slice(0, ROUND_TRIPS_SHOWN)
+    .sort((a, b) => first(a) - first(b) || a.boughtAt - b.boughtAt);
+  // Trips bought at the same second, counted over all of them: "seven bought at +15 s".
+  const bySecond = new Map<number, { n: number; soldMin: number; soldMax: number }>();
+  for (const t of trips.listed) {
+    const g = bySecond.get(t.boughtAt) ?? { n: 0, soldMin: t.soldAt, soldMax: t.soldAt };
+    g.n += 1;
+    g.soldMin = Math.min(g.soldMin, t.soldAt);
+    g.soldMax = Math.max(g.soldMax, t.soldAt);
+    bySecond.set(t.boughtAt, g);
+  }
+  const groups = [...bySecond]
+    .filter(([, g]) => g.n >= 2)
+    .sort((a, b) => b[1].n - a[1].n)
+    .slice(0, 3);
+  const listedAll = trips.listed.length >= trips.wallets;
+  const lines = [
+    `- Round trips over every move of the window: ${trips.wallets} address${trips.wallets === 1 ? '' : 'es'} bought and then sold back within it${trips.creator ? ', the creator among them' : ''}${trips.delays ? `, ${trips.delays.min} to ${trips.delays.max} s after their first buy` : ''}. Quote ${trips.wallets} as the count; never count the trips listed below instead.`,
+    ...groups.map(
+      ([second, g]) =>
+        `- Of them, ${g.n}${listedAll ? '' : ' (at least)'} bought at +${second} s and sold back between +${g.soldMin} s and +${g.soldMax} s.`,
+    ),
+    ...(bundle && trips.fromBundle !== null
+      ? [
+          `- Of the ${bundle.wallets} addresses the single transaction at +${bundle.seconds} s delivered to, ${trips.fromBundle} sold back within the window.`,
+        ]
+      : []),
+  ];
+  for (const t of shown) {
+    const who =
+      t.address === creator
+        ? `${t.address} (the creator)`
+        : funder && t.address.toLowerCase() === funder
+          ? `${t.address} (the first funder of the creator’s wallet)`
+          : t.address;
+    const delay = Math.round((t.soldAt - t.boughtAt) * 10) / 10;
+    lines.push(
+      `- Round trip: ${who} bought at +${t.boughtAt} s and sold back at +${t.soldAt} s, ${delay} s later. Quote these seconds as they are.`,
+    );
+  }
+  if (trips.wallets > shown.length) {
+    lines.push(
+      `(${trips.wallets - shown.length} more round trips in the window, not listed: the list is a selection, never all of them.)`,
+    );
+  }
   return lines;
 }
 
