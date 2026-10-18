@@ -204,6 +204,42 @@ describe('a partial report (fourth audit)', () => {
   });
 });
 
+describe('questions out of time (fifth audit)', () => {
+  // AI, 18/10/2026: six of ten questions "did not finish in time", no
+  // partial notice, and the report cached.
+  it('makes the report partial and keeps it out of the cache', async () => {
+    collect.mockResolvedValue(structuredClone(report));
+    explain.mockResolvedValue({ text: 'ok', cost: { costUsd: 0.01 }, violations: [] });
+    briefSpecialists.mockResolvedValue({
+      name: null,
+      symbol: null,
+      answers: Array.from({ length: 10 }, () => ({
+        specialist: 'code-reuse',
+        title: 't',
+        question: 'q',
+        signal: 'unknown',
+        facts: [],
+        limits: ['the on-chain lookups for this question did not finish in time'],
+      })),
+      unanswered: [
+        'code-reuse',
+        'wallet-age',
+        'funding-trace',
+        'name-clone',
+        'liquidity-move',
+        'rule-change',
+      ],
+    });
+    // The stub report has no facts to draw: the failed read is checked where the model gets it.
+    await POST(post({ token: TOKEN }));
+    expect(explain.mock.calls.at(-1)?.[0].failedReads).toEqual([
+      expect.objectContaining({ read: 'questions' }),
+    ]);
+    await POST(post({ token: TOKEN }));
+    expect(collect).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('specialists and timeline', () => {
   it('serves the ten answers and the token name beside the explanation', async () => {
     collect.mockResolvedValue(report);
