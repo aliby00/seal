@@ -8,7 +8,7 @@ import { createApi } from '../src/api.ts';
 import { openDb, type Db } from '../src/db.ts';
 import type { FunderKind } from '../src/funder-kind.ts';
 import { createNetwork, MAX_DEPTH, NETWORK_CAP } from '../src/network.ts';
-import { addressUrl, fundingStream } from '../src/streams/funding.ts';
+import { addressUrl, firstIncoming, fundingStream, sentBy } from '../src/streams/funding.ts';
 import { fakeRpc, fixedClock, launchLog, memoryDb } from './helpers.ts';
 
 const FACTORY = '0x00000000000000000000000000000000000000f1';
@@ -365,5 +365,38 @@ describe('API: funding kinds and network', () => {
     });
     expect(asked).toContain(`funding:${W1}`);
     expect(get(`/v1/network/${addr(9, 'f')}`).status).toBe(404);
+  });
+});
+
+describe('funders stored before every contract was a service (audit, AGEM)', () => {
+  it('reads a contract stored as a wallet as a service, so it links nobody', () => {
+    const db = memoryDb();
+    const executor = '0xa5166c3e69a933ee547ad908c9f1474f8f61901a';
+    // Stored by an older classifier: an 8 KB contract named "Executor", 0 txs, as a wallet.
+    db.setFunder(
+      { address: executor, isContract: true, name: 'Executor', txCount: 0, tags: [] },
+      'wallet',
+    );
+    expect(db.funder(executor)?.kind).toBe('service');
+    launch(db, CREATOR);
+    launch(db, W1);
+    fund(db, CREATOR, executor);
+    fund(db, W1, executor);
+    const network = createNetwork(db).walk(CREATOR);
+    expect(network.creators).toBe(0);
+    expect(network.path[0]?.kind).toBe('service');
+  });
+});
+
+describe('first funding: an unwrap is not a funding (audit, BONER)', () => {
+  it('skips ETH sent by WETH, and value received inside the creator’s own transaction', () => {
+    const creator = '0x79aeae6a47ff2e551f60bd87dbd6358efeaf4dc8';
+    const weth = '0x0bd7d308f8e1639fab988df18a8011f41eacad73';
+    const normal = [{ blockNumber: '120', hash: '0xunwrap', from: creator, to: weth, value: '0' }];
+    const internal = [
+      { blockNumber: '90', transactionHash: '0xolder', from: weth, to: creator, value: '9' },
+      { blockNumber: '95', transactionHash: '0xunwrap', from: addr(9), to: creator, value: '9' },
+    ];
+    expect(firstIncoming(creator, internal, sentBy(creator, normal))).toBeNull();
   });
 });

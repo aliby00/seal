@@ -21,6 +21,7 @@ import { combineCompleteness, type Completeness, type CreatorOrigin } from './co
 import type {
   CreatorHistory,
   HolderDistribution,
+  SetAsideRole,
   LaunchedToken,
   MarketState,
   TokenReport,
@@ -28,8 +29,20 @@ import type {
 import { IncompleteDataError, NotFoundError, RateLimitError, SealError } from './errors';
 import { createBudget, type RequestBudget } from './http';
 import { fetchHolderDistribution } from './holders';
-import { fetchHoldersFromChain, findFirstMint } from './holders/chain';
-import { fetchPairs, toMarketState, venuesOf, type DexScreenerPair } from './market';
+import {
+  fetchHoldersFromChain,
+  findFirstMint,
+  readPoolsShare,
+  recheckContracts,
+} from './holders/chain';
+import {
+  checkLiquidity,
+  fetchPairs,
+  toMarketState,
+  venuesOf,
+  type DexScreenerPair,
+} from './market';
+import { POOL_MANAGER } from './chain/pools';
 import { log } from './logger';
 import { TtlCache } from './cache';
 import { indexer } from './indexer/client';
@@ -68,13 +81,18 @@ export const RPC_BUDGET = 40;
 /** Blockscout pages, or RPC requests when holders are rebuilt from transfers. */
 export const HOLDERS_BUDGET = 20;
 export const MARKET_BUDGET = 4;
+/** One batch of balances: what the token's pools hold today. */
+const POOLS_BUDGET = 2;
+/** One batch of codes: the largest holders Blockscout calls contracts, re-read. */
+const RECHECK_BUDGET = 2;
 /**
  * The launch replay: the log read and the supply, then block times, codes and
- * balances in batches of 20 — up to 42 blocks and 40 addresses, so 9 at most,
- * plus two batches of receipts and the halvings of a launch too busy to read
- * at once. Retries on a busy public node count too: room is left for them.
+ * balances in batches of 20 — up to 42 blocks, 60 codes and 100 balances
+ * (the moves drawn, the addresses one transaction served, the first buyers),
+ * so 11 at most, plus three batches of receipts and the halvings of a launch
+ * too busy to read at once. Retries on a busy public node count too.
  */
-export const LAUNCH_BUDGET = 30;
+export const LAUNCH_BUDGET = 40;
 /** The pause before the replay is asked again of a node that turned it away. */
 const REPLAY_RETRY_MS = 4_000;
 
@@ -408,6 +426,24 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
   const launchBlock = chain.data.tokens.find(
     (t) => t.address.toLowerCase() === address.toLowerCase(),
   )?.launchedAtBlock;
+  // Every address that holds the token for trading or for its launch, and
+  // why: none of them is a holder. The launch pool alone was passed before,
+  // and a launchpad's curve (99.9 % of a flap.sh token), the pairs listed
+  // since, the launchpad's own contracts and its lock contract all read as
+  // the largest holders.
+  // The later entries win: a launch contract that is also the curve (the
+  // flap.sh portal) is named for the curve.
+  const setAside: { address: string; role: SetAsideRole }[] = [
+    ...(origin?.launchContract
+      ? [{ address: origin.launchContract, role: 'launchpad' as const }]
+      : []),
+    ...(launch?.pool && launch.pool !== '0x'
+      ? [{ address: launch.pool, role: 'pool' as const }]
+      : []),
+    ...(origin?.venues.pools ?? []).map((address) => ({ address, role: 'pool' as const })),
+    ...(listedVenues?.pools ?? []).map((address) => ({ address, role: 'pool' as const })),
+    ...(origin?.venues.curves ?? []).map((address) => ({ address, role: 'curve' as const })),
+  ];
   function readHolders(): Promise<HolderDistribution> {
     if (!options.blockscoutApiKey && latest > 0) {
       return (async () => {
@@ -427,7 +463,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
         return fetchHoldersFromChain(holdersRpc, address, {
           fromBlock: from,
           toBlock: latest,
-          poolAddress: launch?.pool ?? origin?.venues.pools[0],
+          setAside,
           now,
         });
       })();
@@ -435,9 +471,20 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     return fetchHolderDistribution(address, {
       apiKey: options.blockscoutApiKey,
       budget: holdersBudget,
-      poolAddress: launch?.pool ?? origin?.venues.pools[0],
+      setAside,
       now,
-    });
+    }).then(async (distribution) =>
+      distribution.completeness === 'unavailable' || latest === 0
+        ? distribution
+        : {
+            ...distribution,
+            // Blockscout calls a wallet delegating under EIP-7702 a contract.
+            data: await recheckContracts(
+              createRpcClient(options.rpcUrl, createBudget(RECHECK_BUDGET)),
+              distribution.data,
+            ).catch(() => distribution.data),
+          },
+    );
   }
 
   // The first minutes, read on their own budget: they never cost the three blocks anything.
@@ -483,7 +530,27 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
         })
       : Promise.resolve(undefined);
 
-  const [holders, marketRead, launchReplay] = await Promise.all([
+  // What the token's pools hold today, against what DexScreener lists: a
+  // removal is on chain at once, the listed liquidity can lag it by hours.
+  const poolsShare =
+    latest > 0
+      ? settled(
+          readPoolsShare(
+            createRpcClient(options.rpcUrl, createBudget(POOLS_BUDGET)),
+            address,
+            // Every market the token trades on: its pairs, its curve, the v4 PoolManager.
+            [
+              ...setAside
+                .filter((s) => s.role === 'pool' || s.role === 'curve')
+                .map((s) => s.address),
+              POOL_MANAGER,
+            ],
+          ),
+          () => null,
+        )
+      : Promise.resolve(null);
+
+  const [holders, marketRead, launchReplay, pooledNow] = await Promise.all([
     settled<HolderDistribution>(
       readHolders(),
       (error) =>
@@ -516,10 +583,14 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
         }) as MarketState,
     ),
     replay,
+    poolsShare,
   ]);
 
   // No listed pair: the launch pool's own trades, counted by the indexer.
-  const market = withPoolActivity(marketRead, await indexedToken, collectedAt);
+  const market = checkLiquidity(
+    withPoolActivity(marketRead, await indexedToken, collectedAt, now),
+    pooledNow,
+  );
 
   const completeness = combineCompleteness([
     chain.completeness,

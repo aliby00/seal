@@ -1,6 +1,8 @@
+import { OTHER_LAUNCH_SALES_DAYS } from './contracts/creator';
 import type { LaunchReplayData } from './contracts/launch';
 import type { ReportFacts, TimelineLaunch } from './facts';
-import { buildStory } from './launch-story';
+import { addressesWord, buildStory } from './launch-story';
+import { whereSetAside } from './set-aside';
 import type { SpecialistAnswer } from './specialists/brief';
 
 /**
@@ -47,25 +49,99 @@ const DAY_MS = 86_400_000;
 function pct(value: number): string {
   if (value > 0 && value < 0.001) return '<0.1%';
   if (value > 0.999 && value < 1) return '>99.9%';
-  return `${(value * 100).toFixed(value < 0.1 ? 1 : 0)}%`;
+  // 99.7% rounded to "100%" would say nothing is left: one decimal near the top.
+  return `${(value * 100).toFixed(value < 0.1 || (value >= 0.995 && value < 1) ? 1 : 0)}%`;
 }
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
-/** "in 3 days", "in one day", or nothing when the dates are not known. */
-function spanOf(timeline: TimelineLaunch[] | undefined): { days: number; words: string } | null {
+/**
+ * "in 3 days", "within a day", or nothing when the dates are not known.
+ * `dated` is how many launches the span rests on: only those read in detail
+ * carry a date, so a creator with more launches is not given their span.
+ */
+function spanOf(
+  timeline: TimelineLaunch[] | undefined,
+): { days: number; words: string; dated: number } | null {
   const dates = (timeline ?? [])
     .map((l) => (l.launchedAt ? Date.parse(l.launchedAt) : NaN))
     .filter((t) => Number.isFinite(t));
   if (dates.length < 2) return null;
   const days = Math.max(1, Math.ceil((Math.max(...dates) - Math.min(...dates)) / DAY_MS));
-  return { days, words: days === 1 ? 'within a day' : `in ${days} days` };
+  return { days, words: days === 1 ? 'within a day' : `in ${days} days`, dated: dates.length };
 }
 
-function salesItem(creator: ReportFacts['creator']): GlanceItem | null {
+/** "Doppler and direct deploys", for a sentence. */
+function joinAnd(items: readonly string[]): string {
+  return items.length <= 1
+    ? (items[0] ?? '')
+    : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
+
+/**
+ * Where the creator's launches could not be listed, as a parenthesis: the
+ * token's own launchpad when its event does not name creators, the
+ * launchpads that cannot be read, and contracts deployed directly.
+ */
+function unlistedWords(creator: ReportFacts['creator']): string {
+  const items = [
+    ...(creator.launchesListed === false && creator.launchpad ? [creator.launchpad] : []),
+    ...(creator.notListed ?? []),
+  ]
+    .map((n) => (n === 'contracts deployed directly' ? 'direct deploys' : n))
+    // "launchpad 0x7ed5… (used by pons)" inside a parenthesis reads double.
+    .map((n) => n.replace(/\s*\([^)]*\)$/, ''));
+  const unique = [...new Set(items)];
+  if (unique.length === 0) return '';
+  const verb = unique.length > 1 || unique[0] === 'direct deploys' ? 'are' : 'is';
+  return ` (${joinAnd(unique)} ${verb} not listed)`;
+}
+
+/** "over its whole life so far (78 days)", "up to day 140", or nothing when unknown. */
+export function ownSalesWords(own: ReportFacts['creator']['ownSales']): string | null {
+  if (!own) return null;
+  const days =
+    own.days === null ? null : own.days < 1 ? 'less than a day' : plural(own.days, 'day');
+  if (own.wholeLife) return `over its whole life so far${days ? ` (${days})` : ''}`;
+  return own.days !== null ? `up to day ${own.days} after its launch` : null;
+}
+
+function salesItem(
+  creator: ReportFacts['creator'],
+  launch: LaunchReplayData | undefined,
+): GlanceItem | null {
   const checked = creator.salesChecked ?? creator.checked;
   if (!creator.measured || checked === 0) return null;
   const sold = creator.soldIntoPool;
+  const own = ownSalesWords(creator.ownSales);
+  // Each launch is read over its own window, and the reader is told which.
+  const detail = own
+    ? checked === 1
+      ? `Sales of this token checked ${own}, confirmed by a trade in its market.`
+      : `This token’s sales checked ${own}; the creator’s other launches in the first ${OTHER_LAUNCH_SALES_DAYS} days after each. Each confirmed by a trade in the market.`
+    : `Sales checked in the first ${OTHER_LAUNCH_SALES_DAYS} days after each launch, confirmed by a trade in the pool.`;
+  // A buy sold back at once is a round trip, not a creator selling an allocation.
+  const summary = launch?.summary;
+  const roundTrip =
+    checked === 1 &&
+    sold === 1 &&
+    summary &&
+    summary.creatorBought > 0 &&
+    summary.creatorFirstBuyAt !== null &&
+    summary.creatorLastSaleAt !== null &&
+    Math.abs(summary.creatorSold - summary.creatorBought) <= summary.creatorBought * 0.01
+      ? Math.round(summary.creatorLastSaleAt - summary.creatorFirstBuyAt)
+      : null;
+  if (roundTrip !== null && summary) {
+    return {
+      id: 'sales',
+      tone: 'neutral',
+      figure: pct(summary.creatorBought),
+      title: `The creator bought ${pct(summary.creatorBought)} of the supply, then sold back the same amount ${roundTrip} s later.`,
+      detail,
+      href: '#launch-title',
+    };
+  }
   const title =
     sold === 0
       ? checked === 1
@@ -81,7 +157,7 @@ function salesItem(creator: ReportFacts['creator']): GlanceItem | null {
     tone: sold > 0 ? 'attention' : 'reassuring',
     figure: `${sold}/${checked}`,
     title,
-    detail: 'Sales found in each launch’s first days, confirmed by a trade in the pool.',
+    detail,
     href: '#fact-creator',
   };
 }
@@ -91,18 +167,28 @@ function recordItem(
   timeline: TimelineLaunch[] | undefined,
 ): GlanceItem | null {
   if (!creator.measured || creator.launched === 0) return null;
-  const atLeast = creator.launchesListed === false ? 'at least ' : '';
-  if (creator.launched === 1 && creator.launchesListed !== false) {
+  const unlisted = unlistedWords(creator);
+  // "First token" would claim that nowhere holds an earlier launch: SEAL
+  // never reads every place that could (Doppler's Airlock does not name its
+  // creators; a contract deployed directly is in no launchpad's record).
+  if (creator.launched === 1) {
     return {
       id: 'record',
       tone: 'neutral',
-      figure: '1st',
-      title: 'This is the creator’s first token: there is no past launch to compare with.',
-      detail: 'From the launches recorded for this wallet.',
+      figure: '1',
+      title: `No other launch by this creator was found on the launchpads SEAL can list${unlisted}.`,
+      detail: 'Their launch record on chain, this token included.',
       href: '#fact-creator',
     };
   }
   const span = spanOf(timeline);
+  // The span rests on the launches with a date; with more launches than
+  // that, it is said of those only.
+  const spanWords = span
+    ? span.dated >= creator.launched
+      ? ` ${span.words}`
+      : `; the ${span.dated} read in detail came ${span.words}`
+    : '';
   // Graduation is read on pons only: elsewhere, saying none graduated would
   // state what was never looked at.
   const graduated =
@@ -114,12 +200,13 @@ function recordItem(
           : ` None of the ${creator.detailed} read in detail graduated.`
         : ` ${creator.graduated} of the ${creator.detailed} read in detail graduated.`;
   // Many launches in a few days is a pattern worth seeing; one a month is not.
-  const rapid = span !== null && creator.launched >= 3 && span.days <= 7;
+  const rapid = span !== null && span.dated >= 3 && span.days <= 7;
+  const where = unlisted ? ` on the launchpads SEAL can list${unlisted}` : '';
   return {
     id: 'record',
     tone: rapid ? 'attention' : creator.graduated > 0 ? 'reassuring' : 'neutral',
     figure: `${creator.launched}`,
-    title: `This creator launched ${atLeast}${plural(creator.launched, 'token')}${span ? ` ${span.words}` : ''}.${graduated}`,
+    title: `This creator launched ${plural(creator.launched, 'token')}${span && span.dated >= creator.launched ? spanWords : ''}${where}${span && span.dated < creator.launched ? spanWords : ''}.${graduated}`,
     detail: 'Their launch record on chain, this token included.',
     href: '#fact-creator',
   };
@@ -142,18 +229,19 @@ function liquidityItem(creator: ReportFacts['creator']): GlanceItem | null {
   };
 }
 
-/** Where the supply sits: still in the pool, or in wallets. */
+/** Where the supply sits: still in its pools, curve or launch contracts, or with holders. */
 function supplyItem(facts: ReportFacts, launch: LaunchReplayData | undefined): GlanceItem | null {
   const fromReplay = launch?.moves
     .filter((m) => m.actorKind === 'pool' && m.heldNow !== null)
     .reduce<number | null>((max, m) => Math.max(max ?? 0, m.heldNow ?? 0), null);
   const pooled = facts.holders.pooled ?? fromReplay ?? null;
+  const where = whereSetAside(facts.holders.setAside);
   if (pooled !== null && pooled >= 0.9) {
     return {
       id: 'supply',
       tone: 'neutral',
       figure: pct(pooled),
-      title: `${pct(pooled)} of the supply is still in the launch pool: only ${pct(1 - pooled)} has reached wallets so far.`,
+      title: `${pct(pooled)} of the supply is still in ${where}: only ${pct(1 - pooled)} is held outside ${/(curve|contract)$/.test(where) ? 'it' : 'them'} so far.`,
       detail: 'Shares of the whole supply, read from the holders list.',
       href: '#fact-holders',
     };
@@ -164,27 +252,41 @@ function supplyItem(facts: ReportFacts, launch: LaunchReplayData | undefined): G
   // are restated against the whole supply so 70% does not read as 70% of it.
   const whole = pooled !== null ? largest.share * (1 - pooled) : null;
   const creator = facts.creator.address?.toLowerCase();
-  const who = creator && largest.address.toLowerCase() === creator ? 'The creator' : 'One wallet';
+  // A contract is never "one wallet": what kind of address it is, is part of the fact.
+  const who =
+    creator && largest.address.toLowerCase() === creator
+      ? 'The creator'
+      : largest.kind === 'contract'
+        ? 'One contract'
+        : 'One wallet';
   return {
     id: 'supply',
     tone: largest.share >= 0.2 ? 'attention' : 'neutral',
     figure: pct(largest.share),
     title:
       whole !== null
-        ? `${who} holds ${pct(largest.share)} of the tokens held outside the pool (${pct(whole)} of the whole supply).`
-        : `${who} holds ${pct(largest.share)} of the tokens held outside the pool.`,
-    detail: 'The largest holder, pools and burn addresses left out.',
+        ? `${who} holds ${pct(largest.share)} of the tokens held outside ${where} (${pct(whole)} of the whole supply).`
+        : `${who} holds ${pct(largest.share)} of the tokens held outside ${where}.`,
+    detail:
+      'The largest holder; pools, launch curves, launch contracts and burn addresses left out.',
     href: '#fact-holders',
   };
 }
 
-/** Buys in the first minute, when few people could have seen the token yet. */
-const EARLY_SECONDS = 60;
-
 function launchBuysItem(launch: LaunchReplayData | undefined): GlanceItem | null {
   if (!launch) return null;
-  // Many wallets served by one transaction is the stronger fact: say that.
-  const bundle = buildStory(launch).bundle;
+  // The totals of every move read when the replay kept them; an older replay
+  // only has the moves listed, and says so.
+  const story = buildStory(launch);
+  const among = story.counted === 'shown' && story.partial ? ', among the moves shown' : '';
+  const detail =
+    story.counted === 'all'
+      ? 'Counted over every transfer of the window, not only the moves drawn.'
+      : story.partial
+        ? 'Counted over the moves drawn only: the window had more.'
+        : 'Counted over every transfer of the window.';
+  // Many addresses served by one transaction is the stronger fact: say that.
+  const bundle = story.bundle;
   if (bundle && bundle.share >= 0.01) {
     const at =
       bundle.seconds < 1
@@ -194,45 +296,68 @@ function launchBuysItem(launch: LaunchReplayData | undefined): GlanceItem | null
       id: 'launch-buys',
       tone: bundle.share >= 0.05 ? 'attention' : 'neutral',
       figure: pct(bundle.share),
-      title: `${bundle.wallets} wallets received ${pct(bundle.share)} of the supply in one single transaction, ${at}.`,
-      detail: 'One transaction delivering a purchase to many wallets at once.',
+      title: `${bundle.wallets} ${addressesWord(bundle.wallets, bundle.contracts)} received ${pct(bundle.share)} of the supply in one single transaction, ${at}${among}.`,
+      detail,
       href: '#launch-title',
     };
   }
-  const early = launch.moves.filter(
-    (m) => m.kind === 'buy' && !m.actorIsCreator && m.seconds <= EARLY_SECONDS,
-  );
-  const share = early.reduce((sum, m) => sum + m.share, 0);
+  const early = story.early;
   // A few dust buys say nothing; a visible slice of the supply does.
-  if (early.length === 0 || share < 0.01) return null;
-  const buyers = new Set(early.map((m) => m.actor.toLowerCase())).size;
-  const last = Math.max(...early.map((m) => m.seconds));
+  if (early.wallets === 0 || early.share < 0.01) return null;
+  const last = Math.round(early.within);
   const when =
-    last === 0
+    early.within < 1
       ? 'in its first second'
       : `within ${last} second${last === 1 ? '' : 's'} of its launch`;
   return {
     id: 'launch-buys',
-    tone: share >= 0.05 ? 'attention' : 'neutral',
-    figure: pct(share),
-    title: `${plural(buyers, 'wallet')} bought ${pct(share)} of the supply ${when}.`,
-    detail: 'Purchases in the first minute, before most people could see the token.',
+    tone: early.share >= 0.05 ? 'attention' : 'neutral',
+    figure: pct(early.share),
+    title:
+      early.share > 1
+        ? `${early.wallets} ${addressesWord(early.wallets, early.contracts)} bought ${pct(early.share)} of the supply ${when}${among}: more than the whole supply, as the same tokens were bought and sold back several times.`
+        : `${early.wallets} ${addressesWord(early.wallets, early.contracts)} bought ${pct(early.share)} of the supply ${when}${among}.`,
+    detail,
     href: '#launch-title',
   };
 }
 
+/** "$337", "$61.9k", "$7.3M": a figure a reader takes in at once. */
+export function usdShort(value: number): string {
+  if (value >= 999_950) return `$${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1000) return `$${(value / 1000).toFixed(1)}k`;
+  return `$${value.toFixed(0)}`;
+}
+
+/** "the last hour", "the last 3 hours", or nothing when a trade is recent or unknown. */
+function quietWords(hours: number | null | undefined): string {
+  if (hours === null || hours === undefined) return '';
+  return hours === 1 ? 'the last hour' : `the last ${hours} hours`;
+}
+
 function marketItem(market: ReportFacts['market']): GlanceItem | null {
+  // A liquidity the chain contradicts comes first: shown as liquidity, it
+  // read as reassuring while the pools held almost nothing.
+  if (market.measured && market.staleLiquidity) {
+    const quiet = quietWords(market.quietHours);
+    return {
+      id: 'market',
+      tone: 'attention',
+      figure: pct(market.staleLiquidity.poolsShare),
+      title: `Its pools hold ${pct(market.staleLiquidity.poolsShare)} of the supply today: the ${usdShort(market.staleLiquidity.listedUsd)} of liquidity DexScreener lists is not current.${quiet ? ` No trade in ${quiet}.` : ''}`,
+      detail: 'Pool balances read on chain, against the listed trading pair.',
+      href: '#fact-market',
+    };
+  }
   if (market.measured && market.volume24hUsd !== null) {
     const trades = (market.buys24h ?? 0) + (market.sells24h ?? 0);
-    const usd =
-      market.volume24hUsd >= 1000
-        ? `$${(market.volume24hUsd / 1000).toFixed(1)}k`
-        : `$${market.volume24hUsd.toFixed(0)}`;
+    const usd = usdShort(market.volume24hUsd);
+    const quiet = trades > 0 ? quietWords(market.quietHours) : '';
     return {
       id: 'market',
       tone: 'neutral',
       figure: usd,
-      title: `${usd} traded in the last 24 hours${trades > 0 ? `, over ${plural(trades, 'trade')}` : ''}.`,
+      title: `${usd} traded in the last 24 hours${trades > 0 ? `, over ${plural(trades, 'trade')}` : ''}${quiet ? `, none in ${quiet}` : ''}.`,
       detail: 'From the token’s listed trading pair.',
       href: '#fact-market',
     };
@@ -311,7 +436,7 @@ const ORDER: Record<GlanceTone, number> = { attention: 0, neutral: 1, reassuring
 export function buildGlance({ facts, timeline, launch, specialists }: GlanceInput): Glance | null {
   if (!facts) return null;
   const candidates = [
-    salesItem(facts.creator),
+    salesItem(facts.creator, launch),
     networkItem(specialists),
     recordItem(facts.creator, timeline),
     liquidityItem(facts.creator),

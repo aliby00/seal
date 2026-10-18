@@ -106,3 +106,40 @@ export function imitatedName(raw: string | null | undefined): string | null {
   }
   return null;
 }
+
+/**
+ * Contract names that say how a contract is built, not what it is: shown raw
+ * ("TransparentUpgradeableProxy", "MulticallHandler"), they read as jargon
+ * or, worse, as a name the contract chose. Said in plain words instead.
+ */
+const TECHNICAL_NAMES: readonly [RegExp, string][] = [
+  [/proxy/i, 'an upgradeable contract'],
+  [/multicall|handler|executor|forwarder/i, 'a routing contract'],
+];
+
+/** A contract, said for a person: a plain phrase for a technical name, the name quoted otherwise. */
+export function describeContract(name: string | null | undefined): string {
+  if (!name) return 'an unnamed contract';
+  const plain = TECHNICAL_NAMES.find(([pattern]) => pattern.test(name));
+  return plain ? plain[1] : `a contract named ${quoteName(name)}`;
+}
+
+/** At or above this many transactions an address serves the public (funder-kind.ts). */
+const HIGH_VOLUME = 50_000;
+
+/**
+ * What first funded a wallet, said without overstating: "a high-volume
+ * service" only when the count is high, "a contract" otherwise — a contract
+ * with 0 transactions sent is not "high-volume".
+ */
+export function describeService(
+  name: string | null | undefined,
+  txCount: number | null | undefined,
+): string {
+  if (txCount !== null && txCount !== undefined && txCount >= HIGH_VOLUME) {
+    const what = name ? `${describeContract(name)}, ` : '';
+    return `a high-volume service (${what}${txCount.toLocaleString('en-US')} transactions)`;
+  }
+  // Below the count, a service is a contract, or an address tagged as an exchange.
+  return name ? describeContract(name) : 'a contract, or an address tagged as an exchange';
+}

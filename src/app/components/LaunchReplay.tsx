@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import type { LaunchMove, LaunchReplayData } from '@/lib/contracts/launch';
-import { BUYERS_LISTED, buildStory, type Buyer, type LaunchStory } from '@/lib/launch-story';
+import {
+  addressesWord,
+  BUYERS_LISTED,
+  buildStory,
+  type Buyer,
+  type LaunchStory,
+} from '@/lib/launch-story';
 
 /**
  * The first minutes of the token, replayed. Every dot is one move read from
@@ -73,15 +79,17 @@ function Story({ story }: { story: LaunchStory }) {
       label: 'taken by the creator in the launch block itself',
     });
   }
+  // An old replay counted the moves listed only: said, so it is not read as a total.
+  const among = story.counted === 'shown' && story.partial ? ' among the moves shown' : '';
   if (early.wallets > 0) {
     items.push({
       tone: early.share >= 0.05 ? 'attention' : 'neutral',
       figure: pct(early.share),
-      label: `bought by ${early.wallets} wallet${early.wallets === 1 ? '' : 's'} ${
+      label: `bought by ${early.wallets} ${addressesWord(early.wallets, early.contracts)} ${
         early.within < 1 ? 'in the first second' : `within ${Math.round(early.within)} s of launch`
-      }${
+      }${among}${
         story.bundle && story.bundle.share >= 0.01
-          ? `, ${pct(story.bundle.share)} of it through one single transaction to ${story.bundle.wallets} wallets`
+          ? `, ${pct(story.bundle.share)} through one single transaction to ${story.bundle.wallets} ${addressesWord(story.bundle.wallets, story.bundle.contracts)}`
           : ''
       }`,
     });
@@ -108,7 +116,7 @@ function Story({ story }: { story: LaunchStory }) {
     items.push({
       tone: 'attention',
       figure: pct(story.creatorSold),
-      label: 'sold by the creator in these first minutes',
+      label: `sold by the creator in these first minutes${among}`,
     });
   }
   return (
@@ -376,7 +384,10 @@ export function LaunchReplay({
         {story.partial && (
           <p className="story-note">
             Drawn from the {launch.moves.length} largest moves and every move of the creator, out of{' '}
-            {launch.movesInWindow.toLocaleString('en-US')} in the window.
+            {launch.movesInWindow.toLocaleString('en-US')} in the window
+            {story.counted === 'all'
+              ? '; the figures above count all of them.'
+              : '; the figures above count only the moves drawn.'}
           </p>
         )}
       </div>

@@ -29,7 +29,31 @@ export type LaunchedToken = {
   liquidityPulled: boolean | null;
   /** Le créateur a-t-il vendu son allocation. `null` si indéterminable. */
   creatorDumped: boolean | null;
+  /**
+   * Over which blocks the creator's sales were looked for. The analysed
+   * token is read over its whole life (up to a cap); the creator's other
+   * launches over their first ~11 days. Absent from histories cached before.
+   */
+  salesWindow?: SalesWindow;
+  /**
+   * Distinct addresses the creator sent this token to outside its markets,
+   * read with the sales (the analysed token only); `null` when not all read.
+   */
+  creatorRecipients?: number | null;
 };
+
+/** The blocks a creator's sales were read over, and how long that is. */
+export type SalesWindow = {
+  fromBlock: number;
+  toBlock: number;
+  /** Days covered from the launch, `null` when the launch time is unknown. */
+  days: number | null;
+  /** True when the read reached the latest block: the token's whole life so far. */
+  wholeLife: boolean;
+};
+
+/** The first days after each of the creator's other launches, in which sales are looked for. */
+export const OTHER_LAUNCH_SALES_DAYS = 11;
 
 /**
  * How the creator was found. A pons launch names its creator in its launch

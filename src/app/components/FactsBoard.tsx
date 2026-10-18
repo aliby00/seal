@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import type { ReportFacts, TimelineLaunch } from '@/lib/facts';
+import { whereSetAside } from '@/lib/set-aside';
 
 /**
  * The measured numbers, drawn. Three cards — creator, holders, market — each
@@ -335,9 +336,14 @@ function CreatorCard({
       ) : (
         <>
           <p className="fact-big">
-            {creator.launchesListed === false && <span>at least </span>}
             {creator.launched}
-            <span> token{creator.launched === 1 ? '' : 's'} launched</span>
+            <span>
+              {' '}
+              launch{creator.launched === 1 ? '' : 'es'} found
+              {creator.launchesListed === false || (creator.notListed?.length ?? 0) > 0
+                ? ', where launches can be listed'
+                : ''}
+            </span>
           </p>
           {creator.address && (
             <p className="fact-mono">
@@ -423,8 +429,9 @@ function HoldersCard({
         <>
           {holders.pooled != null && holders.pooled > 0 && (
             <p className="fact-pooled">
-              <strong>{pct(holders.pooled)}</strong> of the supply is still in the pool. The shares
-              below split the other {pct(1 - holders.pooled)}, held in wallets and contracts.
+              <strong>{pct(holders.pooled)}</strong> of the supply sits in{' '}
+              {whereSetAside(holders.setAside)}. The shares below split the other{' '}
+              {pct(1 - holders.pooled)}, held in wallets and contracts.
             </p>
           )}
           <Donut top1={holders.top1} top10={holders.top10} count={holders.holderCount} />
@@ -544,7 +551,7 @@ function MarketCard({ market }: { market: ReportFacts['market'] }) {
             </div>
             <div>
               <dt>Liquidity</dt>
-              <dd>{usd(market.liquidityUsd)}</dd>
+              <dd>{market.staleLiquidity ? 'not current' : usd(market.liquidityUsd)}</dd>
             </div>
             <div>
               <dt>Volume 24h</dt>
@@ -555,6 +562,19 @@ function MarketCard({ market }: { market: ReportFacts['market'] }) {
               <dd>{usd(market.fdvUsd)}</dd>
             </div>
           </dl>
+          {market.staleLiquidity && (
+            <p className="fact-note">
+              DexScreener lists {usd(market.staleLiquidity.listedUsd)} of liquidity, but the token’s
+              pools hold {pct(market.staleLiquidity.poolsShare)} of its supply on chain today: that
+              figure is not current.
+            </p>
+          )}
+          {market.quietHours != null && (
+            <p className="fact-line">
+              No trade in the last {market.quietHours === 1 ? 'hour' : `${market.quietHours} hours`}
+              .
+            </p>
+          )}
           {trades > 0 && (
             <Split
               label={`${market.buys24h ?? 0} buys and ${market.sells24h ?? 0} sells in 24 hours`}

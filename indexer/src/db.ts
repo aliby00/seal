@@ -358,7 +358,12 @@ export function openDb(path: string, now: () => number = Date.now) {
       return getFunding.get(address) as FundingRow | undefined;
     },
     funder(address: string): FunderRow | undefined {
-      return getFunder.get(address) as FunderRow | undefined;
+      const row = getFunder.get(address) as FunderRow | undefined;
+      // Profiled before every contract was a service: a contract is never "a
+      // wallet that funded others", whatever was stored.
+      return row && row.kind === 'wallet' && row.is_contract === 1
+        ? { ...row, kind: 'service' }
+        : row;
     },
     /** Stores a funder's profile and regroups every funding it made. */
     setFunder(profile: FunderProfile, kind: FunderKind): void {

@@ -1,4 +1,7 @@
+import { BUNDLE_MIN_WALLETS, EARLY_SECONDS } from './contracts/launch';
 import type { LaunchMove, LaunchReplayData } from './contracts/launch';
+
+export { BUNDLE_MIN_WALLETS, EARLY_SECONDS };
 
 /**
  * The first minutes of a token, told as a story a non-technical reader can
@@ -7,8 +10,6 @@ import type { LaunchMove, LaunchReplayData } from './contracts/launch';
  * balance that could not be read is never counted as zero.
  */
 
-/** Buys in this many seconds count as "the first buyers". */
-export const EARLY_SECONDS = 60;
 /** Buyers listed by name, in the order they bought. */
 export const BUYERS_LISTED = 10;
 
@@ -43,6 +44,8 @@ export type LaunchStory = {
     heldNow: number | null;
     /** How many of them could not be read. */
     unread: number;
+    /** How many of them are contracts; `null` when not known. */
+    contracts: number | null;
   };
   buyers: Buyer[];
   /** Cumulative bought and still-held shares, in time order. */
@@ -54,18 +57,28 @@ export type LaunchStory = {
    * once: one sender, many receivers, in a single transaction. A fact, read
    * from the transfers; nothing here says who is behind it.
    */
-  bundle: { transaction: string; wallets: number; share: number; seconds: number } | null;
+  bundle: {
+    transaction: string;
+    wallets: number;
+    share: number;
+    seconds: number;
+    /** How many of the addresses served are contracts; `null` when not known. */
+    contracts: number | null;
+  } | null;
   /** True when the window had more moves than were read. */
   partial: boolean;
+  /**
+   * `all`: the totals above count every move in the window. `shown`: a replay
+   * cached before the totals were kept, counted over the moves listed only —
+   * to be said ("among the moves shown") whenever `partial`.
+   */
+  counted: 'all' | 'shown';
   /**
    * True when nearly everything was bought in the first second: a curve over
    * ten minutes would be one flat block, so a plain comparison says it better.
    */
   frontLoaded: boolean;
 };
-
-/** Wallets served by one transaction before it reads as "bought together". */
-export const BUNDLE_MIN_WALLETS = 3;
 
 export function buildStory(launch: LaunchReplayData): LaunchStory {
   const moves = [...launch.moves].sort((a, b) => a.seconds - b.seconds);
@@ -78,6 +91,9 @@ export function buildStory(launch: LaunchReplayData): LaunchStory {
     )
     .reduce((sum, m) => sum + m.share, 0);
   const sales = moves.filter((m) => m.kind === 'sell' && m.actorIsCreator);
+  const kindOf = new Map(moves.map((m) => [m.actor.toLowerCase(), m.actorKind]));
+  const contractsAmong = (addresses: ReadonlySet<string>) =>
+    [...addresses].filter((a) => kindOf.get(a) === 'contract').length;
 
   const byActor = new Map<string, Buyer>();
   for (const m of moves) {
@@ -142,20 +158,46 @@ export function buildStory(launch: LaunchReplayData): LaunchStory {
         wallets: g.wallets.size,
         share: g.share,
         seconds: g.seconds,
+        contracts: contractsAmong(g.wallets),
       }))
       .sort((a, b) => b.share - a.share)[0] ?? null;
 
+  const summary = launch.summary;
   return {
-    bundle,
-    creatorAtLaunch,
-    creatorSold: sales.reduce((sum, m) => sum + m.share, 0),
-    early: {
-      wallets: early.length,
-      share: early.reduce((sum, b) => sum + b.bought, 0),
-      within: early.length ? Math.max(...early.map((b) => b.firstAt)) : 0,
-      heldNow: read.length ? read.reduce((sum, b) => sum + keep(b), 0) : null,
-      unread: early.length - read.length,
-    },
+    // The totals of every move read, when the replay kept them: the moves
+    // listed are a selection, and counting them alone understated a launch
+    // transaction serving 100 addresses as one serving 35.
+    bundle: summary
+      ? summary.bundle
+        ? {
+            transaction: summary.bundle.transaction,
+            wallets: summary.bundle.wallets,
+            share: summary.bundle.share,
+            seconds: summary.bundle.seconds,
+            contracts: summary.bundle.contracts,
+          }
+        : null
+      : bundle,
+    creatorAtLaunch: summary ? summary.creatorAtLaunch : creatorAtLaunch,
+    creatorSold: summary ? summary.creatorSold : sales.reduce((sum, m) => sum + m.share, 0),
+    early: summary
+      ? {
+          wallets: summary.early.wallets,
+          share: summary.early.share,
+          within: summary.early.within,
+          heldNow: summary.early.heldNow,
+          unread: summary.early.unread,
+          contracts: summary.early.contracts,
+        }
+      : {
+          wallets: early.length,
+          share: early.reduce((sum, b) => sum + b.bought, 0),
+          within: early.length ? Math.max(...early.map((b) => b.firstAt)) : 0,
+          heldNow: read.length ? read.reduce((sum, b) => sum + keep(b), 0) : null,
+          unread: early.length - read.length,
+          contracts: contractsAmong(new Set(early.map((b) => b.address.toLowerCase()))),
+        },
+    counted: summary ? 'all' : 'shown',
     buyers,
     curve,
     creatorSales: sales.map((m) => ({ seconds: m.seconds, share: m.share })),
@@ -163,4 +205,15 @@ export function buildStory(launch: LaunchReplayData): LaunchStory {
     frontLoaded:
       bought > 0 && (curve.filter((p) => p.seconds <= 1).at(-1)?.bought ?? 0) >= bought * 0.9,
   };
+}
+
+/**
+ * What to call the addresses a purchase reached: wallets when none is a
+ * contract, contracts when all are, addresses otherwise or when not known.
+ */
+export function addressesWord(count: number, contracts: number | null): string {
+  const one = count === 1;
+  if (contracts === 0) return one ? 'wallet' : 'wallets';
+  if (contracts !== null && contracts === count) return one ? 'contract' : 'contracts';
+  return one ? 'address' : 'addresses';
 }

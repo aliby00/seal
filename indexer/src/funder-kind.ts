@@ -10,10 +10,13 @@
  *  - `tool`: a contract whose verified name is a batch-sending or airdrop
  *    tool (BatchTransfer, Disperse, GasliteDrop, MultiSend, Airdrop…). The
  *    real funder is whoever sent the transaction through it;
- *  - `service`: at least 50,000 transactions, or a contract named like
- *    infrastructure (Router, Relay, Depository, Bridge, Portal, Multicall,
- *    Exchange, Vault…), or a public tag naming an exchange;
- *  - `wallet`: anything else with a known transaction count;
+ *  - `service`: any other contract, whatever its name or its count (a
+ *    contract is never "a wallet that funded others": a router, a relayer, a
+ *    vault or an executor named "Executor" with 0 transactions sent
+ *    alike), or an address with at least 50,000 transactions, or a public
+ *    tag naming an exchange;
+ *  - `wallet`: an address without code (or a wallet delegating under
+ *    EIP-7702) with a known transaction count;
  *  - `unknown`: the profile could not be read. Never treated as a wallet.
  *
  * Pure and dependency-free. The app keeps an identical copy in
@@ -41,7 +44,10 @@ export const SERVICE_TX_COUNT = 50_000;
 export const TOOL_NAME =
   /batch\s*-?\s*(?:transfer|send)|disperse|gaslite\s*-?\s*drop|multi\s*-?\s*send|air\s*-?\s*drop|bulk\s*-?\s*(?:send|transfer)/i;
 
-/** Contracts that move other people's funds: routers, bridges, relayers. */
+/**
+ * Contracts that move other people's funds: routers, bridges, relayers. Every
+ * contract is a service now; the name still says, in the report, which kind.
+ */
 export const SERVICE_NAME =
   /router|relay|depository|bridge|portal|multicall|exchange|vault|gateway|messenger|paymaster|entry\s*point|aggregator|settler/i;
 
@@ -53,8 +59,11 @@ export function classifyFunder(profile: FunderProfile | null | undefined): Funde
   if (!profile) return 'unknown';
   const name = profile.name ?? '';
   if (profile.isContract && TOOL_NAME.test(name)) return 'tool';
+  // A contract is not a person: whatever funded through it, it links nobody.
+  // Verified live: an 8 KB contract named "Executor", 0 transactions sent,
+  // was read as "the wallet that funded this creator also funded 25 others".
+  if (profile.isContract) return 'service';
   if (profile.txCount !== null && profile.txCount >= SERVICE_TX_COUNT) return 'service';
-  if (profile.isContract && SERVICE_NAME.test(name)) return 'service';
   if (profile.tags.some((tag) => SERVICE_TAG.test(tag))) return 'service';
   // Without a count, a busy address cannot be told from a private one.
   if (profile.txCount === null) return 'unknown';
