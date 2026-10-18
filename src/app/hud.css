@@ -128,7 +128,7 @@
   font-size: 13px;
 }
 .entrance-cta {
-  margin-top: 30px;
+  margin-top: clamp(20px, 3.4svh, 34px);
   height: 58px;
   padding: 0 8px 0 28px;
   font-size: 16px;
@@ -172,36 +172,118 @@
   background-clip: text;
   color: transparent;
 }
-.scene-eyebrow,
-.journey-caption {
+.scene-eyebrow {
   font-family: var(--font-data);
 }
+.entrance-copy .scene-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  color: #cfd7dc;
+}
+.entrance-copy .scene-eyebrow::before,
+.entrance-copy .scene-eyebrow::after {
+  content: '';
+  width: 28px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--hud-accent));
+}
+.entrance-copy .scene-eyebrow::after {
+  transform: scaleX(-1);
+}
 
-/* The bottom rail: a thin glass HUD strip with the curtain as its gauge. */
+/* The bottom rail: chapter, gauge and network on one glass strip. A three
+   column grid keeps the cue truly centred whatever the side labels measure. */
 .journey-caption {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   left: 50%;
   right: auto;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 22px);
   width: min(1180px, calc(100% - 32px));
+  height: 48px;
   transform: translateX(-50%);
-  padding: 12px 20px;
+  padding: 0 24px;
   border: 1px solid var(--hud-line);
   border-radius: 999px;
-  background: rgb(8 12 16 / 0.42);
-  backdrop-filter: blur(14px);
+  background: rgb(8 12 16 / 0.58);
+  backdrop-filter: blur(16px) saturate(1.3);
+  box-shadow: 0 10px 36px rgb(0 0 0 / 0.28);
   color: var(--hud-dim);
-  font-size: 10.5px;
-  letter-spacing: 0.14em;
 }
-.journey-caption a {
+.caption-chapter,
+.caption-network {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font: 600 10.5px/1 var(--font-body);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #b9c3ca;
+}
+.caption-network {
+  justify-self: end;
+}
+.caption-index {
+  padding-right: 12px;
+  border-right: 1px solid var(--hud-line-strong);
+  font: 500 11px/1 var(--font-data);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: var(--hud-accent-hot);
+}
+.caption-network::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--hud-mint);
+  box-shadow: 0 0 8px rgb(95 227 196 / 0.6);
+}
+.journey-caption .caption-cue {
   align-items: center;
   gap: 14px;
+  padding: 8px 4px;
+  font: 500 13px/1 var(--font-body);
+  letter-spacing: 0.01em;
+  word-spacing: 0.12em;
   color: var(--hud-text);
 }
-.curtain-progress > span {
+.journey-caption .caption-cue:hover {
+  color: #fff;
+}
+.caption-arrow {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-left: -4px;
+  border: 1px solid var(--hud-line-strong);
+  border-radius: 50%;
+  font-size: 11px;
+  color: var(--hud-accent-hot);
+  animation: caption-nudge 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@keyframes caption-nudge {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(3px);
+  }
+}
+.curtain-progress {
+  margin-right: 4px;
+}
+.curtain-progress > span::after {
   background: var(--hud-accent);
-  box-shadow: 0 0 8px var(--hud-accent-glow);
+  box-shadow: 0 0 6px var(--hud-accent-glow);
 }
 
 /* ── Workspace: the address is typed into a terminal. ── */
@@ -662,6 +744,13 @@
   box-shadow: 0 0 8px var(--hud-accent);
 }
 .fact-big,
+/* The figure in the donut's hole sits on the hole's own colour: on a phone the
+   ring's arcs reach behind it, and the text must not be read against them. */
+.donut-center strong {
+  padding: 2px 4px;
+  border-radius: 6px;
+  background: var(--hud-ink);
+}
 .donut-center strong,
 .gauge-center strong,
 .fact-pairs dd {
@@ -1538,15 +1627,30 @@ tr[data-kind='withdraw'] .launch-kind::before {
   .scan-steps {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .journey-caption {
-    padding: 10px 14px;
+  .entrance-copy .scene-eyebrow {
     font-size: 9.5px;
+    letter-spacing: 0.16em;
   }
-  .journey-caption > span {
+  .entrance-copy .scene-eyebrow::before,
+  .entrance-copy .scene-eyebrow::after {
     display: none;
   }
-  .journey-caption a {
-    margin-inline: auto;
+  .journey-caption {
+    grid-template-columns: auto;
+    justify-content: center;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+    height: 46px;
+    padding: 0 16px;
+  }
+  .caption-chapter,
+  .caption-network {
+    display: none;
+  }
+  .journey-caption .caption-cue {
+    gap: 12px;
+  }
+  .curtain-progress {
+    gap: 3px;
   }
   .analysis-world .analysis-entry .composer-row {
     flex-wrap: wrap;
@@ -1684,12 +1788,11 @@ tr[data-kind='withdraw'] .launch-kind::before {
 }
 .glance-partial {
   margin: 0;
-  padding: 10px 12px;
-  border-left: 2px solid var(--hud-amber);
-  border-radius: 8px;
-  background: rgb(255 200 87 / 0.08);
-  font-size: 13.5px;
-  color: var(--hud-text);
+  padding-left: 10px;
+  border-left: 2px solid color-mix(in srgb, var(--hud-amber) 60%, transparent);
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--hud-dim);
 }
 .glance-unseen {
   margin: 0;
@@ -1712,6 +1815,328 @@ tr[data-kind='withdraw'] .launch-kind::before {
 }
 .fact-pooled strong {
   color: var(--hud-text);
+}
+
+.launch-no-buys {
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--hud-line);
+  border-radius: 14px;
+  background: rgb(0 0 0 / 0.22);
+  font-size: 14.5px;
+  line-height: 1.45;
+  color: var(--hud-text);
+}
+.launch-from {
+  display: block;
+  font-size: 11.5px;
+  color: var(--hud-dim);
+}
+.launch-from a {
+  font-family: var(--font-data);
+  color: var(--hud-dim);
+}
+
+/* ── Where the supply went: one bar of the whole supply, then who passed what to whom. ── */
+.supply-flow {
+  margin-top: 36px;
+  /* Role colours, a fixed order validated for colour-vision deficiency on the HUD surface. */
+  --flow-1: #3987e5;
+  --flow-2: #d95926;
+  --flow-3: #199e70;
+  --flow-4: #c98500;
+  --flow-5: #d55181;
+  --flow-6: #9085e9;
+}
+.flow-bar {
+  display: flex;
+  gap: 2px;
+  height: 34px;
+  margin: 4px 0 18px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.flow-segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 4px;
+  flex-basis: 0;
+  background: var(--slot);
+}
+.flow-segment-label {
+  font: 600 12.5px/1 var(--font-data);
+  font-variant-numeric: tabular-nums;
+  /* Dark ink on every role colour: at least 4.5:1 on each of them. */
+  color: var(--hud-ink);
+}
+.flow-diagram {
+  --flow-line: rgb(255 255 255 / 0.28);
+  --flow-gap: 26px;
+  display: grid;
+  justify-items: center;
+}
+/* The supply created: the trunk every branch starts from. */
+.flow-origin {
+  position: relative;
+  margin: 0 0 var(--flow-gap);
+  padding: 10px 18px;
+  border: 1px solid var(--hud-line-strong);
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.32);
+  font-size: 13.5px;
+  color: var(--hud-dim);
+}
+.flow-origin strong {
+  margin-right: 4px;
+  font: 600 15px/1 var(--font-data);
+  color: var(--hud-text);
+}
+.flow-origin::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  height: calc(var(--flow-gap) / 2);
+  border-left: 1.5px solid var(--flow-line);
+}
+.flow-branches,
+.flow-leaves {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+/* Branches side by side, joined to the trunk by one bar. */
+.flow-branches {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--branches, 2), minmax(0, 1fr));
+  gap: 18px;
+  width: 100%;
+}
+.flow-branches::before {
+  content: '';
+  position: absolute;
+  top: calc(var(--flow-gap) / -2);
+  left: calc(100% / var(--branches, 2) / 2);
+  right: calc(100% / var(--branches, 2) / 2);
+  border-top: 1.5px solid var(--flow-line);
+}
+.flow-branch {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+}
+/* The stub down to each branch, with its arrowhead. */
+.flow-branch::before,
+.flow-leaf::before {
+  content: '';
+  position: absolute;
+  border-color: var(--flow-line);
+  border-style: solid;
+  border-width: 0;
+}
+.flow-branch::before {
+  top: calc(var(--flow-gap) / -2);
+  left: 50%;
+  height: calc(var(--flow-gap) / 2 - 6px);
+  border-left-width: 1.5px;
+}
+.flow-branch::after,
+.flow-leaf::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 0;
+  border: 5px solid transparent;
+}
+.flow-branch::after {
+  top: -7px;
+  left: calc(50% - 4.25px);
+  border-top-color: var(--flow-line);
+  border-bottom-width: 0;
+}
+/* What a branch passed on: a rail down its left edge, an arrow into each card. */
+.flow-leaves {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  margin-left: 14px;
+  padding-left: 20px;
+}
+.flow-leaves::before {
+  content: '';
+  position: absolute;
+  top: -14px;
+  bottom: 22px;
+  left: 0;
+  border-left: 1.5px solid var(--flow-line);
+}
+.flow-leaf {
+  position: relative;
+  min-width: 0;
+}
+.flow-leaf::before {
+  top: 22px;
+  left: -20px;
+  width: 14px;
+  border-top-width: 1.5px;
+}
+.flow-leaf::after {
+  top: 17.5px;
+  left: -7px;
+  border-left-color: var(--flow-line);
+  border-right-width: 0;
+}
+.flow-card[data-leaf] {
+  padding: 12px 14px;
+}
+.flow-card[data-leaf] .flow-share {
+  font-size: clamp(22px, 3vw, 26px);
+}
+.flow-more summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--hud-dim);
+}
+.flow-more[open] summary {
+  margin-bottom: 4px;
+}
+.flow-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--slot) 38%, var(--hud-line));
+  border-radius: 16px;
+  background:
+    radial-gradient(
+      120% 140% at 0% 0%,
+      color-mix(in srgb, var(--slot) 14%, transparent),
+      transparent 60%
+    ),
+    rgb(0 0 0 / 0.22);
+}
+.flow-card-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 12px;
+}
+.flow-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--slot);
+}
+.flow-role {
+  font: 600 11.5px/1.2 var(--font-body);
+  letter-spacing: 0.02em;
+  color: var(--hud-text);
+}
+.flow-address {
+  margin-left: auto;
+  font: 11.5px var(--font-data);
+  color: var(--hud-dim);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--hud-line-strong);
+}
+.flow-address:hover,
+.flow-address:focus-visible {
+  color: var(--hud-accent-hot);
+}
+.flow-card-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+.flow-share {
+  font: 600 clamp(26px, 4vw, 34px) / 1 var(--font-display);
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--hud-text);
+}
+.flow-name {
+  flex: 1 1 10rem;
+  min-width: 0;
+  font: 500 16px/1.3 var(--font-display);
+  color: var(--hud-text);
+}
+.flow-today,
+.flow-detail,
+.flow-caveat {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--hud-text);
+}
+.flow-detail {
+  font-size: 12.5px;
+  color: var(--hud-dim);
+}
+.flow-caveat {
+  padding-left: 10px;
+  border-left: 2px solid var(--hud-amber);
+  font-size: 12.5px;
+  color: var(--hud-dim);
+}
+.flow-schedules {
+  margin: 0;
+  padding-left: 18px;
+  font: 12px/1.5 var(--font-data);
+  color: var(--hud-dim);
+}
+@media (max-width: 640px) {
+  /* One rail down the left: the trunk, then each branch, then what it passed on. */
+  .flow-diagram {
+    justify-items: start;
+  }
+  .flow-origin::after {
+    left: 18px;
+  }
+  .flow-branches {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    padding-left: 18px;
+  }
+  .flow-branches::before {
+    top: calc(var(--flow-gap) / -2);
+    bottom: 22px;
+    left: 18px;
+    right: auto;
+    border-top: 0;
+    border-left: 1.5px solid var(--flow-line);
+  }
+  .flow-branch::before {
+    top: 22px;
+    left: 0;
+    width: 12px;
+    height: 0;
+    border-left-width: 0;
+    border-top-width: 1.5px;
+  }
+  .flow-branch::after {
+    top: 17.5px;
+    left: 12px;
+    border: 5px solid transparent;
+    border-left-color: var(--flow-line);
+    border-right-width: 0;
+  }
+  .flow-branch {
+    padding-left: 18px;
+  }
+  .flow-leaves {
+    margin-left: 8px;
+    padding-left: 16px;
+  }
+  .flow-leaf::before {
+    left: -16px;
+    width: 10px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -21,6 +21,8 @@ import type { RawLog } from './logs';
  * | Doppler front  | `0x22e9…` | 31,742   | 8,658,626   | 59,235,550 |
  * | Doppler Airlock| `0xeb7c…` | 211,113  | 734,616     | open       |
  * | metricpad      | `0xd8e6…` | 1        | 89,559,296  | open       |
+ * | Virtuals       | `0xd4cc…` | 26,184   | 220,679     | open       |
+ * |  (tax manager) | `0x6d80…` | 26,185   | 220,679     | open       |
  *
  * A launchpad that is not listed here is still traced, through the token's
  * first mint (deployer.ts): only its name and its other launches are missing.
@@ -109,6 +111,76 @@ export const CURVE_SELL_TOPIC =
 /** `Trade(address,address,address,address,uint8,bool,uint256,…)`, emitted by each 0x3d6e curve on a buy or a sale. */
 export const CURVE_TRADE_TOPIC =
   '0xaca20dddb264298fd1f9f05d1dc1e0847e30f73956ee42aaf896b91eb73628b6';
+
+/**
+ * Virtuals Protocol on Robinhood Chain, read on chain on 18/10/2026
+ * (docs/launchpads.md). The launchpad (its "Bonding" contract, named on
+ * Virtuals' own list of contract addresses) emits `PreLaunched(token, pair,
+ * virtualId, initialPurchase, (launchMode, airdropBips, needAcf,
+ * antiSniperTaxType, isProject60days))`, which does not name the creator.
+ * In the same transaction, every time (26,184 launches of 26,184), its tax
+ * manager emits `TokenRegistered(token, creator, recipient)` with the creator
+ * indexed: the sender of the launch in 25 of 25 sampled.
+ */
+export const VIRTUALS = {
+  /** The launchpad ("Bonding", a proxy): `preLaunch`, `buy`, `sell`, `launch`. */
+  bonding: '0xd4ccbfa37e2f35611b3042e4096ad7a3459bd007',
+  /** Its configuration: `teamTokenReservedWallet()`, `reserveSupplyParams()` = (500, 5500, 5000). */
+  config: '0x3e331fdd9fe54d5047b1b7339fd5c91977d53e2f',
+  /** The tax manager: receives the 1 % trading tax, registers each token with its creator. */
+  taxManager: '0x6d80b81d9fc56a7a839b1af9006eb49151961ce7',
+  /** The curve pairs' factory and router. */
+  factory: '0xfc2e4da3edb2e18100473339c763705d263d20a9',
+  router: '0xca6395246b4382ba70f886526dd9a9de984f6081',
+  agentFactory: '0x43e4c17b15365596caae8e7d00e42bc8e988c2d4',
+  /** The VIRTUAL token, the pair token of every launch. */
+  virtual: '0xc6911796042b15d7fa4f6cde69e245ddcd3d9c31',
+  /**
+   * `teamTokenReservedWallet()` of the configuration: a wallet (64,277
+   * transactions) that receives the 50 % reserved on launches with Automated
+   * Capital Formation, and hands it out within minutes: 25 % to the ACF
+   * wallet, 25 % to a TokenTable lock made for the token.
+   */
+  reserveWallet: '0x81f7ca6af86d1ca6335e44a2c28bc88807491415',
+  /**
+   * The Automated Capital Formation wallet: it received 25 % of every ACF
+   * launch sampled (SIRIUS, UMBRA, MIKO, SYNA, POPHIE, HOUSE), and sells it
+   * through pools it fills as the price rises, the proceeds going to the team.
+   */
+  acfWallet: '0xe2890629ef31b32132003c02b29a50a025deee8a',
+  /**
+   * A batch contract (Multicall3 with admins) the ACF wallet filled SIRIUS's
+   * pool through: it received 70.5 M SIRIUS from the ACF wallet on
+   * 23/09/2026 and put 50.5 M of it in the V3 pool against USDG in one
+   * transaction (0x5a20a246…), 20 M still on it.
+   */
+  acfBatch: '0x3eb3394f5d89465a77f73a83d3675b0ed051f852',
+  /**
+   * `graduationExcessBurnWallet()` of the configuration: at graduation, the
+   * curve's tokens priced against its virtual liquidity go to it (4.45 % of
+   * SIRIUS). A wallet (340 transactions); for SIRIUS it burned nothing and
+   * passed them to a Merkle claim contract (0x6da0…) in 14 equal parts.
+   */
+  excessWallet: '0xaea27856b6284ae071e0685ed594c5b80aea2aa9',
+  /** TokenTable's deployer of the per-token locks ("TTUnlocker" clones). */
+  tokenTableDeployer: '0x07cd7d504847ccc9a83597faabd0b9a156335ee8',
+} as const;
+
+/**
+ * Wallets a launchpad sends part of every launch to by its own rule, in the
+ * creator's launch transaction: not the creator's doing, and never "delivered
+ * by the creator's transaction to an address of its choosing" (SIRIUS: 50 %
+ * to Virtuals' reserve wallet, read as one unknown wallet linked to the
+ * creator).
+ */
+export const LAUNCHPAD_WALLETS: ReadonlySet<string> = new Set([VIRTUALS.reserveWallet]);
+
+/** `Swap(uint256,uint256,uint256,uint256)`, emitted by each Virtuals curve pair on a buy or a sale. */
+export const VIRTUALS_CURVE_SWAP_TOPIC =
+  '0x298c349c742327269dc8de6ad66687767310c948ea309df826f5bd103e19d207';
+/** `Graduated(address indexed token, address agentToken)`, emitted by the Virtuals launchpad. */
+export const VIRTUALS_GRADUATED_TOPIC =
+  '0x381d54fa425631e6266af114239150fae1d5db67bb65b4fa9ecc65013107e07e';
 
 /** The 0x7ed5 launchpad, said so that it is not taken for pons itself. */
 const SEVEN_ED5_PROSE = 'the 0x7ed5 launchpad, which the pons site also uses';
@@ -243,6 +315,32 @@ export const LAUNCHPADS: readonly Launchpad[] = [
     graduates: false,
     fromBlock: 89_500_000,
   },
+  {
+    // Its tax manager first: the record that names the creator.
+    id: 'virtuals',
+    name: 'Virtuals',
+    address: VIRTUALS.taxManager,
+    event: 'TokenRegistered(address indexed token, address indexed creator, address)',
+    topic0: '0x8c768b5da89e637b23caac626ccd760ef89b9e8eaa2f45bbf8c9d68e231dabef',
+    token: { topic: 1 },
+    creator: { topic: 2 },
+    graduates: true,
+    fromBlock: 220_000,
+  },
+  {
+    // The launchpad itself: the curve pair, and the trades on it.
+    id: 'virtuals',
+    name: 'Virtuals',
+    address: VIRTUALS.bonding,
+    event:
+      'PreLaunched(address indexed token, address indexed pair, uint256 virtualId, uint256 initialPurchase, (uint8 launchMode, uint16 airdropBips, bool needAcf, uint8 antiSniperTaxType, bool isProject60days))',
+    topic0: '0xb9ee8aa6d909a3efd0bf1b0bc2bde7f998f7ad30178b0d45f9227f5382cebc8f',
+    token: { topic: 1 },
+    curve: { topic: 2 },
+    curveTrades: [VIRTUALS_CURVE_SWAP_TOPIC],
+    graduates: true,
+    fromBlock: 220_000,
+  },
 ];
 
 export const launchpadById = (id: string): Launchpad | undefined =>
@@ -336,7 +434,21 @@ export function findLaunchRecord(
     }
   }
   const own = sender ? found.find((r) => r.creator === lower(sender)) : undefined;
-  return own ?? found.find((r) => r.creator) ?? found[0] ?? null;
+  const chosen = own ?? found.find((r) => r.creator) ?? found[0] ?? null;
+  return chosen ? merged(chosen, found) : null;
+}
+
+/**
+ * One launch told by two contracts of the same launchpad: what the chosen
+ * record leaves out is taken from the others (Virtuals: the tax manager names
+ * the creator, the launchpad names the curve pair).
+ */
+function merged(chosen: LaunchRecord, found: readonly LaunchRecord[]): LaunchRecord {
+  const same = found.filter((r) => r !== chosen && r.launchpad.id === chosen.launchpad.id);
+  if (same.length === 0) return chosen;
+  const first = <K extends 'curve' | 'pool' | 'market'>(key: K) =>
+    chosen[key] ?? same.find((r) => r[key])?.[key] ?? null;
+  return { ...chosen, curve: first('curve'), pool: first('pool'), market: first('market') };
 }
 
 /**

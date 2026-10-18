@@ -5,6 +5,7 @@ import { checkedByLaunchpad, checkedWords, joinClauses } from '../checked-sample
 import { poolLabel, usdShort, volumePerTrade } from '../market';
 import { decodeHookPermissions, describeHookPermissions } from '../chain/hooks';
 import { feePayerWords, whereSetAside } from '../set-aside';
+import { lockWords } from '../supply-flow';
 import {
   addressesSoftware,
   describeService,
@@ -51,6 +52,38 @@ function finding(
 
 const unknown = (id: SpecialistId, why: string): Finding => finding(id, 'unknown', [], [why]);
 
+/** A question that does not apply to this token: said so, never "not measured". */
+const notApplicable = (id: SpecialistId, why: string): Finding => ({
+  ...finding(id, 'unknown', [], [why]),
+  notApplicable: true,
+});
+
+/**
+ * The token's main market when it is a V2/V3 pair: a 20-byte pair address
+ * (a v4 pool is a 32-byte id), with its version when the listing gives it.
+ */
+export function pairMarket(
+  report: SpecialistContext['report'],
+): { label: string; version: 'v2' | 'v3' | null } | null {
+  const data = report?.market.data;
+  if (!data?.pair || !/^0x[0-9a-fA-F]{40}$/.test(data.pair)) return null;
+  if (data.graduation && !data.graduation.graduated) return null;
+  const listed = data.pools?.find((p) => p.id.toLowerCase() === data.pair!.toLowerCase());
+  const version = listed?.version === 'v2' || listed?.version === 'v3' ? listed.version : null;
+  return { label: poolLabel(data.pair), version };
+}
+
+/** "not applicable: this market has no trading-rules contract (Uniswap v2 pair 0x8285…dbA5)". */
+export function noRulesContract(pair: NonNullable<ReturnType<typeof pairMarket>>): string {
+  return `not applicable: this market has no trading-rules contract (Uniswap ${pair.version ?? 'v2/v3'} pair ${pair.label})`;
+}
+
+/** A v4-only question on a token whose market is a V2/V3 pair does not apply; elsewhere it is unknown. */
+function v4Only(id: SpecialistId, report: SpecialistContext['report']): Finding {
+  const pair = pairMarket(report);
+  return pair ? notApplicable(id, noRulesContract(pair)) : unknown(id, noV4Market(report));
+}
+
 /**
  * Where the token trades when it has no Uniswap v4 market, said for a person:
  * the questions that read a v4 rulebook then say why there is nothing to read,
@@ -79,6 +112,10 @@ export function noV4Market(report: SpecialistContext['report']): string {
  * told the reader there was no hook to read, which was beside the point.
  */
 export function namesNotCompared(report: SpecialistContext['report']): string {
+  const pair = pairMarket(report);
+  if (pair) {
+    return `the name was not checked: names are compared only across Uniswap v4 markets, and this token trades on a Uniswap ${pair.version ?? 'v2/v3'} pair (${pair.label})`;
+  }
   const where = marketElsewhere(report);
   return where
     ? `the name was not checked: names are compared only across Uniswap v4 markets, and this token trades on ${where}`
@@ -197,7 +234,7 @@ const codeReuse: Specialist = {
           ['sell-path', 'rule-change'],
         );
       }
-      return unknown('code-reuse', noV4Market(report));
+      return v4Only('code-reuse', report);
     }
     if (market.hook === NATIVE) {
       const others = otherPoolLines(context, null);
@@ -558,9 +595,32 @@ const holderSpread: Specialist = {
       ? ''
       : creator && largest.address.toLowerCase() === creator
         ? ' (the creator)'
-        : largest.kind === 'contract'
-          ? ' (a contract)'
-          : ' (a wallet)';
+        : largest.name
+          ? ` (${largest.name}, ${largest.address})`
+          : largest.kind === 'contract'
+            ? ' (a contract)'
+            : ' (a wallet)';
+    // A lock is not anyone's position: said with what it locks, and until when.
+    const roles = report?.roles ?? [];
+    const locks = (holders.data.setAside ?? [])
+      .filter((s) => s.role === 'vesting')
+      .map((s) => ({ s, named: roles.find((r) => r.address === s.address.toLowerCase()) }));
+    const lockFacts = locks.map(({ s, named }) => {
+      const lock = named?.lock;
+      const manager =
+        lock && (lock.cancelable || lock.withdrawable)
+          ? ` Its manager${lock.owner ? ` (${roles.find((r) => r.address === lock.owner)?.name ?? lock.owner})` : ''} can still ${[lock.cancelable ? 'cancel schedules' : '', lock.withdrawable ? 'withdraw the deposit' : ''].filter(Boolean).join(' and ')}.`
+          : '';
+      return `${s.share !== null ? pctBounded(s.share) : 'Part'} of the supply is in ${s.name ?? 'a vesting lock'} (${s.address})${lock ? `: ${lockWords(lock, creator)}` : ''}. It is left out of the shares below, as it cannot be sold before it unlocks.${manager}`;
+    });
+    // The other holders the chain names: a launchpad's wallet is not a stranger.
+    const namedFacts = holders.data.top
+      .filter((h) => (h.kind === 'wallet' || h.kind === 'contract') && h.name)
+      .slice(0, 3)
+      .map((h) => {
+        const detail = roles.find((r) => r.address === h.address.toLowerCase())?.detail;
+        return `${h.address} is ${h.name}, with ${pct(h.share)} of the supply held outside pools and locks${detail ? `: ${detail}` : '.'}`;
+      });
     const facts = [
       // How much circulates at all comes first: 70 % of 1 % is not 70 % of the token.
       ...(pooled !== null && pooled > 0
@@ -568,11 +628,13 @@ const holderSpread: Specialist = {
             `${pctBounded(pooled)} of the whole supply sits in ${whereSetAside(holders.data.setAside)} and is left out: only ${pctBounded(1 - pooled)} is held outside ${/(curve|contract)$/.test(whereSetAside(holders.data.setAside)) ? 'it' : 'them'}.`,
           ]
         : []),
+      ...lockFacts,
       ...(largest
         ? [
-            `The largest holder${what} has ${pct(top1)} of the supply held outside pools; the top 10 have ${pct(top10)}.`,
+            `The largest holder${what} has ${pct(top1)} of the supply held outside pools${locks.length > 0 ? ' and locks' : ''}; the top 10 have ${pct(top10)}.`,
           ]
         : ['No address holds any of the supply outside pools and launch contracts.']),
+      ...namedFacts,
       ...(count !== null ? [`${count} holder addresses in total.`] : []),
     ];
     // Thousands of holders who were sent the token by its creator are an
@@ -625,7 +687,7 @@ const holderSpread: Specialist = {
       }
     }
     const limits = [
-      'Pools, launch curves, launch contracts and burn addresses are excluded; shares are over the holders actually fetched.',
+      `Pools, launch curves, launch contracts${locks.length > 0 ? ', vesting locks' : ''} and burn addresses are excluded; shares are over the holders actually fetched.`,
     ];
     if (top1 >= TOP1_CONCERN || top10 >= TOP10_CONCERN) {
       return finding('holder-spread', 'concern', facts, limits, ['creator-history']);
@@ -757,8 +819,11 @@ const sellPath: Specialist = {
       const where = marketElsewhere(report);
       if (!where) return unknown('sell-path', noV4Market(report));
       const others = otherPoolLines(context, null);
+      const pair = pairMarket(report);
       const facts = [
-        `No Uniswap v4 trading rules (hook) sit in front of trades in its main pool: this token trades on ${where}.`,
+        pair
+          ? `Its main market is a Uniswap ${pair.version ?? 'v2/v3'} pair (${pair.label}): it has no trading-rules contract that could stand in the way of a sale.`
+          : `No Uniswap v4 trading rules (hook) sit in front of trades in its main pool: this token trades on ${where}.`,
         ...others,
       ];
       if (otherHooks(context).length > 0) {
@@ -971,7 +1036,7 @@ const ruleChange: Specialist = {
           [othersUnchecked],
         );
       }
-      return unknown('rule-change', noV4Market(report));
+      return v4Only('rule-change', report);
     }
     if (market.hook === NATIVE) {
       // Only the absence of a hook is checked: the token's own contract may

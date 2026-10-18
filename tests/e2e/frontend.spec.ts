@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import sirius from './fixtures/sirius-analysis.json' with { type: 'json' };
 
 const token = '0x10e848f9d5073d670201b111f1ba3d1c5be6f18b';
 const explanation =
@@ -148,7 +149,9 @@ test('report draws the measured facts, says what is missing, and gives no score'
   await accessible(page);
 });
 
-test('a report a failed read left partial says so at the top of In short', async ({ page }) => {
+test('a report a failed read left partial says so in In short, below the findings', async ({
+  page,
+}) => {
   await mockReport(page, {
     facts: {
       ...report.facts,
@@ -259,6 +262,41 @@ test('a creator funded by a wallet that funded others: summary line, then the pa
   await expect(path).toContainText('0xf0fc…0016');
   await expect(path).toContainText('wallet, 33 transactions');
   await expect(path).toContainText('232 transactions');
+  await accessible(page);
+});
+
+test('a launch with allocations only: the supply flow leads, and no empty buyers chart', async ({
+  page,
+}) => {
+  await page.route('**/api/analyze', (route) => route.fulfill({ json: sirius }));
+  await page.goto('/#analysis');
+  await submit(page);
+  // The summary's first line says where the supply went, and links to the drawing.
+  const lead = page.locator('.glance-lead');
+  await expect(lead).toContainText(
+    'Launched on Virtuals: 28.6% locked for the creator until 2028, 18% held by Virtuals’ ACF wallet.',
+  );
+  await expect(lead.locator('.glance-figure')).toHaveText('28.6%');
+  await expect(lead).toHaveAttribute('href', '#supply-flow');
+  const flow = page.locator('#supply-flow');
+  await expect(flow).toBeVisible();
+  await expect(flow.getByRole('img')).toHaveAttribute('aria-label', /Virtuals’ team lock/);
+  await expect(flow).toContainText('Virtuals’ capital-formation wallet (ACF)');
+  await expect(flow).toContainText('Virtuals’ team lock (TokenTable)');
+  await expect(flow).toContainText('28.6% is locked for the creator');
+  await expect(flow).toContainText('Nobody bought in the first 10 minutes');
+  // The curve's branch shows its outcome: bought there, then graduation.
+  await expect(flow).toContainText('Buyers on the curve');
+  await expect(flow).toContainText('Its Uniswap v2 pair');
+  await expect(flow.locator('.flow-branch')).toHaveCount(2);
+  await expect(flow.locator('.flow-leaf')).toHaveCount(5);
+  // The replay draws no chart for a launch nobody bought into.
+  const replay = page.locator('.launch-replay');
+  await expect(replay).toContainText('Nobody bought or sold in these first 10 minutes');
+  await expect(replay.locator('.story-chart, .story-compare')).toHaveCount(0);
+  // A v4-only question on a Uniswap v2 pair does not apply, said apart.
+  await expect(page.locator('.questions')).toContainText('Does not apply to this token');
+  await expect(page.locator('.glance')).not.toContainText('One contract');
   await accessible(page);
 });
 
@@ -476,14 +514,14 @@ test('mountain entrance advances with native scroll, reveals the app, and revers
   await expect
     .poll(() =>
       page
-        .locator('.immersive-root')
+        .locator('.world-background')
         .evaluate((element) =>
           Number((element as HTMLElement).style.getPropertyValue('--camera-scale')),
         ),
     )
     .toBeGreaterThan(1.1);
   const scaleBeforeHandoff = await page
-    .locator('.immersive-root')
+    .locator('.world-background')
     .evaluate((element) =>
       Number((element as HTMLElement).style.getPropertyValue('--camera-scale')),
     );
@@ -491,7 +529,7 @@ test('mountain entrance advances with native scroll, reveals the app, and revers
   await expect
     .poll(() =>
       page
-        .locator('.immersive-root')
+        .locator('.world-background')
         .evaluate((element) =>
           Number((element as HTMLElement).style.getPropertyValue('--camera-scale')),
         ),
@@ -503,7 +541,7 @@ test('mountain entrance advances with native scroll, reveals the app, and revers
   await expect
     .poll(() =>
       page
-        .locator('.immersive-root')
+        .locator('.world-background')
         .evaluate((element) =>
           Number((element as HTMLElement).style.getPropertyValue('--camera-scale')),
         ),

@@ -40,6 +40,7 @@ import {
   type RpcClient,
 } from './rpc';
 import { findRoutedSales, readTxNatures, SWAP_TOPICS } from './trades';
+import { readVirtualsGraduations } from './virtuals';
 
 /**
  * The creator of a token that is not a pons launch.
@@ -324,7 +325,11 @@ export function withRecordVenues(
   const v4Markets = [...new Set([...venues.v4Markets, ...(record.market ? [record.market] : [])])];
   const curves = [...new Set([...(venues.curves ?? []), ...(record.curve ? [record.curve] : [])])];
   const curveTrades = [
-    ...new Set([...(venues.curveTrades ?? []), ...(record.launchpad.curveTrades ?? [])]),
+    ...new Set([
+      ...(venues.curveTrades ?? []),
+      // Every contract of the launchpad: the record may come from one that has no curve.
+      ...LAUNCHPADS.filter((l) => l.id === record.launchpad.id).flatMap((l) => l.curveTrades ?? []),
+    ]),
   ];
   const saleRecipients = [
     ...new Set([
@@ -377,8 +382,14 @@ export function readOrigin(
     : record || to !== lower(token)
       ? 'launcher'
       : 'first-minter';
+  // The contract the launch was sent to, when it is one of the launchpad's
+  // own (Virtuals: the record naming the creator is its tax manager's, the
+  // launch itself goes to its launchpad 0xd4cc…).
+  const sentTo = record
+    ? LAUNCHPADS.find((l) => l.id === record.launchpad.id && l.address === to)
+    : undefined;
   const launchContract = record
-    ? record.launchpad.address
+    ? (sentTo?.address ?? record.launchpad.address)
     : role === 'launcher' && to && !ENTRY_POINTS.includes(to)
       ? to
       : undefined;
@@ -1677,6 +1688,24 @@ export async function fetchDeployerHistory(
     }
   }
 
+  // Virtuals' launches: whether each graduated, from the launchpad's own
+  // `Graduated` event. A read that fails leaves graduation unmeasured.
+  const virtualsLaunches = detailed.filter((l) => l.launchpad?.id === 'virtuals');
+  let graduations: Map<string, RawLog> | null = null;
+  if (virtualsLaunches.length > 0) {
+    try {
+      graduations = await readVirtualsGraduations(
+        rpc,
+        virtualsLaunches.map((l) => ({ token: l.token, blockNumber: l.blockNumber })),
+        latest,
+      );
+    } catch {
+      graduations = null;
+    }
+  }
+  const graduatedOn = (token: string) =>
+    graduations && virtualsLaunches.some((l) => l.token === token) ? graduations.has(token) : null;
+
   const checkedTokens = new Set(checked.map((l) => l.token));
   const tokens: LaunchedToken[] = detailed.map((l, i) => {
     const venue = venues.get(l.token);
@@ -1687,10 +1716,10 @@ export async function fetchDeployerHistory(
         (venue?.v4Markets.length ? lower(POOL_MANAGER) : (venue?.curves?.[0] ?? '0x')),
       launchedAtBlock: l.blockNumber,
       launchedAt: timestamps[i] ?? null,
-      // Graduation is read on pons only: whether a launch "made it" is not
-      // something this history can say.
-      outcome: 'undetermined',
-      graduationProgress: 0,
+      // Graduation is read on pons and Virtuals only: elsewhere, whether a
+      // launch "made it" is not something this history can say.
+      outcome: graduatedOn(l.token) === true ? 'graduated' : 'undetermined',
+      graduationProgress: graduatedOn(l.token) === true ? 1 : 0,
       liquidityPulled: checkedTokens.has(l.token) ? (pulledKnown.get(l.token) ?? null) : null,
       creatorDumped: checkedTokens.has(l.token) ? (soldKnown.get(l.token) ?? null) : null,
       ...(tokenOfMarket.size > 0 && [...tokenOfMarket.values()].includes(l.token)
@@ -1716,9 +1745,9 @@ export async function fetchDeployerHistory(
 
   const counts = {
     launched: all.length,
-    graduated: 0,
+    graduated: tokens.filter((t) => t.outcome === 'graduated').length,
     abandoned: 0,
-    undetermined: tokens.length,
+    undetermined: tokens.filter((t) => t.outcome === 'undetermined').length,
     liquidityPulled: tokens.filter((t) => t.liquidityPulled === true).length,
     creatorDumped: tokens.filter((t) => t.creatorDumped === true).length,
   };
@@ -1786,6 +1815,11 @@ export async function fetchDeployerHistory(
         launchpadsRead: read,
         launchpadsNotRead: notRead,
         transactionCount,
+        // Read only where every launch detailed is a Virtuals one: elsewhere,
+        // "none graduated" would cover launches whose graduation was not read.
+        ...(graduations !== null && virtualsLaunches.length === detailed.length
+          ? { graduationRead: true }
+          : {}),
       },
       tokens,
       counts,

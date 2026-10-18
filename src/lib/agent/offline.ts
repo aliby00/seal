@@ -3,6 +3,8 @@ import type { TokenReport } from '../contracts';
 import type { SpecialistAnswer } from '../specialists/brief';
 import { volumePerTrade } from '../market';
 import { READ_WORDS, readFailed } from '../failed-reads';
+import { toFacts } from '../facts';
+import { flowSentence } from '../supply-flow';
 
 function pct(value: number): string {
   return `${(value * 100).toFixed(1)} %`;
@@ -75,10 +77,15 @@ function deployerAccount(report: TokenReport): string {
       `Of ${liquidity.length} with a market that could be read, liquidity was removed on ${liquidity.filter((t) => t.liquidityPulled).length} in the first ${OTHER_LAUNCH_SALES_DAYS} days after each launch.`,
     );
   }
+  const graduated = data.tokens.filter((t) => t.outcome === 'graduated').length;
   sentences.push(
-    origin.role === 'deployer' && !origin.launchpad
-      ? 'The token was deployed on its own, with no launch curve: graduation does not apply.'
-      : 'Graduation is read on pons launches only, so what became of these launches is not measured here.',
+    origin.graduationRead && data.tokens.length > 0
+      ? data.tokens.length === 1
+        ? `It ${graduated === 1 ? 'graduated' : 'has not graduated'} from its launch curve to an open market.`
+        : `${graduated} of the ${data.tokens.length} launches read in detail graduated from their launch curve to an open market.`
+      : origin.role === 'deployer' && !origin.launchpad
+        ? 'The token was deployed on its own, with no launch curve: graduation does not apply.'
+        : 'Graduation is read on pons and Virtuals launches only, so what became of these launches is not measured here.',
   );
   return sentences.join(' ');
 }
@@ -94,6 +101,11 @@ export function offlineExplanation(report: TokenReport, specialists?: Specialist
       `Partial report: some reads failed this time (${[...new Set(failedReads.map((f) => READ_WORDS[f.read]))].join(', ')}). What they would have shown is not known. Try again in a minute.`,
     );
   }
+  // Where the supply went at launch, by role, comes first: it is what the
+  // rest is read against (SIRIUS: half to Virtuals' curve, a quarter to its
+  // capital-formation wallet, a quarter to the creator's lock).
+  const flow = toFacts(report).supplyFlow;
+  if (flow) parts.push(`Launch: ${flowSentence(flow, report.creator.data.creator)}`);
   const { creator, holders, market } = report;
   const creatorNote = creator.sources[0]?.note;
   if (creator.completeness === 'unavailable') {
@@ -133,8 +145,13 @@ export function offlineExplanation(report: TokenReport, specialists?: Specialist
       `Holder concentration: not measured (${holders.sources[0]?.note ?? 'source unavailable'}).`,
     );
   } else {
+    const largest = holders.data.top.find((h) => h.kind === 'wallet' || h.kind === 'contract');
+    const locks = (holders.data.setAside ?? []).filter((a) => a.role === 'vesting');
+    const lockWords = locks.length
+      ? ` ${locks.map((l) => `${l.share !== null ? pct(l.share) : 'Part'} of the supply sits in ${l.name ?? 'a vesting lock'}`).join('; ')}: locked, it is left out of these shares.`
+      : '';
     parts.push(
-      `Holders: the largest holds ${pct(holders.data.concentration.top1)} of ${holders.completeness === 'full' ? 'the supply held outside pools and burn addresses' : 'the supply held by the holders that could be read'}; the top 10 hold ${pct(holders.data.concentration.top10)} combined.`,
+      `Holders: the largest${largest?.name ? `, ${largest.name},` : ''} holds ${pct(holders.data.concentration.top1)} of ${holders.completeness === 'full' ? `the supply held outside pools${locks.length ? ', locks' : ''} and burn addresses` : 'the supply held by the holders that could be read'}; the top 10 hold ${pct(holders.data.concentration.top10)} combined.${lockWords}`,
     );
     const links = holders.data.creatorLinks;
     const linked = holders.data.top.filter((h) => h.fromCreator);

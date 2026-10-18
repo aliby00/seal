@@ -48,6 +48,8 @@ Choisis sur DexScreener (volume 24 h, paires récentes, tous les `dexId` vus :
 | Doppler, façade `0x22e9…` | `0x22e99278308b393ea1260859b181ad7e78f5eeed`                                             | 31 742     | 8 658 626    | 59 235 550   |
 | Doppler, Airlock          | `0xeb7c034704ef8dcd2d32324c1545f62fb4ad0862`                                             | 211 113    | 734 616      | ouvert       |
 | metricpad                 | `0xd8e6fda8639b53c63ffe78eee5431d1af3c56c88`                                             | 1          | 89 559 296   | —            |
+| Virtuals (launchpad)      | `0xd4ccbfa37e2f35611b3042e4096ad7a3459bd007`                                             | 26 184     | 220 679      | ouvert       |
+| Virtuals (gestion. taxe)  | `0x6d80b81d9fc56a7a839b1af9006eb49151961ce7`                                             | 26 185     | 220 679      | ouvert       |
 
 ### pons
 
@@ -137,6 +139,104 @@ topic `0x14ab72c95fd9b13db14c65da0cd02173bfd0aea9005b9ed422810bb985b5942e`
 (la chaîne `metricpad.me` est dans les données). Un seul lancement, MPAD ; le
 pool (topic 3) est la paire `metric` de DexScreener.
 
+### Virtuals
+
+Relevé du 18/10/2026, sur SIRIUS (`0x72e9…6c88`) puis sur l'historique
+complet des deux contrats. La page officielle des adresses de Virtuals
+(whitepaper.virtuals.io, « Virtuals Protocol Contract Addresses ») nomme, pour
+Robinhood Chain, le token VIRTUAL `0xc6911796042b15d7fa4f6cde69e245ddcd3d9c31`
+et le contrat de courbe (« Bonding ») `0xd4cc…d007`. Le code est celui du dépôt
+public `Virtual-Protocol/protocol-contracts` (`contracts/launchpadv2/BondingV5.sol`,
+`BondingConfig.sol`, `FPairV2.sol`).
+
+**La transaction de lancement de SIRIUS** (`0xb0cac924…`, bloc 48 392 950,
+28/08/2026) est envoyée par `0xc47f…d9bed9f` à `0xd4cc…`, sélecteur
+`0xa2baa044` = `preLaunch(string,string,uint8[],string,string,string[4],uint256,uint256,uint8,uint16,bool,uint8,bool,bytes)`.
+Ses 17 logs, dans l'ordre :
+
+- 10 VIRTUAL du créateur vers `0x86cb…3a9c` = `feeTo()` de la configuration :
+  le frais de l'ACF (« Activating ACF costs a 10 $VIRTUAL fee », whitepaper) ;
+- le token (`OwnershipTransferred`, mint de 1 milliard vers `0xd4cc…`) ;
+- `PairCreated` de la fabrique Uniswap V2 `0x8bce…937f` : la paire
+  SIRIUS/VIRTUAL `0x8285…dba5`, créée dès le lancement, et
+  `LiquidityPoolCreated(0x8285…)` émis par le token ;
+- `NewApplication(id)` de l'AgentFactory `0x43e4…c2d4` ;
+- `PairCreated` de la fabrique de courbes `0xfc2e…20a9` : la paire de courbe
+  (FPair) `0x0539…34f0` ; 500 M lui sont transférés (`Mint(reserve0, reserve1)`
+  avec une liquidité VIRTUAL fictive) ;
+- 500 M de `0xd4cc…` vers `0x81f7…1415` ;
+- `TokenRegistered(token indexé, creator indexé, address)` du gestionnaire de
+  taxe `0x6d80…1ce7` ;
+- `PreLaunched(token indexé, pair indexé, virtualId, initialPurchase, (launchMode, airdropBips, needAcf, antiSniperTaxType, isProject60days))`
+  (`0xb9ee8aa6…bc8f`) : pour SIRIUS (0, 0, **true**, 4, false) ;
+- `PreLaunchExtParams(token, …)` (`0x28f9cacb…02b9`).
+
+**Ce qu'est chaque adresse**, lu sur la chaîne :
+
+| Adresse       | Ce que c'est                                                                                                                                                                | Preuve                                                                                                                                                                                                                                                        |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0xd4cc…d007` | le launchpad de Virtuals (proxy de 1 167 octets)                                                                                                                            | page officielle ; `bondingConfig()` = `0x3e33…3e2f`, `factory()` = `0xfc2e…`, `router()` = `0xca63…6081`, `agentFactory()` = `0x43e4…` ; 26 184 `PreLaunched`                                                                                                 |
+| `0x0539…34f0` | la paire de courbe (FPair) de SIRIUS : 50 % à la création                                                                                                                   | topic 2 de `PreLaunched` ; `Swap(uint256,uint256,uint256,uint256)` (`0x298c349c…`) à chaque achat ; vide aujourd'hui (graduation : `Graduated(token, agentToken)` du launchpad au bloc 70 428 026, 23/09/2026)                                                |
+| `0x8285…dba5` | la paire Uniswap V2 SIRIUS/VIRTUAL, le marché après graduation (13,1 %)                                                                                                     | `PairCreated` ; `getReserves()` ; listée par DexScreener ; taxe de 1 % à l'achat et à la vente vers `0x6d80…` (`projectBuyTaxBasisPoints()` = `projectSellTaxBasisPoints()` = 100)                                                                            |
+| `0x81f7…1415` | le **portefeuille de réserve de Virtuals** (un portefeuille, 64 277 transactions)                                                                                           | `teamTokenReservedWallet()` de la configuration `0x3e33…` ; `reserveSupplyParams()` = (500, 5 500, 5 000) : avec `needAcf`, 50 % réservés lui sont envoyés                                                                                                    |
+| `0xe289…ee8a` | le **portefeuille de l'ACF** (Automated Capital Formation) de Virtuals, partagé (4 926 transactions)                                                                        | reçoit 25 % de `0x81f7…` à chaque lancement ACF échantillonné (SIRIUS, UMBRA, MIKO, SYNA, POPHIE, HOUSE), en quelques minutes ; pour SIRIUS, à +29 s ; le 23/09/2026 il a envoyé 70,5 M à `0x3eb3…`, qui en a placé 50,5 M dans le pool V3 `0x1991…`          |
+| `0x75eb…29e1` | le **verrou TokenTable** (Sign) de SIRIUS, pour le créateur                                                                                                                 | clone minimal (44 octets) de `0x6b75…0b5c` ; `version()` = « 2.7.7-TTUnlocker-cancun », `getProjectToken()` = SIRIUS, `owner()` = `0x81f7…`, `deployer()` = `0x07cd…` (déployeur TokenTable, `deployTTSuite`) ; `isCancelable()` et `isWithdrawable()` = true |
+| `0x1991…16c9` | un pool Uniswap V3 SIRIUS/USDG (0,3 %), absent de DexScreener : la liquidité de l'ACF                                                                                       | `token0()` = USDG `0x5fc5…`, `token1()` = SIRIUS, `fee()` = 3 000, `factory()` = `0x1f7d…` ; rempli par `0x3eb3…` en une transaction (81 transferts)                                                                                                          |
+| `0x3eb3…f852` | un contrat de lots (Multicall3 avec administrateurs) par lequel passe l'ACF de SIRIUS ; 2 % y attendent                                                                     | `batchTransferTokens`, `aggregate3` ; propriétaire `0x6522…0af6`                                                                                                                                                                                              |
+| `0x9080…74b8` | un portefeuille-contrat (compte ERC-4337)                                                                                                                                   | proxy à balise ; `entryPoint()` = EntryPoint v0.7 ; rôles `ROLE_DEFINITIVE`, `swapV2` : un coffre de trading ; alimenté par un contrat de règlement de solveur (`0x97ca…`, `fulfil`/`refund`)                                                                 |
+| `0x3248…f337` | un portefeuille (41 624 transactions) qui a acheté 35,7 M sur la courbe en 12 achats (`buy` du launchpad) entre +1 h 44 et +12 h 44, puis les a versés au verrou TokenTable | transferts depuis `0x0539…`, puis vers `0x75eb…` (tx `0x0f76673d…`) ; son rôle chez Virtuals n'est pas établi                                                                                                                                                 |
+
+**Le verrou TokenTable** : deux échéanciers (`actuals(0)`, `actuals(1)`), tous
+deux au créateur (`ownerOf` des NFT `futureToken()` `0x30c8…`) :
+
+- 250 M (25 %), départ 28/08/2027 : 16,66 % puis cinq tranches de 30 jours,
+  dernière le 25/01/2028 (`getEncodedPreset` : débuts [0, 1], fin 12 960 001 s,
+  bips [1 666, 8 334], déblocages [1, 5]) — l'« équipe » de l'ACF : « locked
+  for one year after TGE, then vests linearly over six months » (whitepaper) ;
+- 35,7 M (3,6 %), départ 29/11/2026 : neuf tranches mensuelles jusqu'au
+  27/07/2027.
+
+Rien n'est réclamé (`calculateAmountClaimable` = 0). Le gestionnaire du verrou
+(`owner()`, le portefeuille de réserve de Virtuals) peut encore annuler des
+échéanciers et retirer le dépôt (`isCancelable`, `isWithdrawable`) : le verrou
+tient à Virtuals, pas au seul code.
+
+**La graduation** se lit à l'événement du launchpad lui-même :
+`Graduated(address indexed token, address agentToken)` (`0x381d54fa…7e07e`).
+SIRIUS a gradué au bloc 70 428 026 (23/09/2026, tx `0x1b082665…`). Dans
+cette transaction, la paire de courbe rend ce qu'elle tient (15,1 %) au
+launchpad, qui en envoie 10,47 % à la paire Uniswap v2 (via le contrat du
+token) et 4,45 % au portefeuille `graduationExcessBurnWallet()` de la
+configuration, `0xaea2…2aa9` : les tokens adossés à la liquidité VIRTUAL
+fictive de la courbe (`_openTradingOnUniswap` de `BondingV5.sol`). Malgré son
+nom, ce portefeuille n'a rien brûlé pour SIRIUS : il a passé ces 4,45 % en 14
+parts égales de 0,318 % à un contrat de réclamation Merkle `0x6da0…c744`
+(`merkleRoot()`, `claim(address,uint256,bytes32,bytes32[])`,
+`cumulativeClaimed`), d'où 24 adresses ont réclamé. Le reste de la courbe,
+environ 35,1 %, a été acheté sur la courbe avant la graduation. SEAL lit la
+graduation de chaque lancement Virtuals du créateur (une requête sur le
+launchpad, filtrée par les tokens), et pour le token analysé la transaction
+de graduation : le flux de l'offre montre alors la branche de la courbe
+entière (acheté sur la courbe, versé à la paire, versé au portefeuille
+d'excédent).
+
+**ACF n'est pas ACP.** ACF (Automated Capital Formation) est le module de
+lancement qui réserve 50 % : 25 % vendus par Virtuals via des pools successifs
+de 2 M$ à 160 M$ de FDV, le produit allant aux fondateurs, et 25 % d'équipe
+verrouillés. ACP (Agent Commerce Protocol) est le protocole de paiement entre
+agents, avec séquestre des paiements : aucun contrat ACP ne détient de
+SIRIUS, et SIRIUS a été lancé en mode normal (`launchMode` = 0 ; le mode 2
+est `LAUNCH_MODE_ACP_SKILL`). Sur les 26 184 lancements Virtuals, 3 266 ont
+l'ACF.
+
+**Ce que SEAL lit** : le gestionnaire de taxe nomme le créateur en topic 2
+(26 185 `TokenRegistered`, un par lancement, dans la même transaction que
+`PreLaunched` ; créateur = expéditeur sur 25 lancements tirés au hasard) : il
+sert d'enregistrement de lancement, et ses lancements se listent par le nœud et
+par l'indexeur. Le launchpad donne la courbe ; les deux enregistrements d'un
+même lancement sont fusionnés. Les ventes sur la courbe se reconnaissent au
+`Swap` de la FPair ; la paire V2 est trouvée par son `PairCreated`.
+
 ### Sans launchpad
 
 - **Déploiement direct** (SPATIAL) : la transaction crée le contrat, un seul log ;
@@ -170,9 +270,19 @@ pool (topic 3) est la paire `metric` de DexScreener.
   après le lancement (paires DexScreener, identifiant v4 de l'événement) sont
   inclus.
 - **Rejeu du lancement** : la courbe et les paires comptent comme « pool ».
-- **Graduation** : lue sur pons seulement ; ailleurs « non mesurée », ou « ne
-  s'applique pas » sans courbe.
+- **Graduation** : lue sur pons et sur Virtuals (événement `Graduated`) ;
+  ailleurs « non mesurée », ou « ne s'applique pas » sans courbe.
 - **Indexeur** : colonne `launchpad`, un curseur par contrat, `/v1/coverage`.
+- **Rôles** (`src/lib/chain/roles.ts`) : les plus gros détenteurs et les
+  destinataires du lancement sont nommés par ce qu'ils répondent — verrou
+  TokenTable (échéanciers, bénéficiaire, part encore verrouillée, gestionnaire),
+  pool V2/V3 (`token0`/`token1`, `fee` ou `getReserves`), compte ERC-4337
+  (`entryPoint`) — ou par la configuration du launchpad (portefeuilles de
+  réserve et d'ACF de Virtuals). Un verrou et un pool non listé sont mis de côté
+  des parts de concentration, et le rapport le dit.
+- **Flux de l'offre** (`src/lib/supply-flow.ts`) : mint → premiers détenteurs →
+  ce qu'ils ont passé à d'autres pendant la fenêtre, avec les parts, les noms par
+  rôle et ce que chacun détient aujourd'hui ; en tête du rapport et du résumé.
 
 ## Avant / après
 

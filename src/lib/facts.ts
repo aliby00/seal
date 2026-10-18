@@ -1,6 +1,14 @@
 import { launchpadById } from './chain/launchpads';
 import { checkedByLaunchpad, type CheckedLaunchpad } from './checked-sample';
-import type { CreatorLinks, FailedRead, FeePayer, SetAsideRole, TokenReport } from './contracts';
+import type {
+  CreatorLinks,
+  FailedRead,
+  FeePayer,
+  NamedAddress,
+  SetAsideRole,
+  TokenReport,
+} from './contracts';
+import { buildSupplyFlow, type SupplyFlow } from './supply-flow';
 
 /**
  * The numbers the report screen draws, taken from the collected report and
@@ -17,6 +25,13 @@ export type ReportFacts = {
    * and the report says it is partial. Absent when every read answered.
    */
   failed?: FailedRead[];
+  /**
+   * Where the supply went at launch, by role: drawn when the launch handed
+   * part of it to others than its market. Absent otherwise.
+   */
+  supplyFlow?: SupplyFlow;
+  /** What the main addresses are, read on chain (locks, pools, launchpad wallets). */
+  roles?: NamedAddress[];
   creator: {
     measured: boolean;
     /** Why it is missing or partial, in the source's words. */
@@ -122,6 +137,8 @@ export type ReportFacts = {
       share: number;
       kind: 'wallet' | 'contract';
       fromCreator?: { share: number; via: string | null };
+      /** What it is, when the chain says more: "Virtuals’ capital-formation wallet (ACF)". */
+      name?: string;
     }[];
     /**
      * What the creator's own transfers say about the holders: burns, the
@@ -139,7 +156,7 @@ export type ReportFacts = {
      * Where the part set aside sits: pools, curves, launch contracts, burn.
      * Optional: absent from reports cached before it was recorded.
      */
-    setAside?: { address: string; role: SetAsideRole; share: number | null }[];
+    setAside?: { address: string; role: SetAsideRole; share: number | null; name?: string }[];
   };
   market: {
     measured: boolean;
@@ -216,10 +233,44 @@ function graduationOf(
 ): ReportFacts['creator']['graduation'] {
   // A history without an origin is a pons read from before origins existed.
   if (!origin || origin.source === 'pons') return 'measured';
+  // Read from the launchpad's own event (Virtuals' `Graduated`).
+  if (origin.graduationRead) return 'measured';
   const launchpad = origin.launchpad ? launchpadById(origin.launchpad.id) : undefined;
   if (launchpad) return launchpad.graduates ? 'not-measured' : 'not-applicable';
   // A contract deployed on its own has no launch curve to leave.
   return origin.role === 'deployer' ? 'not-applicable' : 'not-measured';
+}
+
+/**
+ * What an address holds today, as a share of the supply, read from the
+ * holders list. The list holds the largest only: an address absent from it is
+ * unread, never "nothing".
+ */
+function heldFromHolders(report: TokenReport): (address: string) => number | null {
+  const holders = report.holders;
+  if (holders.completeness === 'unavailable' || !report.launch) return () => null;
+  let supply: bigint;
+  try {
+    supply = BigInt(report.launch.data.supply);
+  } catch {
+    return () => null;
+  }
+  if (supply <= 0n) return () => null;
+  const shares = new Map<string, number>();
+  for (const h of holders.data.top) {
+    try {
+      shares.set(
+        h.address.toLowerCase(),
+        Number((BigInt(h.balance) * 1_000_000n) / supply) / 1_000_000,
+      );
+    } catch {
+      // A malformed balance stays unread.
+    }
+  }
+  for (const s of holders.data.setAside ?? []) {
+    if (s.share !== null && !shares.has(s.address)) shares.set(s.address.toLowerCase(), s.share);
+  }
+  return (address) => shares.get(address.toLowerCase()) ?? null;
 }
 
 export function toFacts(report: TokenReport, options: { funder?: string } = {}): ReportFacts {
@@ -232,9 +283,20 @@ export function toFacts(report: TokenReport, options: { funder?: string } = {}):
   const checkedBy =
     creator.completeness === 'unavailable' ? [] : checkedByLaunchpad(creator.data, report.token);
   const note = (sources: { note?: string }[]) => sources.find((s) => s.note)?.note;
+  const flow = report.launch
+    ? buildSupplyFlow(
+        report.launch.data,
+        report.roles ?? [],
+        creator.data.origin?.launchpad?.name ?? null,
+        heldFromHolders(report),
+        report.graduated ?? null,
+      )
+    : null;
 
   return {
     ...(report.failedReads?.length ? { failed: report.failedReads } : {}),
+    ...(flow ? { supplyFlow: flow } : {}),
+    ...(report.roles?.length ? { roles: report.roles } : {}),
     creator: {
       measured: creator.completeness !== 'unavailable',
       note: note(creator.sources),
@@ -314,6 +376,7 @@ export function toFacts(report: TokenReport, options: { funder?: string } = {}):
           share: h.share,
           kind: h.kind,
           ...(h.fromCreator ? { fromCreator: h.fromCreator } : {}),
+          ...(h.name ? { name: h.name } : {}),
         })),
       ...(holders.data.setAside ? { setAside: holders.data.setAside } : {}),
       ...(holders.data.creatorLinks ? { creatorLinks: holders.data.creatorLinks } : {}),

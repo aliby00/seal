@@ -349,7 +349,9 @@ describe('AI: the indexer’s silence leaves the other launches unread (item 1)'
     expect(record?.title).toBe(
       'Whether this creator launched other tokens could not be read this time.',
     );
-    expect(record?.figure).toBe('?');
+    // A read that failed has no number to set large, and comes after the findings.
+    expect(record?.figure).toBeUndefined();
+    expect(record?.unread).toBe(true);
     expect(glance.partial).toContain('the creator’s other launches');
 
     const answer = CATALOG['creator-history'].run({

@@ -20,11 +20,6 @@ export function AtAGlance({ glance }: { glance: Glance }) {
       <h3 id="glance-title" className="glance-kicker">
         In short
       </h3>
-      {glance.partial && glance.partial.length > 0 && (
-        <p className="glance-partial" role="status">
-          {partialNotice(glance.partial)}
-        </p>
-      )}
       {lead ? (
         <a className="glance-lead" href={lead.href} data-tone={lead.tone}>
           <span className="glance-tone" data-signal={TONE[lead.tone].signal}>
@@ -32,7 +27,7 @@ export function AtAGlance({ glance }: { glance: Glance }) {
             {TONE[lead.tone].label}
           </span>
           <span className="glance-lead-body">
-            <strong className="glance-figure">{lead.figure}</strong>
+            {lead.figure && <strong className="glance-figure">{lead.figure}</strong>}
             <span className="glance-headline">{lead.title}</span>
           </span>
           <span className="glance-detail">
@@ -51,17 +46,22 @@ export function AtAGlance({ glance }: { glance: Glance }) {
                   <SignalIcon signal={TONE[item.tone].signal} />
                   {TONE[item.tone].label}
                 </span>
-                <strong className="glance-figure">{item.figure}</strong>
+                {item.figure && <strong className="glance-figure">{item.figure}</strong>}
                 <span className="glance-text">{item.title}</span>
               </a>
             </li>
           ))}
         </ul>
       )}
+      {/* A read that failed is said, below the findings and quieter than them. */}
+      {glance.partial && glance.partial.length > 0 && (
+        <p className="glance-partial" role="status">
+          {partialNotice(glance.partial)}
+        </p>
+      )}
       {glance.unseen.length > 0 && (
         <p className="glance-unseen">
-          <strong>Not measured here:</strong> {glance.unseen.join(', ')}. Missing data is not good
-          news, nor bad news.
+          <strong>Not measured here:</strong> {glance.unseen.join(', ')}.
         </p>
       )}
     </section>
