@@ -4,6 +4,7 @@ import { measureDivergence, runAgent, type Divergence } from '../specialists/run
 import type { Finding, SpecialistContext } from '../specialists/types';
 import { log } from '../logger';
 import { computeCost, type CostBreakdown } from './cost';
+import { withoutEmphasis } from './claims';
 import { findViolations } from './guardrails';
 import {
   TIER_MODELS,
@@ -148,7 +149,8 @@ const WITHHELD =
   'The findings for this token could not be worded within SEAL’s rules (no score, no verdict, no advice), so they are not shown. The token’s own name or data may contain such wording.';
 
 export function servedText(text: string): string {
-  return findViolations(text).length === 0 ? text : WITHHELD;
+  const plain = withoutEmphasis(text);
+  return findViolations(plain).length === 0 ? plain : WITHHELD;
 }
 
 export async function investigate(

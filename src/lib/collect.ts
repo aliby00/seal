@@ -30,9 +30,15 @@ import type {
   TokenReport,
 } from './contracts';
 import { IncompleteDataError, NotFoundError, RateLimitError, SealError } from './errors';
-import { mergeFailedReads, noteFailed, UNREAD } from './failed-reads';
+import {
+  failedReadsOfSources,
+  mergeFailedReads,
+  noteFailed,
+  SALE_SEEN,
+  UNREAD,
+} from './failed-reads';
 import { LAUNCH_HOOKS } from './chain/launchpads';
-import { TRANSFER_TOPIC, topicFor } from './chain/behavior';
+import { OWN_SALES_MAX_BLOCKS, TRANSFER_TOPIC, topicFor } from './chain/behavior';
 import { getLogsBatched } from './chain/logs';
 import { createBudget, type RequestBudget } from './http';
 import { fetchHolderDistribution, setAsideRoles } from './holders';
@@ -294,7 +300,23 @@ export type CollectOptions = {
   now?: () => Date;
   /** The pauses before a rate-limited critical read is retried (tests pass zeros). */
   retryDelaysMs?: readonly number[];
+  /**
+   * After this long (ms from the start), a creator history still being read
+   * is reported as a read that did not finish: a partial report, served,
+   * instead of the route's 504. It keeps going and is cached for the next ask.
+   */
+  historyDeadlineMs?: number;
+  /** After this long (ms), a creator's other launches are listed but not checked. */
+  checkOthersWithinMs?: number;
 };
+
+/**
+ * The route cuts collection at 30 s. The history gets 26, its other
+ * launches' checks start within 14: what is read after that (the holders'
+ * links, the fees) still fits (AI: 80 launches, cut at 30.2 s on staging).
+ */
+export const HISTORY_DEADLINE_MS = 26_000;
+export const CHECK_OTHERS_WITHIN_MS = 14_000;
 
 /** A pons creator's launches elsewhere; `undefined` when they could not be read. */
 async function otherLaunchpads(
@@ -356,6 +378,19 @@ function failed<T>(
   const note = noteOf(error);
   log.warn('source indisponible', { source: name, note });
   return { completeness: 'unavailable', sources: [{ name, fetchedAt, note }], data };
+}
+
+/** `promise`, or `late()` when it has not settled within `ms`. */
+async function withinDeadline<T>(promise: Promise<T>, ms: number, late: () => T): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const cut = new Promise<T>((resolve) => {
+    timer = setTimeout(() => resolve(late()), Math.max(0, ms));
+  });
+  try {
+    return await Promise.race([promise, cut]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function settled<T>(promise: Promise<T>, fallback: (error: unknown) => T): Promise<T> {
@@ -595,6 +630,8 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
                 await retry(() =>
                   fetchDeployerHistory(rpc, origin, {
                     latestBlock: latest,
+                    checkOthersBy:
+                      startedAt + (options.checkOthersWithinMs ?? CHECK_OTHERS_WITHIN_MS),
                     ...(listedByIndexer ? { indexed: listedByIndexer } : {}),
                     ...(listedVenues ? { venues: listedVenues } : {}),
                     now,
@@ -797,9 +834,56 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     return { holders, launchReplay, pooledNow, setAside, launchFrom };
   }
 
+  // Every transfer of the token to its creator over the window its sales are
+  // read on: the fees a market's hook paid out. A token traced from its first
+  // mint knows that window now, so it is read alongside the history rather
+  // than after it (AI, 80 launches: 8 s more once the history was done).
+  const incomingOf = (client: RpcClient, to: string, fromBlock: number, toBlock: number) =>
+    getLogsBatched(
+      client,
+      {
+        addresses: [{ address, fromBlock, toBlock }],
+        topics: [TRANSFER_TOPIC, null, topicFor(to)],
+      },
+      { fromBlock, toBlock },
+    );
+  const earlyIncoming = (() => {
+    const fromBlock = origin?.blockNumber ?? 0;
+    const toBlock = Math.min(latest, fromBlock + OWN_SALES_MAX_BLOCKS - 1);
+    return {
+      creator: origin?.creator.toLowerCase(),
+      fromBlock,
+      toBlock,
+      read:
+        origin && latest > 0
+          ? incomingOf(
+              createRpcClient(options.rpcUrl, createBudget(FEES_BUDGET)),
+              origin.creator,
+              fromBlock,
+              toBlock,
+            ).catch(() => ({ logs: [] as RawLog[], truncated: true }))
+          : Promise.resolve({ logs: [] as RawLog[], truncated: true }),
+    };
+  })();
+
   // Not a pons launch: started now, alongside the history.
   const early = launch ? undefined : readRest(origin?.creator ?? '0x', origin?.blockNumber);
-  const chainRead = await chainReading;
+  const chainRead = await withinDeadline(
+    chainReading,
+    startedAt + (options.historyDeadlineMs ?? HISTORY_DEADLINE_MS) - Date.now(),
+    () => {
+      historyError = new IncompleteDataError(
+        'robinhood-rpc',
+        'the creator’s history did not finish in time this time; try again in a minute',
+      );
+      return failed(
+        'robinhood-rpc',
+        collectedAt,
+        historyError,
+        emptyHistory(creatorAddress ?? '0x'),
+      ) as CreatorHistory;
+    },
+  );
   const chain = withIndexedLaunches(chainRead, indexed, collectedAt);
 
   const graduation = await settled(
@@ -880,14 +964,14 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
             const feesRpc = createRpcClient(options.rpcUrl, createBudget(FEES_BUDGET));
             const fromBlock = ownToken.salesWindow?.fromBlock ?? launchFrom;
             const toBlock = Math.min(latest, ownToken.salesWindow?.toBlock ?? latest);
-            const { logs, truncated } = await getLogsBatched(
-              feesRpc,
-              {
-                addresses: [{ address, fromBlock, toBlock }],
-                topics: [TRANSFER_TOPIC, null, topicFor(sold.data.creator)],
-              },
-              { fromBlock, toBlock },
-            );
+            const same =
+              early &&
+              earlyIncoming.creator === sold.data.creator.toLowerCase() &&
+              earlyIncoming.fromBlock === fromBlock &&
+              earlyIncoming.toBlock === toBlock;
+            const { logs, truncated } = await (same
+              ? earlyIncoming.read
+              : incomingOf(feesRpc, sold.data.creator, fromBlock, toBlock));
             if (truncated) return null;
             const supply = await supplyOf(feesRpc);
             return feesFromHooks(logs, feeHooks, launchFrom, supply);
@@ -983,13 +1067,9 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
       note: creator.sources.find((s) => s.note)?.note ?? noteOf(historyError),
     });
   }
-  for (const source of creator.completeness === 'unavailable' ? [] : creator.sources) {
-    if (!noteFailed(source.note)) continue;
-    failures.push({
-      read: source.note === UNREAD.ownSales ? 'creator-sales' : 'creator-launches',
-      note: source.note ?? '',
-    });
-  }
+  // Every source note that says its read failed is a failed read: the same
+  // test the cache applies, so a failed source is never left out (Wheel Smith).
+  failures.push(...failedReadsOfSources({ creator, holders: linkedHolders, market }));
   // Without the creator's history, the launch block of a pons token is not
   // known and its first minutes are not read either.
   if (!launchReplay && launchFrom === undefined && historyError !== undefined) {
@@ -998,14 +1078,12 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
       note: 'the first minutes after the launch were not read: the launch block could not be read this time',
     });
   }
+  // A sale confirmed anyway (by a trade in the launch's first minutes) stands:
+  // the read is still said to be partial, and that the sale was seen.
+  const saleSeen = creator.data.tokens.some((t) => own(t) && t.creatorDumped === true);
   const failedReads = mergeFailedReads(
-    failures.filter(
-      // A sale the launch replay confirmed settles the question the history could not.
-      (f) =>
-        !(
-          f.read === 'creator-sales' &&
-          creator.data.tokens.some((t) => own(t) && t.creatorDumped === true)
-        ),
+    failures.map((f) =>
+      f.read === 'creator-sales' && saleSeen ? { ...f, note: `${f.note}${SALE_SEEN}` } : f,
     ),
   );
 

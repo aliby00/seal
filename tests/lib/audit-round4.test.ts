@@ -201,8 +201,8 @@ describe('GNRG: the creator’s history rate-limited (item 1)', () => {
 
     // The model is told what failed and forbidden to state those absences.
     const prompt = renderReport(report);
-    expect(prompt).toMatch(/LECTURES EN ÉCHEC CETTE FOIS/);
-    expect(prompt).toMatch(/le créateur et son historique : rate-limit/);
+    expect(prompt).toMatch(/Reads that failed this time/);
+    expect(prompt).toMatch(/who created it and what they did before: rate-limit/);
     expect(SYSTEM_PROMPT).toMatch(/never state an absence one of them would have settled/);
 
     // And its text is checked: GNRG's absences are cut.
@@ -677,9 +677,9 @@ describe('WAFER: the creator’s send to a wallet is said beside its burns (item
     );
     const prompt = renderReport(report);
     expect(prompt).toMatch(
-      `TOUS les destinataires du créateur hors marchés et burn : ${WAFER_WALLET} (0.11 %)`,
+      `every recipient of the creator outside markets and burn: ${WAFER_WALLET} (0.11%)`,
     );
-    expect(prompt).toMatch(/1 adresse a reçu du créateur/);
+    expect(prompt).toMatch(/1 address received from the creator/);
 
     // WAFER's served sentence is cut.
     const said =
@@ -746,7 +746,7 @@ describe('MEME: every transfer from the hook to the creator is a fee taken (item
     expect(glance.items.find((i) => i.id === 'liquidity')?.title).toBe(
       `On this token, the creator received 0.5% of the supply from Doppler’s launch contract, which holds the positions of the markets Doppler opens and pays out their fees (${DOPPLER_HOOK}), in 28 transfers: trading fees taken out of the market.`,
     );
-    expect(renderReport(report)).toMatch(/a versé au créateur 0.52 % de l’offre en 28 transfert/);
+    expect(renderReport(report)).toMatch(/paid the creator 0.52% of the supply in 28 transfer/);
   });
 });
 
@@ -817,7 +817,9 @@ describe('the wording checks of the fourth audit (item 5)', () => {
       'Where the signals diverge\n\nThe market shows 11 trades. The two early buyers in the first minute no longer hold anything.';
     expect(findClaims(said, report).map((c) => c.kind)).toEqual(['count']);
     expect(findClaims('Where\n\nThe 3 early buyers no longer hold anything.', report)).toEqual([]);
-    expect(renderReport(report)).toMatch(/EXACTEMENT 3 adresses \(dont 1 contrat\)/);
+    expect(renderReport(report)).toMatch(
+      /: 3 addresses \(1 of them contract\); quote this number as it is/,
+    );
   });
 
   it('MUT8: 97 % bought by early buyers is not 97 % they held', () => {
@@ -842,7 +844,9 @@ describe('the wording checks of the fourth audit (item 5)', () => {
         report,
       ),
     ).toEqual([]);
-    expect(renderReport(report)).toMatch(/ont ACHETÉ au total 97.16 % de l’offre/);
+    expect(renderReport(report)).toMatch(
+      /They bought 97.16% of the supply in all \(a sum of purchases, not a holding/,
+    );
   });
 
   it('BOOMER: six linked top holders are not "five of the top holders"', () => {
@@ -883,7 +887,9 @@ describe('the wording checks of the fourth audit (item 5)', () => {
         report,
       ),
     ).toEqual([]);
-    expect(renderReport(report)).toMatch(/EXACTEMENT 6 des 8 plus gros détenteurs affichés/);
+    expect(renderReport(report)).toMatch(
+      /- 6 of the 8 largest holders shown received tokens from the creator/,
+    );
   });
 
   it('GNRG: the creator’s trades in the pool are said with their direction', () => {
@@ -911,11 +917,11 @@ describe('the wording checks of the fourth audit (item 5)', () => {
       };
     });
     const prompt = renderReport(report);
-    expect(prompt).toMatch(/Swaps du créateur dans ce pool : 1 achat\(s\), 0 vente\(s\)/);
+    expect(prompt).toMatch(/The creator’s swaps in this pool: 1 buy\(s\), 0 sell\(s\)/);
     // An older report without the direction: the model is told not to mention it.
     delete report.market.data.activity!.creatorTrades;
     expect(renderReport(report)).toMatch(
-      /le sens de ses échanges n’est pas donné ici : ne le mentionne pas/,
+      /the direction of its trades is not given here: do not mention it/,
     );
   });
 });

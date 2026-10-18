@@ -4,7 +4,7 @@ import { launchpadProse } from '../chain/launchpads';
 import { feePayerWords, roleWord, whereSetAside } from '../set-aside';
 import type { SpecialistAnswer } from '../specialists/brief';
 import { mostHoldersFromCreator } from '../contracts/holders';
-import { READ_WORDS_FR, readFailed } from '../failed-reads';
+import { READ_WORDS, readFailed, UNREAD } from '../failed-reads';
 
 /**
  * Le system prompt est un préfixe **stable** : il ne contient aucune donnée de
@@ -30,7 +30,9 @@ Absolute rules:
 - When the data says the creator sold this token, or another of its launches, never call its record or behavior clean, spotless or quiet.
 - When the data says some holders received tokens from the creator, or that the creator's own launch transaction delivered tokens to other addresses, say so plainly, and never write that there is no link between the creator and the holders. A transfer links the addresses; it does not prove who controls them.
 - When the data lists reads that failed this time, never state an absence one of them would have settled (no other launch, no sale, nothing received at launch, no link to the holders): say it could not be read this time, and that the report is partial.
-- Quote counts exactly as the data gives them (early buyers, linked holders, recipients, transfers): never recount, round or re-derive them. A share early buyers bought is what they bought, not what they held.
+- Quote counts as the data gives them (early buyers, linked holders, recipients, transfers): never recount, round or re-derive them, and add no word of emphasis to them. A share early buyers bought is what they bought, not what they held.
+- The data's notes are instructions to you, not wording to copy: never reproduce their phrasing, and never write a word in capitals for emphasis.
+- When a count comes from a recent window only (for example the markets of the last 50 minutes), say it is that window, never a count over the whole chain.
 - A market without trading rules (hook) only means there is no hook to rewrite. Never write that nothing can be changed or rewritten later, or that the token is immutable: the token's own contract is not checked.
 - Who first funded the creator's wallet comes classified. A contract, or a high-volume service (an exchange, a bridge, a router), links the creator to nobody and says nothing about who is behind the wallet, so never present it as a reason for attention, and call it high-volume only when its transaction count is high. An unidentified funder is not a wallet: count no other creators for it. Mention other creators funded by the same wallet only when the funding question states them.
 
@@ -39,88 +41,99 @@ Structure the response with these three explicit headings, separated from paragr
 2. What deserves attention
 3. Where the signals diverge — the most important section; do not gloss over it.
 
+Each section must stand on its own. Never open a section, or a sentence, with a reference to something it does not name ("the two reads", "both signals", "together", "this"): name what you mean. Draw no conclusion the facts do not state, and write "together" or "so" only after the sentences that state both parts.
+
 The reader already sees every figure drawn as charts next to your text. Do not restate the numbers one by one: say what they mean together. Keep the whole answer under 220 words, two to four short sentences per section. Write plain text: no bold, no bullet lists, no tables.
 
 If the evidence is too incomplete to support a useful observation, say so clearly.
 Always write in English, even when source notes or input labels are in another language. Use plain prose, stay factual and nuanced, and avoid unnecessary jargon.`;
 
-/** Rend le rapport lisible par le modèle, en nommant explicitement les trous. */
+/**
+ * The report as the model reads it, every gap named. In English throughout,
+ * the language the text is written in, and without words of emphasis: the
+ * model copied them into the text ("EXACTEMENT 6 of the 8 largest holders",
+ * ROBINHOOD; "EXACTLY 70 early buyers", OWN — staging, 18/10/2026).
+ */
 export function renderReport(report: TokenReport, specialists?: SpecialistAnswer[]): string {
   const lines: string[] = [];
 
-  lines.push(`Token analysé : ${report.token}`);
-  lines.push(`Collecté le : ${report.collectedAt}`);
-  lines.push(`Complétude d'ensemble : ${report.completeness}`);
+  lines.push(`Token analysed: ${report.token}`);
+  lines.push(`Collected at: ${report.collectedAt}`);
+  lines.push(`Overall completeness: ${report.completeness}`);
   const failedReads = report.failedReads ?? [];
   if (failedReads.length > 0) {
     lines.push('');
-    lines.push('## LECTURES EN ÉCHEC CETTE FOIS (rapport partiel)');
-    for (const f of failedReads) lines.push(`- ${READ_WORDS_FR[f.read]} : ${f.note}`);
+    lines.push('## Reads that failed this time (partial report)');
+    for (const f of failedReads) lines.push(`- ${READ_WORDS[f.read]}: ${f.note}`);
     lines.push(
-      'Ces lectures n’ont pas abouti : ce qu’elles auraient trouvé est INCONNU, pas absent. ' +
-        'N’affirme JAMAIS l’absence qu’elles auraient établie (aucun autre lancement, aucune vente, rien reçu au lancement, aucun lien avec les détenteurs, aucun échange). ' +
-        'Dis que cela n’a pas pu être lu cette fois et que le rapport est partiel.',
+      'These reads did not complete: what they would have found is unknown, not absent. ' +
+        'Never state the absence they would have settled (no other launch, no sale, nothing received at launch, no link to the holders, no trade). ' +
+        'Say it could not be read this time and that the report is partial.',
     );
   }
   lines.push('');
 
-  lines.push('## Historique du créateur');
-  lines.push(`Complétude : ${report.creator.completeness}`);
+  lines.push('## Creator history');
+  lines.push(`Completeness: ${report.creator.completeness}`);
   for (const source of report.creator.sources) {
-    if (source.note) lines.push(`Limite : ${source.note}`);
+    if (source.note) lines.push(`Limit: ${source.note}`);
   }
   const c = report.creator.data;
   const deployer = c.origin?.source === 'deployer';
-  lines.push(`Créateur : ${c.creator}`);
+  // The other launches listed, their checks not read: the count stands.
+  const launchesFailed = failedReads.some(
+    (f) => f.read === 'creator-launches' && f.note !== UNREAD.otherChecks,
+  );
+  lines.push(`Creator: ${c.creator}`);
   if (deployer && c.origin) {
     const role = {
-      deployer: 'a déployé le contrat du token',
-      launcher: `a lancé le token via le contrat ${c.origin.launchContract ?? 'de lancement'}`,
+      deployer: 'deployed the token contract',
+      launcher: `launched the token through the contract ${c.origin.launchContract ?? 'of its launch'}`,
       'first-minter':
-        'a envoyé la transaction du premier mint, après la création du contrat (cela ne prouve pas qui l’a écrit)',
+        'sent the transaction of the first mint, after the contract was created (this does not prove who wrote it)',
     }[c.origin.role];
     lines.push(
       c.origin.launchpad
-        ? `Origine : lancement sur ${launchpadProse(c.origin.launchpad.id)}. ${c.origin.creatorFrom === 'launch-record' ? 'Créateur nommé par l’événement de lancement' : 'Créateur : l’expéditeur de la transaction de lancement'} : cette adresse ${role}.`
-        : `Origine : aucun launchpad connu. Créateur retrouvé par la transaction du premier mint : cette adresse ${role}.`,
+        ? `Origin: launched on ${launchpadProse(c.origin.launchpad.id)}. ${c.origin.creatorFrom === 'launch-record' ? 'Creator named by the launch event' : 'Creator: the sender of the launch transaction'}: this address ${role}.`
+        : `Origin: no known launchpad. Creator found through the transaction of the first mint: this address ${role}.`,
     );
     if (c.origin.transactionCount !== null) {
-      lines.push(`Transactions envoyées par ce wallet : ${c.origin.transactionCount}.`);
+      lines.push(`Transactions sent by this wallet: ${c.origin.transactionCount}.`);
     }
     lines.push(
-      readFailed(failedReads, 'creator-launches')
-        ? `Lancements de cette adresse : AU MOINS ${c.counts.launched} — une lecture de ses lancements a échoué cette fois : n’écris pas qu’aucun autre lancement n’a été trouvé.`
+      launchesFailed
+        ? `Launches by this address: at least ${c.counts.launched}. A read of its launches failed this time, so do not write that no other launch was found.`
         : c.origin.launchesListed
-          ? `Lancements de cette adresse (${c.origin.launchpadsRead?.map(launchpadProse).join(', ') || 'même contrat de lancement'}) : ${c.counts.launched}.`
-          : 'Les autres lancements de cette adresse sur ce launchpad ne peuvent pas être listés depuis la chaîne : ne les compte pas.',
+          ? `Launches by this address (${c.origin.launchpadsRead?.map(launchpadProse).join(', ') || 'same launch contract'}): ${c.counts.launched}.`
+          : 'This address’s other launches on this launchpad cannot be listed from the chain: do not count them.',
     );
     if (c.origin.launchpadsNotRead?.length) {
       lines.push(
-        `Non listés : ${c.origin.launchpadsNotRead.map(launchpadProse).join(', ')}. N’affirme pas qu’il n’y en a pas, et n’écris jamais que c’est le premier token du créateur.`,
+        `Not listed: ${c.origin.launchpadsNotRead.map(launchpadProse).join(', ')}. Do not say there are none, and never write that this is the creator’s first token.`,
       );
     }
     lines.push(
-      'La graduation n’est lue que sur pons : le sort de ces lancements (gradué, abandonné) n’est pas mesuré ici. Ne le présente pas comme connu.',
+      'Graduation is read on pons only: what became of these launches (graduated, abandoned) is not measured here. Do not present it as known.',
     );
   } else {
     if (c.origin?.transactionCount !== null && c.origin?.transactionCount !== undefined) {
-      lines.push(`Transactions envoyées par ce wallet : ${c.origin.transactionCount}.`);
+      lines.push(`Transactions sent by this wallet: ${c.origin.transactionCount}.`);
     }
-    if (readFailed(failedReads, 'creator-launches')) {
+    if (launchesFailed) {
       lines.push(
-        `Une lecture des lancements du créateur a échoué cette fois : ${c.counts.launched} est un MINIMUM. N’écris pas qu’aucun autre lancement n’a été trouvé.`,
+        `A read of the creator’s launches failed this time: ${c.counts.launched} is a minimum. Do not write that no other launch was found.`,
       );
     }
     lines.push(
-      `Tokens lancés sur la fenêtre observée : ${c.counts.launched} — dont ${c.counts.graduated} gradués, ` +
-        `${c.counts.abandoned} abandonnés, ${c.counts.undetermined} au sort indéterminable sur cette fenêtre.`,
+      `Tokens launched over the observed window: ${c.counts.launched}, of which ${c.counts.graduated} graduated, ` +
+        `${c.counts.abandoned} abandoned, and ${c.counts.undetermined} whose outcome cannot be told over this window.`,
     );
     lines.push(
-      `Lancements lus sur ${['pons', ...(c.origin?.launchpadsRead ?? []).filter((l) => l !== 'pons')].map(launchpadProse).join(', ')} seulement${c.origin?.launchpadsNotRead?.length ? ` ; non listés : ${c.origin.launchpadsNotRead.map(launchpadProse).join(', ')}` : ''}. N’écris jamais que le créateur n’a lancé que ce token ni que c’est son premier : dis « aucun autre lancement trouvé sur les launchpads que SEAL peut lister ».`,
+      `Launches read on ${['pons', ...(c.origin?.launchpadsRead ?? []).filter((l) => l !== 'pons')].map(launchpadProse).join(', ')} only${c.origin?.launchpadsNotRead?.length ? `; not listed: ${c.origin.launchpadsNotRead.map(launchpadProse).join(', ')}` : ''}. Never write that the creator launched only this token or that it is their first: say "no other launch found on the launchpads SEAL can list".`,
     );
     if (c.counts.undetermined > 0) {
       lines.push(
-        "Un sort « indéterminable » signifie que la fenêtre scannée est plus courte que le délai au-delà duquel on parlerait d'abandon. Ne le présente pas comme une activité constatée.",
+        'An outcome that "cannot be told" means the window scanned is shorter than the delay after which a launch would count as abandoned. Do not present it as observed activity.',
       );
     }
   }
@@ -131,9 +144,15 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
   // not "no liquidity removed".
   const salesChecked = c.tokens.filter((t) => t.creatorDumped !== null);
   const liquidityChecked = c.tokens.filter((t) => t.liquidityPulled !== null);
+  const ownSold = c.tokens.some(
+    (t) =>
+      String(t.address).toLowerCase() === report.token.toLowerCase() && t.creatorDumped === true,
+  );
   if (readFailed(failedReads, 'creator-sales')) {
     lines.push(
-      'Ventes du créateur sur CE token : NON LUES cette fois (lecture en échec). N’écris pas qu’il n’a pas vendu.',
+      ownSold
+        ? 'The creator’s sales of this token: the read of its transfers did not complete this time, but a sale was still confirmed by a trade in its market. Say the creator sold it, and that the read was partial.'
+        : 'The creator’s sales of this token: not read this time (the read failed). Do not write that it did not sell.',
     );
   }
   if (salesChecked.length > 0) {
@@ -143,50 +162,47 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
     const w = own?.salesWindow;
     const ownWindow = w
       ? w.wholeLife
-        ? `ce token-ci lu sur toute sa vie jusqu’à aujourd’hui${w.days !== null ? ` (${w.days} jours)` : ''}`
-        : `ce token-ci lu jusqu’au jour ${w.days ?? '?'} après son lancement seulement`
+        ? `this token read over its whole life to date${w.days !== null ? ` (${w.days} days)` : ''}`
+        : `this token read up to day ${w.days ?? '?'} after its launch only`
       : null;
     lines.push(
-      `Ventes du créateur dans le marché : sur ${salesChecked.length} lancements vérifiés${own ? ' AU TOTAL, CE token compris' : ''}, ` +
+      `Creator sales into the market: of ${salesChecked.length} launches checked${own ? ' in total, this token included' : ''}, ` +
         `${salesChecked.filter((t) => t.creatorDumped === true).length} (` +
         (ownWindow
-          ? `${ownWindow} ; les autres lancements dans les ${OTHER_LAUNCH_SALES_DAYS} premiers jours après chacun`
-          : `dans les ${OTHER_LAUNCH_SALES_DAYS} premiers jours après chaque lancement`) +
-        '). Dis la fenêtre quand tu cites ces ventes.',
+          ? `${ownWindow}; the other launches in the first ${OTHER_LAUNCH_SALES_DAYS} days after each`
+          : `in the first ${OTHER_LAUNCH_SALES_DAYS} days after each launch`) +
+        '). Give the window when you cite these sales.',
     );
     // ASTEROID: "sold in 8 of 10 other checked launches", the total said of the others.
     if (own && own.creatorDumped !== null) {
       const others = salesChecked.filter((t) => t !== own);
+      const othersSold = others.filter((t) => t.creatorDumped === true).length;
       lines.push(
-        `Détail : CE token — ${own.creatorDumped ? 'le créateur l’a vendu' : 'aucune vente du créateur observée'} ; ` +
-          `ses AUTRES lancements — ${others.filter((t) => t.creatorDumped === true).length} avec vente sur ${others.length} vérifiés. ` +
-          `Si tu parles de ses « autres » lancements, écris EXACTEMENT ${others.filter((t) => t.creatorDumped === true).length} sur ${others.length} ; ` +
-          `${salesChecked.filter((t) => t.creatorDumped === true).length} sur ${salesChecked.length} est le total CE token compris : ne l’emploie jamais avec « autres ».`,
+        `Detail: this token, ${own.creatorDumped ? 'the creator sold it' : 'no creator sale observed'}; ` +
+          `its other launches, ${othersSold} with a sale of ${others.length} checked. ` +
+          `When you speak of its "other" launches, the count is ${othersSold} of ${others.length}; ` +
+          `${salesChecked.filter((t) => t.creatorDumped === true).length} of ${salesChecked.length} is the total with this token included: never use it with "other".`,
       );
     }
   }
-  const ownSold = c.tokens.some(
-    (t) =>
-      String(t.address).toLowerCase() === report.token.toLowerCase() && t.creatorDumped === true,
-  );
   const anySold = salesChecked.some((t) => t.creatorDumped === true);
   if (anySold) {
     lines.push(
       ownSold
-        ? 'FAIT MESURÉ : le créateur A VENDU CE TOKEN dans son marché (vente confirmée par un échange dans la même transaction, routée ou non). Les ventes de la fenêtre de lancement plus bas ne couvrent que les premières minutes. Ne dis jamais que son historique ou son comportement est propre, clean ou sans vente.'
-        : 'FAIT MESURÉ : le créateur a vendu dans le marché d’au moins un autre de ses lancements. Ne dis jamais que son historique est propre ou clean.',
+        ? 'Measured fact: the creator sold this token into its market (a sale confirmed by a trade in the same transaction, routed or not). The launch-window sales further down cover only the first minutes. Never say its record or behaviour is clean or without sales.'
+        : 'Measured fact: the creator sold into the market of at least one other of its launches. Never say its record is clean.',
     );
   }
   if (liquidityChecked.length > 0) {
     lines.push(
-      `Retraits de liquidité : sur ${liquidityChecked.length} lancements vérifiés, ` +
-        `${liquidityChecked.filter((t) => t.liquidityPulled === true).length} (même fenêtre).`,
+      `Liquidity removals: of ${liquidityChecked.length} launches checked, ` +
+        `${liquidityChecked.filter((t) => t.liquidityPulled === true).length} (same window).`,
     );
   }
   const fees = c.tokens.filter((t) => t.feesCollected === true);
   if (fees.length > 0) {
     lines.push(
-      `Le créateur a retiré des tokens de la position de liquidité du marché sans en retirer la liquidité (frais collectés) sur ${fees.length} lancement(s)${fees.some((t) => String(t.address).toLowerCase() === report.token.toLowerCase()) ? ', dont celui-ci' : ''}. Dis-le ; n’écris pas « aucun retrait » sans le préciser.`,
+      `The creator took tokens out of the market’s liquidity position without removing its liquidity (fees collected) on ${fees.length} launch(es)${fees.some((t) => String(t.address).toLowerCase() === report.token.toLowerCase()) ? ', this one included' : ''}. Say so; do not write "no removal" without saying it.`,
     );
   }
   const taken = c.tokens.find(
@@ -194,46 +210,46 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
   )?.feesTaken;
   if (taken && taken.transfers > 0) {
     lines.push(
-      `Sur toute la vie de ce token, ${feePayerWords(taken.payers, taken.hooks)} a versé au créateur ${(taken.share * 100).toFixed(2)} % de l’offre en ${taken.transfers} transfert(s) : des frais de trading sortis du marché. Dis-le avec ces chiffres, et nomme ce contrat par ce rôle exact (en anglais ci-dessus) : ne l’appelle « les règles de trading (hook) du marché » que si c’est écrit « of its main pool ».`,
+      `Over this token’s whole life, ${feePayerWords(taken.payers, taken.hooks)} paid the creator ${(taken.share * 100).toFixed(2)}% of the supply in ${taken.transfers} transfer(s): trading fees taken out of the market. Say so with these figures, and name that contract by this exact role: call it "the market’s trading rules (hook)" only when it says "of its main pool".`,
     );
   }
   const yesNo = (value: boolean | null) =>
-    value === null ? 'non vérifié' : value ? 'oui' : 'non observé';
+    value === null ? 'not checked' : value ? 'yes' : 'not observed';
   for (const token of c.tokens.slice(-10)) {
     lines.push(
-      `- ${token.address} : ` +
+      `- ${token.address}: ` +
         (deployer
           ? ''
-          : `${token.outcome}, progression ${(token.graduationProgress * 100).toFixed(2)} %, `) +
-        `vente du créateur : ${yesNo(token.creatorDumped)}, retrait de liquidité : ${yesNo(token.liquidityPulled)}`,
+          : `${token.outcome}, progress ${(token.graduationProgress * 100).toFixed(2)}%, `) +
+        `creator sale: ${yesNo(token.creatorDumped)}, liquidity removal: ${yesNo(token.liquidityPulled)}`,
     );
   }
   lines.push('');
 
-  lines.push('## Concentration des détenteurs');
-  lines.push(`Complétude : ${report.holders.completeness}`);
+  lines.push('## Holder concentration');
+  lines.push(`Completeness: ${report.holders.completeness}`);
   for (const source of report.holders.sources) {
-    if (source.note) lines.push(`Limite : ${source.note}`);
+    if (source.note) lines.push(`Limit: ${source.note}`);
   }
   const h = report.holders.data;
   if (report.holders.completeness === 'unavailable') {
     // Zeros here would read as "no concentration": the model is told nothing was measured.
-    lines.push('Non mesuré : aucune part à interpréter.');
+    lines.push('Not measured: no share to interpret.');
   } else {
     // How much circulates comes first: "one holds three fifths" of the 0.9 %
     // outside the pool is not three fifths of the token.
     if (h.pooledShare != null) {
       lines.push(
-        `À DIRE AVANT TOUTE PART : ${(h.pooledShare * 100).toFixed(2)} % de l'offre TOTALE est dans ${whereSetAside(h.setAside)} (pools, courbe de lancement, contrats de lancement, burn) ; seuls ${((1 - h.pooledShare) * 100).toFixed(2)} % circulent hors de ces adresses, et les parts ci-dessous portent sur ces ${((1 - h.pooledShare) * 100).toFixed(2)} %.`,
+        `Say this before any share: ${(h.pooledShare * 100).toFixed(2)}% of the total supply sits in ${whereSetAside(h.setAside)} (pools, launch curve, launch contracts, burn); only ${((1 - h.pooledShare) * 100).toFixed(2)}% circulates outside those addresses, and the shares below are of that ${((1 - h.pooledShare) * 100).toFixed(2)}%.`,
       );
     } else {
       lines.push(
-        "Part de l'offre totale hors circulation (pools, courbe, contrats de lancement) : non mesurée — les parts ci-dessous ne sont pas des parts de l'offre totale.",
+        'Share of the total supply out of circulation (pools, curve, launch contracts): not measured. The shares below are not shares of the total supply.',
       );
     }
     for (const aside of (h.setAside ?? []).slice(0, 4)) {
       lines.push(
-        `- mis de côté : ${aside.address} (${roleWord(aside.role)})${aside.share !== null ? ` : ${(aside.share * 100).toFixed(2)} % de l'offre totale` : ''}`,
+        `- set aside: ${aside.address} (${roleWord(aside.role)})${aside.share !== null ? `: ${(aside.share * 100).toFixed(2)}% of the total supply` : ''}`,
       );
     }
     const ownToken = report.creator.data.tokens.find(
@@ -242,7 +258,7 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
     const sent = ownToken?.creatorRecipients ?? null;
     if (mostHoldersFromCreator(sent, h.holderCount)) {
       lines.push(
-        `Le créateur a envoyé ce token directement à ${sent} adresses (hors marchés) pour ${h.holderCount} détenteurs : la plupart l’ont reçu du créateur, pas acheté. Ne présente pas le nombre de détenteurs comme rassurant.`,
+        `The creator sent this token directly to ${sent} addresses (outside markets), for ${h.holderCount} holders: most received it from the creator rather than buying it. Do not present the number of holders as reassuring.`,
       );
     }
     const links = h.creatorLinks;
@@ -253,54 +269,52 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
       const shownLinked = shown.filter((t) => t.fromCreator).length;
       const n = links.sentTo;
       lines.push(
-        `Liens créateur → détenteurs, lus sur les transferts du créateur (${n} adresse${n === 1 ? '' : 's'} ${n === 1 ? 'a reçu' : 'ont reçu'} du créateur hors marchés et burn${links.sentShare !== undefined ? `, ${(links.sentShare * 100).toFixed(2)} % de l’offre en tout` : ''}) :`,
+        `Creator-to-holder links, read from the creator’s transfers (${n} address${n === 1 ? '' : 'es'} received from the creator outside markets and burn${links.sentShare !== undefined ? `, ${(links.sentShare * 100).toFixed(2)}% of the supply in all` : ''}):`,
       );
       if (links.recipients && links.recipients.length > 0) {
         lines.push(
-          `- TOUS les destinataires du créateur hors marchés et burn${n > links.recipients.length ? ` (les ${links.recipients.length} plus gros sur ${n})` : ''} : ` +
+          `- every recipient of the creator outside markets and burn${n > links.recipients.length ? ` (the ${links.recipients.length} largest of ${n})` : ''}: ` +
             links.recipients
               .map(
                 (r) =>
-                  `${r.address} (${(r.share * 100).toFixed(2)} %${r.listed ? ', détenteur aujourd’hui' : ''})`,
+                  `${r.address} (${(r.share * 100).toFixed(2)}%${r.listed ? ', a holder today' : ''})`,
               )
               .join(', ') +
-            '. N’écris pas que le seul transfert du créateur est un autre que ceux-là.',
+            '. Do not write that the creator’s only transfer is another one than these.',
         );
       }
       lines.push(
-        `- EXACTEMENT ${shownLinked} des ${shown.length} plus gros détenteurs affichés ont reçu des tokens du créateur (directement ou via un contrat qu’il a alimenté) ; ${linked.length} parmi tous les détenteurs lus. Cite ces nombres tels quels.`,
+        `- ${shownLinked} of the ${shown.length} largest holders shown received tokens from the creator (directly or through a contract it funded); ${linked.length} among all holders read. Quote these numbers as they are.`,
       );
       for (const t of linked.slice(0, 8)) {
         const f = t.fromCreator!;
         lines.push(
-          `- ${t.address} (détenteur actuel, ${(t.share * 100).toFixed(2)} % de la part hors pools) a reçu ${(f.share * 100).toFixed(2)} % de l’offre totale ${f.via ? `du contrat ${f.via}, que le créateur avait alimenté en tokens` : 'directement du créateur'}.`,
+          `- ${t.address} (holder today, ${(t.share * 100).toFixed(2)}% of the share outside pools) received ${(f.share * 100).toFixed(2)}% of the total supply ${f.via ? `from the contract ${f.via}, which the creator had funded with tokens` : 'directly from the creator'}.`,
         );
       }
       for (const d of links.distributors) {
         lines.push(
-          `- le créateur a envoyé ${(d.share * 100).toFixed(2)} % de l’offre au contrat ${d.address}, qui l’a redistribué à ${d.recipients} adresses${d.complete ? '' : ' (au moins)'}.`,
+          `- the creator sent ${(d.share * 100).toFixed(2)}% of the supply to the contract ${d.address}, which passed it on to ${d.recipients} addresses${d.complete ? '' : ' (at least)'}.`,
         );
       }
       if (links.burned > 0) {
         lines.push(
-          `- le créateur a envoyé ${(links.burned * 100).toFixed(2)} % de l’offre à une adresse de burn.`,
+          `- the creator sent ${(links.burned * 100).toFixed(2)}% of the supply to a burn address.`,
         );
       }
       if (linked.length === 0 && links.distributors.length === 0) {
-        lines.push('- aucun des plus gros détenteurs listés n’a reçu de tokens du créateur.');
+        lines.push('- none of the largest holders listed received tokens from the creator.');
       } else {
         lines.push(
-          'Ces liens sont mesurés : dis-les en clair, sans affirmer qui contrôle ces adresses, et n’écris jamais qu’aucun lien n’existe entre le créateur et les détenteurs.',
+          'These links are measured: state them plainly, without claiming who controls these addresses, and never write that there is no link between the creator and the holders.',
         );
       }
     }
-    lines.push(`Part du premier détenteur : ${(h.concentration.top1 * 100).toFixed(2)} %`);
+    lines.push(`Share of the largest holder: ${(h.concentration.top1 * 100).toFixed(2)}%`);
+    lines.push('(These shares are of the holders retrieved, not of the token’s total supply.)');
+    lines.push(`Combined share of the top 10: ${(h.concentration.top10 * 100).toFixed(2)}%`);
     lines.push(
-      "(Ces parts portent sur les détenteurs récupérés, pas sur l'offre totale du token.)",
-    );
-    lines.push(`Part cumulée du top 10 : ${(h.concentration.top10 * 100).toFixed(2)} %`);
-    lines.push(
-      '(Les pools, courbes de lancement, contrats de lancement et adresses de burn sont exclus de ces parts.)',
+      '(Pools, launch curves, launch contracts and burn addresses are left out of these shares.)',
     );
     const creator = report.creator.data.creator.toLowerCase();
     for (const holder of h.top
@@ -309,65 +323,66 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
       // Whether the creator still holds a large share is a fact, not a guess: name it.
       const role =
         holder.address.toLowerCase() === creator
-          ? ' — adresse du CRÉATEUR'
+          ? ': the creator’s address'
           : holder.fromCreator
-            ? ` — a reçu ${(holder.fromCreator.share * 100).toFixed(2)} % de l’offre ${holder.fromCreator.via ? 'via un contrat alimenté par le créateur' : 'du créateur'}`
+            ? `: received ${(holder.fromCreator.share * 100).toFixed(2)}% of the supply ${holder.fromCreator.via ? 'through a contract the creator funded' : 'from the creator'}`
             : '';
-      const kind = holder.kind === 'contract' ? 'contrat' : 'wallet';
-      lines.push(`- ${holder.address} (${kind}) : ${(holder.share * 100).toFixed(2)} %${role}`);
+      lines.push(
+        `- ${holder.address} (${holder.kind}): ${(holder.share * 100).toFixed(2)}%${role}`,
+      );
     }
   }
   lines.push('');
 
-  lines.push('## État du marché');
-  lines.push(`Complétude : ${report.market.completeness}`);
+  lines.push('## Market state');
+  lines.push(`Completeness: ${report.market.completeness}`);
   for (const source of report.market.sources) {
-    if (source.note) lines.push(`Limite : ${source.note}`);
+    if (source.note) lines.push(`Limit: ${source.note}`);
   }
   const m = report.market.data;
-  lines.push(`Prix : ${m.priceUsd === null ? 'inconnu' : `${m.priceUsd} USD`}`);
+  lines.push(`Price: ${m.priceUsd === null ? 'unknown' : `${m.priceUsd} USD`}`);
   if (m.liquidityCheck && !m.liquidityCheck.current && m.liquidityUsd !== null) {
     // A removal is on chain at once; the listed figure can lag it by hours.
     lines.push(
-      `Liquidité : DexScreener annonce ${m.liquidityUsd} USD, MAIS les pools du token ne détiennent que ${(m.liquidityCheck.poolsShare * 100).toFixed(4)} % de son offre sur la chaîne aujourd’hui : ce chiffre n’est pas à jour. Ne le présente jamais comme de la liquidité, ni comme rassurant.`,
+      `Liquidity: DexScreener lists ${m.liquidityUsd} USD, but the token’s pools hold only ${(m.liquidityCheck.poolsShare * 100).toFixed(4)}% of its supply on chain today: that figure is not current. Never present it as liquidity, nor as reassuring.`,
     );
   } else {
-    lines.push(`Liquidité : ${m.liquidityUsd === null ? 'inconnue' : `${m.liquidityUsd} USD`}`);
+    lines.push(`Liquidity: ${m.liquidityUsd === null ? 'unknown' : `${m.liquidityUsd} USD`}`);
   }
   if (m.quiet) {
     lines.push(
-      `Aucun échange depuis au moins ${m.quiet.hours} h : ne dis pas que les échanges sont actifs sans le préciser.`,
+      `No trade for at least ${m.quiet.hours} h: do not say trading is active without saying so.`,
     );
   }
   if (m.graduation) {
     lines.push(
-      `Graduation : ${(m.graduation.progress * 100).toFixed(2)} % du seuil de ${m.graduation.thresholdEth} ETH` +
-        (m.graduation.graduated ? ' — seuil atteint' : ''),
+      `Graduation: ${(m.graduation.progress * 100).toFixed(2)}% of the ${m.graduation.thresholdEth} ETH threshold` +
+        (m.graduation.graduated ? ', threshold reached' : ''),
     );
   } else {
-    lines.push('Graduation : non déterminée');
+    lines.push('Graduation: not determined');
   }
   if (m.volumeUsd && m.txns) {
     const trades = m.txns.h24.buys + m.txns.h24.sells;
     lines.push(
-      `Volume 24 h : ${m.volumeUsd.h24} USD réparti sur ${trades} échanges (${m.txns.h24.buys} achats, ${m.txns.h24.sells} ventes).`,
+      `24 h volume: ${m.volumeUsd.h24} USD over ${trades} trades (${m.txns.h24.buys} buys, ${m.txns.h24.sells} sells).`,
     );
   } else if (m.activity && m.txns) {
     // No listed pair: the launch pool's own swaps, counted by the indexer.
     const a = m.activity;
     lines.push(
-      `Échanges 24 h (comptés par l'indexeur SEAL sur les swaps du pool de lancement, sans prix) : ${a.h24.buys} achats, ${a.h24.sells} ventes, ${a.h24.traders} adresses distinctes, volume ${a.h24.volume} wei du token de paire.`,
-      `Échanges 7 j : ${a.d7.buys} achats, ${a.d7.sells} ventes, ${a.d7.traders} adresses. Dernier échange : ${a.sinceLaunch.lastTradeAt ?? 'aucun'}.`,
-      `Fenêtre couverte : depuis ${a.coveredFrom ?? 'inconnu'}${a.sinceLaunch.complete ? ' (tout depuis le lancement)' : ''}. ${
+      `24 h trades (counted by the SEAL indexer on the launch pool’s swaps, without prices): ${a.h24.buys} buys, ${a.h24.sells} sells, ${a.h24.traders} distinct addresses, volume ${a.h24.volume} wei of the paired token.`,
+      `7 d trades: ${a.d7.buys} buys, ${a.d7.sells} sells, ${a.d7.traders} addresses. Last trade: ${a.sinceLaunch.lastTradeAt ?? 'none'}.`,
+      `Window covered: since ${a.coveredFrom ?? 'unknown'}${a.sinceLaunch.complete ? ' (everything since launch)' : ''}. ${
         a.creatorTrades
-          ? `Swaps du créateur dans ce pool : ${a.creatorTrades.buys} achat(s), ${a.creatorTrades.sells} vente(s).`
+          ? `The creator’s swaps in this pool: ${a.creatorTrades.buys} buy(s), ${a.creatorTrades.sells} sell(s).`
           : a.creatorTraded
-            ? 'Le créateur a échangé dans ce pool ; le sens de ses échanges n’est pas donné ici : ne le mentionne pas.'
-            : 'Le créateur n’a pas échangé dans ce pool sur la fenêtre couverte.'
+            ? 'The creator traded in this pool; the direction of its trades is not given here: do not mention it.'
+            : 'The creator did not trade in this pool over the window covered.'
       }`,
     );
   } else {
-    lines.push('Volume : non disponible');
+    lines.push('Volume: not available');
   }
 
   // Who first funded the creator, so the replay can name it where it traded (KEL).
@@ -381,12 +396,12 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
 }
 
 const MOVE_WORD: Record<LaunchMove['kind'], string> = {
-  mint: 'créé et remis à',
-  allocation: 'transféré hors pool à',
-  buy: 'acheté dans un pool par',
-  sell: 'revendu dans un pool par',
-  provide: 'apporté en liquidité à un pool par',
-  withdraw: 'retiré de la liquidité d’un pool par',
+  mint: 'minted and handed to',
+  allocation: 'transferred outside any pool to',
+  buy: 'bought in a pool by',
+  sell: 'sold back into a pool by',
+  provide: 'provided as liquidity to a pool by',
+  withdraw: 'withdrawn from a pool’s liquidity by',
 };
 
 /**
@@ -397,44 +412,42 @@ const MOVE_WORD: Record<LaunchMove['kind'], string> = {
 export function renderLaunch(launch: LaunchReplay, options: { funder?: string } = {}): string[] {
   const d = launch.data;
   const lines = [
-    `## Les ${Math.round(d.windowSeconds / 60)} premières minutes après le lancement (bloc ${d.launchBlock})`,
-    'Parts exprimées sur l’offre totale. N’emploie pas les mots sniper, insider ou bundle : décris ce qui a bougé.',
+    `## The first ${Math.round(d.windowSeconds / 60)} minutes after the launch (block ${d.launchBlock})`,
+    'Shares are of the total supply. Do not use the words sniper, insider or bundle: describe what moved.',
   ];
-  for (const source of launch.sources) if (source.note) lines.push(`Limite : ${source.note}`);
-  const pc = (x: number) => `${(x * 100).toFixed(2)} %`;
+  for (const source of launch.sources) if (source.note) lines.push(`Limit: ${source.note}`);
+  const pc = (x: number) => `${(x * 100).toFixed(2)}%`;
   const sm = d.summary;
   if (sm) {
     // The totals of every move read: the list below is only a selection.
     lines.push(
-      `Totaux sur TOUS les ${sm.moves} mouvements de la fenêtre (la liste plus bas n’en est qu’une sélection ; cite ces totaux, pas une somme de la liste) :`,
-      `- Le créateur a reçu ou acheté ${pc(sm.creatorAtLaunch)} dans le bloc de lancement, acheté ${pc(sm.creatorBought)} et revendu ${pc(sm.creatorSold)} dans la fenêtre.`,
-      `- Premiers acheteurs (hors créateur, dans les ${sm.earlySeconds} premières secondes) : EXACTEMENT ${sm.early.wallets} adresse${sm.early.wallets === 1 ? '' : 's'}${sm.early.contracts !== null ? ` (dont ${sm.early.contracts} contrat${sm.early.contracts === 1 ? '' : 's'})` : ''} — cite ce nombre tel quel. Elles ont ACHETÉ au total ${pc(sm.early.share)} de l’offre (une somme d’achats, pas une détention : ne dis pas qu’elles en « détenaient » autant) ; elles en détiennent encore aujourd’hui ${sm.early.heldNow === null ? 'une part non lue' : pc(sm.early.heldNow)}${sm.early.unread ? ` (${sm.early.unread} non lues)` : ''}.`,
+      `Totals over all ${sm.moves} moves of the window (the list further down is only a selection; cite these totals, not a sum of the list):`,
+      `- The creator received or bought ${pc(sm.creatorAtLaunch)} in the launch block, bought ${pc(sm.creatorBought)} and sold back ${pc(sm.creatorSold)} in the window.`,
+      `- Early buyers (the creator left out, in the first ${sm.earlySeconds} seconds): ${sm.early.wallets} address${sm.early.wallets === 1 ? '' : 'es'}${sm.early.contracts !== null ? ` (${sm.early.contracts} of them contract${sm.early.contracts === 1 ? '' : 's'})` : ''}; quote this number as it is. They bought ${pc(sm.early.share)} of the supply in all (a sum of purchases, not a holding: do not say they "held" that much); today they still hold ${sm.early.heldNow === null ? 'a share that was not read' : pc(sm.early.heldNow)}${sm.early.unread ? ` (${sm.early.unread} not read)` : ''}.`,
       ...(sm.creatorTx
         ? [
-            `- Dans le bloc de lancement, la transaction envoyée par le CRÉATEUR (${sm.creatorTx.transaction}) a livré ${pc(sm.creatorTx.share)} de l’offre à ${sm.creatorTx.addresses} autres adresses que la sienne${sm.creatorTx.contracts !== null ? ` (dont ${sm.creatorTx.contracts} contrat${sm.creatorTx.contracts === 1 ? '' : 's'}${sm.creatorTx.codeSizes?.length ? ` ; taille de leur code : ${[...new Set(sm.creatorTx.codeSizes)].join(', ')} octets${sm.creatorTx.codeSizes.every((n) => n === 45) ? ', soit des proxys minimaux, clones EIP-1167' : ''}` : ''})` : ''}. Ce ne sont NI des pools, NI des adresses de burn, NI le créateur : n’écris jamais que cette transaction a livré « dans des pools » ou « dans le marché ». Elles en détiennent encore ${sm.creatorTx.heldNow === null ? 'une part non lue' : pc(sm.creatorTx.heldNow)}. Ces tokens sont liés au créateur par sa propre transaction : dis-le, sans affirmer qu’il les contrôle, et n’écris pas que le créateur n’a rien pris au lancement.`,
+            `- In the launch block, the transaction sent by the creator (${sm.creatorTx.transaction}) delivered ${pc(sm.creatorTx.share)} of the supply to ${sm.creatorTx.addresses} addresses other than its own${sm.creatorTx.contracts !== null ? ` (${sm.creatorTx.contracts} of them contract${sm.creatorTx.contracts === 1 ? '' : 's'}${sm.creatorTx.codeSizes?.length ? `; their code size: ${[...new Set(sm.creatorTx.codeSizes)].join(', ')} bytes${sm.creatorTx.codeSizes.every((n) => n === 45) ? ', that is minimal proxies, EIP-1167 clones' : ''}` : ''})` : ''}. They are not pools, not burn addresses and not the creator: never write that this transaction delivered "into pools" or "into the market". They still hold ${sm.creatorTx.heldNow === null ? 'a share that was not read' : pc(sm.creatorTx.heldNow)}. These tokens are linked to the creator by its own transaction: say so, without claiming it controls them, and do not write that the creator took nothing at launch.`,
           ]
         : []),
       sm.bundle
-        ? `- Une seule transaction (${sm.bundle.transaction}, +${sm.bundle.seconds} s) a livré ${pc(sm.bundle.share)} de l’offre à ${sm.bundle.wallets} adresses distinctes${sm.bundle.contracts !== null ? ` (dont ${sm.bundle.contracts} contrats)` : ''} ; elles en détiennent encore ${sm.bundle.heldNow === null ? 'une part non lue' : pc(sm.bundle.heldNow)}${sm.bundle.unread ? ` (${sm.bundle.unread} non lues)` : ''}.`
-        : '- Aucune transaction n’a livré un achat à trois adresses ou plus.',
+        ? `- One single transaction (${sm.bundle.transaction}, +${sm.bundle.seconds} s) delivered ${pc(sm.bundle.share)} of the supply to ${sm.bundle.wallets} distinct addresses${sm.bundle.contracts !== null ? ` (${sm.bundle.contracts} of them contracts)` : ''}; they still hold ${sm.bundle.heldNow === null ? 'a share that was not read' : pc(sm.bundle.heldNow)}${sm.bundle.unread ? ` (${sm.bundle.unread} not read)` : ''}.`
+        : '- No transaction delivered a purchase to three addresses or more.',
     );
   } else if (d.movesInWindow > d.moves.length) {
     lines.push(
-      'Pas de totaux sur toute la fenêtre : les mouvements ci-dessous sont une sélection. Toute somme faite dessus vaut « parmi les mouvements montrés », pas un total.',
+      'No totals over the whole window: the moves below are a selection. Any sum made from them holds "among the moves shown", not as a total.',
     );
   }
   for (const m of d.moves.slice(0, 20)) {
-    const who = m.actorIsCreator ? `${m.actor} (CRÉATEUR)` : `${m.actor} (${m.actorKind})`;
-    const from = m.counterpartyIsCreator ? ' — reçu du CRÉATEUR' : '';
-    const held = m.heldNow === null ? 'inconnu' : `${(m.heldNow * 100).toFixed(2)} %`;
+    const who = m.actorIsCreator ? `${m.actor} (the creator)` : `${m.actor} (${m.actorKind})`;
+    const from = m.counterpartyIsCreator ? ', received from the creator' : '';
+    const held = m.heldNow === null ? 'unknown' : `${(m.heldNow * 100).toFixed(2)}%`;
     lines.push(
-      `- +${m.seconds} s (bloc +${m.block}) : ${(m.share * 100).toFixed(3)} % ${MOVE_WORD[m.kind]} ${who}${from} ; détient aujourd’hui ${held}`,
+      `- +${m.seconds} s (block +${m.block}): ${(m.share * 100).toFixed(3)}% ${MOVE_WORD[m.kind]} ${who}${from}; holds today ${held}`,
     );
   }
   if (d.movesInWindow > d.moves.length) {
-    lines.push(
-      `(${d.movesInWindow - d.moves.length} mouvements de plus dans la fenêtre, non listés)`,
-    );
+    lines.push(`(${d.movesInWindow - d.moves.length} more moves in the window, not listed)`);
   }
   lines.push(...roundTrips(d.moves, options.funder));
   return lines;
@@ -460,12 +473,12 @@ function roundTrips(moves: readonly LaunchMove[], funder?: string): string[] {
     seen.add(buy.actor);
     const delay = Math.round((sale.seconds - buy.seconds) * 10) / 10;
     const who = buy.actorIsCreator
-      ? `${buy.actor} (CRÉATEUR)`
+      ? `${buy.actor} (the creator)`
       : funder && buy.actor.toLowerCase() === funder
-        ? `${buy.actor} (le PREMIER FINANCEUR du wallet du créateur)`
+        ? `${buy.actor} (the first funder of the creator’s wallet)`
         : buy.actor;
     out.push(
-      `- Aller-retour : ${who} a acheté à +${buy.seconds} s et revendu à +${sale.seconds} s, soit ${delay} s plus tard. Cite ces secondes telles quelles.`,
+      `- Round trip: ${who} bought at +${buy.seconds} s and sold back at +${sale.seconds} s, ${delay} s later. Quote these seconds as they are.`,
     );
     if (out.length >= 5) break;
   }
@@ -474,11 +487,11 @@ function roundTrips(moves: readonly LaunchMove[], funder?: string): string[] {
 
 /** How each kind of answer is named to the model: the kind of fact, never a verdict. */
 const SIGNAL_WORD: Record<SpecialistAnswer['signal'], string> = {
-  concern: 'fait qui mérite l’attention',
-  reassurance: 'fait qui écarte un mécanisme connu',
-  observation: 'fait notable',
-  quiet: 'rien de notable',
-  unknown: 'non mesuré',
+  concern: 'a fact that deserves attention',
+  reassurance: 'a fact that rules out a known mechanism',
+  observation: 'a notable fact',
+  quiet: 'nothing notable',
+  unknown: 'not measured',
 };
 
 /**
@@ -488,15 +501,15 @@ const SIGNAL_WORD: Record<SpecialistAnswer['signal'], string> = {
  */
 export function renderSpecialists(answers: SpecialistAnswer[]): string[] {
   const lines = [
-    '## Les dix questions (affichées en tuiles à côté de ton texte)',
-    'Chaque question se lit seule. Ne les additionne pas, ne compte pas les réponses par type, ne les classe pas. ' +
-      'Reprends celles qui éclairent le reste, et nomme une question non mesurée seulement si son absence empêche une conclusion.',
+    '## The ten questions (shown as tiles beside your text)',
+    'Each question stands on its own. Do not add them up, count the answers by kind or rank them. ' +
+      'Draw on those that shed light on the rest, and name an unmeasured question only when its absence prevents a conclusion.',
   ];
   for (const answer of answers) {
-    lines.push(`- ${answer.title} — ${answer.question} → ${SIGNAL_WORD[answer.signal]}`);
-    if (answer.funding) lines.push(`  · financeur : ${FUNDER_WORD[answer.funding.kind]}`);
-    for (const fact of answer.facts.slice(0, 3)) lines.push(`  · fait : ${fact}`);
-    for (const limit of answer.limits.slice(0, 2)) lines.push(`  · limite : ${limit}`);
+    lines.push(`- ${answer.title}: ${answer.question} → ${SIGNAL_WORD[answer.signal]}`);
+    if (answer.funding) lines.push(`  · funder: ${FUNDER_WORD[answer.funding.kind]}`);
+    for (const fact of answer.facts.slice(0, 3)) lines.push(`  · fact: ${fact}`);
+    for (const limit of answer.limits.slice(0, 2)) lines.push(`  · limit: ${limit}`);
   }
   return lines;
 }
@@ -504,9 +517,8 @@ export function renderSpecialists(answers: SpecialistAnswer[]): string[] {
 /** What the creator's first funder is, said to the model so it never reads an exchange as a link. */
 const FUNDER_WORD: Record<NonNullable<SpecialistAnswer['funding']>['kind'], string> = {
   service:
-    'un contrat, ou un service à fort volume (exchange, bridge, routeur) : il ne relie ce créateur à personne et ne dit rien de qui est derrière le wallet. Ne dis « à fort volume » que si les faits donnent un grand nombre de transactions',
-  wallet: 'portefeuille ordinaire : les autres créateurs qu’il a financés sont dans les faits',
-  tool: 'outil d’envoi groupé : l’expéditeur derrière lui n’a pas été lu',
-  unknown:
-    'non identifié : ce n’est pas un portefeuille établi, ne lui compte aucun autre créateur',
+    'a contract, or a high-volume service (an exchange, a bridge, a router): it links this creator to nobody and says nothing about who is behind the wallet. Say "high-volume" only when the facts give a large transaction count',
+  wallet: 'an ordinary wallet: the other creators it funded are in the facts',
+  tool: 'a batch-sending tool: the sender behind it was not read',
+  unknown: 'not identified: it is not an established wallet, count no other creator for it',
 };

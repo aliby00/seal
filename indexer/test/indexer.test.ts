@@ -552,6 +552,73 @@ describe('API', () => {
     // A hook no market runs is an answer too: none.
     expect(get(`/v1/hook/0x${'1'.repeat(40)}`).body).toMatchObject({ markets: 0, indexedTo: 490 });
   });
+
+  // Sixth audit: Doppler's hook 0x4e34…, on 210,175 markets, did not answer
+  // within the app's 2 s (the distinct pairs read the table row by row), and
+  // AML's report fell back to "14 other markets" of a 50-minute window.
+  it('counts a hook on thousands of markets from its index alone, the pairs up to a cap', () => {
+    const { db, get } = api();
+    const hook = '0x4e3468951d49f2eea976ed0d6e75ffcb44a9a544';
+    const eth = '0x0000000000000000000000000000000000000000';
+    db.insertMarkets(
+      Array.from({ length: 1_200 }, (_, i) => ({
+        id: `0x${String(i + 1).padStart(64, '0')}`,
+        currency0: eth,
+        currency1: `0x${String(i + 1).padStart(40, '0')}`,
+        fee: 0,
+        tickSpacing: 60,
+        hook,
+        block: 1_000 + i,
+        txHash: `0x${String(i + 1).padStart(64, 'a')}`,
+        logIndex: 0,
+        ts: null,
+      })),
+    );
+    db.setCursor(MARKETS, 9_000);
+    expect(get(`/v1/hook/${hook}`).body).toEqual({
+      hook,
+      indexedTo: 9_000,
+      markets: 1_200,
+      pairs: 1_000,
+      pairsCapped: true,
+      firstBlock: 1_000,
+      lastBlock: 2_199,
+    });
+    // The count and its blocks never read the table.
+    const plan = db.raw
+      .prepare(
+        'EXPLAIN QUERY PLAN SELECT COUNT(*) AS markets, MIN(block) AS first, MAX(block) AS last FROM markets WHERE hook = ?',
+      )
+      .all(hook) as { detail: string }[];
+    expect(plan.map((p) => p.detail).join(' ')).toMatch(/COVERING INDEX markets_hook_block/);
+  });
+
+  it('an indexer opened before the (hook, block) index gets it, the old one dropped', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'seal-hook-'));
+    try {
+      const path = join(dir, 'old.db');
+      const old = new DatabaseSync(path);
+      old.exec(
+        `CREATE TABLE markets (tx_hash TEXT NOT NULL, log_index INTEGER NOT NULL, id TEXT NOT NULL,
+           currency0 TEXT NOT NULL, currency1 TEXT NOT NULL, fee INTEGER NOT NULL,
+           tick_spacing INTEGER NOT NULL, hook TEXT NOT NULL, block INTEGER NOT NULL, ts INTEGER,
+           PRIMARY KEY (tx_hash, log_index)) WITHOUT ROWID;
+         CREATE INDEX markets_hook ON markets (hook);`,
+      );
+      old.close();
+      const db = openDb(path);
+      const indexes = (
+        db.raw.prepare("SELECT name FROM sqlite_master WHERE type = 'index'").all() as {
+          name: string;
+        }[]
+      ).map((r) => r.name);
+      expect(indexes).toContain('markets_hook_block');
+      expect(indexes).not.toContain('markets_hook');
+      db.raw.close();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('funding', () => {

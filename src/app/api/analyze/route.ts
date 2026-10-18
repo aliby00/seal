@@ -135,8 +135,9 @@ export async function POST(request: Request): Promise<Response> {
     const unanswered = brief
       ? questionsFailed(brief.unanswered ?? [], brief.answers.length)
       : { read: 'questions' as const, note: 'the ten questions could not be answered this time' };
-    if (unanswered) {
-      report.failedReads = mergeFailedReads([...(report.failedReads ?? []), unanswered]);
+    const partial = [...(unanswered ? [unanswered] : []), ...(brief?.partial ?? [])];
+    if (partial.length > 0) {
+      report.failedReads = mergeFailedReads([...(report.failedReads ?? []), ...partial]);
     }
     // Whatever the model has left is cut at the budget's end, so the response
     // leaves before the platform kills the function and loses a paid answer.
