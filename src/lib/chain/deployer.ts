@@ -10,6 +10,8 @@ import {
   topicFor,
 } from './behavior';
 import { isContractCode } from './code';
+import { IncompleteDataError } from '../errors';
+import { UNREAD } from '../failed-reads';
 import { fetchBlockTimestamps } from './graduation';
 import {
   creatorFilter,
@@ -354,8 +356,14 @@ export async function findFirstMintLog(
     { addresses: [token], topics: [TRANSFER_TOPIC, ZERO_TOPIC] },
     { fromBlock: 0, toBlock: latestBlock },
   );
-  // A missed window could hide an earlier mint, and a later one is not the start.
-  if (truncated) return undefined;
+  // A missed window could hide an earlier mint, and a later one is not the
+  // start: the read failed, which is not "no mint" (MEME, rate-limited).
+  if (truncated) {
+    throw new IncompleteDataError(
+      'robinhood-rpc',
+      'some windows of the token’s history could not be read, so its first mint could not be read',
+    );
+  }
   return logs[0];
 }
 
@@ -760,6 +768,9 @@ export async function fetchDeployerHistory(
     : Boolean(registry);
   const truncated = listing.truncated || Boolean(listed?.truncated);
   const launchesListed = ownListable && !truncated;
+  // A launch contract with too many launches to list is a limit, not a read
+  // that failed: retrying will not list them either.
+  const registryTooBroad = !listing.truncated && Boolean(listed?.truncated && listed.tooBroad);
 
   const detailed = all.slice(-MAX_DETAILED_DEPLOYER_LAUNCHES);
   if (!detailed.some((l) => l.token === origin.token)) {
@@ -917,6 +928,7 @@ export async function fetchDeployerHistory(
     const v = venues.get(token);
     return new Set([...(v?.saleRecipients ?? []), ...(v?.pools ?? []), ...(v?.curves ?? [])]);
   };
+  const passing = { through: new Set<string>(), unread: new Set<string>() };
   const [natures, routed] = await Promise.all([
     readTxNatures(
       rpc,
@@ -925,10 +937,11 @@ export async function fetchDeployerHistory(
       tradeTopics,
     ).catch(() => new Map<string, never>()),
     // Only where no direct sale settles it: the analysed token first.
-    findRoutedSales(rpc, creator, elsewhere, marketsOf, tradeTopics, origin.token),
+    findRoutedSales(rpc, creator, elsewhere, marketsOf, tradeTopics, origin.token, passing),
   ]);
   for (const token of routed) if (sold.has(token)) sold.set(token, true);
-  const unread = new Set<string>();
+  // A transfer whose receipt was asked and not read could have been a sale.
+  const unread = new Set<string>(passing.unread);
   for (const { token, hash } of intoMarket) {
     const nature = natures.get(hash);
     if (nature === 'swap') sold.set(token, true);
@@ -951,13 +964,15 @@ export async function fetchDeployerHistory(
     ...(own.curves ?? []),
     lower(POOL_MANAGER),
   ]);
+  // A router the token went through on its way to a market is not a recipient.
+  const ownSent = ownSales.logs.filter((l) => !passing.through.has(l.transactionHash));
   const creatorRecipients =
     ownTarget && !ownSales.truncated
-      ? distinctRecipients(ownSales.logs, origin.token, creator, ownMarkets)
+      ? distinctRecipients(ownSent, origin.token, creator, ownMarkets)
       : null;
   const creatorSends =
     ownTarget && !ownSales.truncated
-      ? creatorSendsOf(ownSales.logs, origin.token, creator, ownMarkets)
+      ? creatorSendsOf(ownSent, origin.token, creator, ownMarkets)
       : null;
 
   const liquidityTargets = new Set([...tokenOfPool.values(), ...tokenOfMarket.values()]);
@@ -1046,19 +1061,26 @@ export async function fetchDeployerHistory(
   const traced = origin.launchpad
     ? `creator read from its ${origin.launchpad.name} launch${origin.creatorFrom === 'launch-record' ? ' record' : ' transaction'}`
     : 'traced from the token’s first mint';
-  const note = truncated
-    ? 'some launch windows could not be read — history may be incomplete'
-    : !launchesListed
-      ? origin.launchpad
-        ? `${traced}; this address’s other launches on ${origin.launchpad.name} cannot be listed from the chain`
-        : `${traced}; its other launches outside the known launchpads cannot be listed from the chain`
-      : capped
-        ? `${traced}; ${detailed.length} most recent of ${all.length} launches read in detail`
-        : `${traced}; ${all.length} launch${all.length === 1 ? '' : 'es'} found across the known launchpads`;
+  const note = registryTooBroad
+    ? `${traced}; its launch contract records too many launches to list this address’s others`
+    : truncated
+      ? 'some launch windows could not be read — history may be incomplete'
+      : !launchesListed
+        ? origin.launchpad
+          ? `${traced}; this address’s other launches on ${origin.launchpad.name} cannot be listed from the chain`
+          : `${traced}; its other launches outside the known launchpads cannot be listed from the chain`
+        : capped
+          ? `${traced}; ${detailed.length} most recent of ${all.length} launches read in detail`
+          : `${traced}; ${all.length} launch${all.length === 1 ? '' : 'es'} found across the known launchpads`;
 
+  // This token's own sales, when they were looked for and could not be told.
+  const ownUnread = Boolean(ownTarget) && !soldKnown.has(origin.token);
   return {
     completeness: 'partial',
-    sources: [{ name: 'robinhood-rpc', fetchedAt, note }],
+    sources: [
+      { name: 'robinhood-rpc', fetchedAt, note },
+      ...(ownUnread ? [{ name: 'robinhood-rpc' as const, fetchedAt, note: UNREAD.ownSales }] : []),
+    ],
     data: {
       creator,
       origin: {

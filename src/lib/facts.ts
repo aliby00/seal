@@ -1,5 +1,5 @@
 import { launchpadById } from './chain/launchpads';
-import type { CreatorLinks, SetAsideRole, TokenReport } from './contracts';
+import type { CreatorLinks, FailedRead, SetAsideRole, TokenReport } from './contracts';
 
 /**
  * The numbers the report screen draws, taken from the collected report and
@@ -11,6 +11,11 @@ import type { CreatorLinks, SetAsideRole, TokenReport } from './contracts';
  * observed, and never folds them into a grade.
  */
 export type ReportFacts = {
+  /**
+   * The reads that failed this time: what they would have found is unknown,
+   * and the report says it is partial. Absent when every read answered.
+   */
+  failed?: FailedRead[];
   creator: {
     measured: boolean;
     /** Why it is missing or partial, in the source's words. */
@@ -33,6 +38,11 @@ export type ReportFacts = {
      * Absent from older reports.
      */
     feesCollected?: number;
+    /**
+     * What the market's trading rules (hooks) paid out to the creator over
+     * this token's life: its fees, summed. Absent when none was seen.
+     */
+    ownFees?: { share: number; transfers: number };
     /** Launches where each signal was actually measured (the other may not be). */
     salesChecked: number;
     liquidityChecked: number;
@@ -182,6 +192,7 @@ export function toFacts(report: TokenReport): ReportFacts {
   const note = (sources: { note?: string }[]) => sources.find((s) => s.note)?.note;
 
   return {
+    ...(report.failedReads?.length ? { failed: report.failedReads } : {}),
     creator: {
       measured: creator.completeness !== 'unavailable',
       note: note(creator.sources),
@@ -197,6 +208,9 @@ export function toFacts(report: TokenReport): ReportFacts {
       liquidityPulled: tokens.filter((t) => t.liquidityPulled === true).length,
       ...(tokens.some((t) => t.feesCollected === true)
         ? { feesCollected: tokens.filter((t) => t.feesCollected === true).length }
+        : {}),
+      ...(own?.feesTaken
+        ? { ownFees: { share: own.feesTaken.share, transfers: own.feesTaken.transfers } }
         : {}),
       salesChecked: tokens.filter((t) => t.creatorDumped !== null).length,
       liquidityChecked: tokens.filter((t) => t.liquidityPulled !== null).length,

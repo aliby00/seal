@@ -4,6 +4,7 @@ import type { ReportFacts, TimelineLaunch } from './facts';
 import { addressesWord, buildStory } from './launch-story';
 import { whereSetAside } from './set-aside';
 import type { SpecialistAnswer } from './specialists/brief';
+import { READ_WORDS, readFailed } from './failed-reads';
 
 /**
  * The report's opening: what a reader should know in ten seconds, in plain
@@ -33,7 +34,17 @@ export type Glance = {
   items: GlanceItem[];
   /** What could not be measured, so its absence is not read as good news. */
   unseen: string[];
+  /**
+   * Reads that failed this time, in words: the report is partial and worth
+   * asking again. Absent when every read answered.
+   */
+  partial?: string[];
 };
+
+/** The notice a partial report carries, wherever the glance is shown. */
+export function partialNotice(partial: readonly string[]): string {
+  return `Partial report: some reads failed this time (${partial.join(', ')}). What they would have shown is not known. Try again in a minute.`;
+}
 
 export type GlanceInput = {
   facts?: ReportFacts;
@@ -110,10 +121,24 @@ function salesItem(
   creator: ReportFacts['creator'],
   launch: LaunchReplayData | undefined,
   timeline?: TimelineLaunch[],
+  /** The read of this token's sales failed. */
+  unread = false,
 ): GlanceItem | null {
   const checked = creator.salesChecked ?? creator.checked;
-  if (!creator.measured || checked === 0) return null;
+  if (!creator.measured) return null;
   const sold = creator.soldIntoPool;
+  // This token's sales could not be told this time: never "did not sell".
+  if (unread && sold === 0) {
+    return {
+      id: 'sales',
+      tone: 'neutral',
+      figure: '?',
+      title: 'Whether the creator sold this token could not be read this time.',
+      detail: 'The read of the creator’s transfers did not complete; try again in a minute.',
+      href: '#fact-creator',
+    };
+  }
+  if (checked === 0) return null;
   const own = ownSalesWords(creator.ownSales);
   // Each launch is read over its own window, and the reader is told which.
   const detail = own
@@ -175,8 +200,26 @@ function salesItem(
 function recordItem(
   creator: ReportFacts['creator'],
   timeline: TimelineLaunch[] | undefined,
+  /** A read of the creator's other launches failed this time. */
+  unread = false,
 ): GlanceItem | null {
   if (!creator.measured || creator.launched === 0) return null;
+  // An absence is said only when the read that would have found it answered
+  // (AI: "no other launch was found" while the indexer, which lists its 80,
+  // did not answer).
+  if (unread) {
+    return {
+      id: 'record',
+      tone: 'neutral',
+      figure: creator.launched > 1 ? `${creator.launched}+` : '?',
+      title:
+        creator.launched > 1
+          ? `This creator launched at least ${plural(creator.launched, 'token')}; some of the places their launches are listed could not be read this time.`
+          : 'Whether this creator launched other tokens could not be read this time.',
+      detail: 'A read of their launch record did not complete; try again in a minute.',
+      href: '#fact-creator',
+    };
+  }
   const unlisted = unlistedWords(creator);
   // "First token" would claim that nowhere holds an earlier launch: SEAL
   // never reads every place that could (Doppler's Airlock does not name its
@@ -224,7 +267,22 @@ function recordItem(
 
 function liquidityItem(creator: ReportFacts['creator']): GlanceItem | null {
   const checked = creator.liquidityChecked ?? creator.checked;
-  if (!creator.measured || checked === 0) return null;
+  if (!creator.measured) return null;
+  // Fees the market's trading rules paid out to the creator are measured
+  // even where withdrawals were not (MEME: 0.52 % over 28 transfers).
+  const own = creator.ownFees;
+  if (checked === 0 && own && own.transfers > 0) {
+    return {
+      id: 'liquidity',
+      tone: 'neutral',
+      figure: pct(own.share),
+      title: `The creator received ${pct(own.share)} of the supply from the market’s trading rules (hook), in ${plural(own.transfers, 'transfer')}: trading fees taken out of the market.`,
+      detail:
+        'Transfers of this token from the market’s trading rules to the creator, over its life.',
+      href: '#fact-creator',
+    };
+  }
+  if (checked === 0) return null;
   const pulled = creator.liquidityPulled;
   // Fees taken out of the position are tokens the creator withdrew from the
   // market: "never withdrawn" alone would hide them (AML, +387 s).
@@ -514,10 +572,11 @@ const ORDER: Record<GlanceTone, number> = { attention: 0, neutral: 1, reassuring
 
 export function buildGlance({ facts, timeline, launch, specialists }: GlanceInput): Glance | null {
   if (!facts) return null;
+  const failed = facts.failed ?? [];
   const candidates = [
-    salesItem(facts.creator, launch, timeline),
+    salesItem(facts.creator, launch, timeline, readFailed(failed, 'creator-sales')),
     networkItem(specialists),
-    recordItem(facts.creator, timeline),
+    recordItem(facts.creator, timeline, readFailed(failed, 'creator-launches')),
     liquidityItem(facts.creator),
     supplyItem(facts, launch),
     launchBuysItem(launch),
@@ -536,5 +595,6 @@ export function buildGlance({ facts, timeline, launch, specialists }: GlanceInpu
   if (!facts.market.measured) unseen.push('live trading on an open market');
 
   const headline = items[0]?.title ?? 'Too little could be measured on this token to sum it up.';
-  return { headline, items, unseen };
+  const partial = [...new Set(failed.map((f) => READ_WORDS[f.read]))];
+  return { headline, items, unseen, ...(partial.length > 0 ? { partial } : {}) };
 }

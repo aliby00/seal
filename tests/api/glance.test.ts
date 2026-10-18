@@ -153,6 +153,26 @@ describe('GET /api/glance', () => {
     expect(collect).toHaveBeenCalledTimes(2);
   });
 
+  // GNRG, 18/10/2026: the launch replay rate-limited, no source note saying so.
+  it('does not cache a report a failed read left partial, and says it is partial', async () => {
+    collect.mockResolvedValue({
+      ...report(),
+      failedReads: [
+        {
+          read: 'launch-replay',
+          note: 'the first minutes after the launch could not be read this time (rate-limit : robinhood-rpc : request limit reached)',
+        },
+      ],
+    });
+    readTokenMetas.mockResolvedValue(new Map());
+    const first = (await (await GET(get(`token=${TOKEN}`))).json()) as {
+      glance: { partial?: string[] };
+    };
+    expect(first.glance.partial).toEqual(['the first minutes after its launch']);
+    await GET(get(`token=${TOKEN}`));
+    expect(collect).toHaveBeenCalledTimes(2);
+  });
+
   it('collects a token once when several overlays ask at the same time', async () => {
     let release: (value: unknown) => void = () => {};
     collect.mockReturnValue(new Promise((resolve) => (release = resolve)));

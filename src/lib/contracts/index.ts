@@ -3,4 +3,4 @@ export * from './creator';
 export * from './holders';
 export * from './launch';
 export * from './market';
-export type { TokenReport } from './report';
+export type { FailedRead, ReadId, TokenReport } from './report';

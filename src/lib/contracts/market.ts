@@ -31,6 +31,12 @@ export type PoolActivity = {
   d7: PoolActivityWindow;
   sinceLaunch: PoolActivityWindow & { complete: boolean };
   creatorTraded: boolean;
+  /**
+   * The creator's own swaps in the pool, by direction. Absent from reports
+   * made before: "traded" alone let the text say the creator traded "though
+   * the data does not say in which direction" (GNRG).
+   */
+  creatorTrades?: { buys: number; sells: number };
 };
 
 export type MarketStateData = {

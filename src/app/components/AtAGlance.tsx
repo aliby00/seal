@@ -1,4 +1,4 @@
-import type { Glance, GlanceTone } from '@/lib/glance';
+import { partialNotice, type Glance, type GlanceTone } from '@/lib/glance';
 import type { Signal } from '@/lib/specialists/types';
 import { SignalIcon } from './signals';
 
@@ -20,6 +20,11 @@ export function AtAGlance({ glance }: { glance: Glance }) {
       <h3 id="glance-title" className="glance-kicker">
         In short
       </h3>
+      {glance.partial && glance.partial.length > 0 && (
+        <p className="glance-partial" role="status">
+          {partialNotice(glance.partial)}
+        </p>
+      )}
       {lead ? (
         <a className="glance-lead" href={lead.href} data-tone={lead.tone}>
           <span className="glance-tone" data-signal={TONE[lead.tone].signal}>

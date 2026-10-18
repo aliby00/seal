@@ -26,6 +26,7 @@ import {
 } from './behavior';
 import { POOL_MANAGER } from './pools';
 import { classifyLogError, createRpcClient, DEFAULT_RPC_URL, type RpcClient } from './rpc';
+import { UNREAD } from '../failed-reads';
 
 export * from './rpc';
 export * from './logs';
@@ -356,7 +357,10 @@ export async function fetchCreatorHistory(
     )
     .slice(-MAX_ACTIVITY_CHECKS)
     .map((l) => l.token);
-  const transfers = { logs: [] as RawLog[], truncated: true };
+  const transfers: { logs: RawLog[]; truncated: boolean; through?: Set<string> } = {
+    logs: [],
+    truncated: true,
+  };
   const [sold, pulled, activity] = await Promise.all([
     detectCreatorSales(rpc, creator, salesWatched, window, transfers, options.focus).catch(
       () => new Map<string, boolean>(),
@@ -366,6 +370,8 @@ export async function fetchCreatorHistory(
   ]);
 
   const salesWindowFor = new Map(salesWatched.map((w) => [w.token.toLowerCase(), w]));
+  // A router the token went through on its way to a market is not a recipient (KEL).
+  const sent = transfers.logs.filter((l) => !transfers.through?.has(l.transactionHash));
   const now = options.now ?? (() => new Date());
   const tokens: LaunchedToken[] = launches.map((launch, i) => {
     const status = statuses[i] ?? null;
@@ -404,7 +410,7 @@ export async function fetchCreatorHistory(
             creatorRecipients: transfers.truncated
               ? null
               : distinctRecipients(
-                  transfers.logs,
+                  sent,
                   launch.token,
                   creator,
                   new Set([launch.pool.toLowerCase(), POOL_MANAGER.toLowerCase()]),
@@ -412,7 +418,7 @@ export async function fetchCreatorHistory(
             creatorSends: transfers.truncated
               ? null
               : creatorSendsOf(
-                  transfers.logs,
+                  sent,
                   launch.token,
                   creator,
                   new Set([launch.pool.toLowerCase(), POOL_MANAGER.toLowerCase()]),
@@ -436,8 +442,12 @@ export async function fetchCreatorHistory(
   // courte que demandée.
   const partial = truncated || capped || scanned.fromBlock > 0;
 
+  // The analysed token's sales were looked for: not told is a read that failed.
+  const focusUnread =
+    focus !== undefined &&
+    tokens.some((t) => t.address.toLowerCase() === focus && t.creatorDumped === null);
   return {
-    completeness: partial ? 'partial' : 'full',
+    completeness: partial || focusUnread ? 'partial' : 'full',
     sources: [
       {
         name: 'robinhood-rpc',
@@ -452,6 +462,9 @@ export async function fetchCreatorHistory(
             }
           : {}),
       },
+      ...(focusUnread
+        ? [{ name: 'robinhood-rpc' as const, fetchedAt, note: UNREAD.ownSales }]
+        : []),
     ],
     data: { creator, tokens, counts, scannedRange: scanned },
   };

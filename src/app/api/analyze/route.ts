@@ -168,7 +168,8 @@ export async function POST(request: Request): Promise<Response> {
       ...(brief ? { name: brief.name, symbol: brief.symbol, specialists: brief.answers } : {}),
     };
 
-    await analysisCache.set(cacheKey, body);
+    // A report a failed read left partial is worth asking again, never repeating.
+    if ((report.failedReads?.length ?? 0) === 0) await analysisCache.set(cacheKey, body);
     log.info('analyse servie', { token, ms: Date.now() - started, costUsd: body.costUsd });
     return NextResponse.json(body);
   } catch (error) {

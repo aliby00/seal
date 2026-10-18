@@ -5,6 +5,22 @@ import type { LaunchReplay } from './launch';
 import type { MarketState } from './market';
 
 /**
+ * A read that failed this time (a rate limit, a timeout, a node or indexer
+ * that did not answer): what it would have found is unknown, never absent.
+ *
+ * - `creator`: who created the token, or their whole history;
+ * - `creator-launches`: the creator's other launches (some places could not be read);
+ * - `creator-sales`: whether the creator sold this token;
+ * - `launch-replay`: the first minutes after the launch;
+ * - `holders`: the holders list;
+ * - `market`: the token's trading (listed pair, or the launch pool's swaps).
+ */
+export type ReadId =
+  'creator' | 'creator-launches' | 'creator-sales' | 'launch-replay' | 'holders' | 'market';
+
+export type FailedRead = { read: ReadId; note: string };
+
+/**
  * Ce que le pipeline de données remet à l'agent de raisonnement.
  *
  * Volontairement sans verdict, sans score et sans agrégat : trois blocs de
@@ -25,6 +41,11 @@ export type TokenReport = {
   launch?: LaunchReplay;
   /** Complétude d'ensemble, dérivée des trois blocs. */
   completeness: Completeness;
+  /**
+   * The reads that failed this time. Each absence they would have settled is
+   * unknown: never said, never cached. Absent or empty when every read answered.
+   */
+  failedReads?: FailedRead[];
 };
 
 export type { Completeness, CreatorHistory, HolderDistribution, LaunchReplay, MarketState };

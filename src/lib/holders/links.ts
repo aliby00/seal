@@ -3,7 +3,11 @@ import { isContractCode } from '../chain/code';
 import { getLogsBatched, type RawLog } from '../chain/logs';
 import type { RpcClient } from '../chain/rpc';
 import type { CreatorSends } from '../contracts/creator';
-import type { CreatorLinks, HolderDistributionData } from '../contracts/holders';
+import {
+  CREATOR_RECIPIENTS_LISTED,
+  type CreatorLinks,
+  type HolderDistributionData,
+} from '../contracts/holders';
 
 /**
  * Which of today's holders got their tokens from the creator.
@@ -140,11 +144,23 @@ export async function linkCreatorToHolders(
     }
   }
 
+  const held = new Set(listed.map((h) => h.address.toLowerCase()));
+  const recipients = sends.recipients.slice(0, CREATOR_RECIPIENTS_LISTED).map((r) => ({
+    address: r.address.toLowerCase(),
+    share: share6(BigInt(r.value), supply),
+    listed: held.has(r.address.toLowerCase()),
+  }));
+  const total =
+    sends.total !== undefined
+      ? BigInt(sends.total)
+      : sends.recipients.reduce((n, r) => n + BigInt(r.value), 0n);
   return {
     sentTo: sends.distinct,
     burned: share6(BigInt(sends.burned), supply),
     holders: links,
     distributors,
+    recipients,
+    sentShare: share6(total, supply),
   };
 }
 

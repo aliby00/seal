@@ -189,6 +189,8 @@
 .list .figure { font-size: 20px; }
 .list .text { font-size: 13px; line-height: 1.4; }
 
+.partial { margin: 0; padding: 8px 10px; border-left: 2px solid #ffc857; border-radius: 8px; background: rgb(255 200 87 / 0.08); font-size: 12.5px; }
+.partial strong { font-weight: 600; }
 .unseen { margin: 0; font-size: 12.5px; color: var(--dim); }
 .unseen strong { color: var(--text); font-weight: 600; }
 .status { margin: 0; color: var(--dim); }

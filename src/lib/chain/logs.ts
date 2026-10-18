@@ -188,7 +188,12 @@ export async function getLogsBatched(
    * up than spend seconds on a very busy contract.
    */
   options: { split?: boolean } = {},
-): Promise<{ logs: RawLog[]; truncated: boolean }> {
+): Promise<{
+  logs: RawLog[];
+  truncated: boolean;
+  /** Every window left out was refused for holding too many logs, not by a failure. */
+  tooBroad?: boolean;
+}> {
   const span = range.span ?? SINGLE_ADDRESS_SPAN;
   const windows: { address: string; fromBlock: number; toBlock: number }[] = [];
   const seen = new Set<string>();
@@ -222,6 +227,7 @@ export async function getLogsBatched(
 
   const logs: RawLog[] = [];
   let truncated = false;
+  let failed = false;
   for (const [i, outcome] of outcomes.entries()) {
     if (outcome.ok && Array.isArray(outcome.value)) {
       logs.push(...outcome.value);
@@ -229,12 +235,14 @@ export async function getLogsBatched(
     }
     if (outcome.ok) {
       truncated = true;
+      failed = true;
       continue;
     }
     const window = windows[i];
     const tooBroad = classifyLogError(outcome.error);
     if (!window || !tooBroad || options.split === false) {
       truncated = true;
+      if (!tooBroad || tooBroad.reason !== 'too-many-results') failed = true;
       continue;
     }
     try {
@@ -250,8 +258,10 @@ export async function getLogsBatched(
       );
       logs.push(...retry.logs);
       truncated ||= retry.truncated;
+      failed ||= retry.truncated;
     } catch {
       truncated = true;
+      failed = true;
     }
   }
 
@@ -259,5 +269,5 @@ export async function getLogsBatched(
     (a, b) =>
       Number(a.blockNumber) - Number(b.blockNumber) || Number(a.logIndex) - Number(b.logIndex),
   );
-  return { logs, truncated };
+  return { logs, truncated, ...(truncated && !failed ? { tooBroad: true } : {}) };
 }
