@@ -1,3 +1,4 @@
+import { WRAPPED_NATIVE } from '../chain/funding';
 import type { IndexedListing, ListedLaunch } from '../chain/deployer';
 import { LAUNCHPADS, launchpadById } from '../chain/launchpads';
 import type { CreatorHistory, LaunchedToken, MarketState, PoolActivityWindow } from '../contracts';
@@ -165,6 +166,9 @@ export function fundingFacts(indexed: IndexerCreator | undefined): FundingFacts 
   if (indexed.fundingState === 'none') return null;
   if (indexed.fundingState !== 'found' || !indexed.funding) return undefined;
   const f = indexed.funding;
+  // An unwrap of the creator's own WETH, stored before the indexer skipped
+  // them, is not a funding: asked again rather than shown.
+  if (f.kind === 'internal' && WRAPPED_NATIVE.includes(f.funder.toLowerCase())) return undefined;
   // An indexer that does not profile funders says nothing of their kind:
   // unknown, and never read as a wallet.
   const funderKind = f.funderKind ?? 'unknown';

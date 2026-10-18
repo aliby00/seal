@@ -3,8 +3,14 @@ import { NATIVE } from '../chain/pools';
 import { MAX_BEHAVIOR_TOKENS } from '../chain';
 import { volumePerTrade } from '../market';
 import { whereSetAside } from '../set-aside';
-import { addressesSoftware, imitatedName, normalizeName, quoteName } from './names';
-import type { FunderKind } from '../chain/funder-kind';
+import {
+  addressesSoftware,
+  describeService,
+  imitatedName,
+  normalizeName,
+  quoteName,
+} from './names';
+import { SERVICE_TX_COUNT, type FunderKind } from '../chain/funder-kind';
 import type {
   Finding,
   FundingDisplay,
@@ -258,11 +264,17 @@ const fundingTrace: Specialist = {
     });
 
     if (kind === 'service') {
-      const what = `${contractName(name)}${txCount !== null ? `, ${plural(txCount, 'transaction')}` : ''}`;
+      // "High-volume" only when the count says so: a contract with 0
+      // transactions sent is a contract, and a contract links nobody.
+      const what = describeService(name, txCount);
+      const busy = txCount !== null && txCount >= SERVICE_TX_COUNT;
+      const tail = busy
+        ? ', such as an exchange, bridge or router. That says nothing about who is behind the wallet.'
+        : '. A contract is not a person: it links this creator to no one, and says nothing about who is behind the wallet.';
       facts.push(
         viaTool
-          ? `That sender is a high-volume service (${what}), such as an exchange, bridge or router. That says nothing about who is behind the wallet.`
-          : `The creator wallet was first funded from a high-volume service (${what}), such as an exchange, bridge or router. That says nothing about who is behind the wallet.`,
+          ? `That sender is ${what}${tail}`
+          : `The creator wallet was first funded from ${what}${tail}`,
       );
       return fundingFinding('quiet', facts, limits, display(0, null, 0));
     }

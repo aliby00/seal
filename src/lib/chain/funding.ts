@@ -8,6 +8,7 @@ import {
   type FunderKind,
   type FunderProfile,
 } from './funder-kind';
+import { isDelegatedWallet } from './code';
 import type { RpcClient } from './rpc';
 
 /**
@@ -55,12 +56,48 @@ export function accountListUrl(
   return url.toString();
 }
 
+/**
+ * WETH on Robinhood Chain (pools.ts, `symbol()` = WETH). ETH it sends in an
+ * internal transfer is an unwrap: the wallet already held it as WETH, so it
+ * is never the wallet's first funding.
+ */
+export const WRAPPED_NATIVE: readonly string[] = ['0x0bd7d308f8e1639fab988df18a8011f41eacad73'];
+
+export type IncomingFilter = {
+  /**
+   * Transactions the wallet sent itself. Value it receives inside one of them
+   * (an unwrap, a sale paid in ETH) was paid for with what it already had:
+   * it needed gas to send it, so it was funded before.
+   */
+  ownTransactions?: ReadonlySet<string>;
+};
+
+/** Hashes of the transactions `wallet` sent, from its normal transaction list. */
+export function sentBy(wallet: string, list: readonly EtherscanTx[]): Set<string> {
+  const target = wallet.toLowerCase();
+  return new Set(
+    list
+      .filter((tx) => (tx.from ?? '').toLowerCase() === target)
+      .map((tx) => (tx.hash ?? tx.transactionHash ?? '').toLowerCase())
+      .filter((hash) => hash !== ''),
+  );
+}
+
 /** The first incoming transfer of value in a list sorted by block. */
-export function firstIncoming(wallet: string, list: readonly EtherscanTx[]): FirstFunding | null {
+export function firstIncoming(
+  wallet: string,
+  list: readonly EtherscanTx[],
+  filter: IncomingFilter = {},
+): FirstFunding | null {
   const target = wallet.toLowerCase();
   for (const tx of list) {
     if (tx.isError === '1') continue;
     if ((tx.to ?? '').toLowerCase() !== target || !tx.from) continue;
+    // Verified live (BONER): the creator unwrapping its own WETH was read as
+    // "first funded by WETH, a high-volume service".
+    if (WRAPPED_NATIVE.includes(tx.from.toLowerCase())) continue;
+    const hash = (tx.hash ?? tx.transactionHash ?? '').toLowerCase();
+    if (hash && filter.ownTransactions?.has(hash)) continue;
     let value: bigint;
     try {
       value = BigInt(tx.value ?? '0');
@@ -70,7 +107,7 @@ export function firstIncoming(wallet: string, list: readonly EtherscanTx[]): Fir
     if (value <= 0n) continue;
     return {
       funder: tx.from.toLowerCase(),
-      txHash: (tx.hash ?? tx.transactionHash ?? '').toLowerCase(),
+      txHash: hash,
       block: Number(tx.blockNumber ?? 0),
     };
   }
@@ -109,7 +146,8 @@ export async function findFirstFunding(
     list('txlistinternal', wallet, apiKey, base),
   ]);
   const a = firstIncoming(wallet, normal);
-  const b = firstIncoming(wallet, internal);
+  // Value received inside a transaction the wallet sent is not its funding.
+  const b = firstIncoming(wallet, internal, { ownTransactions: sentBy(wallet, normal) });
   if (a && b) return a.block <= b.block ? a : b;
   return a ?? b;
 }
@@ -167,6 +205,21 @@ export function resetFunderProfiles(): void {
   profiles.clear();
 }
 
+/**
+ * Blockscout flags a wallet delegating under EIP-7702 as a contract: it has
+ * code. Every contract being a service, such a wallet would link nobody, so
+ * its code is read: a delegation is a wallet. A code that could not be read
+ * keeps Blockscout's word.
+ */
+async function asWallet(
+  rpc: Pick<RpcClient, 'call'>,
+  profile: FunderProfile | null,
+): Promise<FunderProfile | null> {
+  if (!profile?.isContract) return profile;
+  const code = await rpc.call<string>('eth_getCode', [profile.address, 'latest']).catch(() => null);
+  return isDelegatedWallet(code) ? { ...profile, isContract: false } : profile;
+}
+
 export type FundingClassification = {
   funderKind: FunderKind;
   funderName: string | null;
@@ -191,7 +244,7 @@ export async function classifyFunding(
   apiKey: string,
   base = BLOCKSCOUT_BASE,
 ): Promise<FundingClassification> {
-  const profile = await readFunderProfile(funding.funder, apiKey, base);
+  const profile = await asWallet(rpc, await readFunderProfile(funding.funder, apiKey, base));
   const funderKind = classifyFunder(profile);
   const own = {
     funderKind,
@@ -208,7 +261,7 @@ export async function classifyFunding(
       .catch(() => null);
     origin = tx?.from?.toLowerCase() ?? null;
   }
-  const sender = origin ? await readFunderProfile(origin, apiKey, base) : null;
+  const sender = origin ? await asWallet(rpc, await readFunderProfile(origin, apiKey, base)) : null;
   const originKind = origin ? classifyFunder(sender) : null;
   const { effective, kind } = effectiveFunder({
     funder: funding.funder,

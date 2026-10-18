@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { draftMoves, readLaunchReplay, separateLiquidity } from '../../src/lib/chain/launch';
+import { classifyFunder as appClassifyFunder } from '../../src/lib/chain/funder-kind';
+import { firstIncoming, sentBy } from '../../src/lib/chain/funding';
 import type { RawLog } from '../../src/lib/chain/logs';
+import { fundingFacts } from '../../src/lib/indexer/merge';
+import { CATALOG } from '../../src/lib/specialists/catalog';
+import { describeContract, describeService } from '../../src/lib/specialists/names';
+import type { SpecialistContext } from '../../src/lib/specialists/types';
+import { classifyFunder as indexerClassifyFunder } from '../../indexer/src/funder-kind';
 import type { RpcClient } from '../../src/lib/chain/rpc';
 import type { LaunchReplayData } from '../../src/lib/contracts/launch';
 import { buildStory } from '../../src/lib/launch-story';
@@ -410,5 +417,102 @@ describe('launch replay: a curve buy is a trade, not a withdrawal (bug 5)', () =
     const out = await separateLiquidity(rpc, moves, new Set([curve, POOL_MANAGER]));
     expect(out.filter((m) => m.kind === 'buy').map((m) => m.actor)).toEqual(vaults);
     expect(out.some((m) => m.kind === 'withdraw')).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Who first funded the creator (bug 3)
+
+describe('funding: an unwrap is not a funding, a contract is not a wallet (bug 3)', () => {
+  const WETH = '0x0bd7d308f8e1639fab988df18a8011f41eacad73';
+  const BONER_CREATOR = '0x79aeae6a47ff2e551f60bd87dbd6358efeaf4dc8';
+  const BRIDGE = '0xf70da97812cb96acdf810712aa562db8dfa3dbef';
+
+  it('BONER: ETH sent by WETH in the creator’s own transaction is skipped', () => {
+    const normal = [
+      { blockNumber: '100', hash: '0xfund', from: BRIDGE, to: BONER_CREATOR, value: '5' },
+      { blockNumber: '120', hash: '0xunwrap', from: BONER_CREATOR, to: WETH, value: '0' },
+    ];
+    const internal = [
+      { blockNumber: '90', transactionHash: '0xolder', from: WETH, to: BONER_CREATOR, value: '9' },
+      {
+        blockNumber: '95',
+        transactionHash: '0xunwrap',
+        from: '0x1111111111111111111111111111111111111111',
+        to: BONER_CREATOR,
+        value: '9',
+      },
+    ];
+    expect(
+      firstIncoming(BONER_CREATOR, internal, { ownTransactions: sentBy(BONER_CREATOR, normal) }),
+    ).toBeNull();
+    expect(firstIncoming(BONER_CREATOR, normal)?.funder).toBe(BRIDGE);
+    // The indexer's copy is tested in indexer/test/funders.test.ts.
+  });
+
+  it('an indexer funding stored as a WETH unwrap is asked again, not shown', () => {
+    expect(
+      fundingFacts({
+        fundingState: 'found',
+        funding: {
+          funder: WETH,
+          txHash: '0xunwrap',
+          block: 1,
+          kind: 'internal',
+          funderKind: 'service',
+          otherCreatorsFunded: [],
+        },
+      } as unknown as Parameters<typeof fundingFacts>[0]),
+    ).toBeUndefined();
+  });
+
+  it('HYPURRT: a "MulticallHandler" with 0 transactions is a routing contract, not "high-volume"', () => {
+    const f = CATALOG['funding-trace'].run({
+      token: '0xff6a3387cf21ef2ed2e94da324bce290ca9abc3b',
+      funding: {
+        funder: '0xa8ad2e87e2043711d8bec77e8bc3e2683c0ab6bd',
+        funderKind: 'service',
+        funderName: 'MulticallHandler',
+        funderTxCount: 0,
+        otherCreatorsFunded: 0,
+      },
+    } as SpecialistContext);
+    expect(f.facts[0]).toBe(
+      'The creator wallet was first funded from a routing contract. A contract is not a person: it links this creator to no one, and says nothing about who is behind the wallet.',
+    );
+  });
+
+  it('AGEM: the "Executor" contract that funded 25 creators links nobody', () => {
+    const profile = {
+      address: '0xa5166c3e69a933ee547ad908c9f1474f8f61901a',
+      isContract: true,
+      name: 'Executor',
+      txCount: 0,
+      tags: [],
+    };
+    expect(appClassifyFunder(profile)).toBe('service');
+    expect(indexerClassifyFunder(profile)).toBe('service');
+    const glance = buildGlance({
+      facts: glanceFacts({}),
+      specialists: [
+        {
+          specialist: 'funding-trace',
+          title: 'Funding Trace',
+          question: '',
+          signal: 'quiet',
+          facts: [],
+          limits: [],
+          funding: { kind: 'service', linkedCreators: 0, launches: null, depth: 0, path: [] },
+        },
+      ] as never,
+    })!;
+    expect(glance.items.find((i) => i.id === 'network')).toBeUndefined();
+  });
+
+  it('BONER: WETH, if ever shown, is "an upgradeable contract", never its raw proxy name', () => {
+    expect(describeService('TransparentUpgradeableProxy', 2_973_472)).toBe(
+      'a high-volume service (an upgradeable contract, 2,973,472 transactions)',
+    );
+    expect(describeContract('ERC1967Proxy')).toBe('an upgradeable contract');
   });
 });
