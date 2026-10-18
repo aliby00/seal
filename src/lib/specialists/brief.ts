@@ -214,7 +214,17 @@ export async function briefSpecialists(
   return {
     answers,
     unanswered: unansweredOf(answers),
-    partial: partialOf(answers),
+    partial: [
+      ...partialOf(answers),
+      ...(context.unread?.length
+        ? [
+            {
+              read: 'questions' as const,
+              note: `some lookups of the ten questions could not be read this time (${[...new Set(context.unread)].join(', ')})`,
+            },
+          ]
+        : []),
+    ],
     // A token can name itself anything: cleaned, cut, and withheld when it reads as a verdict.
     name: displayName(name),
     symbol: displayName(symbol),

@@ -5,6 +5,7 @@ import {
   createBudget,
   parseRetryAfter,
   request,
+  requestJson,
 } from '../../src/lib/http';
 import { RateLimitError, TimeoutError, UpstreamError } from '../../src/lib/errors';
 
@@ -24,7 +25,8 @@ function stubFetch(responses: (Response | Error)[]) {
     const next = responses[Math.min(i, responses.length - 1)]!;
     i += 1;
     if (next instanceof Error) throw next;
-    return next;
+    // A fresh body each time: the body is read under the request's timeout.
+    return next.clone();
   });
   vi.stubGlobal('fetch', spy);
   return spy;
@@ -170,5 +172,28 @@ describe('request', () => {
       request('https://exemple.test', { source: 'dexscreener', retries: 2, budget, sleep }),
     ).rejects.toBeInstanceOf(UpstreamError);
     expect(budget.spent).toBe(3);
+  });
+});
+
+describe('the body under the timeout', () => {
+  // COVENANT (staging, 18/10/2026): no answer in 320 s. The timer was cleared
+  // once the headers came, and a body that stalled held the request forever.
+  it('gives up on a source that sends its headers and then stalls its body', async () => {
+    vi.stubGlobal('fetch', async (_: string, init?: RequestInit) => {
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('{"partial":'));
+          init?.signal?.addEventListener('abort', () =>
+            controller.error(Object.assign(new Error('aborted'), { name: 'AbortError' })),
+          );
+        },
+      });
+      return new Response(stream, { status: 200 });
+    });
+    const started = Date.now();
+    await expect(
+      requestJson('https://exemple.test', { source: 'robinhood-rpc', timeoutMs: 50, retries: 0 }),
+    ).rejects.toBeInstanceOf(TimeoutError);
+    expect(Date.now() - started).toBeLessThan(2_000);
   });
 });

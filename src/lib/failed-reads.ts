@@ -26,14 +26,18 @@ export function sourcesFailed(sources: readonly { note?: string }[]): boolean {
 }
 
 /** The family of reads a source note belongs to. */
-export type SourceFamily = 'creator' | 'holders' | 'market';
+export type SourceFamily = 'creator' | 'holders' | 'market' | 'launch';
 
 /** Which read a failed note of `family` is about. */
 export function readOfNote(family: SourceFamily, note: string, creatorUnavailable = false): ReadId {
   if (family === 'holders') return 'holders';
   if (family === 'market') return 'market';
+  if (family === 'launch') return 'launch-replay';
   if (creatorUnavailable) return 'creator';
-  return note === UNREAD.ownSales ? 'creator-sales' : 'creator-launches';
+  if (note === UNREAD.ownSales) return 'creator-sales';
+  if (note === UNREAD.walletCount) return 'creator-wallet';
+  if (note === UNREAD.removals) return 'liquidity';
+  return 'creator-launches';
 }
 
 /**
@@ -46,11 +50,13 @@ export function failedReadsOfSources(families: {
   creator: { completeness: string; sources: readonly { note?: string }[] };
   holders: { sources: readonly { note?: string }[] };
   market: { sources: readonly { note?: string }[] };
+  /** The launch replay: a part of it (receipts, codes, balances) that failed says so in its note. */
+  launch?: { sources: readonly { note?: string }[] };
 }): FailedRead[] {
   const out: FailedRead[] = [];
   const unavailable = families.creator.completeness === 'unavailable';
-  for (const family of ['creator', 'holders', 'market'] as const) {
-    for (const source of families[family].sources) {
+  for (const family of ['creator', 'holders', 'market', 'launch'] as const) {
+    for (const source of families[family]?.sources ?? []) {
       if (!noteFailed(source.note)) continue;
       const note = source.note ?? '';
       out.push({ read: readOfNote(family, note, family === 'creator' && unavailable), note });
@@ -67,6 +73,11 @@ export const READ_WORDS: Record<ReadId, string> = {
   'launch-replay': 'the first minutes after its launch',
   holders: 'who holds it',
   market: 'its trading',
+  'creator-wallet': 'how many transactions the creator’s wallet has sent',
+  'creator-fees': 'the fees its creator took from its market',
+  liquidity: 'what its pools hold and who removed liquidity',
+  'market-rules': 'its markets’ trading rules',
+  graduation: 'its progress toward graduation',
   questions: 'some of the ten questions',
 };
 
@@ -94,6 +105,10 @@ export const UNREAD = {
     'the creator’s other launches were listed, but their sales and liquidity could not be read this time',
   /** The indexer, which lists the launchpads the node cannot. */
   indexer: 'the SEAL indexer did not answer: the launches it lists could not be read this time',
+  /** The creator's wallet: its transaction count. */
+  walletCount: 'how many transactions the creator’s wallet has sent could not be read this time',
+  /** Who sent the analysed token's liquidity removals, and what they returned. */
+  removals: 'who removed this token’s liquidity, and to whom it went, could not be read this time',
 } as const;
 
 /** The read a question fell back from when the indexer's count of a hook's markets did not answer. */

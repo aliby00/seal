@@ -2,6 +2,7 @@ import type { Address } from 'viem';
 import {
   BUNDLE_MIN_WALLETS,
   EARLY_SECONDS,
+  ROUND_TRIPS_LISTED,
   type LaunchMove,
   type LaunchMoveKind,
   type LaunchReplay,
@@ -320,10 +321,54 @@ type LaunchTally = {
    * in the creator's launch transaction), by recipient.
    */
   creatorTx: { transaction: string; bought: Map<string, bigint> } | null;
+  /** The creator, as the moves name it. */
+  creator?: string | null;
   /** A creator sale whose receipt shows a trade in the market. */
   creatorSaleConfirmed: boolean;
+  /** Every address that bought, then sold back in the window: its first buy and that sale. */
+  roundTrips: { address: string; boughtAt: number; soldAt: number }[];
   supply: bigint;
 };
+
+/**
+ * Who bought and then sold back within the window, over every move: each
+ * address's first buy, and its first sale back at or after it. The creator
+ * first, then by first buy.
+ */
+export function roundTripsOf(
+  moves: readonly TimedMove[],
+  pools: ReadonlySet<string>,
+  creator: string | null,
+): { address: string; boughtAt: number; soldAt: number }[] {
+  const market = (a: string) => pools.has(a) || BURN.has(a);
+  const firstBuy = new Map<string, number>();
+  for (const m of moves) {
+    if (m.kind !== 'buy' || market(m.actor)) continue;
+    const at = firstBuy.get(m.actor);
+    if (at === undefined || m.seconds < at) firstBuy.set(m.actor, m.seconds);
+  }
+  const sale = new Map<string, number>();
+  for (const m of moves) {
+    if (m.kind !== 'sell' || market(m.actor)) continue;
+    const bought = firstBuy.get(m.actor);
+    if (bought === undefined || m.seconds < bought) continue;
+    const at = sale.get(m.actor);
+    if (at === undefined || m.seconds < at) sale.set(m.actor, m.seconds);
+  }
+  const round = (x: number) => Math.round(x * 10) / 10;
+  return [...sale.keys()]
+    .map((address) => ({
+      address,
+      boughtAt: round(firstBuy.get(address)!),
+      soldAt: round(sale.get(address)!),
+    }))
+    .sort(
+      (a, b) =>
+        Number(b.address === creator) - Number(a.address === creator) ||
+        a.boughtAt - b.boughtAt ||
+        a.soldAt - b.soldAt,
+    );
+}
 
 /**
  * The launch's totals over every move read in the window. Buys are purchases
@@ -400,11 +445,13 @@ export function tallyLaunch(
   }
 
   return {
+    creator,
     creatorTx:
       viaCreator.size > 0 && creatorTransaction
         ? { transaction: creatorTransaction, bought: viaCreator }
         : null,
     creatorSaleConfirmed: creatorSales.some((m) => natures.get(m.transaction) === 'swap'),
+    roundTrips: roundTripsOf(moves, pools, creator),
     creatorAtLaunch: shareOf(creatorAtLaunch, supply),
     creatorBought: shareOf(sum(creatorBuys), supply),
     creatorSold: shareOf(sum(creatorSales), supply),
@@ -432,6 +479,19 @@ function codeSizesOf(
     sizes.push(known.codeSize);
   }
   return sizes.length > 0 ? { codeSizes: sizes } : {};
+}
+
+function roundTripSummary(tally: LaunchTally): NonNullable<LaunchSummary['roundTrips']> {
+  const trips = tally.roundTrips ?? [];
+  const delays = trips.map((t) => Math.round((t.soldAt - t.boughtAt) * 10) / 10);
+  const bundled = tally.bundle ? new Set(tally.bundle.bought.keys()) : null;
+  return {
+    wallets: trips.length,
+    creator: trips.some((t) => t.address === tally.creator),
+    delays: delays.length > 0 ? { min: Math.min(...delays), max: Math.max(...delays) } : null,
+    fromBundle: bundled ? trips.filter((t) => bundled.has(t.address)).length : null,
+    listed: trips.slice(0, ROUND_TRIPS_LISTED),
+  };
 }
 
 /** The totals, with what the addresses read hold today. */
@@ -512,6 +572,7 @@ export function summarize(
           contracts: bundle.contracts,
         }
       : null,
+    roundTrips: roundTripSummary(tally),
     receiptsRead: counts.receiptsRead,
     receiptsWanted: counts.receiptsWanted,
     balancesRead: counts.balancesRead,
@@ -607,9 +668,13 @@ export async function readLaunchReplay(
       ].map((m) => m.transaction),
     ),
   ];
-  const details = await readTxDetails(rpc, wantedReceipts, pools, TRADE_TOPICS).catch(
-    () => new Map<string, TxDetail>(),
-  );
+  // A part of the replay that failed is named, so the report says it is
+  // partial: the receipts tell who sent the launch block's transactions.
+  const failedParts: string[] = [];
+  const details = await readTxDetails(rpc, wantedReceipts, pools, TRADE_TOPICS).catch(() => {
+    failedParts.push('the receipts that tell trades from liquidity changes, and who sent them,');
+    return new Map<string, TxDetail>();
+  });
   const natures = new Map([...details].map(([hash, d]) => [hash, d.nature]));
   const senders = new Map([...details].map(([hash, d]) => [hash, d.from]));
   const kept = await separateLiquidity(rpc, selected, pools, natures);
@@ -648,7 +713,10 @@ export async function readLaunchReplay(
   const [codeList, balances] = await Promise.all([
     rpc
       .callBatch<string>(coded.map((a) => ({ method: 'eth_getCode', params: [a, 'latest'] })))
-      .catch(() => []),
+      .catch(() => {
+        failedParts.push('which addresses are wallets or contracts');
+        return [];
+      }),
     rpc
       .callBatch<string>(
         actors.map((a) => ({
@@ -656,7 +724,10 @@ export async function readLaunchReplay(
           params: [{ to: token, data: `${BALANCE_OF}${a.slice(2).padStart(64, '0')}` }, 'latest'],
         })),
       )
-      .catch(() => []),
+      .catch(() => {
+        failedParts.push('what the addresses hold today');
+        return [];
+      }),
   ]);
   const codeOf = new Map(coded.map((a, i) => [a, codeList[i]]));
   const info = new Map(
@@ -730,10 +801,18 @@ export async function readLaunchReplay(
       ? [`the launch was too busy to read over ten minutes: only the first ${minutes} are covered`]
       : []),
   ];
+  const sources: LaunchReplay['sources'] = [
+    { name: 'robinhood-rpc', fetchedAt, note: notes.join('; ') },
+    ...failedParts.map((part) => ({
+      name: 'robinhood-rpc' as const,
+      fetchedAt,
+      note: `${part} could not be read this time`,
+    })),
+  ];
   return {
     // Every move was read; only the drawing keeps a selection of them.
-    completeness: cut || narrowed ? 'partial' : 'full',
-    sources: [{ name: 'robinhood-rpc', fetchedAt, note: notes.join('; ') }],
+    completeness: cut || narrowed || failedParts.length > 0 ? 'partial' : 'full',
+    sources,
     data: {
       token: token.toLowerCase(),
       launchBlock: from,

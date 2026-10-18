@@ -79,6 +79,18 @@ export type ReportFacts = {
      * OTHER_LAUNCH_SALES_DAYS. Absent when not checked, or from older reports.
      */
     ownSales?: { days: number | null; wholeLife: boolean } | null;
+    /**
+     * This token's liquidity removals: who sent each (the creator, the
+     * wallet that first funded it, or another address), and to whom the
+     * market returned the token, as shares of the supply. Absent when none
+     * was seen, or from older reports.
+     */
+    ownRemovals?: {
+      transaction: string;
+      by: Party;
+      sender: string;
+      returned: { address: string; share: number; to: Party; heldNow: number | null }[];
+    }[];
   };
   holders: {
     measured: boolean;
@@ -152,6 +164,16 @@ export type ReportFacts = {
   };
 };
 
+/** Who an address is to the creator. */
+export type Party = 'creator' | 'funder' | 'other';
+
+/** Who a removal's sender, or a recipient, is to the creator. */
+export function partyOf(address: string, creator: string, funder?: string): Party {
+  const a = address.toLowerCase();
+  if (a === creator.toLowerCase()) return 'creator';
+  return funder && a === funder.toLowerCase() ? 'funder' : 'other';
+}
+
 const TOP_SHOWN = 8;
 const WETH = '0x0bd7d308f8e1639fab988df18a8011f41eacad73';
 
@@ -188,7 +210,7 @@ function graduationOf(
   return origin.role === 'deployer' ? 'not-applicable' : 'not-measured';
 }
 
-export function toFacts(report: TokenReport): ReportFacts {
+export function toFacts(report: TokenReport, options: { funder?: string } = {}): ReportFacts {
   const { creator, holders, market } = report;
   const tokens = creator.data.tokens;
   // A listed liquidity the chain contradicts is not shown as liquidity.
@@ -238,6 +260,21 @@ export function toFacts(report: TokenReport): ReportFacts {
       graduation: graduationOf(creator.data.origin),
       ...(own?.salesWindow && own.creatorDumped !== null
         ? { ownSales: { days: own.salesWindow.days, wholeLife: own.salesWindow.wholeLife } }
+        : {}),
+      ...(own?.liquidityRemovals?.length
+        ? {
+            ownRemovals: own.liquidityRemovals.map((r) => ({
+              transaction: r.transaction,
+              by: partyOf(r.sender, creator.data.creator, options.funder),
+              sender: r.sender,
+              returned: r.returned.map((x) => ({
+                address: x.address,
+                share: x.share,
+                to: partyOf(x.address, creator.data.creator, options.funder),
+                heldNow: x.heldNow,
+              })),
+            })),
+          }
         : {}),
     },
     holders: {

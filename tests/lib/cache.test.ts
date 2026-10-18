@@ -98,3 +98,26 @@ describe('resolve', () => {
     expect(c.stats()).toMatchObject({ hits: 1, misses: 1, size: 1 });
   });
 });
+
+describe('a computation in flight that never settles', () => {
+  // A history read that hung held every later request for the same key.
+  it('is not waited on past inflightMaxMs: the next request computes afresh', async () => {
+    let t = 0;
+    const cache = new TtlCache<number>({ ttlMs: 60_000, inflightMaxMs: 1_000, now: () => t });
+    void cache.resolve('k', () => new Promise<number>(() => {}));
+    t = 2_000;
+    await expect(cache.resolve('k', async () => 7)).resolves.toEqual({ value: 7, cached: false });
+  });
+
+  it('is shared while it is recent', async () => {
+    let t = 0;
+    let release: (n: number) => void = () => {};
+    const cache = new TtlCache<number>({ ttlMs: 60_000, inflightMaxMs: 1_000, now: () => t });
+    const first = cache.resolve('k', () => new Promise<number>((r) => (release = r)));
+    t = 500;
+    const second = cache.resolve('k', async () => 9);
+    release(3);
+    await expect(first).resolves.toEqual({ value: 3, cached: false });
+    await expect(second).resolves.toEqual({ value: 3, cached: true });
+  });
+});

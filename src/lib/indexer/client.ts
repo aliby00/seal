@@ -188,6 +188,8 @@ export type IndexerClient = {
   token(address: string): Promise<IndexerToken | undefined>;
   funder(address: string): Promise<IndexerFunder | undefined>;
   markets(token: string): Promise<IndexerMarkets | undefined>;
+  /** The same read as `markets`, saying whether it failed. */
+  marketsAnswer?(token: string): Promise<IndexerAnswer<IndexerMarkets>>;
   /** Markets on these trading rules (hook), all history. Absent from older clients. */
   hook?(address: string): Promise<IndexerHook | undefined>;
   /** Creators linked through the wallets that funded this one. */
@@ -282,6 +284,7 @@ export function createIndexerClient(
     tokenAnswer: (address) => answer<IndexerToken>('token', address),
     funder: (address) => get<IndexerFunder>('funder', address),
     markets: (token) => get<IndexerMarkets>('markets', token),
+    marketsAnswer: (token) => answer<IndexerMarkets>('markets', token),
     hook: (address) => get<IndexerHook>('hook', address),
     network: (creator) => get<IndexerNetwork>('network', creator),
   };
