@@ -385,16 +385,65 @@ const SUBJECT =
   /^(The creator(?:[’']s wallet)?|The creator wallet|This token|The token|The largest holder|The market|The main pool)\b/;
 
 /**
+ * Openers that sum up what came before (staging, 18/10/2026): "Together,
+ * that means no visible holder cluster tied to the creator remains" after a
+ * single sentence about liquidity (Mike), and "The two reads use different
+ * methods…" opening a section with no two reads named before (MUT8).
+ */
+const SUMMING = /^(?:(?:Taken|Put)\s+together|Together|Combined|In\s+sum|All\s+told)\b/i;
+const PAIRED = /^(?:(?:The|These|Those)\s+two|Both(?:\s+of\s+the(?:se)?)?)\s+(\w+)/i;
+
+const STOP = new Set(
+  'about after again against also among because before being between both could does during every from have here into just more most much only other over same such than that their them then there these they this those through under very what when where which while with would your that'.split(
+    ' ',
+  ),
+);
+
+/** The words of a sentence that carry its content, singular. */
+function contentWords(sentence: string): Set<string> {
+  return new Set(
+    (sentence.toLowerCase().match(/[a-z][a-z’'-]{3,}/g) ?? [])
+      .map((w) => w.replace(/[’']s$/, '').replace(/(?:es|s)$/, ''))
+      .filter((w) => w.length >= 4 && !STOP.has(w)),
+  );
+}
+
+/**
+ * Whether `sentence`, which points back at what came before, is borne out
+ * by the sentences kept before it in its section: a sum needs two of them
+ * and something in common with them, "the two reads" needs reads named.
+ */
+function supported(sentence: string, before: readonly string[], afterCut: boolean): boolean {
+  const paired = PAIRED.exec(sentence);
+  if (paired) {
+    if (before.length === 0 || afterCut) return false;
+    const noun = paired[1]!.toLowerCase().replace(/(?:es|s)$/, '');
+    return before.some((b) => contentWords(b).has(noun));
+  }
+  if (SUMMING.test(sentence)) {
+    if (before.length < 2 || afterCut) return false;
+    const earlier = new Set(before.flatMap((b) => [...contentWords(b)]));
+    return [...contentWords(sentence)].some((w) => earlier.has(w));
+  }
+  return true;
+}
+
+/**
  * Keeps a paragraph readable once sentences are cut from it: the sentence
  * after a cut one loses its "also", and a pronoun that pointed at the cut
  * sentence gets that sentence's subject back. A sentence whose reference
- * cannot be restored is cut too.
+ * cannot be restored is cut too, and so is one that sums up, or names "the
+ * two" of, what the sentences before it do not state.
  */
 function coherent(all: readonly string[], banned: ReadonlySet<string>): string[] {
   const kept: string[] = [];
   let lastCut: string | null = null;
   for (const sentence of all) {
     if (banned.has(sentence)) {
+      lastCut = sentence;
+      continue;
+    }
+    if (!supported(sentence, kept, lastCut !== null)) {
       lastCut = sentence;
       continue;
     }
@@ -420,24 +469,85 @@ function coherent(all: readonly string[], banned: ReadonlySet<string>): string[]
   return kept;
 }
 
+/** The section headings the prompt asks for, numbered or not. */
+const HEADING =
+  /^(?:\d+[.)]\s*)?(?:What is reassuring|What deserves attention|Where the signals diverge)\b[^.!?]*$/i;
+
+/** Words of emphasis from the prompt, copied into the text: dropped. */
+const EMPHASIS = /\b(?:EXACTLY|EXACTEMENT|PRECISELY|EXACT)\b\s*(\S?)/g;
 /**
- * The text without the sentences that make a forbidden claim. `null` when a
- * section would be left with nothing to say: the facts are then worded
- * offline instead.
+ * Prompt markers in capitals ("NEVER", "ONLY", "THIS TOKEN", "AT LEAST"):
+ * lowercased, outside quoted on-chain names, whose capitals are their own.
+ */
+const SHOUTED =
+  /\b(?:NEVER|ALWAYS|ONLY|NOT|NONE|NO|ALL|EVERY|IN TOTAL|TOTAL|BOUGHT|SOLD|HELD|HOLDS?|CREATOR|OTHERS?|THIS TOKEN|THIS|AT LEAST|MINIMUM|UNKNOWN|MEASURED FACT|MEASURED|BEFORE|AND|NOR|OR|AU MOINS|JAMAIS|TOUS|CE TOKEN|NON LUES|INCONNU|VENDU|CRÉATEUR)\b/g;
+
+/** Whether `offset` in `text` starts a sentence. */
+const startsSentence = (text: string, offset: number) =>
+  /(?:^|[.!?:]\s+|\n\s*)$/.test(text.slice(0, offset));
+
+/** The text without the prompt's words of emphasis: "EXACTEMENT 6 of the 8" (ROBINHOOD), "EXACTLY 70" (OWN). */
+export function withoutEmphasis(text: string): string {
+  return text
+    .split(/(["“][^"”\n]*["”])/)
+    .map((part, i) => {
+      if (i % 2 === 1) return part;
+      const shouted = part.replace(SHOUTED, (word: string, offset: number) => {
+        const lower = word.toLowerCase();
+        return startsSentence(part, offset)
+          ? lower.charAt(0).toUpperCase() + lower.slice(1)
+          : lower;
+      });
+      // The word goes; what followed it opens the sentence when the word did.
+      return shouted.replace(EMPHASIS, (_: string, next: string, offset: number, whole: string) =>
+        startsSentence(whole, offset) ? next.toUpperCase() : next,
+      );
+    })
+    .join('');
+}
+
+/**
+ * The text without the sentences that make a forbidden claim, or that point
+ * at nothing. A section left with nothing to say is left out; `null` when
+ * none is left: the facts are then worded offline instead.
  */
 export function withoutClaims(
   text: string,
   report: TokenReport,
 ): { text: string | null; dropped: Claim[] } {
-  const corrected = correctOtherCounts(text, report);
+  const corrected = correctOtherCounts(withoutEmphasis(text), report);
   const dropped = findClaims(corrected, report);
-  if (dropped.length === 0) return { text: corrected, dropped };
   const banned = new Set(dropped.map((c) => c.sentence));
   const original = corrected.split(/\n{2,}/);
-  const paragraphs = original.map((paragraph) => coherent(sentences(paragraph), banned).join(' '));
-  // A heading is a paragraph of its own; a body left empty means the
-  // section said nothing else.
-  const emptied = paragraphs.some((p, i) => p === '' && original[i]?.trim() !== '');
-  if (emptied) return { text: null, dropped };
-  return { text: paragraphs.join('\n\n'), dropped };
+  const paragraphs = original.map((paragraph) =>
+    HEADING.test(paragraph.trim()) ? paragraph : coherent(sentences(paragraph), banned).join(' '),
+  );
+  // Nothing cut: the text is served as written.
+  if (
+    dropped.length === 0 &&
+    paragraphs.every((p, i) => HEADING.test(p.trim()) || p === sentences(original[i]!).join(' '))
+  ) {
+    return { text: corrected, dropped };
+  }
+  // A heading is a paragraph of its own: one whose body is left empty goes
+  // with it, and a body left empty under no heading goes alone.
+  const out: string[] = [];
+  let said = 0;
+  for (let i = 0; i < paragraphs.length; i++) {
+    const p = paragraphs[i]!;
+    if (HEADING.test(p.trim())) {
+      const body = paragraphs[i + 1];
+      if (body === undefined || body === '' || HEADING.test(body.trim())) {
+        if (body === '') i++;
+        continue;
+      }
+      out.push(p);
+      continue;
+    }
+    if (p === '' && original[i]?.trim() !== '') continue;
+    out.push(p);
+    said++;
+  }
+  if (said === 0) return { text: null, dropped };
+  return { text: out.join('\n\n'), dropped };
 }

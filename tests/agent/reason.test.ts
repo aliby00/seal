@@ -64,9 +64,9 @@ describe('renderReport', () => {
 
   // L'agent ne peut signaler un trou que s'il le voit.
   it('expose la complétude de chaque bloc', () => {
-    expect(rendered).toContain('Complétude : partial');
-    expect(rendered).toContain('Complétude : unavailable');
-    expect(rendered).toContain('Complétude : full');
+    expect(rendered).toContain('Completeness: partial');
+    expect(rendered).toContain('Completeness: unavailable');
+    expect(rendered).toContain('Completeness: full');
   });
 
   it('remonte les limites de chaque source', () => {
@@ -76,8 +76,8 @@ describe('renderReport', () => {
 
   // Unmeasured holders are not sent as zeros: "0 %" would read as a fact.
   it('ne transmet aucune part quand les holders ne sont pas mesurés', () => {
-    expect(rendered).toContain('Non mesuré');
-    expect(rendered).not.toMatch(/Part du premier détenteur/);
+    expect(rendered).toContain('Not measured');
+    expect(rendered).not.toMatch(/Share of the largest holder/);
   });
 
   it('précise que le pool est exclu des parts, et nomme le créateur parmi les holders', () => {
@@ -103,13 +103,13 @@ describe('renderReport', () => {
       },
     });
     expect(measured).toMatch(
-      /pools, courbes de lancement, contrats de lancement et adresses de burn sont exclus/,
+      /Pools, launch curves, launch contracts and burn addresses are left out/,
     );
-    expect(measured).toMatch(/26\.00 % — adresse du CRÉATEUR/);
+    expect(measured).toMatch(/26\.00%: the creator’s address/);
   });
 
   it("donne le volume rapporté au nombre d'échanges", () => {
-    expect(rendered).toContain('7 échanges');
+    expect(rendered).toContain('7 trades');
   });
 });
 
@@ -269,10 +269,10 @@ describe('renderReport : ventes et retraits du créateur', () => {
         },
       },
     });
-    expect(rendered).toContain('Ventes du créateur dans le marché : sur 2 lancements vérifiés, 2');
-    expect(rendered).toContain('Retraits de liquidité : sur 2 lancements vérifiés, 1');
-    expect(rendered).toMatch(/vente du créateur : oui, retrait de liquidité : oui/);
-    expect(rendered).toMatch(/vente du créateur : non vérifié/);
+    expect(rendered).toContain('Creator sales into the market: of 2 launches checked, 2');
+    expect(rendered).toContain('Liquidity removals: of 2 launches checked, 1');
+    expect(rendered).toMatch(/creator sale: yes, liquidity removal: yes/);
+    expect(rendered).toMatch(/creator sale: not checked/);
   });
 });
 
@@ -299,13 +299,13 @@ describe('renderReport : les dix questions', () => {
   it('transmet chaque question avec ses faits et ses limites', () => {
     const rendered = renderReport(report, answers);
     expect(rendered).toContain('Holder Spread');
-    expect(rendered).toContain('fait : The largest holder has 46% of counted supply.');
-    expect(rendered).toContain('limite : recent trades were not collected');
+    expect(rendered).toContain('fact: The largest holder has 46% of counted supply.');
+    expect(rendered).toContain('limit: recent trades were not collected');
   });
 
   it('interdit de les additionner ou de les compter', () => {
     const rendered = renderReport(report, answers);
-    expect(rendered).toMatch(/Ne les additionne pas/);
+    expect(rendered).toMatch(/Do not add them up/);
     expect(rendered).not.toMatch(/\d+\s*\/\s*10|score/i);
   });
 

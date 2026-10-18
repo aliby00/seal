@@ -4,9 +4,14 @@ import type { MarketIndex } from '../chain/pools';
 import { createRpcClient, type RpcClient } from '../chain/rpc';
 import type { TokenReport } from '../contracts';
 import { createBudget } from '../http';
-import { QUESTION_FAILED as FAILED, QUESTION_TIMED_OUT as TIMED_OUT } from '../failed-reads';
+import type { FailedRead } from '../contracts/report';
+import {
+  HOOK_COUNT_UNREAD_NOTE,
+  QUESTION_FAILED as FAILED,
+  QUESTION_TIMED_OUT as TIMED_OUT,
+} from '../failed-reads';
 import { log } from '../logger';
-import { CATALOG } from './catalog';
+import { CATALOG, HOOK_COUNT_UNREAD } from './catalog';
 import { discoverMarkets, fromReport, gatherContext, type MarketDiscovery } from './context';
 import { liveIndex } from './live-index';
 import { displayName } from './names';
@@ -45,6 +50,11 @@ export type SpecialistBrief = {
    * their answers are missing, not empty, and the report is partial.
    */
   unanswered: SpecialistId[];
+  /**
+   * Reads a question answered without, falling back on less: the report is
+   * partial. Absent from briefs cached before it existed.
+   */
+  partial?: FailedRead[];
   /** The token's own name and symbol, read on chain. `null` when unreadable. */
   name: string | null;
   symbol: string | null;
@@ -63,6 +73,13 @@ export function unansweredOf(answers: readonly SpecialistAnswer[]): SpecialistId
   return answers
     .filter((a) => a.signal === 'unknown' && a.limits.some((l) => l === TIMED_OUT || l === FAILED))
     .map((a) => a.specialist);
+}
+
+/** The reads the answers fell back from: the hook's chain-wide count, for one. */
+export function partialOf(answers: readonly SpecialistAnswer[]): FailedRead[] {
+  return answers.some((a) => a.limits.includes(HOOK_COUNT_UNREAD))
+    ? [{ read: 'questions', note: HOOK_COUNT_UNREAD_NOTE }]
+    : [];
 }
 
 /** Served text passes the same guardrails as the explanation, line by line. */
@@ -197,6 +214,7 @@ export async function briefSpecialists(
   return {
     answers,
     unanswered: unansweredOf(answers),
+    partial: partialOf(answers),
     // A token can name itself anything: cleaned, cut, and withheld when it reads as a verdict.
     name: displayName(name),
     symbol: displayName(symbol),

@@ -158,7 +158,9 @@ export type IndexerHook = {
   hook: string;
   indexedTo: number;
   markets: number;
+  /** Distinct pairs, up to the indexer's cap: at least this many when `pairsCapped`. */
   pairs: number;
+  pairsCapped?: boolean;
   firstBlock: number | null;
   lastBlock: number | null;
 };
