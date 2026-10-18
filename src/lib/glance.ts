@@ -298,15 +298,26 @@ function liquidityItem(creator: ReportFacts['creator']): GlanceItem | null {
     : fees > 0
       ? ` The creator did collect trading fees from the market’s liquidity position on ${fees === checked ? (checked === 1 ? 'it' : 'all of them') : `${fees} of them`}.`
       : '';
+  // A deployer's removals are told by who sent them; other providers taking
+  // back their own positions are said apart, never as the launch liquidity.
+  const deployer = creator.source === 'deployer';
+  const others = (creator.ownRemovals ?? []).filter((r) => r.whose === 'other-provider').length;
+  const othersWords =
+    others > 0
+      ? ` Separately, other liquidity providers took back positions of their own ${others === 1 ? 'once' : `${others} times`} on this token: not the creator’s liquidity.`
+      : '';
   return {
     id: 'liquidity',
     tone: pulled > 0 ? 'attention' : fees > 0 || feesSized ? 'neutral' : 'reassuring',
     figure: `${pulled}/${checked}`,
-    title:
-      pulled === 0
+    title: deployer
+      ? pulled === 0
+        ? `The creator never removed liquidity on the ${plural(checked, 'launch')} checked.${feesWords}`
+        : `The creator removed liquidity on ${pulled} of ${plural(checked, 'launch')} checked.${feesWords}`
+      : pulled === 0
         ? `The launch liquidity was never withdrawn on the ${plural(checked, 'launch')} checked.${feesWords}`
         : `The launch liquidity was withdrawn on ${pulled} of ${plural(checked, 'launch')} checked.${feesWords}`,
-    detail: 'Withdrawals from each launch’s own liquidity position.',
+    detail: `${deployer ? 'Removal transactions sent by the creator.' : 'Withdrawals from each launch’s own liquidity position.'}${othersWords}`,
     href: '#fact-creator',
   };
 }

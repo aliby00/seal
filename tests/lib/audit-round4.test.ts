@@ -318,12 +318,13 @@ describe('AI: the indexer’s silence leaves the other launches unread (item 1)'
       failed: true,
     });
     status = 404;
-    // Asked again, not served the failure from the memo.
+    // Asked again, not served the failure from the memo. A read that failed
+    // is asked once more at once: the failure took two requests.
     await expect(client.creatorAnswer!(creator)).resolves.toEqual({
       value: undefined,
       failed: false,
     });
-    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch).toHaveBeenCalledTimes(3);
   });
 
   it('marks the launches unread, says so in the glance, and keeps it out of the cache', async () => {

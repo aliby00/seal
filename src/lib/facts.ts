@@ -88,6 +88,11 @@ export type ReportFacts = {
     ownRemovals?: {
       transaction: string;
       by: Party;
+      /**
+       * Whose liquidity it was: the creator's removal, or another liquidity
+       * provider taking back a position of its own. Absent from older reports.
+       */
+      whose?: 'creator' | 'other-provider';
       sender: string;
       returned: { address: string; share: number; to: Party; heldNow: number | null }[];
     }[];
@@ -266,6 +271,10 @@ export function toFacts(report: TokenReport, options: { funder?: string } = {}):
             ownRemovals: own.liquidityRemovals.map((r) => ({
               transaction: r.transaction,
               by: partyOf(r.sender, creator.data.creator, options.funder),
+              whose:
+                r.sender.toLowerCase() === creator.data.creator.toLowerCase()
+                  ? 'creator'
+                  : 'other-provider',
               sender: r.sender,
               returned: r.returned.map((x) => ({
                 address: x.address,

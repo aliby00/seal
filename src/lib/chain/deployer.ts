@@ -29,7 +29,13 @@ import {
 } from './launchpads';
 import { getLogsBatched, SINGLE_ADDRESS_SPAN, type RawLog } from './logs';
 import { POOL_MANAGER } from './pools';
-import { classifyLogError, DEFAULT_RPC_URL, logsRpcUrl, type RpcClient } from './rpc';
+import {
+  classifyLogError,
+  DEFAULT_RPC_URL,
+  logsRpcUrl,
+  type BatchOutcome,
+  type RpcClient,
+} from './rpc';
 import { findRoutedSales, readTxNatures, SWAP_TOPICS } from './trades';
 
 /**
@@ -423,8 +429,23 @@ export function modifyRemovedLiquidity(log: RawLog): boolean {
   return delta.length === 64 && Number.parseInt(delta[0] ?? '0', 16) >= 8;
 }
 
-/** Removal transactions checked for their sender; beyond, the answer is unknown. */
-const MAX_REMOVALS_CHECKED = 60;
+/**
+ * Removal transactions checked for their sender; beyond, the answer is
+ * unknown. Fee collections have their own, smaller allowance: a busy v4
+ * market logs one zero-delta `ModifyLiquidity` per fee collection (BOOMER,
+ * 18/10/2026: 998 collections, 10 additions, 1 removal in its first day),
+ * and when they shared one allowance the removals were never reached, so
+ * who removed the liquidity was reported unread on every run. WORM, the
+ * same day: 1,889 removal logs over its eleven markets, in 266 transactions.
+ */
+export const MAX_REMOVALS_CHECKED = 400;
+export const MAX_COLLECTIONS_CHECKED = 60;
+/** Transaction lookups sent at once: a batch that fails loses only its own. */
+const SENDER_BATCH = 20;
+/** Batches in flight together: more and the public node answers 429. */
+const SENDER_BATCHES_AT_ONCE = 3;
+/** No new batch of senders is sent after this long: the rest is left unknown, and said. */
+export const SENDERS_WITHIN_MS = 10_000;
 
 /** True when a v4 `ModifyLiquidity` changed no liquidity: a position's fees being collected. */
 export function modifyCollectedFees(log: RawLog): boolean {
@@ -438,12 +459,17 @@ export function modifyCollectedFees(log: RawLog): boolean {
  * read, and none of the read ones was the creator's, is left out: unknown.
  * The same reading for `collections`, the fee collections on a v4 market.
  */
-async function creatorRemovals(
+export async function creatorRemovals(
   rpc: RpcClient,
   creator: string,
   targets: ReadonlySet<string>,
   removals: readonly { token: string; log: RawLog }[],
   collections: readonly { token: string; log: RawLog }[] = [],
+  /** The analysed token: its removals are read first. */
+  first?: string,
+  clock: () => number = Date.now,
+  /** No new batch after this time (epoch ms), whatever is left. */
+  by: number = Number.POSITIVE_INFINITY,
 ): Promise<{
   pulled: Map<string, boolean>;
   collected: Map<string, boolean>;
@@ -455,16 +481,46 @@ async function creatorRemovals(
   if (removals.length === 0 && collections.length === 0) {
     return { pulled, collected, sender: new Map() };
   }
-  // The most recent first: a pull ends a market's life, it rarely starts it.
-  const hashes = [
-    ...new Set([...removals, ...collections].reverse().map((r) => r.log.transactionHash)),
+  // The analysed token's first, then the most recent first: a pull ends a
+  // market's life, it rarely starts it. Removals before fee collections, each
+  // with its own allowance, so a market busy with collections still has its
+  // removals read.
+  const ordered = (events: readonly { token: string; log: RawLog }[], cap: number) =>
+    [
+      ...new Set(
+        [...events]
+          .sort(
+            (a, b) =>
+              Number(b.token === first) - Number(a.token === first) ||
+              Number(b.log.blockNumber) - Number(a.log.blockNumber),
+          )
+          .map((r) => r.log.transactionHash),
+      ),
+    ].slice(0, cap);
+  const read = [
+    ...new Set([
+      ...ordered(removals, MAX_REMOVALS_CHECKED),
+      ...ordered(collections, MAX_COLLECTIONS_CHECKED),
+    ]),
   ];
-  const read = hashes.slice(0, MAX_REMOVALS_CHECKED);
-  const outcomes = await rpc
-    .callBatch<{ from?: string } | null>(
-      read.map((hash) => ({ method: 'eth_getTransactionByHash', params: [hash] })),
-    )
-    .catch(() => []);
+  const chunks: string[][] = [];
+  for (let i = 0; i < read.length; i += SENDER_BATCH) chunks.push(read.slice(i, i + SENDER_BATCH));
+  const outcomes: (BatchOutcome<{ from?: string } | null> | undefined)[] = [];
+  const until = Math.min(clock() + SENDERS_WITHIN_MS, by);
+  for (let i = 0; i < chunks.length && clock() < until; i += SENDER_BATCHES_AT_ONCE) {
+    const wave = await Promise.all(
+      chunks
+        .slice(i, i + SENDER_BATCHES_AT_ONCE)
+        .map((chunk) =>
+          rpc
+            .callBatch<{ from?: string } | null>(
+              chunk.map((hash) => ({ method: 'eth_getTransactionByHash', params: [hash] })),
+            )
+            .catch(() => chunk.map(() => undefined)),
+        ),
+    );
+    outcomes.push(...wave.flat());
+  }
   const sender = new Map<string, string | null>(
     read.map((hash, i) => {
       const outcome = outcomes[i];
@@ -519,7 +575,11 @@ export function returnedFrom(
     net.set(to, (net.get(to) ?? 0n) + value);
   }
   if (!fromMarket) return new Map();
-  return new Map([...net].filter(([a, v]) => v > 0n && !markets.has(a) && !BURN_ADDRESSES.has(a)));
+  // The token's own contract keeping some of a transfer is a fee it takes,
+  // not where the liquidity went (moon: "to the token's own address").
+  return new Map(
+    [...net].filter(([a, v]) => v > 0n && a !== own && !markets.has(a) && !BURN_ADDRESSES.has(a)),
+  );
 }
 
 /**
@@ -634,9 +694,18 @@ type WindowQuery = {
 
 /**
  * Queries that each fit one window, sent in one batch. A query the busy node
- * turned down is asked once more; any refusal left marks the result truncated.
+ * turned down is asked once more. One with too many results is split in two
+ * halves of its block range, and each half asked again, up to a number of
+ * rounds and of queries: a busy market's log is read whole rather than given
+ * up. Any refusal left marks the result truncated.
  */
-async function readWindows(
+export const MAX_WINDOW_ROUNDS = 6;
+/** Queries the halving may add to those asked, at most: past it, the rest is truncated. */
+export const MAX_WINDOW_SPLITS = 32;
+/** Below this many blocks, a window is not split further. */
+const MIN_SPLIT_SPAN = 1_000;
+
+export async function readWindows(
   rpc: RpcClient,
   queries: readonly WindowQuery[],
 ): Promise<{ logs: RawLog[]; truncated: boolean }> {
@@ -658,21 +727,42 @@ async function readWindows(
     );
   try {
     const logs: RawLog[] = [];
-    let pending = [...queries];
-    let tooBroad = false;
-    for (let attempt = 0; attempt < 2 && pending.length > 0; attempt += 1) {
+    let pending = queries.map((q) => ({ ...q, retried: false }));
+    let sent = 0;
+    let given = false;
+    const allowance = queries.length * 2 + MAX_WINDOW_SPLITS;
+    for (let round = 0; round < MAX_WINDOW_ROUNDS && pending.length > 0; round += 1) {
+      if (sent + pending.length > allowance) {
+        given = true;
+        break;
+      }
+      sent += pending.length;
       const outcomes = await send(pending);
-      const again: WindowQuery[] = [];
+      const again: typeof pending = [];
       pending.forEach((query, i) => {
         const outcome = outcomes[i];
-        if (outcome?.ok && Array.isArray(outcome.value)) logs.push(...outcome.value);
-        // Too many results will not shrink by asking again.
-        else if (!outcome?.ok && classifyLogError(outcome?.error ?? '')) tooBroad = true;
-        else again.push(query);
+        if (outcome?.ok && Array.isArray(outcome.value)) {
+          logs.push(...outcome.value);
+          return;
+        }
+        if (!outcome?.ok && classifyLogError(outcome?.error ?? '')) {
+          // Too many results will not shrink by asking again: halve the range.
+          if (query.toBlock - query.fromBlock + 1 <= MIN_SPLIT_SPAN) {
+            given = true;
+            return;
+          }
+          const mid = Math.floor((query.fromBlock + query.toBlock) / 2);
+          again.push({ ...query, toBlock: mid }, { ...query, fromBlock: mid + 1 });
+        } else if (!query.retried) again.push({ ...query, retried: true });
+        else given = true;
       });
       pending = again;
     }
-    return { logs, truncated: tooBroad || pending.length > 0 };
+    logs.sort(
+      (a, b) =>
+        Number(a.blockNumber) - Number(b.blockNumber) || Number(a.logIndex) - Number(b.logIndex),
+    );
+    return { logs, truncated: given || pending.length > 0 };
   } catch {
     return { logs: [], truncated: true };
   }
@@ -841,6 +931,12 @@ export type DeployerHistoryOptions = {
   checkOthersBy?: number;
   /** The clock `checkOthersBy` is read on. For tests. */
   clock?: () => number;
+  /**
+   * No removal's sender is asked after this time (epoch ms): the history
+   * must end before its deadline, and a sender not read leaves "did the
+   * creator remove liquidity" unknown, said so.
+   */
+  sendersBy?: number;
 };
 
 /**
@@ -1181,6 +1277,9 @@ export async function fetchDeployerHistory(
     liquidityTargets,
     removals,
     collections,
+    origin.token,
+    options.clock ?? Date.now,
+    options.sendersBy,
   );
   // Who removed the analysed token's liquidity, and to whom it went: said,
   // whoever sent it (MOON: the creator, 48.07 % of the supply back to it).
@@ -1266,8 +1365,9 @@ export async function fetchDeployerHistory(
     !othersUnchecked &&
     ((otherTargets.length > 0 && otherSales.truncated) ||
       (liquidityLogs.truncated && [...liquidityTargets].some((t) => t !== origin.token)));
-  // This token's liquidity, asked and not read.
-  const ownLiquidityUnread = liquidityLogs.truncated && liquidityTargets.has(origin.token);
+  // This token's liquidity, asked and not told: its logs not all read, or
+  // the senders of its removals not all read, none of them the creator.
+  const ownLiquidityUnread = liquidityTargets.has(origin.token) && !pulledKnown.has(origin.token);
   return {
     completeness: 'partial',
     sources: [
@@ -1276,9 +1376,11 @@ export async function fetchDeployerHistory(
       ...(othersUnchecked || othersUnread
         ? [{ name: 'robinhood-rpc' as const, fetchedAt, note: UNREAD.otherChecks }]
         : []),
-      ...(ownRemovals.failed || ownLiquidityUnread
+      ...(ownRemovals.failed || (ownLiquidityUnread && liquidityLogs.truncated)
         ? [{ name: 'robinhood-rpc' as const, fetchedAt, note: UNREAD.removals }]
-        : []),
+        : ownLiquidityUnread
+          ? [{ name: 'robinhood-rpc' as const, fetchedAt, note: UNREAD.removalSenders }]
+          : []),
     ],
     data: {
       creator,
