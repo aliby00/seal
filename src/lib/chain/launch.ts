@@ -37,11 +37,14 @@ const MIN_WINDOW_BLOCKS = 150;
 /** Moves listed. Beyond, they are counted, not drawn. */
 export const MAX_MOVES = 40;
 /**
- * Addresses whose code and balance today are read, at most: every actor
- * drawn, then the first buyers and the addresses one transaction served.
- * Eight batches of twenty; beyond, the summary says how many were not read.
+ * Addresses whose balance today is read, at most: every actor drawn, then
+ * the addresses one transaction served, then the first buyers. Five batches
+ * of twenty; beyond, the summary says how many were not read. The public
+ * node turns away bursts of reads, so only the moves drawn and the addresses
+ * one transaction served have their code read too (wallet or contract).
  */
-export const MAX_BALANCES_READ = 160;
+export const MAX_BALANCES_READ = 100;
+export const MAX_CODES_READ = 60;
 
 const ZERO = '0x0000000000000000000000000000000000000000';
 const BURN = new Set([ZERO, '0x000000000000000000000000000000000000dead']);
@@ -530,9 +533,15 @@ export async function readLaunchReplay(
   const shown = [...new Set(listed.map((m) => m.actor))];
   const wanted = [...new Set([...shown, ...totals.bundled, ...totals.early])];
   const actors = wanted.slice(0, Math.max(MAX_BALANCES_READ, shown.length));
-  const [codes, balances] = await Promise.all([
+  // Codes say wallet or contract: needed for the moves drawn and for the
+  // addresses one transaction served, whose count the report words.
+  const typed = new Set(
+    [...new Set([...shown, ...totals.bundled])].slice(0, Math.max(MAX_CODES_READ, shown.length)),
+  );
+  const coded = actors.filter((a) => typed.has(a));
+  const [codeList, balances] = await Promise.all([
     rpc
-      .callBatch<string>(actors.map((a) => ({ method: 'eth_getCode', params: [a, 'latest'] })))
+      .callBatch<string>(coded.map((a) => ({ method: 'eth_getCode', params: [a, 'latest'] })))
       .catch(() => []),
     rpc
       .callBatch<string>(
@@ -543,9 +552,10 @@ export async function readLaunchReplay(
       )
       .catch(() => []),
   ]);
+  const codeOf = new Map(coded.map((a, i) => [a, codeList[i]]));
   const info = new Map(
     actors.map((address, i) => {
-      const code = codes[i];
+      const code = codeOf.get(address);
       const balance = balances[i];
       const kind: LaunchMove['actorKind'] | null = pools.has(address)
         ? 'pool'

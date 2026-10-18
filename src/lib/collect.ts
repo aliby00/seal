@@ -87,12 +87,12 @@ const POOLS_BUDGET = 2;
 const RECHECK_BUDGET = 2;
 /**
  * The launch replay: the log read and the supply, then block times, codes and
- * balances in batches of 20 — up to 42 blocks and 160 addresses (the moves
- * drawn, the first buyers, the addresses one transaction served), so 19 at
- * most, plus three batches of receipts and the halvings of a launch too busy
- * to read at once. Retries on a busy public node count too: room is left.
+ * balances in batches of 20 — up to 42 blocks, 60 codes and 100 balances
+ * (the moves drawn, the addresses one transaction served, the first buyers),
+ * so 11 at most, plus three batches of receipts and the halvings of a launch
+ * too busy to read at once. Retries on a busy public node count too.
  */
-export const LAUNCH_BUDGET = 50;
+export const LAUNCH_BUDGET = 40;
 /** The pause before the replay is asked again of a node that turned it away. */
 const REPLAY_RETRY_MS = 4_000;
 

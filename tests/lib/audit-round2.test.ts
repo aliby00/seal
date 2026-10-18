@@ -356,7 +356,7 @@ describe('launch replay: totals over every transfer, not the 40 drawn (bug 2)', 
     expect(replay.data.summary?.early.wallets).toBe(120);
     const glance = buildGlance({ facts: glanceFacts({}), launch: replay.data })!;
     expect(glance.items.find((i) => i.id === 'launch-buys')?.title).toBe(
-      '100 wallets received 88% of the supply in one single transaction, 430 seconds after launch.',
+      '100 addresses received 88% of the supply in one single transaction, 430 seconds after launch.',
     );
   });
 
