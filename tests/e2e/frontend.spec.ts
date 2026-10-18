@@ -476,14 +476,14 @@ test('mountain entrance advances with native scroll, reveals the app, and revers
   await expect
     .poll(() =>
       page
-        .locator('.immersive-root')
+        .locator('.world-background')
         .evaluate((element) =>
           Number((element as HTMLElement).style.getPropertyValue('--camera-scale')),
         ),
     )
     .toBeGreaterThan(1.1);
   const scaleBeforeHandoff = await page
-    .locator('.immersive-root')
+    .locator('.world-background')
     .evaluate((element) =>
       Number((element as HTMLElement).style.getPropertyValue('--camera-scale')),
     );
@@ -491,7 +491,7 @@ test('mountain entrance advances with native scroll, reveals the app, and revers
   await expect
     .poll(() =>
       page
-        .locator('.immersive-root')
+        .locator('.world-background')
         .evaluate((element) =>
           Number((element as HTMLElement).style.getPropertyValue('--camera-scale')),
         ),
@@ -503,7 +503,7 @@ test('mountain entrance advances with native scroll, reveals the app, and revers
   await expect
     .poll(() =>
       page
-        .locator('.immersive-root')
+        .locator('.world-background')
         .evaluate((element) =>
           Number((element as HTMLElement).style.getPropertyValue('--camera-scale')),
         ),
