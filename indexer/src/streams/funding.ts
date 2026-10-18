@@ -1,4 +1,5 @@
 import type { Db, FundingInsert } from '../db.ts';
+import { isDelegatedWallet } from '../code.ts';
 import { classifyFunder, parseProfile, type FunderProfile } from '../funder-kind.ts';
 import type { Logger, Stream } from '../loop.ts';
 import type { Rpc } from '../rpc.ts';
@@ -197,8 +198,9 @@ export function fundingStream(deps: {
      )
      ORDER BY block DESC LIMIT 200`,
   );
-  // Funders (and senders behind tools) never profiled, or profiled too long
-  // ago; the ones that funded the most first.
+  // Funders (and senders behind tools) never profiled, profiled too long
+  // ago, or stored as contracts before their code was read (a wallet
+  // delegating under EIP-7702 has code); the ones that funded the most first.
   const pickProfiles = deps.db.raw.prepare(
     `SELECT a.addr AS address FROM (
        SELECT funder AS addr FROM funding WHERE status = 'found' AND funder IS NOT NULL
@@ -206,6 +208,7 @@ export function fundingStream(deps: {
        SELECT origin AS addr FROM funding WHERE origin IS NOT NULL
      ) a LEFT JOIN funders p ON p.address = a.addr
      WHERE p.address IS NULL OR p.checked_at < ?
+       OR (? AND p.is_contract = 1 AND p.code_checked = 0)
      GROUP BY a.addr
      ORDER BY MAX(p.address IS NULL) DESC, COUNT(*) DESC
      LIMIT 50`,
@@ -287,22 +290,24 @@ export function fundingStream(deps: {
       : { creator, status: 'none', funder: null, txHash: null, block: null, kind: null };
   }
 
-  async function profile(address: string): Promise<FunderProfile> {
+  /**
+   * Blockscout flags a wallet delegating under EIP-7702 as a contract, and a
+   * contract is a service: its code, read by the RPC, overrides that flag
+   * (code.ts, the same helper as the app's). A code that could not be read
+   * is tried again later rather than stored as a contract for 30 days.
+   */
+  async function profile(address: string): Promise<{ read: FunderProfile; codeChecked: boolean }> {
     const body = await get(addressUrl(address, deps.apiKey, false, deps.base), 'address');
     const counters = await get(addressUrl(address, deps.apiKey, true, deps.base), 'counters');
     const parsed = parseProfile(address, body, counters);
     if (!parsed || parsed.txCount === null) throw new Error('blockscout: unreadable profile');
-    // Blockscout flags a wallet delegating under EIP-7702 as a contract, and
-    // a contract is a service: its code says whether it is a delegation.
-    if (parsed.isContract && deps.rpc) {
-      const code = await deps.rpc
-        .call<string>('eth_getCode', [address, 'latest'])
-        .catch(() => null);
-      if (typeof code === 'string' && code.toLowerCase().startsWith('0xef0100')) {
-        return { ...parsed, isContract: false };
-      }
-    }
-    return parsed;
+    if (!parsed.isContract || !deps.rpc) return { read: parsed, codeChecked: Boolean(deps.rpc) };
+    const code = await deps.rpc.call<string>('eth_getCode', [address, 'latest']);
+    if (typeof code !== 'string') throw new Error('rpc: unreadable code');
+    return {
+      read: isDelegatedWallet(code) ? { ...parsed, isContract: false } : parsed,
+      codeChecked: true,
+    };
   }
 
   async function origin(txHash: string): Promise<string> {
@@ -353,7 +358,7 @@ export function fundingStream(deps: {
         .map((address): Task => ({ type: 'funding', address }))
         .find(ready);
     const profiles = (): Task | undefined =>
-      (pickProfiles.all(t - PROFILE_MAX_AGE_MS) as { address: string }[])
+      (pickProfiles.all(t - PROFILE_MAX_AGE_MS, deps.rpc ? 1 : 0) as { address: string }[])
         .map((r): Task => ({ type: 'profile', address: r.address }))
         .find(ready);
     const task = profileTurn ? (profiles() ?? creators()) : (creators() ?? profiles());
@@ -371,9 +376,9 @@ export function fundingStream(deps: {
       return row.status;
     }
     if (task.type === 'profile') {
-      const read = await profile(task.address);
+      const { read, codeChecked } = await profile(task.address);
       const kind = classifyFunder(read);
-      deps.db.setFunder(read, kind);
+      deps.db.setFunder(read, kind, codeChecked);
       return kind;
     }
     deps.db.setOrigin(task.creator, await origin(task.txHash));
