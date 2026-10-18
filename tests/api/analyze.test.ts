@@ -7,7 +7,11 @@ const briefSpecialists = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/collect', () => ({ collect }));
 vi.mock('@/lib/agent/reason', () => ({ explain }));
-vi.mock('@/lib/specialists/brief', () => ({ briefSpecialists, SPECIALIST_TIMEOUT_MS: 12_000 }));
+vi.mock('@/lib/specialists/brief', () => ({
+  briefSpecialists,
+  startSpecialists: () => undefined,
+  SPECIALIST_TIMEOUT_MS: 12_000,
+}));
 
 const { POST } = await import('../../src/app/api/analyze/route');
 const { RateLimitError, NotFoundError } = await import('../../src/lib/errors');

@@ -17,6 +17,7 @@ import { fetchBlockTimestamps, fetchGraduationStatusOf, type GraduationStatus } 
 import {
   detectCreatorSales,
   detectLiquidityRemovals,
+  creatorSendsOf,
   distinctRecipients,
   OWN_SALES_MAX_BLOCKS,
   salesWindowDays,
@@ -357,7 +358,7 @@ export async function fetchCreatorHistory(
     .map((l) => l.token);
   const transfers = { logs: [] as RawLog[], truncated: true };
   const [sold, pulled, activity] = await Promise.all([
-    detectCreatorSales(rpc, creator, salesWatched, window, transfers).catch(
+    detectCreatorSales(rpc, creator, salesWatched, window, transfers, options.focus).catch(
       () => new Map<string, boolean>(),
     ),
     detectLiquidityRemovals(rpc, positions, window).catch(() => new Map<string, boolean>()),
@@ -403,6 +404,14 @@ export async function fetchCreatorHistory(
             creatorRecipients: transfers.truncated
               ? null
               : distinctRecipients(
+                  transfers.logs,
+                  launch.token,
+                  creator,
+                  new Set([launch.pool.toLowerCase(), POOL_MANAGER.toLowerCase()]),
+                ),
+            creatorSends: transfers.truncated
+              ? null
+              : creatorSendsOf(
                   transfers.logs,
                   launch.token,
                   creator,

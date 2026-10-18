@@ -54,26 +54,114 @@ export function natureOf(
   return 'other';
 }
 
+/** What a receipt says of a transaction: what it did, and who sent it. */
+export type TxDetail = { nature: TxNature; from: string | null; logs: RawLog[] };
+
 /**
- * Reads the receipts of `hashes` (the first MAX_RECEIPTS) in batches. A hash
- * missing from the result could not be read: its nature is unknown.
+ * Reads the receipts of `hashes` (the first `cap`, MAX_RECEIPTS by default)
+ * in one batch. A hash missing from the result could not be read: its
+ * nature is unknown.
  */
+export async function readTxDetails(
+  rpc: RpcClient,
+  hashes: readonly string[],
+  pools: ReadonlySet<string>,
+  swapTopics: ReadonlySet<string> = SWAP_TOPICS,
+  cap = MAX_RECEIPTS,
+): Promise<Map<string, TxDetail>> {
+  const unique = [...new Set(hashes)].slice(0, cap);
+  const details = new Map<string, TxDetail>();
+  if (unique.length === 0) return details;
+  const outcomes = await rpc.callBatch<{ logs?: RawLog[]; from?: string } | null>(
+    unique.map((hash) => ({ method: 'eth_getTransactionReceipt', params: [hash] })),
+  );
+  unique.forEach((hash, i) => {
+    const outcome = outcomes[i];
+    const value = outcome?.ok ? outcome.value : undefined;
+    const logs = value?.logs;
+    if (Array.isArray(logs)) {
+      details.set(hash, {
+        nature: natureOf(logs, pools, swapTopics),
+        from: typeof value?.from === 'string' ? value.from.toLowerCase() : null,
+        logs,
+      });
+    }
+  });
+  return details;
+}
+
+/** The natures of `hashes`, from their receipts. */
 export async function readTxNatures(
   rpc: RpcClient,
   hashes: readonly string[],
   pools: ReadonlySet<string>,
   swapTopics: ReadonlySet<string> = SWAP_TOPICS,
 ): Promise<Map<string, TxNature>> {
-  const unique = [...new Set(hashes)].slice(0, MAX_RECEIPTS);
-  const natures = new Map<string, TxNature>();
-  if (unique.length === 0) return natures;
-  const outcomes = await rpc.callBatch<{ logs?: RawLog[] } | null>(
-    unique.map((hash) => ({ method: 'eth_getTransactionReceipt', params: [hash] })),
+  const details = await readTxDetails(rpc, hashes, pools, swapTopics);
+  return new Map([...details].map(([hash, d]) => [hash, d.nature]));
+}
+
+const TRANSFER = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+
+/**
+ * A sale routed through other contracts: the creator sent the transaction,
+ * and in it the token reached one of its markets, which traded. Measured on
+ * AML (tx 0x259e0e3e…): the creator's tokens went to a relay router
+ * (0xb92f…), then an executor (0xec9a…), then the PoolManager, which swapped;
+ * read transfer by transfer, the creator "sent tokens to a router".
+ */
+export function isRoutedSale(
+  detail: TxDetail | undefined,
+  token: string,
+  creator: string,
+  markets: ReadonlySet<string>,
+): boolean {
+  if (!detail || detail.nature !== 'swap' || detail.from !== creator.toLowerCase()) return false;
+  const own = token.toLowerCase();
+  return detail.logs.some(
+    (l) =>
+      l.address.toLowerCase() === own &&
+      (l.topics[0] ?? '').toLowerCase() === TRANSFER &&
+      l.topics.length === 3 &&
+      markets.has(`0x${(l.topics[2] ?? '').slice(26)}`.toLowerCase()),
   );
-  unique.forEach((hash, i) => {
-    const outcome = outcomes[i];
-    const logs = outcome?.ok ? outcome.value?.logs : undefined;
-    if (Array.isArray(logs)) natures.set(hash, natureOf(logs, pools, swapTopics));
-  });
-  return natures;
+}
+
+/** Transactions read to find routed sales, per analysis step. */
+export const MAX_ROUTED_RECEIPTS = 20;
+
+/**
+ * The tokens a creator sold through a router: of the creator's transfers to
+ * addresses that are not its markets, the receipts of the transactions read
+ * (the recipients the creator sent to most often first — a router comes
+ * back — then the most recent), each checked with `isRoutedSale`.
+ */
+export async function findRoutedSales(
+  rpc: RpcClient,
+  creator: string,
+  transfers: readonly { token: string; to: string; hash: string }[],
+  marketsOf: (token: string) => ReadonlySet<string>,
+  swapTopics: ReadonlySet<string> = SWAP_TOPICS,
+  /** The analysed token: its transactions are read first. */
+  focus?: string,
+): Promise<Set<string>> {
+  const sold = new Set<string>();
+  if (transfers.length === 0) return sold;
+  const count = new Map<string, number>();
+  for (const t of transfers) count.set(t.to, (count.get(t.to) ?? 0) + 1);
+  const own = (t: { token: string }) => (focus && t.token === focus.toLowerCase() ? 0 : 1);
+  const order = transfers
+    .map((t, i) => ({ ...t, i }))
+    .sort(
+      (a, b) => own(a) - own(b) || (count.get(b.to) ?? 0) - (count.get(a.to) ?? 0) || b.i - a.i,
+    );
+  const hashes = [...new Set(order.map((t) => t.hash))].slice(0, MAX_ROUTED_RECEIPTS);
+  const allMarkets = new Set(transfers.flatMap((t) => [...marketsOf(t.token)]));
+  const details = await readTxDetails(rpc, hashes, allMarkets, swapTopics).catch(
+    () => new Map<string, TxDetail>(),
+  );
+  for (const t of transfers) {
+    if (isRoutedSale(details.get(t.hash), t.token, creator, marketsOf(t.token))) sold.add(t.token);
+  }
+  return sold;
 }

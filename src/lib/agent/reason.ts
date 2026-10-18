@@ -2,6 +2,7 @@ import type { TokenReport } from '../contracts';
 import { log } from '../logger';
 import { computeCost, type CostBreakdown } from './cost';
 import { resolveProvider, type Provider } from './providers';
+import { withoutClaims } from './claims';
 import { findViolations } from './guardrails';
 import { offlineExplanation } from './offline';
 import { SYSTEM_PROMPT, renderReport } from './prompt';
@@ -129,5 +130,19 @@ export async function explain(
     return { ...served(offlineExplanation(report, options.specialists), cost), rejected: true };
   }
 
-  return { text, cost, violations, offline: false, provider: provider.name };
+  // A claim the facts contradict ("only this one token", "a clean record"
+  // with a sale measured) is cut, sentence by sentence; a section left empty
+  // is not served, the facts are.
+  const checked = withoutClaims(text, report);
+  if (checked.dropped.length > 0) {
+    log.warn('affirmations contredites par les faits retirées', {
+      provider: provider.name,
+      claims: checked.dropped.map((c) => c.kind),
+    });
+  }
+  if (checked.text === null) {
+    return { ...served(offlineExplanation(report, options.specialists), cost), rejected: true };
+  }
+
+  return { text: checked.text, cost, violations, offline: false, provider: provider.name };
 }

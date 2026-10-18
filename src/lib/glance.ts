@@ -109,6 +109,7 @@ export function ownSalesWords(own: ReportFacts['creator']['ownSales']): string |
 function salesItem(
   creator: ReportFacts['creator'],
   launch: LaunchReplayData | undefined,
+  timeline?: TimelineLaunch[],
 ): GlanceItem | null {
   const checked = creator.salesChecked ?? creator.checked;
   if (!creator.measured || checked === 0) return null;
@@ -142,6 +143,15 @@ function salesItem(
       href: '#launch-title',
     };
   }
+  // Over several launches, whether this one is among the sales: the count
+  // includes it, and the creator-history question counts the others.
+  const current = timeline?.find((l) => l.current);
+  const thisOne =
+    checked > 1 && sold > 0 && sold < checked && current && current.sold !== null
+      ? current.sold
+        ? ', this token included'
+        : ', not on this token'
+      : '';
   const title =
     sold === 0
       ? checked === 1
@@ -151,7 +161,7 @@ function salesItem(
         ? `The creator sold into the pool on all ${checked} launches checked.`
         : checked === 1
           ? 'The creator sold into the pool on the launch checked.'
-          : `The creator sold into the pool on ${sold} of ${checked} launches checked.`;
+          : `The creator sold into the pool on ${sold} of ${checked} launches checked${thisOne}.`;
   return {
     id: 'sales',
     tone: sold > 0 ? 'attention' : 'reassuring',
@@ -216,21 +226,75 @@ function liquidityItem(creator: ReportFacts['creator']): GlanceItem | null {
   const checked = creator.liquidityChecked ?? creator.checked;
   if (!creator.measured || checked === 0) return null;
   const pulled = creator.liquidityPulled;
+  // Fees taken out of the position are tokens the creator withdrew from the
+  // market: "never withdrawn" alone would hide them (AML, +387 s).
+  const fees = creator.feesCollected ?? 0;
+  const feesWords =
+    fees > 0
+      ? ` The creator did collect trading fees from the market’s liquidity position on ${fees === checked ? (checked === 1 ? 'it' : 'all of them') : `${fees} of them`}.`
+      : '';
   return {
     id: 'liquidity',
-    tone: pulled > 0 ? 'attention' : 'reassuring',
+    tone: pulled > 0 ? 'attention' : fees > 0 ? 'neutral' : 'reassuring',
     figure: `${pulled}/${checked}`,
     title:
       pulled === 0
-        ? `The launch liquidity was never withdrawn on the ${plural(checked, 'launch')} checked.`
-        : `The launch liquidity was withdrawn on ${pulled} of ${plural(checked, 'launch')} checked.`,
+        ? `The launch liquidity was never withdrawn on the ${plural(checked, 'launch')} checked.${feesWords}`
+        : `The launch liquidity was withdrawn on ${pulled} of ${plural(checked, 'launch')} checked.${feesWords}`,
     detail: 'Withdrawals from each launch’s own liquidity position.',
     href: '#fact-creator',
   };
 }
 
+/**
+ * What the creator's own transfers say about the holders, in plain words:
+ * the largest holder's tokens came from the creator, contracts it funded
+ * passed its tokens on, it burned some. Empty when nothing links them, or
+ * when the creator's transfers were not read.
+ */
+export function creatorLinkWords(holders: ReportFacts['holders']): {
+  words: string;
+  weight: number;
+} {
+  const links = holders.creatorLinks;
+  if (!links) return { words: '', weight: 0 };
+  const parts: string[] = [];
+  let weight = 0;
+  const largest = holders.top[0];
+  const linked = holders.top.filter((h) => h.fromCreator);
+  if (largest?.fromCreator) {
+    const f = largest.fromCreator;
+    parts.push(
+      f.via
+        ? `It received ${pct(f.share)} of the supply from a contract the creator had sent tokens to.`
+        : `It received ${pct(f.share)} of the supply directly from the creator.`,
+    );
+    weight = Math.max(weight, f.share);
+  }
+  const others = linked.filter((h) => h !== largest);
+  if (others.length > 0) {
+    parts.push(
+      `${others.length === 1 ? 'One other' : `${others.length} other`} of the largest holders received tokens from the creator.`,
+    );
+    weight = Math.max(weight, ...others.map((h) => h.fromCreator?.share ?? 0));
+  }
+  if (links.distributors.length > 0) {
+    const share = links.distributors.reduce((n, d) => n + d.share, 0);
+    const recipients = links.distributors.reduce((n, d) => n + d.recipients, 0);
+    const n = links.distributors.length;
+    parts.push(
+      `The creator sent ${pct(share)} of the supply to ${n === 1 ? 'a contract' : `${n} contracts`} that passed it on to ${recipients.toLocaleString('en-US')} addresses.`,
+    );
+    weight = Math.max(weight, share);
+  }
+  if (links.burned >= 0.001) parts.push(`The creator burned ${pct(links.burned)} of the supply.`);
+  return { words: parts.join(' '), weight };
+}
+
 /** Where the supply sits: still in its pools, curve or launch contracts, or with holders. */
 function supplyItem(facts: ReportFacts, launch: LaunchReplayData | undefined): GlanceItem | null {
+  const link = creatorLinkWords(facts.holders);
+  const linked = link.words ? ` ${link.words}` : '';
   const fromReplay = launch?.moves
     .filter((m) => m.actorKind === 'pool' && m.heldNow !== null)
     .reduce<number | null>((max, m) => Math.max(max ?? 0, m.heldNow ?? 0), null);
@@ -241,7 +305,7 @@ function supplyItem(facts: ReportFacts, launch: LaunchReplayData | undefined): G
       id: 'supply',
       tone: 'neutral',
       figure: pct(pooled),
-      title: `${pct(pooled)} of the supply is still in ${where}: only ${pct(1 - pooled)} is held outside ${/(curve|contract)$/.test(where) ? 'it' : 'them'} so far.`,
+      title: `${pct(pooled)} of the supply is still in ${where}: only ${pct(1 - pooled)} is held outside ${/(curve|contract)$/.test(where) ? 'it' : 'them'} so far.${linked.replace(' It received', ' The largest holder outside received')}`,
       detail: 'Shares of the whole supply, read from the holders list.',
       href: '#fact-holders',
     };
@@ -261,12 +325,12 @@ function supplyItem(facts: ReportFacts, launch: LaunchReplayData | undefined): G
         : 'One wallet';
   return {
     id: 'supply',
-    tone: largest.share >= 0.2 ? 'attention' : 'neutral',
+    tone: largest.share >= 0.2 || link.weight >= 0.05 ? 'attention' : 'neutral',
     figure: pct(largest.share),
     title:
       whole !== null
-        ? `${who} holds ${pct(largest.share)} of the tokens held outside ${where} (${pct(whole)} of the whole supply).`
-        : `${who} holds ${pct(largest.share)} of the tokens held outside ${where}.`,
+        ? `${who} holds ${pct(largest.share)} of the tokens held outside ${where} (${pct(whole)} of the whole supply).${linked}`
+        : `${who} holds ${pct(largest.share)} of the tokens held outside ${where}.${linked}`,
     detail:
       'The largest holder; pools, launch curves, launch contracts and burn addresses left out.',
     href: '#fact-holders',
@@ -285,6 +349,21 @@ function launchBuysItem(launch: LaunchReplayData | undefined): GlanceItem | null
       : story.partial
         ? 'Counted over the moves drawn only: the window had more.'
         : 'Counted over every transfer of the window.';
+  // What the creator's own launch transaction delivered to other addresses
+  // is linked to the creator by that transaction (MUT8: 71.4 % to three
+  // contracts); who controls them is not shown, and the line says so.
+  const viaCreator = launch.summary?.creatorTx;
+  if (viaCreator && viaCreator.share >= 0.01) {
+    const n = viaCreator.addresses;
+    return {
+      id: 'launch-buys',
+      tone: viaCreator.share >= 0.05 ? 'attention' : 'neutral',
+      figure: pct(viaCreator.share),
+      title: `The creator’s own launch transaction delivered ${pct(viaCreator.share)} of the supply to ${n} ${addressesWord(n, viaCreator.contracts)} other than the creator’s wallet; who controls ${n === 1 ? 'it' : 'them'} is not shown.`,
+      detail,
+      href: '#launch-title',
+    };
+  }
   // Many addresses served by one transaction is the stronger fact: say that.
   const bundle = story.bundle;
   if (bundle && bundle.share >= 0.01) {
@@ -436,7 +515,7 @@ const ORDER: Record<GlanceTone, number> = { attention: 0, neutral: 1, reassuring
 export function buildGlance({ facts, timeline, launch, specialists }: GlanceInput): Glance | null {
   if (!facts) return null;
   const candidates = [
-    salesItem(facts.creator, launch),
+    salesItem(facts.creator, launch, timeline),
     networkItem(specialists),
     recordItem(facts.creator, timeline),
     liquidityItem(facts.creator),
