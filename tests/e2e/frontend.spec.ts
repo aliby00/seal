@@ -149,7 +149,9 @@ test('report draws the measured facts, says what is missing, and gives no score'
   await accessible(page);
 });
 
-test('a report a failed read left partial says so at the top of In short', async ({ page }) => {
+test('a report a failed read left partial says so in In short, below the findings', async ({
+  page,
+}) => {
   await mockReport(page, {
     facts: {
       ...report.facts,
@@ -271,7 +273,10 @@ test('a launch with allocations only: the supply flow leads, and no empty buyers
   await submit(page);
   // The summary's first line says where the supply went, and links to the drawing.
   const lead = page.locator('.glance-lead');
-  await expect(lead).toContainText('Launched on Virtuals.');
+  await expect(lead).toContainText(
+    'Launched on Virtuals: 28.6% locked for the creator until 2028, 18% held by Virtuals’ ACF wallet.',
+  );
+  await expect(lead.locator('.glance-figure')).toHaveText('28.6%');
   await expect(lead).toHaveAttribute('href', '#supply-flow');
   const flow = page.locator('#supply-flow');
   await expect(flow).toBeVisible();
@@ -280,6 +285,11 @@ test('a launch with allocations only: the supply flow leads, and no empty buyers
   await expect(flow).toContainText('Virtuals’ team lock (TokenTable)');
   await expect(flow).toContainText('28.6% is locked for the creator');
   await expect(flow).toContainText('Nobody bought in the first 10 minutes');
+  // The curve's branch shows its outcome: bought there, then graduation.
+  await expect(flow).toContainText('Buyers on the curve');
+  await expect(flow).toContainText('Its Uniswap v2 pair');
+  await expect(flow.locator('.flow-branch')).toHaveCount(2);
+  await expect(flow.locator('.flow-leaf')).toHaveCount(5);
   // The replay draws no chart for a launch nobody bought into.
   const replay = page.locator('.launch-replay');
   await expect(replay).toContainText('Nobody bought or sold in these first 10 minutes');

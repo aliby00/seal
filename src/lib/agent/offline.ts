@@ -77,10 +77,15 @@ function deployerAccount(report: TokenReport): string {
       `Of ${liquidity.length} with a market that could be read, liquidity was removed on ${liquidity.filter((t) => t.liquidityPulled).length} in the first ${OTHER_LAUNCH_SALES_DAYS} days after each launch.`,
     );
   }
+  const graduated = data.tokens.filter((t) => t.outcome === 'graduated').length;
   sentences.push(
-    origin.role === 'deployer' && !origin.launchpad
-      ? 'The token was deployed on its own, with no launch curve: graduation does not apply.'
-      : 'Graduation is read on pons launches only, so what became of these launches is not measured here.',
+    origin.graduationRead && data.tokens.length > 0
+      ? data.tokens.length === 1
+        ? `It ${graduated === 1 ? 'graduated' : 'has not graduated'} from its launch curve to an open market.`
+        : `${graduated} of the ${data.tokens.length} launches read in detail graduated from their launch curve to an open market.`
+      : origin.role === 'deployer' && !origin.launchpad
+        ? 'The token was deployed on its own, with no launch curve: graduation does not apply.'
+        : 'Graduation is read on pons and Virtuals launches only, so what became of these launches is not measured here.',
   );
   return sentences.join(' ');
 }

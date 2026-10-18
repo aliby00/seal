@@ -155,6 +155,13 @@ export const VIRTUALS = {
    * transaction (0x5a20a246…), 20 M still on it.
    */
   acfBatch: '0x3eb3394f5d89465a77f73a83d3675b0ed051f852',
+  /**
+   * `graduationExcessBurnWallet()` of the configuration: at graduation, the
+   * curve's tokens priced against its virtual liquidity go to it (4.45 % of
+   * SIRIUS). A wallet (340 transactions); for SIRIUS it burned nothing and
+   * passed them to a Merkle claim contract (0x6da0…) in 14 equal parts.
+   */
+  excessWallet: '0xaea27856b6284ae071e0685ed594c5b80aea2aa9',
   /** TokenTable's deployer of the per-token locks ("TTUnlocker" clones). */
   tokenTableDeployer: '0x07cd7d504847ccc9a83597faabd0b9a156335ee8',
 } as const;

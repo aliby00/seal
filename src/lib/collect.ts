@@ -67,6 +67,7 @@ import { isContractCode } from './chain/code';
 import { linkCreatorToHolders, withLinks } from './holders/links';
 import { withRoles } from './holders/roles';
 import { knownNames, readAddressRoles } from './chain/roles';
+import { readVirtualsGraduation, readVirtualsGraduations } from './chain/virtuals';
 import { log } from './logger';
 import { TtlCache } from './cache';
 import {
@@ -1123,6 +1124,43 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
         }
       : linkedHolders;
 
+  // A Virtuals launch that graduated: when, and where its curve's tokens went
+  // (SIRIUS: 10.47 % to its Uniswap v2 pair, 4.45 % to the excess wallet).
+  const graduatedRead =
+    origin?.launchpad?.id === 'virtuals' && latest > 0 && origin.blockNumber !== undefined
+      ? valueOr(
+          await ledger.read('graduation', async () => {
+            const gradRpc = createRpcClient(options.rpcUrl, createBudget(GRADUATION_BUDGET));
+            const found = await readVirtualsGraduations(
+              gradRpc,
+              [{ token: address.toLowerCase(), blockNumber: origin.blockNumber }],
+              latest,
+            );
+            const log = found.get(address.toLowerCase());
+            if (!log) return NOT_APPLICABLE;
+            return readVirtualsGraduation(gradRpc, address, log, await supplyOf(gradRpc), [
+              ...(origin.venues.pools ?? []),
+              ...(listedVenues?.pools ?? []),
+            ]);
+          }),
+          null,
+        )
+      : null;
+
+  // What graduation moved, named too (the market, Virtuals' excess wallet).
+  const graduationNames = graduatedRead
+    ? knownNames(
+        [graduatedRead.market, graduatedRead.excess]
+          .filter((m): m is { address: string; share: number } => m !== null)
+          .filter((m) => !roles.some((r) => r.address === m.address)),
+        {
+          launchpad: origin?.launchpad?.id ?? null,
+          curves: origin?.venues.curves ?? [],
+        },
+      )
+    : [];
+  const allRoles = [...roles, ...graduationNames];
+
   const fees = await feesRead;
   const pools = await poolsRead;
   const creator: CreatorHistory =
@@ -1217,11 +1255,15 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     holders: namedHolders,
     market,
     ...(launchReplay ? { launch: launchReplay } : {}),
-    ...(roles.length > 0 ? { roles } : {}),
+    ...(allRoles.length > 0 ? { roles: allRoles } : {}),
+    ...(graduatedRead ? { graduated: graduatedRead } : {}),
     completeness,
     ...(failedReads.length > 0 ? { failedReads } : {}),
   };
 }
+
+/** Requests for a Virtuals graduation: its event over the windows since launch, its receipt. */
+const GRADUATION_BUDGET = 4;
 
 /** Requests for the roles: the supply, codes, probes, a lock's schedules, pools — small batches. */
 const ROLES_BUDGET = 10;

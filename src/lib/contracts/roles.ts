@@ -24,7 +24,9 @@ export type AddressRoleKind =
   /** A contract that sends tokens to many addresses in one go. */
   | 'batch-sender'
   /** A smart-contract wallet (ERC-4337 account): a person's or a service's account. */
-  | 'smart-wallet';
+  | 'smart-wallet'
+  /** A claim contract (Merkle airdrop): holders claim from it with a proof. */
+  | 'airdrop';
 
 /** One unlocking schedule of a vesting lock, as shares of the whole supply. */
 export type VestingSchedule = {

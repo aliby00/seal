@@ -41,6 +41,7 @@ const SELECTOR = {
   getReserves: '0x0902f1ac',
   entryPoint: '0xb0d691fe',
   symbol: '0x95d89b41',
+  merkleRoot: '0x2eb4a7ab',
 } as const;
 
 /** Schedules read on one lock, at most. */
@@ -239,6 +240,18 @@ export function knownName(
         'received 25% of the supply from Virtuals’ reserve wallet on every ACF launch sampled (SIRIUS, UMBRA, MIKO, SYNA, POPHIE, HOUSE)',
     };
   }
+  if (a === VIRTUALS.excessWallet) {
+    return {
+      address: a,
+      kind: 'distributor',
+      name: 'Virtuals’ graduation-excess wallet',
+      detail:
+        'At graduation, Virtuals’ launchpad sends it the curve’s tokens priced against the curve’s virtual liquidity. Its name in Virtuals’ configuration says burn; for SIRIUS it passed them to a Merkle claim contract instead, in 14 equal parts.',
+      tradable: true,
+      launchpad: 'Virtuals',
+      evidence: `graduationExcessBurnWallet() of Virtuals’ launch configuration ${VIRTUALS.config}`,
+    };
+  }
   if (a === VIRTUALS.acfBatch) {
     return {
       address: a,
@@ -258,7 +271,11 @@ export function knownName(
     return {
       address: a,
       kind: 'curve',
-      name: pad ? `${possessive(pad.name)} launch curve` : 'the launch curve',
+      // A name with a note in brackets reads badly as an owner: "the launch curve".
+      name:
+        pad && !pad.name.includes('(')
+          ? `${possessive(pad.name)} launch curve`
+          : 'the launch curve',
       detail:
         'Where the token is first sold, before it moves to an open market: buyers buy from it, and what is left moves to the market at graduation.',
       tradable: false,
@@ -408,7 +425,7 @@ export async function readAddressRoles(
     .map((c) => lower(c.address));
   if (contracts.length === 0) return [...named.values()];
 
-  const probes = ['version', 'token0', 'entryPoint'] as const;
+  const probes = ['version', 'token0', 'entryPoint', 'merkleRoot'] as const;
   const answers = await batched(
     rpc,
     contracts.flatMap((a) => probes.map((p) => call(a, SELECTOR[p]))),
@@ -444,6 +461,19 @@ export async function readAddressRoles(
     const t0 = asAddress(answer(i, 'token0'));
     if (t0) {
       pools.push({ address, token0: t0 });
+      continue;
+    }
+    const root = words(answer(i, 'merkleRoot'));
+    if (root && root.length === 1 && root[0]! !== 0n) {
+      named.set(address, {
+        address,
+        kind: 'airdrop',
+        name: 'an airdrop claim contract',
+        detail:
+          'A Merkle claim contract: the addresses on its list claim their tokens from it with a proof; what it holds is not claimed yet.',
+        tradable: true,
+        evidence: 'merkleRoot() answers a root',
+      });
       continue;
     }
     const entry = asAddress(answer(i, 'entryPoint'));

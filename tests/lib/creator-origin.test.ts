@@ -68,7 +68,7 @@ describe('creator origin on a known launchpad', () => {
   it('says graduation does not apply, or was not measured, rather than drawing zeros', () => {
     expect(graduationLine({ ...base, graduation: 'not-applicable' })).toMatch(/does not apply/);
     expect(graduationLine({ ...base, graduation: 'not-measured', launchpad: 'flap.sh' })).toBe(
-      'Graduation is read for pons launches only: not measured on flap.sh.',
+      'Graduation is read for pons and Virtuals launches only: not measured on flap.sh.',
     );
   });
 });

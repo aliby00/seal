@@ -1788,12 +1788,11 @@ tr[data-kind='withdraw'] .launch-kind::before {
 }
 .glance-partial {
   margin: 0;
-  padding: 10px 12px;
-  border-left: 2px solid var(--hud-amber);
-  border-radius: 8px;
-  background: rgb(255 200 87 / 0.08);
-  font-size: 13.5px;
-  color: var(--hud-text);
+  padding-left: 10px;
+  border-left: 2px solid color-mix(in srgb, var(--hud-amber) 60%, transparent);
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--hud-dim);
 }
 .glance-unseen {
   margin: 0;
@@ -1868,40 +1867,142 @@ tr[data-kind='withdraw'] .launch-kind::before {
 .flow-segment-label {
   font: 600 12.5px/1 var(--font-data);
   font-variant-numeric: tabular-nums;
-  color: #fff;
-  text-shadow: 0 1px 2px rgb(0 0 0 / 0.55);
+  /* Dark ink on every role colour: at least 4.5:1 on each of them. */
+  color: var(--hud-ink);
 }
-.flow-tree,
-.flow-children {
+.flow-diagram {
+  --flow-line: rgb(255 255 255 / 0.28);
+  --flow-gap: 26px;
+  display: grid;
+  justify-items: center;
+}
+/* The supply created: the trunk every branch starts from. */
+.flow-origin {
+  position: relative;
+  margin: 0 0 var(--flow-gap);
+  padding: 10px 18px;
+  border: 1px solid var(--hud-line-strong);
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.32);
+  font-size: 13.5px;
+  color: var(--hud-dim);
+}
+.flow-origin strong {
+  margin-right: 4px;
+  font: 600 15px/1 var(--font-data);
+  color: var(--hud-text);
+}
+.flow-origin::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  height: calc(var(--flow-gap) / 2);
+  border-left: 1.5px solid var(--flow-line);
+}
+.flow-branches,
+.flow-leaves {
   list-style: none;
   margin: 0;
   padding: 0;
+}
+/* Branches side by side, joined to the trunk by one bar. */
+.flow-branches {
+  position: relative;
   display: grid;
-  gap: 10px;
+  grid-template-columns: repeat(var(--branches, 2), minmax(0, 1fr));
+  gap: 18px;
+  width: 100%;
 }
-.flow-tree {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
-  align-items: start;
-}
-.flow-children {
-  position: relative;
-  margin: 10px 0 0 14px;
-  padding-left: 16px;
-  border-left: 1px dashed var(--hud-line-strong);
-}
-.flow-children > .flow-node {
-  position: relative;
-}
-.flow-children > .flow-node::before {
+.flow-branches::before {
   content: '';
   position: absolute;
-  top: 26px;
-  left: -16px;
-  width: 14px;
-  border-top: 1px dashed var(--hud-line-strong);
+  top: calc(var(--flow-gap) / -2);
+  left: calc(100% / var(--branches, 2) / 2);
+  right: calc(100% / var(--branches, 2) / 2);
+  border-top: 1.5px solid var(--flow-line);
 }
-.flow-node {
+.flow-branch {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 14px;
   min-width: 0;
+}
+/* The stub down to each branch, with its arrowhead. */
+.flow-branch::before,
+.flow-leaf::before {
+  content: '';
+  position: absolute;
+  border-color: var(--flow-line);
+  border-style: solid;
+  border-width: 0;
+}
+.flow-branch::before {
+  top: calc(var(--flow-gap) / -2);
+  left: 50%;
+  height: calc(var(--flow-gap) / 2 - 6px);
+  border-left-width: 1.5px;
+}
+.flow-branch::after,
+.flow-leaf::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 0;
+  border: 5px solid transparent;
+}
+.flow-branch::after {
+  top: -7px;
+  left: calc(50% - 4.25px);
+  border-top-color: var(--flow-line);
+  border-bottom-width: 0;
+}
+/* What a branch passed on: a rail down its left edge, an arrow into each card. */
+.flow-leaves {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  margin-left: 14px;
+  padding-left: 20px;
+}
+.flow-leaves::before {
+  content: '';
+  position: absolute;
+  top: -14px;
+  bottom: 22px;
+  left: 0;
+  border-left: 1.5px solid var(--flow-line);
+}
+.flow-leaf {
+  position: relative;
+  min-width: 0;
+}
+.flow-leaf::before {
+  top: 22px;
+  left: -20px;
+  width: 14px;
+  border-top-width: 1.5px;
+}
+.flow-leaf::after {
+  top: 17.5px;
+  left: -7px;
+  border-left-color: var(--flow-line);
+  border-right-width: 0;
+}
+.flow-card[data-leaf] {
+  padding: 12px 14px;
+}
+.flow-card[data-leaf] .flow-share {
+  font-size: clamp(22px, 3vw, 26px);
+}
+.flow-more summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--hud-dim);
+}
+.flow-more[open] summary {
+  margin-bottom: 4px;
 }
 .flow-card {
   display: grid;
@@ -1990,12 +2091,50 @@ tr[data-kind='withdraw'] .launch-kind::before {
   color: var(--hud-dim);
 }
 @media (max-width: 640px) {
-  .flow-children {
-    margin-left: 6px;
-    padding-left: 12px;
+  /* One rail down the left: the trunk, then each branch, then what it passed on. */
+  .flow-diagram {
+    justify-items: start;
   }
-  .flow-children > .flow-node::before {
-    left: -12px;
+  .flow-origin::after {
+    left: 18px;
+  }
+  .flow-branches {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    padding-left: 18px;
+  }
+  .flow-branches::before {
+    top: calc(var(--flow-gap) / -2);
+    bottom: 22px;
+    left: 18px;
+    right: auto;
+    border-top: 0;
+    border-left: 1.5px solid var(--flow-line);
+  }
+  .flow-branch::before {
+    top: 22px;
+    left: 0;
+    width: 12px;
+    height: 0;
+    border-left-width: 0;
+    border-top-width: 1.5px;
+  }
+  .flow-branch::after {
+    top: 17.5px;
+    left: 12px;
+    border: 5px solid transparent;
+    border-left-color: var(--flow-line);
+    border-right-width: 0;
+  }
+  .flow-branch {
+    padding-left: 18px;
+  }
+  .flow-leaves {
+    margin-left: 8px;
+    padding-left: 16px;
+  }
+  .flow-leaf::before {
+    left: -16px;
     width: 10px;
   }
 }
