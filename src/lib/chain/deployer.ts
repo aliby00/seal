@@ -1,6 +1,7 @@
 import type { Address } from 'viem';
 import type { CreatorHistory, CreatorOrigin, LaunchedToken } from '../contracts';
 import { TRANSFER_TOPIC, topicFor, BURN_TOPIC } from './behavior';
+import { isContractCode } from './code';
 import { fetchBlockTimestamps } from './graduation';
 import {
   creatorFilter,
@@ -334,11 +335,7 @@ export async function traceTokenOrigin(
   return readOrigin(token, mint, tx, rc, isContract);
 }
 
-/** Code at an address, read as a contract. A wallet delegating under EIP-7702 (`0xef0100…`) stays a wallet. */
-export function isContractCode(code: string | null | undefined): boolean {
-  if (!code || code === '0x') return false;
-  return !code.toLowerCase().startsWith('0xef0100');
-}
+export { isContractCode } from './code';
 
 type Launch = { token: string; blockNumber: number; transactionHash: string };
 
@@ -657,7 +654,8 @@ export async function fetchDeployerHistory(
     ]),
   ]);
 
-  const isWallet = account[0]?.ok ? account[0].value === '0x' : null;
+  // A wallet delegating under EIP-7702 has code, and still a transaction count.
+  const isWallet = account[0]?.ok ? !isContractCode(account[0].value) : null;
   const transactionCount = isWallet && account[1]?.ok ? Number(account[1].value) : null;
   const listing = mergeListings(nodeListing, options.indexed);
 

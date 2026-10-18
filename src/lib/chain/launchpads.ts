@@ -335,3 +335,38 @@ export function creatorFilter(launchpad: Launchpad, creator: string): (string | 
     i === 0 ? launchpad.topic0 : i === field.topic ? topic : null,
   );
 }
+
+/**
+ * Contracts that hold a launch's tokens for the launch mechanism itself,
+ * beyond the launchpads' own addresses: never anyone's position.
+ *
+ * `0x2674…` is the lock contract of the 0x7ed5 launchpad, read on chain on
+ * 18/10/2026: its `factory()` answers 0x7ed5…, its `positionManager()` the v4
+ * PositionManager (0x58da…), and it exposes `lockPosition(address,uint256)`,
+ * `lockTokenSupply(address,uint256)`, `lockedTokenSupply(address)` and
+ * `isLocked(address)`. When a 0x7ed5 curve graduates (HYPURRT, graduation tx
+ * 0x4837259f…), the factory sends it 8.163 % of the supply (4/49) and the v4
+ * liquidity position NFT in the same transaction, and records both as locked
+ * (`isLocked(HYPURRT)` = true, `lockedTokenSupply` = the 8.163 %). It is
+ * liquidity infrastructure shared by every graduated 0x7ed5 token (WAFER,
+ * WORM, COVENANT, ROBINHOOD, MUT8 show the same 8.163 %), so it is set aside
+ * like a pool. Tokens sent to it by hand are not recorded as locked
+ * (BOOMER, a 0xf05a token: 6.1 % airdropped to it by its creator, `isLocked`
+ * false) but still sit in a launchpad contract, not with a person.
+ */
+export const LAUNCH_LOCKERS: readonly { address: string; name: string }[] = [
+  {
+    address: '0x267444d099b10fb5ed7c3cc7b7c767adca574952',
+    name: 'the liquidity lock contract of the 0x7ed5 launchpad',
+  },
+];
+
+export type LaunchInfrastructureRole = 'launchpad' | 'locker';
+
+/** Every launchpad, router and lock contract SEAL knows, by lowercase address. */
+export function launchInfrastructure(): Map<string, LaunchInfrastructureRole> {
+  const out = new Map<string, LaunchInfrastructureRole>();
+  for (const l of LAUNCHPADS) out.set(l.address.toLowerCase(), 'launchpad');
+  for (const l of LAUNCH_LOCKERS) out.set(l.address.toLowerCase(), 'locker');
+  return out;
+}

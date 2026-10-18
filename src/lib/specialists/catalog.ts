@@ -2,6 +2,7 @@ import { launchpadById } from '../chain/launchpads';
 import { NATIVE } from '../chain/pools';
 import { MAX_BEHAVIOR_TOKENS } from '../chain';
 import { volumePerTrade } from '../market';
+import { whereSetAside } from '../set-aside';
 import { addressesSoftware, imitatedName, normalizeName, quoteName } from './names';
 import type { FunderKind } from '../chain/funder-kind';
 import type {
@@ -396,12 +397,29 @@ const holderSpread: Specialist = {
     }
     const { top1, top10 } = holders.data.concentration;
     const count = holders.data.holderCount;
+    const pooled = holders.data.pooledShare ?? null;
+    const largest = holders.data.top.find((h) => h.kind === 'wallet' || h.kind === 'contract');
+    const creator = report?.creator.data.creator.toLowerCase();
+    // What the largest holder is, said: a contract is not "a wallet".
+    const what = !largest
+      ? ''
+      : creator && largest.address.toLowerCase() === creator
+        ? ' (the creator)'
+        : largest.kind === 'contract'
+          ? ' (a contract)'
+          : ' (a wallet)';
     const facts = [
-      `The largest holder has ${pct(top1)} of counted supply; the top 10 have ${pct(top10)}.`,
+      // How much circulates at all comes first: 70 % of 1 % is not 70 % of the token.
+      ...(pooled !== null && pooled > 0
+        ? [
+            `${pct(pooled)} of the whole supply sits in ${whereSetAside(holders.data.setAside)} and is left out: only ${pct(1 - pooled)} is held outside ${/(curve|contract)$/.test(whereSetAside(holders.data.setAside)) ? 'it' : 'them'}.`,
+          ]
+        : []),
+      `The largest holder${what} has ${pct(top1)} of the supply held outside pools; the top 10 have ${pct(top10)}.`,
       ...(count !== null ? [`${count} holder addresses in total.`] : []),
     ];
     const limits = [
-      'Pool and burn addresses are excluded; shares are over the holders actually fetched.',
+      'Pools, launch curves, launch contracts and burn addresses are excluded; shares are over the holders actually fetched.',
     ];
     if (top1 >= TOP1_CONCERN || top10 >= TOP10_CONCERN) {
       return finding('holder-spread', 'concern', facts, limits, ['creator-history']);

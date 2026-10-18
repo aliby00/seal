@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import type { ReportFacts, TimelineLaunch } from '@/lib/facts';
+import { whereSetAside } from '@/lib/set-aside';
 
 /**
  * The measured numbers, drawn. Three cards — creator, holders, market — each
@@ -423,8 +424,9 @@ function HoldersCard({
         <>
           {holders.pooled != null && holders.pooled > 0 && (
             <p className="fact-pooled">
-              <strong>{pct(holders.pooled)}</strong> of the supply is still in the pool. The shares
-              below split the other {pct(1 - holders.pooled)}, held in wallets and contracts.
+              <strong>{pct(holders.pooled)}</strong> of the supply sits in{' '}
+              {whereSetAside(holders.setAside)}. The shares below split the other{' '}
+              {pct(1 - holders.pooled)}, held in wallets and contracts.
             </p>
           )}
           <Donut top1={holders.top1} top10={holders.top10} count={holders.holderCount} />

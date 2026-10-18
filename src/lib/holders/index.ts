@@ -1,4 +1,10 @@
-import type { Holder, HolderDistribution, HolderDistributionData } from '../contracts';
+import { launchInfrastructure } from '../chain/launchpads';
+import type {
+  Holder,
+  HolderDistribution,
+  HolderDistributionData,
+  SetAsideRole,
+} from '../contracts';
 import { IncompleteDataError } from '../errors';
 import { requestJson, type RequestBudget } from '../http';
 import { log } from '../logger';
@@ -26,6 +32,13 @@ export type FetchHoldersOptions = {
   poolAddress?: string;
   /** Other addresses holding liquidity, not positions (the DEX pair, the v4 PoolManager). */
   liquidityAddresses?: readonly string[];
+  /**
+   * Every address known to hold the token for trading or for its launch, with
+   * why: the launch pool, the pairs listed since, the launchpad's curve, the
+   * contract the launch called. Known launchpads and lock contracts are added
+   * whatever the caller passes.
+   */
+  setAside?: readonly { address: string; role: SetAsideRole }[];
   /** Nombre de pages à parcourir. Le tier gratuit est à 5 req/s. */
   maxPages?: number;
   topN?: number;
@@ -38,30 +51,66 @@ export type TokenTotals = {
   holders: number | null;
   /** Raw total supply, used as the base when the list is cut. */
   supply: bigint | null;
+  /**
+   * The list holds every balance: its sum is the supply, and the part set
+   * aside can be measured against it without the total supply.
+   */
+  complete?: boolean;
 };
 
 /** The v4 PoolManager holds every v4 market's liquidity; it is never a holder. */
 const POOL_MANAGER = '0x8366a39cc670b4001a1121b8f6a443a643e40951';
+
+/** Why each set-aside address is set aside, the caller's list over the known infrastructure. */
+export function setAsideRoles(
+  options: Pick<FetchHoldersOptions, 'poolAddress' | 'liquidityAddresses' | 'setAside'> = {},
+): Map<string, SetAsideRole> {
+  const roles = new Map<string, SetAsideRole>(launchInfrastructure());
+  roles.set(POOL_MANAGER, 'pool-manager');
+  for (const address of options.liquidityAddresses ?? []) roles.set(address.toLowerCase(), 'pool');
+  for (const { address, role } of options.setAside ?? []) roles.set(address.toLowerCase(), role);
+  if (options.poolAddress && options.poolAddress !== '0x') {
+    roles.set(options.poolAddress.toLowerCase(), 'pool');
+  }
+  return roles;
+}
+
+export function roleOf(
+  address: string,
+  roles: ReadonlyMap<string, SetAsideRole>,
+): SetAsideRole | undefined {
+  const lower = address.toLowerCase();
+  if (BURN_ADDRESSES.has(lower)) return 'burn';
+  return roles.get(lower);
+}
 
 export function classifyHolder(
   address: string,
   isContract: boolean,
   poolAddress?: string,
   liquidity: readonly string[] = [],
+  roles: ReadonlyMap<string, SetAsideRole> = setAsideRoles({
+    poolAddress,
+    liquidityAddresses: liquidity,
+  }),
 ): Holder['kind'] {
-  const lower = address.toLowerCase();
-  if (poolAddress && lower === poolAddress.toLowerCase()) return 'pool';
-  if (lower === POOL_MANAGER || liquidity.some((a) => a.toLowerCase() === lower)) return 'pool';
-  if (BURN_ADDRESSES.has(lower)) return 'burn';
+  const role = roleOf(address, roles);
+  if (role === 'burn') return 'burn';
+  if (role) return 'pool';
   return isContract ? 'contract' : 'wallet';
 }
+
+const share6 = (value: bigint, base: bigint) =>
+  base > 0n ? Number((value * 1_000_000n) / base) / 1_000_000 : 0;
 
 /**
  * Calcule les parts sur l'offre **hors pool et hors burn**.
  *
  * Sans cette exclusion, le pool ressort systématiquement comme détenteur
  * majoritaire et la concentration ne veut plus rien dire : c'est la liquidité,
- * pas une position d'un acteur.
+ * pas une position d'un acteur. The same holds for a launchpad's curve, its
+ * contracts and its lock contract: a flap.sh portal holding 99.9 % of a token
+ * still on its curve was shown as "one holder with 99.9 %".
  */
 export function computeDistribution(
   token: string,
@@ -70,69 +119,81 @@ export function computeDistribution(
   totals: TokenTotals = { holders: null, supply: null },
 ): HolderDistributionData {
   const topN = options.topN ?? 20;
+  const roles = setAsideRoles(options);
 
   const entries = raw
     .map((item) => {
       const address = item.address?.hash ?? '';
       const balance = BigInt(item.value ?? '0');
+      const role = address ? roleOf(address, roles) : undefined;
       return {
         address,
         balance,
+        role,
         kind: classifyHolder(
           address,
           item.address?.is_contract ?? false,
-          options.poolAddress,
-          options.liquidityAddresses,
+          undefined,
+          undefined,
+          roles,
         ),
       };
     })
     .filter((entry) => entry.address !== '');
 
-  const listed = entries
-    .filter((entry) => entry.kind !== 'pool' && entry.kind !== 'burn')
-    .reduce((sum, entry) => sum + entry.balance, 0n);
-  const setAside = entries
-    .filter((entry) => entry.kind === 'pool' || entry.kind === 'burn')
-    .reduce((sum, entry) => sum + entry.balance, 0n);
+  const isSetAside = (entry: { kind: Holder['kind'] }) =>
+    entry.kind === 'pool' || entry.kind === 'burn';
+  const listed = entries.filter((e) => !isSetAside(e)).reduce((sum, e) => sum + e.balance, 0n);
+  const setAside = entries.filter(isSetAside).reduce((sum, e) => sum + e.balance, 0n);
   // When the list is cut, the holders read are not the whole supply: shares
   // measured against them alone would overstate every one of them. The total
   // supply, less the pools and burn addresses, is the true base.
   const fromSupply = totals.supply !== null ? totals.supply - setAside : null;
   const circulating = fromSupply !== null && fromSupply > listed ? fromSupply : listed;
+  // The part set aside is measured against the whole supply: the total when
+  // known, or the sum of a list that holds every balance.
+  const whole =
+    totals.supply !== null && totals.supply > 0n
+      ? totals.supply
+      : totals.complete && listed + setAside > 0n
+        ? listed + setAside
+        : null;
 
   const holders: Holder[] = entries
     .map((entry) => ({
       address: entry.address,
       balance: entry.balance.toString(),
-      share:
-        circulating > 0n && entry.kind !== 'pool' && entry.kind !== 'burn'
-          ? Number((entry.balance * 1_000_000n) / circulating) / 1_000_000
-          : 0,
+      share: !isSetAside(entry) ? share6(entry.balance, circulating) : 0,
       kind: entry.kind,
+      ...(entry.role ? { role: entry.role } : {}),
     }))
     .sort((a, b) => b.share - a.share);
 
   const counted = holders.filter((h) => h.kind === 'wallet' || h.kind === 'contract');
+  const setAsideList = entries
+    .filter((e) => isSetAside(e) && e.balance > 0n)
+    .sort((a, b) => (b.balance > a.balance ? 1 : b.balance < a.balance ? -1 : 0))
+    .slice(0, 10)
+    .map((e) => ({
+      address: e.address.toLowerCase(),
+      role: e.role ?? (e.kind === 'burn' ? ('burn' as const) : ('pool' as const)),
+      share: whole !== null ? share6(e.balance, whole) : null,
+    }));
 
   return {
     token,
     countedSupply: circulating.toString(),
     holderCount:
       totals.holders !== null
-        ? Math.max(
-            0,
-            totals.holders - entries.filter((e) => e.kind === 'pool' || e.kind === 'burn').length,
-          )
+        ? Math.max(0, totals.holders - entries.filter(isSetAside).length)
         : null,
     top: holders.slice(0, topN),
     concentration: {
       top1: counted[0]?.share ?? 0,
       top10: counted.slice(0, 10).reduce((sum, h) => sum + h.share, 0),
     },
-    pooledShare:
-      totals.supply !== null && totals.supply > 0n
-        ? Number((setAside * 1_000_000n) / totals.supply) / 1_000_000
-        : null,
+    pooledShare: whole !== null ? share6(setAside, whole) : null,
+    setAside: setAsideList,
     distinctTraders: null,
   };
 }
@@ -201,6 +262,7 @@ export async function fetchHolderDistribution(
     holders: totals.holders,
     // A complete list is its own base; the supply only corrects a cut one.
     supply: truncated ? totals.supply : null,
+    complete: !truncated,
   });
 
   return {

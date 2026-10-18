@@ -1,5 +1,5 @@
 import { launchpadById } from './chain/launchpads';
-import type { TokenReport } from './contracts';
+import type { SetAsideRole, TokenReport } from './contracts';
 
 /**
  * The numbers the report screen draws, taken from the collected report and
@@ -62,6 +62,11 @@ export type ReportFacts = {
     top10: number;
     /** Largest holders, pools and burn addresses excluded. */
     top: { address: string; share: number; kind: 'wallet' | 'contract' }[];
+    /**
+     * Where the part set aside sits: pools, curves, launch contracts, burn.
+     * Optional: absent from reports cached before it was recorded.
+     */
+    setAside?: { address: string; role: SetAsideRole; share: number | null }[];
   };
   market: {
     measured: boolean;
@@ -172,6 +177,7 @@ export function toFacts(report: TokenReport): ReportFacts {
         )
         .slice(0, TOP_SHOWN)
         .map((h) => ({ address: h.address, share: h.share, kind: h.kind })),
+      ...(holders.data.setAside ? { setAside: holders.data.setAside } : {}),
     },
     market: {
       measured: market.completeness !== 'unavailable',

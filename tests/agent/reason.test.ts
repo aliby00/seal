@@ -102,7 +102,9 @@ describe('renderReport', () => {
         },
       },
     });
-    expect(measured).toMatch(/pool de liquidité et les adresses de burn sont exclus/);
+    expect(measured).toMatch(
+      /pools, courbes de lancement, contrats de lancement et adresses de burn sont exclus/,
+    );
     expect(measured).toMatch(/26\.00 % — adresse du CRÉATEUR/);
   });
 
