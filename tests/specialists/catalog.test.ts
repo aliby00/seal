@@ -73,7 +73,9 @@ describe('code-reuse', () => {
   it('relève un rulebook partagé par onze marchés, sans en tirer de conclusion seul', () => {
     const f = CATALOG['code-reuse'].run(contextFor(reused()));
     expect(f.signal).toBe('observation');
-    expect(f.facts[0]).toContain('shared by 11 markets');
+    // Counted in the recent window, and said as such: this market and ten others.
+    expect(f.facts[0]).toContain('10 other markets use the trading rules');
+    expect(f.limits.join(' ')).toMatch(/earlier markets on the same trading rules are not counted/);
     expect(f.followUps).toContain('rule-change');
   });
 

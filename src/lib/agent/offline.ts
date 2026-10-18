@@ -2,6 +2,7 @@ import { OTHER_LAUNCH_SALES_DAYS } from '../contracts/creator';
 import type { TokenReport } from '../contracts';
 import type { SpecialistAnswer } from '../specialists/brief';
 import { volumePerTrade } from '../market';
+import { READ_WORDS, readFailed } from '../failed-reads';
 
 function pct(value: number): string {
   return `${(value * 100).toFixed(1)} %`;
@@ -42,9 +43,11 @@ function deployerAccount(report: TokenReport): string {
     ? `Looking on ${origin.launchpadsRead.join(', ')}`
     : 'Through the same launch contract';
   sentences.push(
-    origin.launchesListed
-      ? `${where}, this address launched ${launched} token${launched === 1 ? '' : 's'}.`
-      : 'Its other launches on this launchpad cannot be listed from the chain.',
+    readFailed(report.failedReads, 'creator-launches')
+      ? `This address launched at least ${launched} token${launched === 1 ? '' : 's'}; some of its launches could not be read this time.`
+      : origin.launchesListed
+        ? `${where}, this address launched ${launched} token${launched === 1 ? '' : 's'}.`
+        : 'Its other launches on this launchpad cannot be listed from the chain.',
   );
   if (origin.launchpadsNotRead?.length) {
     sentences.push(`Launches on ${origin.launchpadsNotRead.join(', ')} are not listed.`);
@@ -85,6 +88,12 @@ export function offlineExplanation(report: TokenReport, specialists?: Specialist
   const parts: string[] = [
     'This account is produced without the reasoning agent: it lists the observed facts without cross-examining or interpreting them.',
   ];
+  const failedReads = report.failedReads ?? [];
+  if (failedReads.length > 0) {
+    parts.push(
+      `Partial report: some reads failed this time (${[...new Set(failedReads.map((f) => READ_WORDS[f.read]))].join(', ')}). What they would have shown is not known. Try again in a minute.`,
+    );
+  }
   const { creator, holders, market } = report;
   const creatorNote = creator.sources[0]?.note;
   if (creator.completeness === 'unavailable') {
@@ -114,7 +123,7 @@ export function offlineExplanation(report: TokenReport, specialists?: Specialist
           ? `of the ${detailed} most recent, ${c.graduated} graduated and ${c.abandoned} were abandoned`
           : `including ${c.graduated} graduated and ${c.abandoned} abandoned`;
       parts.push(
-        `Creator: ${c.launched} token${c.launched === 1 ? '' : 's'} launched; ${outcomes}.` +
+        `Creator: ${readFailed(failedReads, 'creator-launches') ? 'at least ' : ''}${c.launched} token${c.launched === 1 ? '' : 's'} launched; ${outcomes}.` +
           (creator.completeness === 'partial' && creatorNote ? ` Limit: ${creatorNote}.` : ''),
       );
     }

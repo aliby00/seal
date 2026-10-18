@@ -121,6 +121,112 @@ export async function findMarketsOf(
     .sort((a, b) => a.blockNumber - b.blockNumber);
 }
 
+/** Blocks per `Initialize` query for one pool id: the node allows 10 M with one value per topic. */
+export const MARKET_ID_SPAN = 10_000_000;
+/**
+ * Robinhood Chain's pace, measured on 18/10/2026: 9.78 to 9.98 blocks a
+ * second between blocks 5 M and 91.5 M. A pool's creation time then says
+ * roughly where its `Initialize` is.
+ */
+export const BLOCKS_PER_SECOND = 9.9;
+/** Half the window searched around that estimate: 2 % of 100 M blocks, with room. */
+const ESTIMATE_MARGIN = 2_500_000;
+
+type Window = { fromBlock: number; toBlock: number };
+
+const hex = (n: number) => `0x${n.toString(16)}`;
+
+/** Every 10 M-block window from the head down to the first block. */
+function fullScan(latestBlock: number): Window[] {
+  const windows: Window[] = [];
+  for (let to = latestBlock; to >= 0; to -= MARKET_ID_SPAN) {
+    windows.push({ fromBlock: Math.max(0, to - MARKET_ID_SPAN + 1), toBlock: to });
+  }
+  return windows;
+}
+
+/**
+ * The v4 markets with these ids, from their `Initialize`, over the whole
+ * chain. The node takes one id per query over a long range (a list of ids
+ * narrows it to 100 000 blocks), so each id is looked for around where its
+ * creation time puts it, then, for the first `fullScanFor` ids still
+ * missing, over every 10 M-block window. ASTEROID's main pool was opened
+ * 82 M blocks back, beyond the 30 M the token search covers. An id not
+ * found stays out: its rules are unread, never "none".
+ */
+export async function findMarketsById(
+  rpc: RpcClient,
+  pools: readonly { id: string; createdAt?: number | null }[],
+  latestBlock: number,
+  options: { now?: number; fullScanFor?: number } = {},
+): Promise<{ markets: V4Market[]; unread: boolean }> {
+  const wanted = pools
+    .map((p) => ({ id: p.id.toLowerCase(), createdAt: p.createdAt ?? null }))
+    .filter(
+      (p, i, all) => /^0x[0-9a-f]{64}$/.test(p.id) && all.findIndex((q) => q.id === p.id) === i,
+    );
+  if (wanted.length === 0 || latestBlock <= 0) return { markets: [], unread: false };
+  const now = options.now ?? Date.now();
+  const found = new Map<string, V4Market>();
+
+  async function ask(queries: { id: string; window: Window }[]): Promise<void> {
+    if (queries.length === 0) return;
+    const outcomes = await rpc
+      .callBatch<RawLog[]>(
+        queries.map(({ id, window }) => ({
+          method: 'eth_getLogs',
+          params: [
+            {
+              address: POOL_MANAGER,
+              topics: [INITIALIZE_TOPIC, id],
+              fromBlock: hex(window.fromBlock),
+              toBlock: hex(window.toBlock),
+            },
+          ],
+        })),
+      )
+      .catch(() => []);
+    for (const outcome of outcomes) {
+      if (!outcome.ok || !Array.isArray(outcome.value)) continue;
+      for (const log of outcome.value) {
+        const market = decodeInitialize(log);
+        if (!found.has(market.id)) found.set(market.id, market);
+      }
+    }
+  }
+
+  // Around where each pool's creation time puts it.
+  await ask(
+    wanted.map(({ id, createdAt }) => {
+      if (createdAt === null || !Number.isFinite(createdAt)) {
+        return {
+          id,
+          window: {
+            fromBlock: Math.max(0, latestBlock - MARKET_ID_SPAN + 1),
+            toBlock: latestBlock,
+          },
+        };
+      }
+      const ago = Math.max(0, (now - createdAt) / 1000) * BLOCKS_PER_SECOND;
+      const estimate = Math.round(latestBlock - ago);
+      return {
+        id,
+        window: {
+          fromBlock: Math.max(0, Math.min(latestBlock, estimate - ESTIMATE_MARGIN)),
+          toBlock: Math.max(0, Math.min(latestBlock, estimate + ESTIMATE_MARGIN)),
+        },
+      };
+    }),
+  );
+  // Then the whole chain, for the first ones still missing (the main pool first).
+  const missing = wanted.filter((p) => !found.has(p.id)).slice(0, options.fullScanFor ?? 1);
+  await ask(missing.flatMap(({ id }) => fullScan(latestBlock).map((window) => ({ id, window }))));
+  return {
+    markets: [...found.values()],
+    unread: wanted.some((p) => !found.has(p.id)),
+  };
+}
+
 /** Candidates weighed when a token has several v4 markets. */
 export const MAX_MARKET_CANDIDATES = 8;
 /** Trades counted per candidate, over the last ~11.5 days. */

@@ -52,7 +52,20 @@ export type CreatorLinks = {
   holders: { address: string; share: number; via: string | null }[];
   /** Contracts the creator sent tokens to that passed them on to many addresses. */
   distributors: { address: string; share: number; recipients: number; complete: boolean }[];
+  /**
+   * Every address the creator sent the token to outside its markets, the
+   * largest first (at most CREATOR_RECIPIENTS_LISTED), as shares of the
+   * supply; `listed` when it is among the holders read today. Absent from
+   * reports made before (WAFER: a 0.11 % send to a wallet went unsaid, and
+   * the text called a burn "the only creator transfer outside markets").
+   */
+  recipients?: { address: string; share: number; listed: boolean }[];
+  /** All the creator sent outside its markets, burn excluded, as a share of the supply. */
+  sentShare?: number;
 };
+
+/** Recipients of the creator listed in the links. */
+export const CREATOR_RECIPIENTS_LISTED = 10;
 
 /** One address set aside, with its part of the whole supply (null when the supply is unknown). */
 export type SetAsideHolding = { address: string; role: SetAsideRole; share: number | null };
@@ -91,3 +104,21 @@ export type HolderDistributionData = {
 };
 
 export type HolderDistribution = Sourced<HolderDistributionData>;
+
+/** Holders below which "most of them received it from the creator" says too little to be said. */
+export const AIRDROP_MIN_HOLDERS = 50;
+
+/**
+ * Whether most of the holders received the token from its creator: only
+ * when the creator's recipients outnumber half of a real holder list. KEL
+ * (2 holders, the creator's "1 recipient" the router of its own sale) was
+ * told that most of its holders had received it rather than bought it.
+ */
+export function mostHoldersFromCreator(
+  recipients: number | null | undefined,
+  holderCount: number | null | undefined,
+): boolean {
+  if (recipients === null || recipients === undefined) return false;
+  if (holderCount === null || holderCount === undefined) return false;
+  return holderCount >= AIRDROP_MIN_HOLDERS && recipients > holderCount / 2;
+}

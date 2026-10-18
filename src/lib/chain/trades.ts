@@ -116,7 +116,24 @@ export function isRoutedSale(
   creator: string,
   markets: ReadonlySet<string>,
 ): boolean {
-  if (!detail || detail.nature !== 'swap' || detail.from !== creator.toLowerCase()) return false;
+  if (!detail || detail.from !== creator.toLowerCase()) return false;
+  return reachesMarket(detail, token, markets);
+}
+
+/**
+ * A transaction in which the token reached one of its markets, which
+ * traded: whoever received it on the way (a router, an executor) passed it
+ * on to the market, and is not a recipient of the creator's (KEL: the
+ * creator's sale 0xf808e8e2… went creator → router 0xbdbae060… → 0x8f10… →
+ * PoolManager, and the router was counted as an address the creator "sent
+ * this token directly to").
+ */
+export function reachesMarket(
+  detail: TxDetail | undefined,
+  token: string,
+  markets: ReadonlySet<string>,
+): boolean {
+  if (!detail || detail.nature !== 'swap') return false;
   const own = token.toLowerCase();
   return detail.logs.some(
     (l) =>
@@ -144,6 +161,12 @@ export async function findRoutedSales(
   swapTopics: ReadonlySet<string> = SWAP_TOPICS,
   /** The analysed token: its transactions are read first. */
   focus?: string,
+  /**
+   * Filled for a caller that needs more than the tokens sold: `through`, the
+   * transactions in which the token passed through the recipient to a market
+   * that traded; `unread`, the tokens whose receipts were asked and not read.
+   */
+  out?: { through: Set<string>; unread: Set<string> },
 ): Promise<Set<string>> {
   const sold = new Set<string>();
   if (transfers.length === 0) return sold;
@@ -160,8 +183,14 @@ export async function findRoutedSales(
   const details = await readTxDetails(rpc, hashes, allMarkets, swapTopics).catch(
     () => new Map<string, TxDetail>(),
   );
+  const asked = new Set(hashes);
   for (const t of transfers) {
-    if (isRoutedSale(details.get(t.hash), t.token, creator, marketsOf(t.token))) sold.add(t.token);
+    const detail = details.get(t.hash);
+    if (isRoutedSale(detail, t.token, creator, marketsOf(t.token))) sold.add(t.token);
+    if (!out) continue;
+    if (reachesMarket(detail, t.token, marketsOf(t.token))) out.through.add(t.hash);
+    // Asked, and not read: that transfer may have been a sale.
+    else if (asked.has(t.hash) && !detail) out.unread.add(t.token);
   }
   return sold;
 }

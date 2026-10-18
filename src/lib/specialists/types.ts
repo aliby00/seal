@@ -118,12 +118,36 @@ export type FundingFacts = {
   network?: FundingNetwork;
 };
 
+/** A listed pool and its trading rules, as the market questions weigh it. */
+export type PoolRules = {
+  id: string;
+  version: 'v2' | 'v3' | 'v4' | null;
+  liquidityUsd: number | null;
+  /**
+   * A v4 pool's hook (the zero address when it runs none); `undefined` when
+   * its `Initialize` could not be read; `null` for a v2/v3 pair, which has
+   * no hook.
+   */
+  hook: string | null | undefined;
+};
+
+/** How many markets run on one hook, from the indexer's whole history. */
+export type HookUse = { markets: number; pairs: number; indexedTo: number };
+
 export type SpecialistContext = {
   token: string;
   report?: TokenReport;
   /** Le marché v4 du token, s'il en a un. */
   market?: IndexedMarket | null;
   hook?: (HookPermissions & { capabilities: HookCapability[] }) | null;
+  /** The main pool (the most liquid one listed), when the token has listed pools. */
+  mainPool?: PoolRules | null;
+  /** The other pools with liquidity enough to trade in, where the token is the base. */
+  otherPools?: PoolRules[];
+  /** True when the main pool is v4 and its trading rules could not be read this time. */
+  mainRulesUnread?: boolean;
+  /** Markets on the main pool's hook, all history (indexer); absent when not read. */
+  hookUse?: HookUse | null;
   hookCode?: HookCode | null;
   /** Adresse du créateur : rapport pons, sinon expéditeur de la création du marché. */
   creator?: string | null;

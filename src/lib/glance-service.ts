@@ -138,7 +138,9 @@ async function compute(token: string): Promise<CachedGlance> {
   };
   const sources = [...report.creator.sources, ...report.holders.sources, ...report.market.sources];
   // A read cut short is worth retrying on the next hover, not repeating for minutes.
-  if (!sourcesFailed(sources)) await glanceCache.set(token.toLowerCase(), body);
+  if (!sourcesFailed(sources) && (report.failedReads?.length ?? 0) === 0) {
+    await glanceCache.set(token.toLowerCase(), body);
+  }
   return body;
 }
 

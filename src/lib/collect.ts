@@ -20,13 +20,20 @@ import {
 import { combineCompleteness, type Completeness, type CreatorOrigin } from './contracts';
 import type {
   CreatorHistory,
+  FailedRead,
   HolderDistribution,
   SetAsideRole,
+  FeePayer,
   LaunchedToken,
+  ListedPool,
   MarketState,
   TokenReport,
 } from './contracts';
 import { IncompleteDataError, NotFoundError, RateLimitError, SealError } from './errors';
+import { mergeFailedReads, noteFailed, UNREAD } from './failed-reads';
+import { LAUNCH_HOOKS } from './chain/launchpads';
+import { TRANSFER_TOPIC, topicFor } from './chain/behavior';
+import { getLogsBatched } from './chain/logs';
 import { createBudget, type RequestBudget } from './http';
 import { fetchHolderDistribution, setAsideRoles } from './holders';
 import {
@@ -38,16 +45,25 @@ import {
 import {
   checkLiquidity,
   fetchPairs,
+  listedPools,
+  mainPool,
+  meaningfulPools,
+  pickPrimaryPair,
   toMarketState,
   venuesOf,
   type DexScreenerPair,
 } from './market';
-import { POOL_MANAGER } from './chain/pools';
+import { findMarketsById, POOL_MANAGER, type V4Market } from './chain/pools';
 import { isContractCode } from './chain/code';
 import { linkCreatorToHolders, withLinks } from './holders/links';
 import { log } from './logger';
 import { TtlCache } from './cache';
-import { indexer } from './indexer/client';
+import {
+  indexer,
+  type IndexerAnswer,
+  type IndexerClient,
+  type IndexerMarkets,
+} from './indexer/client';
 import { indexedListing, withIndexedLaunches, withPoolActivity } from './indexer/merge';
 
 /**
@@ -66,7 +82,7 @@ export const creatorHistoryCache = new TtlCache<CreatorHistory>({
   maxEntries: 200,
   // A history cut short (a window the node refused) would be served as is for
   // five minutes: only a read that covered what it meant to cover is kept.
-  keep: (history) => !(history.sources[0]?.note ?? '').includes('could not be read'),
+  keep: (history) => !history.sources.some((s) => noteFailed(s.note)),
 });
 
 /**
@@ -97,6 +113,79 @@ const RECHECK_BUDGET = 2;
 export const LAUNCH_BUDGET = 40;
 /** The pause before the replay is asked again of a node that turned it away. */
 const REPLAY_RETRY_MS = 4_000;
+
+/**
+ * The pauses before a rate-limited read on the critical path (the creator
+ * lookup, the creator's history) is asked again. GNRG on 18/10/2026: one
+ * refusal of the public node lost the whole creator for that report.
+ */
+export const RATE_LIMIT_RETRY_MS: readonly number[] = [1_500, 3_000];
+/** No retry starts after this much of the collection: 30 s in all, the rest still has to run. */
+const RETRY_DEADLINE_MS = 15_000;
+
+/** A refusal that a pause may cure: a rate limit, or a read the node cut short. */
+function worthRetrying(error: unknown): boolean {
+  if (error instanceof RateLimitError) return true;
+  if (error instanceof IncompleteDataError) return error.source === 'robinhood-rpc';
+  return (
+    error instanceof SealError && /request limit|rate limit|too many requests/i.test(error.message)
+  );
+}
+
+/** `fn`, asked again after each pause while the node rate-limits it and time remains. */
+export async function retryRateLimited<T>(
+  fn: () => Promise<T>,
+  options: {
+    delaysMs?: readonly number[];
+    startedAt?: number;
+    deadlineMs?: number;
+    sleep?: (ms: number) => Promise<void>;
+    now?: () => number;
+  } = {},
+): Promise<T> {
+  const delays = options.delaysMs ?? RATE_LIMIT_RETRY_MS;
+  const clock = options.now ?? Date.now;
+  const startedAt = options.startedAt ?? clock();
+  const deadline = options.deadlineMs ?? RETRY_DEADLINE_MS;
+  const sleep = options.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await fn();
+    } catch (error) {
+      const delay = delays[attempt];
+      if (!worthRetrying(error) || delay === undefined) throw error;
+      if (clock() - startedAt + delay > deadline) throw error;
+      log.warn('lecture limitée, nouvelle tentative', { attempt: attempt + 1, delayMs: delay });
+      await sleep(delay);
+    }
+  }
+}
+
+/** The indexer's answer and whether it failed, from a client that may predate `*Answer`. */
+function answerOf<T>(
+  withFailure: (() => Promise<IndexerAnswer<T>>) | undefined,
+  plain: () => Promise<T | undefined>,
+): Promise<IndexerAnswer<T>> {
+  return withFailure ? withFailure() : plain().then((value) => ({ value, failed: false }));
+}
+
+/** A history whose source says that one of its reads could not be completed this time. */
+function withUnreadNote(history: CreatorHistory, note: string): CreatorHistory {
+  if (history.completeness === 'unavailable') return history;
+  if (history.sources.some((s) => s.note === note)) return history;
+  return {
+    ...history,
+    completeness: 'partial',
+    sources: [
+      ...history.sources,
+      {
+        name: 'robinhood-rpc',
+        fetchedAt: history.sources[0]?.fetchedAt ?? new Date().toISOString(),
+        note,
+      },
+    ],
+  };
+}
 
 /** A pons launch names its creator in its own launch record. */
 function ponsOrigin(factory: string, transactionCount: number | null = null): CreatorOrigin {
@@ -203,6 +292,8 @@ export type CollectOptions = {
   maxRequests?: number;
   lookbackBlocks?: number;
   now?: () => Date;
+  /** The pauses before a rate-limited critical read is retried (tests pass zeros). */
+  retryDelaysMs?: readonly number[];
 };
 
 /** A pons creator's launches elsewhere; `undefined` when they could not be read. */
@@ -214,7 +305,8 @@ async function otherLaunchpads(
 ): Promise<CreatorListing | undefined> {
   const skip = (l: { id: string }) => l.id === 'pons' || Boolean(indexed?.covered.has(l.id));
   const listing = await listCreatorLaunches(rpc, creator, latest, { skip }).catch(() => undefined);
-  if (!listing) return undefined;
+  // Not read is not "none": the history says so, and is not cached (GNRG).
+  if (!listing) return { launches: [], truncated: true, read: [], unread: [] };
   if (!indexed) return listing;
   const merged = mergeListings(listing, {
     covered: new Set([...indexed.covered].filter((id) => id !== 'pons')),
@@ -242,6 +334,15 @@ function withOwnSale(history: CreatorHistory, own: (t: LaunchedToken) => boolean
   };
 }
 
+/** An error as a source note: its kind first, so `noteFailed` can tell a failure. */
+function noteOf(error: unknown): string {
+  return error instanceof SealError
+    ? `${error.kind} : ${error.message}`
+    : error instanceof Error
+      ? error.message
+      : 'unknown failure';
+}
+
 function failed<T>(
   name: 'robinhood-rpc' | 'blockscout' | 'dexscreener',
   fetchedAt: string,
@@ -252,12 +353,7 @@ function failed<T>(
   sources: { name: typeof name; fetchedAt: string; note: string }[];
   data: T;
 } {
-  const note =
-    error instanceof SealError
-      ? `${error.kind} : ${error.message}`
-      : error instanceof Error
-        ? error.message
-        : 'unknown failure';
+  const note = noteOf(error);
   log.warn('source indisponible', { source: name, note });
   return { completeness: 'unavailable', sources: [{ name, fetchedAt, note }], data };
 }
@@ -282,6 +378,14 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
   const address = token as Address;
   const now = options.now ?? (() => new Date());
   const collectedAt = now().toISOString();
+  const startedAt = Date.now();
+  const retry = <T>(fn: () => Promise<T>) =>
+    retryRateLimited(fn, {
+      startedAt,
+      ...(options.retryDelaysMs ? { delaysMs: options.retryDelaysMs } : {}),
+    });
+  // Every read that failed this time: what it would have found is unknown.
+  const failures: FailedRead[] = [];
   const budget: RequestBudget = createBudget(options.maxRequests ?? RPC_BUDGET);
   const rpc = createRpcClient(options.rpcUrl, budget);
   const holdersBudget = createBudget(HOLDERS_BUDGET);
@@ -308,10 +412,10 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
   let lookupError: unknown;
   let latest = 0;
   const launch = await settled(
-    (async () => {
+    retry(async () => {
       latest = Number(await rpc.call<string>('eth_blockNumber', []));
       return findLaunchOf(rpc, address, latest, options.lookbackBlocks);
-    })(),
+    }),
     (error) => {
       lookupError = error;
       return undefined;
@@ -320,34 +424,54 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
 
   // The indexer knows pons launches (their pool's trades too) and the other
   // launchpads' launches: asked for in parallel, it never blocks the rest.
-  const ix = indexer();
-  const indexedToken = launch && ix ? ix.token(address) : Promise.resolve(undefined);
+  const ix: IndexerClient | undefined = indexer();
+  const indexedToken: Promise<IndexerAnswer<Awaited<ReturnType<IndexerClient['token']>>>> =
+    launch && ix
+      ? answerOf(ix.tokenAnswer ? () => ix.tokenAnswer!(address) : undefined, () =>
+          ix.token(address),
+        )
+      : Promise.resolve({ value: undefined, failed: false });
   // The token's v4 markets as the indexer read them: their trading rules
   // (hooks) hold the token for the market, never for a person.
-  const indexedHooks: Promise<string[]> = ix
+  const indexedMarkets: Promise<IndexerMarkets['markets']> = ix
     ? ix
         .markets(address)
-        .then((answer) =>
-          (answer?.markets ?? [])
-            .map((m) => m.hook.toLowerCase())
-            .filter((h) => /^0x[0-9a-f]{40}$/.test(h) && !/^0x0{40}$/.test(h)),
-        )
+        .then((answer) => answer?.markets ?? [])
         .catch(() => [])
     : Promise.resolve([]);
+  const indexedHooks: Promise<string[]> = indexedMarkets.then((markets) =>
+    markets
+      .map((m) => m.hook.toLowerCase())
+      .filter((h) => /^0x[0-9a-f]{40}$/.test(h) && !/^0x0{40}$/.test(h)),
+  );
 
   // Not a pons launch: the creator is traced from the transaction of the
   // token's first mint — the launch event of a known launchpad when there is
   // one — and their other launches from every launchpad's own record. Only
   // when the node answered: a failed lookup is not "not pons".
   let mintLog: RawLog | undefined;
+  // A mint that could not be read is not a mint that does not exist (MEME:
+  // "first mint not found" on a rate-limited node, its creator lost).
+  let originError: unknown;
   const origin: TokenOrigin | undefined =
     !launch && lookupError === undefined && latest > 0
       ? await settled(
-          (async () => {
+          retry(async () => {
             mintLog = await findFirstMintLog(rpc, address, latest);
-            return mintLog ? traceTokenOrigin(rpc, address, mintLog) : undefined;
-          })(),
-          () => undefined,
+            if (!mintLog) return undefined;
+            const traced = await traceTokenOrigin(rpc, address, mintLog);
+            if (!traced) {
+              throw new IncompleteDataError(
+                'robinhood-rpc',
+                'the transaction of the token’s first mint could not be read',
+              );
+            }
+            return traced;
+          }),
+          (error) => {
+            originError = error;
+            return undefined;
+          },
         )
       : undefined;
 
@@ -359,15 +483,49 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     ? `${launch.deployer.toLowerCase()}:${address.toLowerCase()}:${options.lookbackBlocks ?? 'default'}`
     : `deployer:${origin?.creator}:${address.toLowerCase()}`;
   const creatorAddress = launch?.deployer ?? origin?.creator;
-  const [indexed, coverage] =
+  const [indexedAnswer, coverageAnswer] =
     ix && creatorAddress
-      ? await Promise.all([ix.creator(creatorAddress), ix.coverage()])
+      ? await Promise.all([
+          answerOf(ix.creatorAnswer ? () => ix.creatorAnswer!(creatorAddress) : undefined, () =>
+            ix.creator(creatorAddress),
+          ),
+          answerOf(ix.coverageAnswer ? () => ix.coverageAnswer!() : undefined, () => ix.coverage()),
+        ])
       : [undefined, undefined];
+  const indexed = indexedAnswer?.value;
+  const coverage = coverageAnswer?.value;
+  // The indexer lists the launchpads the node cannot: its silence leaves them unread (AI).
+  const indexerFailed = Boolean(indexedAnswer?.failed || coverageAnswer?.failed);
+  const noteIndexer = (history: CreatorHistory) =>
+    indexerFailed ? withUnreadNote(history, UNREAD.indexer) : history;
   // Launchpads the indexer has read to the head are not asked of the node.
   const listedByIndexer = latest > 0 ? indexedListing(indexed, coverage, latest) : undefined;
   const pairs = await pairsRead;
   const listedVenues = 'pairs' in pairs ? venuesOf(address, pairs.pairs) : undefined;
+  // Every listed pool, and the trading rules (hook) of each v4 one: the
+  // checks of a market's rules read the main pool and weigh the others.
+  const poolsRead: Promise<ListedPool[] | undefined> =
+    'pairs' in pairs
+      ? settled(
+          readPoolRules(
+            createRpcClient(options.rpcUrl, createBudget(POOL_RULES_BUDGET)),
+            listedPools(address, pairs.pairs),
+            indexedMarkets,
+            latest,
+            pickPrimaryPair(
+              pairs.pairs.filter(
+                (p) => p.baseToken?.address?.toLowerCase() === address.toLowerCase(),
+              ),
+            )?.pairAddress?.toLowerCase() ?? null,
+          ),
+          (error) => {
+            log.warn('règles des pools illisibles', { token: address, error: String(error) });
+            return undefined;
+          },
+        )
+      : Promise.resolve(undefined);
   let historyFromCache = false;
+  let historyError: unknown;
 
   const emptyHistory = (creator: string) => ({
     creator,
@@ -387,74 +545,85 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     ? settled(
         creatorHistoryCache
           .resolve(cacheKey, async () => {
-            const history = await fetchCreatorHistory(launch.deployer, {
-              focus: address,
-              rpcUrl: options.rpcUrl,
-              budget,
-              lookbackBlocks: options.lookbackBlocks,
-              now,
-            });
+            const history = await retry(() =>
+              fetchCreatorHistory(launch.deployer, {
+                focus: address,
+                rpcUrl: options.rpcUrl,
+                budget,
+                lookbackBlocks: options.lookbackBlocks,
+                now,
+              }),
+            );
             // After the pons read, not alongside it: both are log queries
             // on a node that paces them.
             const [others, transactionCount] = await Promise.all([
               otherLaunchpads(rpc, launch.deployer, latest, listedByIndexer),
               walletTransactionCount(rpc, launch.deployer),
             ]);
-            return withOtherLaunchpads(
-              {
-                ...history,
-                data: {
-                  ...history.data,
-                  origin: history.data.origin ?? ponsOrigin(launch.factory, transactionCount),
+            return noteIndexer(
+              withOtherLaunchpads(
+                {
+                  ...history,
+                  data: {
+                    ...history.data,
+                    origin: history.data.origin ?? ponsOrigin(launch.factory, transactionCount),
+                  },
                 },
-              },
-              others,
+                others,
+              ),
             );
           })
           .then(({ value, cached }) => {
             historyFromCache = cached;
             return value;
           }),
-        (error) =>
-          failed(
+        (error) => {
+          historyError = error;
+          return failed(
             'robinhood-rpc',
             collectedAt,
             error,
             emptyHistory(launch.deployer),
-          ) as CreatorHistory,
+          ) as CreatorHistory;
+        },
       )
     : origin
       ? settled(
           creatorHistoryCache
-            .resolve(cacheKey, () =>
-              fetchDeployerHistory(rpc, origin, {
-                latestBlock: latest,
-                ...(listedByIndexer ? { indexed: listedByIndexer } : {}),
-                ...(listedVenues ? { venues: listedVenues } : {}),
-                now,
-              }),
+            .resolve(cacheKey, async () =>
+              noteIndexer(
+                await retry(() =>
+                  fetchDeployerHistory(rpc, origin, {
+                    latestBlock: latest,
+                    ...(listedByIndexer ? { indexed: listedByIndexer } : {}),
+                    ...(listedVenues ? { venues: listedVenues } : {}),
+                    now,
+                  }),
+                ),
+              ),
             )
             .then(({ value, cached }) => {
               historyFromCache = cached;
               return value;
             }),
-          (error) =>
-            failed(
+          (error) => {
+            historyError = error;
+            return failed(
               'robinhood-rpc',
               collectedAt,
               error,
               emptyHistory(origin.creator),
-            ) as CreatorHistory,
+            ) as CreatorHistory;
+          },
         )
       : Promise.resolve(
           failed(
             'robinhood-rpc',
             collectedAt,
             lookupError ??
+              originError ??
               new Error(
-                mintLog
-                  ? 'no launch record found, and the transaction of its first mint could not be read — creator not available'
-                  : 'no launch record found, and the token’s first mint was not found — creator not available',
+                'no launch record found, and the token’s first mint was not found — creator not available',
               ),
             emptyHistory('0x'),
           ) as CreatorHistory,
@@ -577,6 +746,10 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
       launchFrom !== undefined && latest > 0
         ? settled(readReplay(), (error) => {
             log.warn('replay du lancement indisponible', { token: address, error: String(error) });
+            failures.push({
+              read: 'launch-replay',
+              note: `the first minutes after the launch could not be read this time (${noteOf(error)})`,
+            });
             return undefined;
           })
         : Promise.resolve(undefined);
@@ -602,18 +775,22 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
         : Promise.resolve(null);
 
     const [holders, launchReplay, pooledNow] = await Promise.all([
-      settled<HolderDistribution>(
-        readHolders(),
-        (error) =>
-          failed(options.blockscoutApiKey ? 'blockscout' : 'robinhood-rpc', collectedAt, error, {
+      settled<HolderDistribution>(readHolders(), (error) => {
+        failures.push({ read: 'holders', note: noteOf(error) });
+        return failed(
+          options.blockscoutApiKey ? 'blockscout' : 'robinhood-rpc',
+          collectedAt,
+          error,
+          {
             token: address,
             countedSupply: '0',
             holderCount: null,
             top: [],
             concentration: { top1: 0, top10: 0 },
             distinctTraders: null,
-          }) as HolderDistribution,
-      ),
+          },
+        ) as HolderDistribution;
+      }),
       replay,
       poolsShare,
     ]);
@@ -648,8 +825,9 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
       if ('error' in pairs) throw pairs.error;
       return toMarketState(address, pairs.pairs, { graduation, now });
     })(),
-    (error) =>
-      failed('dexscreener', collectedAt, error, {
+    (error) => {
+      failures.push({ read: 'market', note: noteOf(error) });
+      return failed('dexscreener', collectedAt, error, {
         token: address,
         pair: null,
         priceUsd: null,
@@ -660,32 +838,72 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
         txns: null,
         fdvUsd: null,
         pairCreatedAt: null,
-      }) as MarketState,
+      }) as MarketState;
+    },
   );
 
   // A creator sale the launch replay saw confirmed by a trade is a sale in
   // the history too: the replay and the history must not disagree (AML).
-  const creator =
+  const sold =
     launchReplay?.data.summary?.creatorSaleConfirmed &&
     chain.data.tokens.some((t) => own(t) && t.creatorDumped !== true)
       ? withOwnSale(chain, own)
       : chain;
 
+  // The supply, read once: from the replay, else from the token.
+  let supplyRead: Promise<bigint> | undefined;
+  const supplyOf = (client: RpcClient): Promise<bigint> =>
+    (supplyRead ??= launchReplay
+      ? Promise.resolve(BigInt(launchReplay.data.supply))
+      : client
+          .call<string>('eth_call', [{ to: address, data: '0x18160ddd' }, 'latest'])
+          .then((raw) => (raw && raw !== '0x' ? BigInt(raw) : 0n)));
+
+  // Tokens the market's trading rules (hooks) paid out to the creator: its
+  // fees, taken out of the market without removing its liquidity. Every such
+  // transfer over the token's life, summed (MEME: 0.52 % over 28 transfers
+  // from Doppler's hook; AML and KEL the same pattern).
+  const ownToken = sold.data.tokens.find(own);
+  const feeHooks = [
+    ...new Set(
+      [
+        ...setAside.filter((s) => s.role === 'hook').map((s) => s.address),
+        ...LAUNCH_HOOKS.map((h) => h.address),
+      ].map((a) => a.toLowerCase()),
+    ),
+  ];
+  // Read alongside the holders' links, not after them.
+  const feesRead =
+    ownToken && sold.completeness !== 'unavailable' && latest > 0 && launchFrom !== undefined
+      ? settled(
+          (async () => {
+            const feesRpc = createRpcClient(options.rpcUrl, createBudget(FEES_BUDGET));
+            const fromBlock = ownToken.salesWindow?.fromBlock ?? launchFrom;
+            const toBlock = Math.min(latest, ownToken.salesWindow?.toBlock ?? latest);
+            const { logs, truncated } = await getLogsBatched(
+              feesRpc,
+              {
+                addresses: [{ address, fromBlock, toBlock }],
+                topics: [TRANSFER_TOPIC, null, topicFor(sold.data.creator)],
+              },
+              { fromBlock, toBlock },
+            );
+            if (truncated) return null;
+            const supply = await supplyOf(feesRpc);
+            return feesFromHooks(logs, feeHooks, launchFrom, supply);
+          })(),
+          () => null,
+        )
+      : Promise.resolve(null);
+
   // Which holders received from the creator: its own transfers, set against the list.
-  const sends = creator.data.tokens.find(own)?.creatorSends;
+  const sends = sold.data.tokens.find(own)?.creatorSends;
   const linkedHolders =
     sends && holders.completeness !== 'unavailable' && latest > 0
       ? await settled(
           (async () => {
             const linksRpc = createRpcClient(options.rpcUrl, createBudget(LINKS_BUDGET));
-            const supply = launchReplay
-              ? BigInt(launchReplay.data.supply)
-              : BigInt(
-                  (await linksRpc.call<string>('eth_call', [
-                    { to: address, data: '0x18160ddd' },
-                    'latest',
-                  ])) || '0x0',
-                );
+            const supply = await supplyOf(linksRpc);
             if (supply === 0n) return holders;
             const links = await linkCreatorToHolders(linksRpc, {
               token: address.toLowerCase(),
@@ -704,15 +922,91 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
           })(),
           (error) => {
             log.warn('liens créateur illisibles', { token: address, error: String(error) });
+            failures.push({
+              read: 'holders',
+              note: `which holders received tokens from the creator could not be read this time (${noteOf(error)})`,
+            });
             return holders;
           },
         )
       : holders;
 
+  const fees = await feesRead;
+  const pools = await poolsRead;
+  const creator: CreatorHistory =
+    fees && fees.transfers > 0
+      ? {
+          ...sold,
+          data: {
+            ...sold.data,
+            tokens: sold.data.tokens.map((t) =>
+              own(t)
+                ? {
+                    ...t,
+                    feesCollected: true,
+                    feesTaken: {
+                      ...fees,
+                      payers: feePayers(fees.hooks, marketRead.data.pair, pools),
+                    },
+                  }
+                : t,
+            ),
+          },
+        }
+      : sold;
+
   // No listed pair: the launch pool's own trades, counted by the indexer.
+  const tokenAnswer = await indexedToken;
   const market = checkLiquidity(
-    withPoolActivity(marketRead, await indexedToken, collectedAt, now),
+    withPoolActivity(
+      pools && pools.length > 0 && marketRead.data.pair !== null
+        ? { ...marketRead, data: { ...marketRead.data, pools } }
+        : marketRead,
+      tokenAnswer.value,
+      collectedAt,
+      now,
+    ),
     pooledNow,
+  );
+  // A pons token no pair lists trades only where the indexer counts it.
+  if (tokenAnswer.failed && market.data.pair === null) {
+    failures.push({
+      read: 'market',
+      note: 'the SEAL indexer did not answer: the launch pool’s trades could not be read this time',
+    });
+  }
+
+  // The creator, its history and its sales: each read that failed is named.
+  if (historyError !== undefined || lookupError !== undefined || originError !== undefined) {
+    failures.push({
+      read: 'creator',
+      note: creator.sources.find((s) => s.note)?.note ?? noteOf(historyError),
+    });
+  }
+  for (const source of creator.completeness === 'unavailable' ? [] : creator.sources) {
+    if (!noteFailed(source.note)) continue;
+    failures.push({
+      read: source.note === UNREAD.ownSales ? 'creator-sales' : 'creator-launches',
+      note: source.note ?? '',
+    });
+  }
+  // Without the creator's history, the launch block of a pons token is not
+  // known and its first minutes are not read either.
+  if (!launchReplay && launchFrom === undefined && historyError !== undefined) {
+    failures.push({
+      read: 'launch-replay',
+      note: 'the first minutes after the launch were not read: the launch block could not be read this time',
+    });
+  }
+  const failedReads = mergeFailedReads(
+    failures.filter(
+      // A sale the launch replay confirmed settles the question the history could not.
+      (f) =>
+        !(
+          f.read === 'creator-sales' &&
+          creator.data.tokens.some((t) => own(t) && t.creatorDumped === true)
+        ),
+    ),
   );
 
   const completeness = combineCompleteness([
@@ -736,5 +1030,130 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     market,
     ...(launchReplay ? { launch: launchReplay } : {}),
     completeness,
+    ...(failedReads.length > 0 ? { failedReads } : {}),
   };
+}
+
+/** One batch of `Initialize` queries, one per 10 M blocks, and a retry. */
+const POOL_RULES_BUDGET = 3;
+
+/**
+ * The trading rules (hook) of each listed v4 pool: from the indexer's
+ * markets first, then from the PoolManager's `Initialize`, by id, over the
+ * whole chain. A pool whose `Initialize` could not be read keeps `v4: null`:
+ * its rules are unknown, never "none".
+ */
+export async function readPoolRules(
+  rpc: RpcClient,
+  pools: readonly ListedPool[],
+  indexed: Promise<IndexerMarkets['markets']>,
+  latest: number,
+  mainPair: string | null,
+): Promise<ListedPool[]> {
+  const known = new Map<string, NonNullable<ListedPool['v4']>>();
+  for (const m of await indexed) {
+    known.set(m.id.toLowerCase(), {
+      hook: m.hook.toLowerCase(),
+      currency0: m.currency0.toLowerCase(),
+      currency1: m.currency1.toLowerCase(),
+      fee: m.fee,
+      tickSpacing: m.tickSpacing,
+      blockNumber: m.block,
+      transactionHash: m.txHash,
+    });
+  }
+  // The main pool and the pools that weigh beside it; dust pools are not read.
+  const listed = { pools: [...pools], pair: mainPair };
+  const weighed = new Set(
+    [mainPool(listed), ...meaningfulPools(listed)].filter(Boolean).map((p) => p!.id),
+  );
+  const missing = pools.filter((p) => p.version === 'v4' && weighed.has(p.id) && !known.has(p.id));
+  if (missing.length > 0 && latest > 0) {
+    // The main pool first: it alone is searched over the whole chain if needed.
+    missing.sort((a, b) => Number(b.id === mainPair) - Number(a.id === mainPair));
+    const { markets } = await findMarketsById(rpc, missing, latest, {
+      fullScanFor: missing[0]?.id === mainPair ? 1 : 0,
+    }).catch(() => ({ markets: [] as V4Market[] }));
+    for (const m of markets) {
+      known.set(m.id, {
+        hook: m.hook,
+        currency0: m.currency0,
+        currency1: m.currency1,
+        fee: m.fee,
+        tickSpacing: m.tickSpacing,
+        blockNumber: m.blockNumber,
+        transactionHash: m.transactionHash,
+      });
+    }
+  }
+  // A dust pool not read is left without rules, not marked unread.
+  return pools.map((p) =>
+    p.version !== 'v4'
+      ? p
+      : known.has(p.id)
+        ? { ...p, v4: known.get(p.id)! }
+        : weighed.has(p.id)
+          ? { ...p, v4: null }
+          : p,
+  );
+}
+
+/**
+ * What each contract that paid the creator fees is to this token: the
+ * trading rules (hook) of its main pool, of another of its pools, or a
+ * launchpad's contract that is neither (MEME: Doppler's 0x4e34… paid fees
+ * while its main pool runs no hook).
+ */
+export function feePayers(
+  payers: readonly string[],
+  mainPair: string | null,
+  pools: readonly ListedPool[] | undefined,
+): FeePayer[] {
+  const main = mainPair ? pools?.find((p) => p.id === mainPair.toLowerCase())?.v4?.hook : undefined;
+  const others = new Set(
+    (pools ?? [])
+      .filter((p) => p.id !== mainPair?.toLowerCase())
+      .map((p) => p.v4?.hook)
+      .filter((h): h is string => Boolean(h)),
+  );
+  return payers.map((address) => {
+    const a = address.toLowerCase();
+    const launch = LAUNCH_HOOKS.find((h) => h.address === a);
+    const role: FeePayer['role'] =
+      main === a ? 'main-hook' : launch ? 'launch' : others.has(a) ? 'pool-hook' : 'hook';
+    return { address: a, role };
+  });
+}
+
+/** Requests for the fees read: the creator's incoming transfers, in a few windows, and the supply. */
+const FEES_BUDGET = 8;
+
+/**
+ * What the market's trading rules (hooks) sent the creator, outside the
+ * launch block (where a launchpad hands out allocations): summed, with the
+ * number of transfers and the hooks that paid.
+ */
+export function feesFromHooks(
+  logs: readonly RawLog[],
+  hooks: readonly string[],
+  launchBlock: number,
+  supply: bigint,
+): { share: number; transfers: number; hooks: string[] } {
+  const from = new Set(hooks.map((h) => topicFor(h)));
+  let total = 0n;
+  let transfers = 0;
+  const paid = new Set<string>();
+  for (const l of logs) {
+    if (l.topics.length !== 3 || !from.has((l.topics[1] ?? '').toLowerCase())) continue;
+    if (Number(l.blockNumber) <= launchBlock) continue;
+    const raw = l.data.startsWith('0x') ? l.data.slice(2) : l.data;
+    if (raw.length < 64) continue;
+    const value = BigInt(`0x${raw.slice(0, 64)}`);
+    if (value === 0n) continue;
+    total += value;
+    transfers += 1;
+    paid.add(`0x${(l.topics[1] ?? '').slice(26)}`.toLowerCase());
+  }
+  const share = supply > 0n ? Number((total * 1_000_000n) / supply) / 1_000_000 : 0;
+  return { share, transfers, hooks: [...paid] };
 }

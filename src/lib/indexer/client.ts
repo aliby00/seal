@@ -153,16 +153,41 @@ export type IndexerMarkets = {
   }[];
 };
 
+/** How many v4 markets run on one hook, over every `Initialize` the indexer has read. */
+export type IndexerHook = {
+  hook: string;
+  indexedTo: number;
+  markets: number;
+  pairs: number;
+  firstBlock: number | null;
+  lastBlock: number | null;
+};
+
 /** How far the indexer has read each launchpad's launches, by launchpad id. */
 export type IndexerCoverage = { head: number; launchpads: Record<string, number> };
 
+/**
+ * An answer, and whether the indexer failed to give one: a 404 is an answer
+ * ("nothing known"), a timeout or an error is not, and what the indexer would
+ * have listed must then be reported as unread rather than absent.
+ */
+export type IndexerAnswer<T> = { value: T | undefined; failed: boolean };
+
 export type IndexerClient = {
   creator(address: string): Promise<IndexerCreator | undefined>;
+  /** The same read as `creator`, saying whether it failed. */
+  creatorAnswer?(address: string): Promise<IndexerAnswer<IndexerCreator>>;
+  /** The same read as `coverage`, saying whether it failed. */
+  coverageAnswer?(): Promise<IndexerAnswer<IndexerCoverage>>;
+  /** The same read as `token`, saying whether it failed. */
+  tokenAnswer?(address: string): Promise<IndexerAnswer<IndexerToken>>;
   /** `undefined` from an indexer that reads pons only, or does not answer. */
   coverage(): Promise<IndexerCoverage | undefined>;
   token(address: string): Promise<IndexerToken | undefined>;
   funder(address: string): Promise<IndexerFunder | undefined>;
   markets(token: string): Promise<IndexerMarkets | undefined>;
+  /** Markets on these trading rules (hook), all history. Absent from older clients. */
+  hook?(address: string): Promise<IndexerHook | undefined>;
   /** Creators linked through the wallets that funded this one. */
   network(creator: string): Promise<IndexerNetwork | undefined>;
 };
@@ -191,9 +216,9 @@ export function createIndexerClient(
   const doFetch = options.fetch ?? ((...args: Parameters<typeof fetch>) => fetch(...args));
   const timeoutMs = options.timeoutMs ?? INDEXER_TIMEOUT_MS;
   const now = options.now ?? Date.now;
-  const memo = new Map<string, { at: number; value: Promise<unknown> }>();
+  const memo = new Map<string, { at: number; value: Promise<IndexerAnswer<unknown>> }>();
 
-  async function read<T>(path: string): Promise<T | undefined> {
+  async function read<T>(path: string): Promise<IndexerAnswer<T>> {
     const started = now();
     try {
       const response = await doFetch(`${url}${path}`, {
@@ -202,49 +227,60 @@ export function createIndexerClient(
         cache: 'no-store',
       });
       // 404: the indexer knows nothing of this address — an answer, not a failure.
-      if (response.status === 404) return undefined;
+      if (response.status === 404) return { value: undefined, failed: false };
       if (!response.ok) {
         log.warn('indexeur en erreur', { path, status: response.status });
-        return undefined;
+        return { value: undefined, failed: true };
       }
-      return (await response.json()) as T;
+      return { value: (await response.json()) as T, failed: false };
     } catch (error) {
       log.warn('indexeur injoignable', {
         path,
         ms: now() - started,
         error: error instanceof Error ? error.name : String(error),
       });
-      return undefined;
+      return { value: undefined, failed: true };
     }
   }
 
-  function get<T>(kind: string, address: string): Promise<T | undefined> {
-    if (!url || !token || !ADDRESS.test(address)) return Promise.resolve(undefined);
-    const path = `/v1/${kind}/${address.toLowerCase()}`;
+  /** Memoised for MEMO_MS; a failed read is not kept, so the next analysis asks again. */
+  function memoised<T>(path: string): Promise<IndexerAnswer<T>> {
     const hit = memo.get(path);
-    if (hit && now() - hit.at < MEMO_MS) return hit.value as Promise<T | undefined>;
+    if (hit && now() - hit.at < MEMO_MS) return hit.value as Promise<IndexerAnswer<T>>;
     const value = read<T>(path);
     if (memo.size > 500) memo.clear();
     memo.set(path, { at: now(), value });
+    void value.then((answer) => {
+      if (answer.failed && memo.get(path)?.value === value) memo.delete(path);
+    });
     return value;
   }
 
-  function coverage(): Promise<IndexerCoverage | undefined> {
-    if (!url || !token) return Promise.resolve(undefined);
-    const path = '/v1/coverage';
-    const hit = memo.get(path);
-    if (hit && now() - hit.at < MEMO_MS) return hit.value as Promise<IndexerCoverage | undefined>;
-    const value = read<IndexerCoverage>(path);
-    memo.set(path, { at: now(), value });
-    return value;
+  const none = { value: undefined, failed: false };
+
+  function answer<T>(kind: string, address: string): Promise<IndexerAnswer<T>> {
+    if (!url || !token || !ADDRESS.test(address)) return Promise.resolve(none);
+    return memoised<T>(`/v1/${kind}/${address.toLowerCase()}`);
+  }
+
+  const get = <T>(kind: string, address: string): Promise<T | undefined> =>
+    answer<T>(kind, address).then((a) => a.value);
+
+  function coverageAnswer(): Promise<IndexerAnswer<IndexerCoverage>> {
+    if (!url || !token) return Promise.resolve(none);
+    return memoised<IndexerCoverage>('/v1/coverage');
   }
 
   return {
-    coverage,
+    coverage: () => coverageAnswer().then((a) => a.value),
+    coverageAnswer,
     creator: (address) => get<IndexerCreator>('creator', address),
+    creatorAnswer: (address) => answer<IndexerCreator>('creator', address),
     token: (address) => get<IndexerToken>('token', address),
+    tokenAnswer: (address) => answer<IndexerToken>('token', address),
     funder: (address) => get<IndexerFunder>('funder', address),
     markets: (token) => get<IndexerMarkets>('markets', token),
+    hook: (address) => get<IndexerHook>('hook', address),
     network: (creator) => get<IndexerNetwork>('network', creator),
   };
 }

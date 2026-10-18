@@ -148,6 +148,32 @@ test('report draws the measured facts, says what is missing, and gives no score'
   await accessible(page);
 });
 
+test('a report a failed read left partial says so at the top of In short', async ({ page }) => {
+  await mockReport(page, {
+    facts: {
+      ...report.facts,
+      failed: [
+        {
+          read: 'creator-launches',
+          note: 'the SEAL indexer did not answer: the launches it lists could not be read this time',
+        },
+      ],
+    } as typeof report.facts,
+  });
+  await page.goto('/#analysis');
+  await submit(page);
+  const notice = page.locator('.glance-partial');
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText(
+    'Partial report: some reads failed this time (the creator’s other launches).',
+  );
+  await expect(notice).toContainText('Try again in a minute.');
+  await expect(page.locator('.glance')).toContainText(
+    'some of the places their launches are listed could not be read this time',
+  );
+  await accessible(page);
+});
+
 test('report opens with the token, then gives ten plain checks, without a tally', async ({
   page,
 }) => {

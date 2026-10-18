@@ -609,7 +609,7 @@ describe('MUT8: the creator’s launch transaction delivered 71.4 % to three con
       (i) => i.id === 'launch-buys',
     );
     expect(item?.title).toBe(
-      'The creator’s own launch transaction delivered 71% of the supply to 3 contracts other than the creator’s wallet; who controls them is not shown.',
+      'The creator’s own launch transaction delivered 71% of the supply to 3 contracts other than the creator’s wallet, none of them a pool; who controls them is not shown.',
     );
     expect(renderReport(report)).toContain('la transaction envoyée par le CRÉATEUR');
     // "It took no supply in the launch block", as served for MUT8, is cut.

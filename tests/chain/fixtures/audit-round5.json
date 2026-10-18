@@ -1,0 +1,2528 @@
+{
+  "_source": "staging re-audit of 18/10/2026 (analysis JSON as served) and the public RPC / DexScreener read the same day",
+  "pools": {
+    "latestBlock": 91561593,
+    "readAt": 1792305065569,
+    "tokens": {
+      "BOOMER": {
+        "token": "0x127cdc74e44e3c60422b7e792ebe480c0f873ed5",
+        "pairs": [
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0xf4a65e0f8e6022800a8ed713b1dae86548d198b8b483f73c7180de3d09fc0935",
+            "baseToken": {
+              "address": "0x127CDc74E44E3c60422b7E792eBE480c0f873ed5"
+            },
+            "quoteToken": {
+              "address": "0x117cc2133c37B721F49dE2A7a74833232B3B4C0C"
+            },
+            "liquidity": {
+              "usd": 187808.75
+            },
+            "volume": {
+              "h24": 797271.38
+            },
+            "pairCreatedAt": 1792277646000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x1f4ae4898e210a59db6f2246c07aa40a74104eb487cee90d5695abdc9d3dca57",
+            "baseToken": {
+              "address": "0x67308B03Ac084e8E7DccB0C3eabAE65034C02F38"
+            },
+            "quoteToken": {
+              "address": "0x127CDc74E44E3c60422b7E792eBE480c0f873ed5"
+            },
+            "liquidity": {
+              "usd": 65783.93
+            },
+            "volume": {
+              "h24": 85930.54
+            },
+            "pairCreatedAt": 1792278956000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0xaaab349b135c1d13d40a3ca49b0dbbc81454c40b9b7960c8be7b2ac60bf4b2a5",
+            "baseToken": {
+              "address": "0x0a906197353AC28fd427231bB62a6033e53D55bA"
+            },
+            "quoteToken": {
+              "address": "0x127CDc74E44E3c60422b7E792eBE480c0f873ed5"
+            },
+            "liquidity": {
+              "usd": 12165.67
+            },
+            "volume": {
+              "h24": 28793.02
+            },
+            "pairCreatedAt": 1792281148000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x9423bc78012f14e11f1f378ef41a7f27baf0bbc42d8e8d6286f4751e0cbde17a",
+            "baseToken": {
+              "address": "0xD4908e2c85d6Ca8D3f9427e3dd7AC2BFF2bF7831"
+            },
+            "quoteToken": {
+              "address": "0x127CDc74E44E3c60422b7E792eBE480c0f873ed5"
+            },
+            "liquidity": {
+              "usd": 11659.09
+            },
+            "volume": {
+              "h24": 15247.18
+            },
+            "pairCreatedAt": 1792302151000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x532e757df97c6d49fd7f42e2160614a37f42bf1b604be0ce04495532acf71488",
+            "baseToken": {
+              "address": "0xAA9A495bA030931fEe583B085161fc913e810731"
+            },
+            "quoteToken": {
+              "address": "0x127CDc74E44E3c60422b7E792eBE480c0f873ed5"
+            },
+            "liquidity": {
+              "usd": 10640.83
+            },
+            "volume": {
+              "h24": 2183.06
+            },
+            "pairCreatedAt": 1792280739000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x5e0a6d74ce502347efdd9aa78813677c55ea577034d7e691d85dffe00edc231d",
+            "baseToken": {
+              "address": "0xAe56549d9549ee4c1baa9bdD6B05050CE3129c12"
+            },
+            "quoteToken": {
+              "address": "0x127CDc74E44E3c60422b7E792eBE480c0f873ed5"
+            },
+            "liquidity": {
+              "usd": 10385.19
+            },
+            "volume": {
+              "h24": 2801.22
+            },
+            "pairCreatedAt": 1792281979000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0xd6767259dc0e9d5aebeac91409e81dbb7b93c53dbc5aff0eae47f0ccf39a0f13",
+            "baseToken": {
+              "address": "0x19dC2550eA8Ba8110535c53d14029DDfF1707e4F"
+            },
+            "quoteToken": {
+              "address": "0x127CDc74E44E3c60422b7E792eBE480c0f873ed5"
+            },
+            "liquidity": {
+              "usd": 8842.12
+            },
+            "volume": {
+              "h24": 4681.35
+            },
+            "pairCreatedAt": 1792284256000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x5f95931e194734c9ebe88f97ca916d8f888045f30c325c0864fa934accab6d36",
+            "baseToken": {
+              "address": "0xE3211BbC216BD26219f29c87E6c7D6f3B654Ed3D"
+            },
+            "quoteToken": {
+              "address": "0x127CDc74E44E3c60422b7E792eBE480c0f873ed5"
+            },
+            "liquidity": {
+              "usd": 6343.9
+            },
+            "volume": {
+              "h24": 913.51
+            },
+            "pairCreatedAt": 1792287709000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0xe33019673bdfdf15fb43932b03baba0098d1207acbb37714234388aee9b1a5a3",
+            "baseToken": {
+              "address": "0x715d77038495215CFdA43B8533745Fc819C0469F"
+            },
+            "quoteToken": {
+              "address": "0x127CDc74E44E3c60422b7E792eBE480c0f873ed5"
+            },
+            "liquidity": {
+              "usd": 6305.2
+            },
+            "volume": {
+              "h24": 1333.45
+            },
+            "pairCreatedAt": 1792281855000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x0a654bba007d1b093b47eaaf5db77aa2f57fcdea0293753182437db313922e7b",
+            "baseToken": {
+              "address": "0x8D7feEce45f989aabeCA0517Ea48B025791118F3"
+            },
+            "quoteToken": {
+              "address": "0x127CDc74E44E3c60422b7E792eBE480c0f873ed5"
+            },
+            "liquidity": {
+              "usd": 5346.58
+            },
+            "volume": {
+              "h24": 1437.85
+            },
+            "pairCreatedAt": 1792281543000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x7466867466cc6e1e83711a5777ab69b6167a3d4c2107f0a488eb83cec6e6658e",
+            "baseToken": {
+              "address": "0x8107E9350E25527160928b63c6c2A108Db71AB8a"
+            },
+            "quoteToken": {
+              "address": "0x127CDc74E44E3c60422b7E792eBE480c0f873ed5"
+            },
+            "liquidity": {
+              "usd": 3824.96
+            },
+            "volume": {
+              "h24": 105.44
+            },
+            "pairCreatedAt": 1792295544000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x896b693edd90bd493b5a3432347f045557925aa510801ea4e5b694dad4e6cf6e",
+            "baseToken": {
+              "address": "0x127CDc74E44E3c60422b7E792eBE480c0f873ed5"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 2720.82
+            },
+            "volume": {
+              "h24": 12737.49
+            },
+            "pairCreatedAt": 1792279442000
+          }
+        ],
+        "initialize": [
+          {
+            "address": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+            "topics": [
+              "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+              "0xf4a65e0f8e6022800a8ed713b1dae86548d198b8b483f73c7180de3d09fc0935",
+              "0x000000000000000000000000117cc2133c37b721f49de2a7a74833232b3b4c0c",
+              "0x000000000000000000000000127cdc74e44e3c60422b7e792ebe480c0f873ed5"
+            ],
+            "data": "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c8000000000000000000000000992118de23b4ebe9f527dacbbb7d8d4bbbf8e044000000000000000000000000000000000001e9eab3d9ba147f0014beaa0dd58b0000000000000000000000000000000000000000000000000000000000039530",
+            "blockNumber": "0x5710d52",
+            "transactionHash": "0xbaea8bc0632420ef2231d377f660e4f5637634723c8632cbee8871aaf90cfb1a",
+            "logIndex": "0x3"
+          }
+        ]
+      },
+      "MEME": {
+        "token": "0x385f4f8ae47651ce5f58f5265395a669f8281e18",
+        "pairs": [
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x27ccf0a6d1ee74840220715bcca7d3b01e0d33aa30d0259b47ae1585b3f4c071",
+            "baseToken": {
+              "address": "0x05a3d1Cd21d0C88145E82600E62e7E496e0F222B"
+            },
+            "quoteToken": {
+              "address": "0x385F4f8ae47651ce5F58F5265395a669f8281e18"
+            },
+            "liquidity": {
+              "usd": 1311279.16
+            },
+            "volume": {
+              "h24": 137184.6
+            },
+            "pairCreatedAt": 1788467405000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x46525dc119850396470f132c4a989d7192cb692139db891b5a4cdcd684c11b17",
+            "baseToken": {
+              "address": "0x385F4f8ae47651ce5F58F5265395a669f8281e18"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 457801.46
+            },
+            "volume": {
+              "h24": 42830.39
+            },
+            "pairCreatedAt": 1789080808000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x8660c1c24d58fdad98d9008be534240e5d79ece4d4d4ef16f215af001779ec1f",
+            "baseToken": {
+              "address": "0x385F4f8ae47651ce5F58F5265395a669f8281e18"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 85747.08
+            },
+            "volume": {
+              "h24": 68224.24
+            },
+            "pairCreatedAt": 1788874173000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v3"],
+            "pairAddress": "0xE2c12a7379706A291CadAaEc1d22458be2f7239D",
+            "baseToken": {
+              "address": "0x385F4f8ae47651ce5F58F5265395a669f8281e18"
+            },
+            "quoteToken": {
+              "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73"
+            },
+            "liquidity": {
+              "usd": 73456.59
+            },
+            "volume": {
+              "h24": 180780.52
+            },
+            "pairCreatedAt": 1788765547000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v3"],
+            "pairAddress": "0x5D37B1D887B502594414a82d2cf7d4eF774a8027",
+            "baseToken": {
+              "address": "0x385F4f8ae47651ce5F58F5265395a669f8281e18"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 54347.94
+            },
+            "volume": {
+              "h24": 41.68
+            },
+            "pairCreatedAt": 1788502582000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x4b7c86491df95f366b31217b2950d2c5136a2f19b6879613eac73d0e69092a1a",
+            "baseToken": {
+              "address": "0x385F4f8ae47651ce5F58F5265395a669f8281e18"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 45793.82
+            },
+            "volume": {
+              "h24": 11162.45
+            },
+            "pairCreatedAt": 1788598297000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0xc6e298e137f2905398db87e6eae49ede64d231fee37330fa433fec917f4618b6",
+            "baseToken": {
+              "address": "0x385F4f8ae47651ce5F58F5265395a669f8281e18"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 18656.07
+            },
+            "volume": {
+              "h24": 2541.94
+            },
+            "pairCreatedAt": 1788491650000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x196165fe6044a4adcb32c6e9d46c951c16e79e67766b91b436fe93e49d92f8c4",
+            "baseToken": {
+              "address": "0x385F4f8ae47651ce5F58F5265395a669f8281e18"
+            },
+            "quoteToken": {
+              "address": "0x0000000000000000000000000000000000000000"
+            },
+            "liquidity": {
+              "usd": 9569.12
+            },
+            "volume": {
+              "h24": 5297.01
+            },
+            "pairCreatedAt": 1792216205000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v3"],
+            "pairAddress": "0x97BCdd384fC144899545dEB749b6DAF2AA52a2C5",
+            "baseToken": {
+              "address": "0x385F4f8ae47651ce5F58F5265395a669f8281e18"
+            },
+            "quoteToken": {
+              "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73"
+            },
+            "liquidity": {
+              "usd": 9067.16
+            },
+            "volume": {
+              "h24": 4728.71
+            },
+            "pairCreatedAt": 1788492405000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x161610470ba69ac0ae86724efa3a379cfbeb81a5efcea1eacac4a3cddd230b93",
+            "baseToken": {
+              "address": "0x385F4f8ae47651ce5F58F5265395a669f8281e18"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 4436.59
+            },
+            "volume": {
+              "h24": 379.57
+            },
+            "pairCreatedAt": 1788495031000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x6e496aa206ee0a5e820a3341e0f34f4c152f793dda251a959a33116472fd12b3",
+            "baseToken": {
+              "address": "0x05D8024ab2cf9C1cFBCdB1AC755790D406a0dFF6"
+            },
+            "quoteToken": {
+              "address": "0x385F4f8ae47651ce5F58F5265395a669f8281e18"
+            },
+            "liquidity": {
+              "usd": 3350.71
+            },
+            "volume": {
+              "h24": 1490.61
+            },
+            "pairCreatedAt": 1788767024000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0xae2c200a2e3acf5d2666f04409d5503cac8683538256924767d139deaac652a2",
+            "baseToken": {
+              "address": "0xD17D0F24259deb94d87244915ED955cf31C0C424"
+            },
+            "quoteToken": {
+              "address": "0x385F4f8ae47651ce5F58F5265395a669f8281e18"
+            },
+            "liquidity": {
+              "usd": 2153.7
+            },
+            "volume": {
+              "h24": 87.61
+            },
+            "pairCreatedAt": 1790441694000
+          }
+        ],
+        "initialize": [
+          {
+            "address": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+            "topics": [
+              "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+              "0x46525dc119850396470f132c4a989d7192cb692139db891b5a4cdcd684c11b17",
+              "0x000000000000000000000000385f4f8ae47651ce5f58f5265395a669f8281e18",
+              "0x0000000000000000000000005fc5360d0400a0fd4f2af552add042d716f1d168"
+            ],
+            "data": "0x0000000000000000000000000000000000000000000000000000000000000b99000000000000000000000000000000000000000000000000000000000000001e000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000041709e43e92b49349c2fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffb5a55",
+            "blockNumber": "0x3901950",
+            "transactionHash": "0x6056795cda7023971c8a735465986afcc6d662976b391df7d8ebfa951c88b2bb",
+            "logIndex": "0x7a"
+          },
+          {
+            "address": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+            "topics": [
+              "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+              "0x8660c1c24d58fdad98d9008be534240e5d79ece4d4d4ef16f215af001779ec1f",
+              "0x000000000000000000000000385f4f8ae47651ce5f58f5265395a669f8281e18",
+              "0x0000000000000000000000005fc5360d0400a0fd4f2af552add042d716f1d168"
+            ],
+            "data": "0x0000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000003c00000000000000000000000008e52564bad99e05a694b4809f397edca417a08000000000000000000000000000000000000000000000052905085c3cd933cc7bfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffb6c7d",
+            "blockNumber": "0x370d6ff",
+            "transactionHash": "0x56cb70e73c1a7cd4641905e3dccd61eb380263092290827833d055947911367a",
+            "logIndex": "0xd"
+          },
+          {
+            "address": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+            "topics": [
+              "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+              "0x4b7c86491df95f366b31217b2950d2c5136a2f19b6879613eac73d0e69092a1a",
+              "0x000000000000000000000000385f4f8ae47651ce5f58f5265395a669f8281e18",
+              "0x0000000000000000000000005fc5360d0400a0fd4f2af552add042d716f1d168"
+            ],
+            "data": "0x0000000000000000000000000000000000000000000000000000000000001b570000000000000000000000000000000000000000000000000000000000000046000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000039a71d91fbf8191e769fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffb506f",
+            "blockNumber": "0x3471c3f",
+            "transactionHash": "0xafe79dfb5a9d32220653ddcb52ad7cdaaf775b6538733cf1f62516aca3400927",
+            "logIndex": "0x26"
+          },
+          {
+            "address": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+            "topics": [
+              "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+              "0xc6e298e137f2905398db87e6eae49ede64d231fee37330fa433fec917f4618b6",
+              "0x000000000000000000000000385f4f8ae47651ce5f58f5265395a669f8281e18",
+              "0x0000000000000000000000005fc5360d0400a0fd4f2af552add042d716f1d168"
+            ],
+            "data": "0x000000000000000000000000000000000000000000000000000000000000c35000000000000000000000000000000000000000000000000000000000000001f40000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000052f2590f7cfd2bc8b7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa943c",
+            "blockNumber": "0x3370222",
+            "transactionHash": "0x79cc239998d5345f09048ebe4bb5fffce6c1009da73a91ab75dd4a69978a21f8",
+            "logIndex": "0x1f"
+          },
+          {
+            "address": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+            "topics": [
+              "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+              "0x196165fe6044a4adcb32c6e9d46c951c16e79e67766b91b436fe93e49d92f8c4",
+              "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "0x000000000000000000000000385f4f8ae47651ce5f58f5265395a669f8281e18"
+            ],
+            "data": "0x000000000000000000000000000000000000000000000000000000000000275800000000000000000000000000000000000000000000000000000000000000c9000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001c99f4100ba42cdb46204578140000000000000000000000000000000000000000000000000000000000001de9e",
+            "blockNumber": "0x567e0b9",
+            "transactionHash": "0x4abf0d22782ae621b45399b0d0ccc6e478ae23aa8168b1cb26bd2665c1fe71a0",
+            "logIndex": "0x0"
+          }
+        ]
+      },
+      "BONER": {
+        "token": "0x98096d17e191b3da1d5f99a6d7b3584351b11e18",
+        "pairs": [
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x9c89b04303dfa76f3f6fb02c2b77be0e8a00ab8fa00d507119acd54ab3e8640d",
+            "baseToken": {
+              "address": "0x98096d17e191B3dA1d5f99a6D7b3584351b11E18"
+            },
+            "quoteToken": {
+              "address": "0xCceE82fE024c36fA15E1005edE3E9e4787e23D09"
+            },
+            "liquidity": {
+              "usd": 1212984.01
+            },
+            "volume": {
+              "h24": 224218.07
+            },
+            "pairCreatedAt": 1787259586000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x1f1778596d8c1ee3e1eaf64ea83a5e77063b142fa3ef59a7c81e520c516379bc",
+            "baseToken": {
+              "address": "0x2E8c31162b855A2ffa90F6F8634643Ad6F111e18"
+            },
+            "quoteToken": {
+              "address": "0x98096d17e191B3dA1d5f99a6D7b3584351b11E18"
+            },
+            "liquidity": {
+              "usd": 299161.65
+            },
+            "volume": {
+              "h24": 60844.01
+            },
+            "pairCreatedAt": 1787278313000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v3"],
+            "pairAddress": "0xBd5cd6515ca6285941FbC177381dC8ED4844e6b8",
+            "baseToken": {
+              "address": "0x98096d17e191B3dA1d5f99a6D7b3584351b11E18"
+            },
+            "quoteToken": {
+              "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73"
+            },
+            "liquidity": {
+              "usd": 161023.18
+            },
+            "volume": {
+              "h24": 61742.15
+            },
+            "pairCreatedAt": 1788137419000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0xfec7b1efe77aa60887986db5bcbfff39ca40b56d964bb8ce3d9dd0d9baaca4d4",
+            "baseToken": {
+              "address": "0x98096d17e191B3dA1d5f99a6D7b3584351b11E18"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 121524.17
+            },
+            "volume": {
+              "h24": 73729.21
+            },
+            "pairCreatedAt": 1788194566000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x246894e398a3c1990eee2518bb3086d98c9f31efd65ef43653697c6413b2376d",
+            "baseToken": {
+              "address": "0x2E8c31162b855A2ffa90F6F8634643Ad6F111e18"
+            },
+            "quoteToken": {
+              "address": "0x98096d17e191B3dA1d5f99a6D7b3584351b11E18"
+            },
+            "liquidity": {
+              "usd": 90307.34
+            },
+            "volume": {
+              "h24": 69136.95
+            },
+            "pairCreatedAt": 1792071559000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0xcf0bd6587434f9f6b6e7745230f137a4a0e3910e42b60448e151e09d9361394e",
+            "baseToken": {
+              "address": "0x98096d17e191B3dA1d5f99a6D7b3584351b11E18"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 73275.66
+            },
+            "volume": {
+              "h24": 23303.81
+            },
+            "pairCreatedAt": 1790715448000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0xf092381e0e61f62a795af69eaf98e6df5bbcb88e8f2a6687345f2703cf394b9b",
+            "baseToken": {
+              "address": "0x98096d17e191B3dA1d5f99a6D7b3584351b11E18"
+            },
+            "quoteToken": {
+              "address": "0x0000000000000000000000000000000000000000"
+            },
+            "liquidity": {
+              "usd": 23571.47
+            },
+            "volume": {
+              "h24": 28669.88
+            },
+            "pairCreatedAt": 1792214633000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0xe6e9a919cb07370f02690b40073dee88c2d6afc2d660faa9ab27ea30fac9b40a",
+            "baseToken": {
+              "address": "0x98096d17e191B3dA1d5f99a6D7b3584351b11E18"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 15623.2
+            },
+            "volume": {
+              "h24": 6364.39
+            },
+            "pairCreatedAt": 1787930168000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x889ff61cc0534f5dc95e381e2da471c221447798dc8a7790aeabb004c855c455",
+            "baseToken": {
+              "address": "0x214c056DE290bBe198754725DCf70A7f2CF91337"
+            },
+            "quoteToken": {
+              "address": "0x98096d17e191B3dA1d5f99a6D7b3584351b11E18"
+            },
+            "liquidity": {
+              "usd": 12414.04
+            },
+            "volume": {
+              "h24": 118.57
+            },
+            "pairCreatedAt": 1791132062000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0xae84f96b1b680b3a17ccd9384a608143c8f521def8649e1c9c0f2d6336efb5ba",
+            "baseToken": {
+              "address": "0xF2451a31A0ADa3acA28c6649623a4E7176081E18"
+            },
+            "quoteToken": {
+              "address": "0x98096d17e191B3dA1d5f99a6D7b3584351b11E18"
+            },
+            "liquidity": {
+              "usd": 10843.59
+            },
+            "volume": {
+              "h24": 16.99
+            },
+            "pairCreatedAt": 1788471779000
+          },
+          {
+            "dexId": "up",
+            "labels": ["v3"],
+            "pairAddress": "0x6f95aC65c37Adf4a58774c972d05483862B6bea7",
+            "baseToken": {
+              "address": "0x98096d17e191B3dA1d5f99a6D7b3584351b11E18"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 4075.31
+            },
+            "volume": {
+              "h24": 1908.46
+            },
+            "pairCreatedAt": null
+          },
+          {
+            "dexId": "alandale",
+            "labels": null,
+            "pairAddress": "0x72ECfF2f791BfDA17f567b9384F2143039bec57B",
+            "baseToken": {
+              "address": "0x98096d17e191B3dA1d5f99a6D7b3584351b11E18"
+            },
+            "quoteToken": {
+              "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73"
+            },
+            "liquidity": {
+              "usd": 3471.57
+            },
+            "volume": {
+              "h24": 1461.74
+            },
+            "pairCreatedAt": null
+          }
+        ],
+        "initialize": [
+          {
+            "address": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+            "topics": [
+              "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+              "0x9c89b04303dfa76f3f6fb02c2b77be0e8a00ab8fa00d507119acd54ab3e8640d",
+              "0x00000000000000000000000098096d17e191b3da1d5f99a6d7b3584351b11e18",
+              "0x000000000000000000000000ccee82fe024c36fa15e1005ede3e9e4787e23d09"
+            ],
+            "data": "0x000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000080000000000000000000000004e3468951d49f2eea976ed0d6e75ffcb44a9a544000000000000000000000000000000000000000000350041e5a11e8a9eb99a89fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffdd3b8",
+            "blockNumber": "0x27cb238",
+            "transactionHash": "0x0de235b401431520993913fed71df9ef7129d850aa877443ae9008c8a80baf47",
+            "logIndex": "0x9"
+          },
+          {
+            "address": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+            "topics": [
+              "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+              "0xfec7b1efe77aa60887986db5bcbfff39ca40b56d964bb8ce3d9dd0d9baaca4d4",
+              "0x0000000000000000000000005fc5360d0400a0fd4f2af552add042d716f1d168",
+              "0x00000000000000000000000098096d17e191b3da1d5f99a6d7b3584351b11e18"
+            ],
+            "data": "0x0000000000000000000000000000000000000000000000000000000000002328000000000000000000000000000000000000000000000000000000000000005a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004a610d78f740e27013d655fd36ae14000000000000000000000000000000000000000000000000000000000004b326",
+            "blockNumber": "0x30a6ed2",
+            "transactionHash": "0x35969fbce5ef376c38997a41b9744f54811137d0cbc619e3ebb5060bc904f56a",
+            "logIndex": "0x16"
+          },
+          {
+            "address": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+            "topics": [
+              "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+              "0xcf0bd6587434f9f6b6e7745230f137a4a0e3910e42b60448e151e09d9361394e",
+              "0x0000000000000000000000005fc5360d0400a0fd4f2af552add042d716f1d168",
+              "0x00000000000000000000000098096d17e191b3da1d5f99a6d7b3584351b11e18"
+            ],
+            "data": "0x000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000c800000000000000000000000008e52564bad99e05a694b4809f397edca417a080000000000000000000000000000000000043aee3581bf49fa42af6ce59a61ad7000000000000000000000000000000000000000000000000000000000004abc7",
+            "blockNumber": "0x4871101",
+            "transactionHash": "0xc240e646fff50af8a957f14931fe4682733182a2ba9b67690b8e811a579c31cc",
+            "logIndex": "0x3d"
+          }
+        ]
+      },
+      "WHEELSMITH": {
+        "token": "0xeb579e280648b6f48a840086a9e6631500a20684",
+        "pairs": [
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x37c81007242853be8807baeb80a1663bcf72a5148135ade6de91c209cffcacf7",
+            "baseToken": {
+              "address": "0xEB579e280648B6f48A840086A9e6631500A20684"
+            },
+            "quoteToken": {
+              "address": "0x322F0929c4625eD5bAd873c95208D54E1c003b2d"
+            },
+            "liquidity": {
+              "usd": 54503.36
+            },
+            "volume": {
+              "h24": 822461.63
+            },
+            "pairCreatedAt": 1792185069000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0xd533de5574a445f7be015aa39475b667c118b2cc11855566469167f4741be6e9",
+            "baseToken": {
+              "address": "0xEB579e280648B6f48A840086A9e6631500A20684"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 6837.53
+            },
+            "volume": {
+              "h24": 88962.57
+            },
+            "pairCreatedAt": 1792203860000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x43c1c37e10d7de00e4d55714ebf2698439d7f220fcc310b3e50ed6c25726c405",
+            "baseToken": {
+              "address": "0xEB579e280648B6f48A840086A9e6631500A20684"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 1139.19
+            },
+            "volume": {
+              "h24": 62668.01
+            },
+            "pairCreatedAt": 1792224730000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0xddbd0547623fd17deff0ac3f28df27fd02a73e007a655bc3a046e30acca4b642",
+            "baseToken": {
+              "address": "0xEB579e280648B6f48A840086A9e6631500A20684"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 912.63
+            },
+            "volume": {
+              "h24": 3778.36
+            },
+            "pairCreatedAt": 1792186431000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0xf3d1d8035ca6119636d162891524e8ef5a66c2fff4fd3b3842409e49eb963c45",
+            "baseToken": {
+              "address": "0xEB579e280648B6f48A840086A9e6631500A20684"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 796.36
+            },
+            "volume": {
+              "h24": 703.2
+            },
+            "pairCreatedAt": 1792235099000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0xfe18bbcf2a8480ae6d5521cf35e73c09bda33fc46bbbd75a41693a0beacab52a",
+            "baseToken": {
+              "address": "0xEB579e280648B6f48A840086A9e6631500A20684"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 734.67
+            },
+            "volume": {
+              "h24": 4553.95
+            },
+            "pairCreatedAt": 1792247901000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x9c67a68cae5d5130a502e90a1400764e593c25b7c8dbe91b6d36268de153807d",
+            "baseToken": {
+              "address": "0xEB579e280648B6f48A840086A9e6631500A20684"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 499.99
+            },
+            "volume": {
+              "h24": 1739.78
+            },
+            "pairCreatedAt": 1792231931000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0xb01d16dd0eca0f96a4afdbaf4135c8f4008b5ace51ac176b68418f293ecae9c1",
+            "baseToken": {
+              "address": "0xEB579e280648B6f48A840086A9e6631500A20684"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 499.99
+            },
+            "volume": {
+              "h24": 25.15
+            },
+            "pairCreatedAt": 1792224265000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x1f66699075179cfd21fcac47e5de3b8228858f72a923e20635d0ca03ccc977ff",
+            "baseToken": {
+              "address": "0xEB579e280648B6f48A840086A9e6631500A20684"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 498.65
+            },
+            "volume": {
+              "h24": 836.91
+            },
+            "pairCreatedAt": 1792222638000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x5cba05dd8a17ed4266a91a6b8ce5c00fb0c728c4e43380d2367119350b19fa68",
+            "baseToken": {
+              "address": "0xEB579e280648B6f48A840086A9e6631500A20684"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 479.9
+            },
+            "volume": {
+              "h24": 424.05
+            },
+            "pairCreatedAt": 1792257191000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x443d2562d6c29741171c6c612becb74dcf3bbba929a60425f71867792ccbc6a1",
+            "baseToken": {
+              "address": "0xEB579e280648B6f48A840086A9e6631500A20684"
+            },
+            "quoteToken": {
+              "address": "0x0000000000000000000000000000000000000000"
+            },
+            "liquidity": {
+              "usd": 465.16
+            },
+            "volume": {
+              "h24": 2216.92
+            },
+            "pairCreatedAt": 1792188438000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0xe11755a25a848cc5977a51e6f5770bb91fba198a38ae0dfd55950ae81750547b",
+            "baseToken": {
+              "address": "0xEB579e280648B6f48A840086A9e6631500A20684"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 294.78
+            },
+            "volume": {
+              "h24": 196.16
+            },
+            "pairCreatedAt": 1792229164000
+          }
+        ],
+        "initialize": [
+          {
+            "address": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+            "topics": [
+              "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+              "0x37c81007242853be8807baeb80a1663bcf72a5148135ade6de91c209cffcacf7",
+              "0x000000000000000000000000322f0929c4625ed5bad873c95208d54e1c003b2d",
+              "0x000000000000000000000000eb579e280648b6f48a840086a9e6631500a20684"
+            ],
+            "data": "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c8000000000000000000000000992118de23b4ebe9f527dacbbb7d8d4bbbf8e044000000000000000000000000000000000001911d2cf179c1d66fa62d1c1aa2b40000000000000000000000000000000000000000000000000000000000038590",
+            "blockNumber": "0x5633aa4",
+            "transactionHash": "0x38401d32fa7b55c2d4123ac4673b27cc1b466eb1c81b311c6bdd47619e7771cd",
+            "logIndex": "0xc"
+          },
+          {
+            "address": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+            "topics": [
+              "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+              "0xd533de5574a445f7be015aa39475b667c118b2cc11855566469167f4741be6e9",
+              "0x0000000000000000000000005fc5360d0400a0fd4f2af552add042d716f1d168",
+              "0x000000000000000000000000eb579e280648b6f48a840086a9e6631500a20684"
+            ],
+            "data": "0x0000000000000000000000000000000000000000000000000000000000012cb900000000000000000000000000000000000000000000000000000000000003020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001aa7a55befc213043a8175871f6d98450000000000000000000000000000000000000000000000000000000000061436",
+            "blockNumber": "0x5660bde",
+            "transactionHash": "0xe84ef6705918ddceeaa5864a3f1eb95df9d399119cbee2fee85c545a1fa3684d",
+            "logIndex": "0x1"
+          },
+          {
+            "address": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+            "topics": [
+              "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+              "0x43c1c37e10d7de00e4d55714ebf2698439d7f220fcc310b3e50ed6c25726c405",
+              "0x0000000000000000000000005fc5360d0400a0fd4f2af552add042d716f1d168",
+              "0x000000000000000000000000eb579e280648b6f48a840086a9e6631500a20684"
+            ],
+            "data": "0x0000000000000000000000000000000000000000000000000000000000007987000000000000000000000000000000000000000000000000000000000000026e000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000144342d4e10f81b5c2f8fbcf7bff8fb2000000000000000000000000000000000000000000000000000000000005fec9",
+            "blockNumber": "0x5692413",
+            "transactionHash": "0x6a99190c9507554bbe6f9aaaa27ae0a75a22b75562f9e9cc08db85d3322c163a",
+            "logIndex": "0x0"
+          }
+        ]
+      },
+      "WORM": {
+        "token": "0x3ba500f1ababbcf0f0247d06d1c56fd7e6c4c09d",
+        "pairs": [
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0xf49ee5b66c4e7163026e5d25e6a1f93cff46dca4d3752f712d181d9392c1d567",
+            "baseToken": {
+              "address": "0x3bA500F1AbabbCF0F0247D06D1c56Fd7E6C4c09D"
+            },
+            "quoteToken": {
+              "address": "0x894E1EC2D74FFE5AEF8Dc8A9e84686acCB964F2A"
+            },
+            "liquidity": {
+              "usd": 77137.6
+            },
+            "volume": {
+              "h24": 233368.83
+            },
+            "pairCreatedAt": 1788893778000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0xa9b026c115b9630e693307b51d0fa05a216a9c1cfbd5a090434dfe62eef39dd6",
+            "baseToken": {
+              "address": "0x3bA500F1AbabbCF0F0247D06D1c56Fd7E6C4c09D"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 17483.76
+            },
+            "volume": {
+              "h24": 29530.83
+            },
+            "pairCreatedAt": 1789756837000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x5ea36826ed6dc26945496eb19aa9e6f2d5d6b0b31c9924a98c71aee1217f55af",
+            "baseToken": {
+              "address": "0x3bA500F1AbabbCF0F0247D06D1c56Fd7E6C4c09D"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 7095.79
+            },
+            "volume": {
+              "h24": 49041.63
+            },
+            "pairCreatedAt": 1789771469000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v3"],
+            "pairAddress": "0x8746Ba03F873E808adCa10B57bECd1aeb3B18923",
+            "baseToken": {
+              "address": "0x3bA500F1AbabbCF0F0247D06D1c56Fd7E6C4c09D"
+            },
+            "quoteToken": {
+              "address": "0x894E1EC2D74FFE5AEF8Dc8A9e84686acCB964F2A"
+            },
+            "liquidity": {
+              "usd": 3773.97
+            },
+            "volume": {
+              "h24": 171.35
+            },
+            "pairCreatedAt": 1790027986000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0xaf2452f42ed940852d4e0d98dc984edd8310836f31f6c271795e7912ca44eaae",
+            "baseToken": {
+              "address": "0x3bA500F1AbabbCF0F0247D06D1c56Fd7E6C4c09D"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 1799.83
+            },
+            "volume": {
+              "h24": 420.41
+            },
+            "pairCreatedAt": 1792286296000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x54908b51634752e61e2faa3bdd628fbf38f7c96b267db1e4dd5ee68b1fa793f0",
+            "baseToken": {
+              "address": "0x3bA500F1AbabbCF0F0247D06D1c56Fd7E6C4c09D"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 1599.73
+            },
+            "volume": {
+              "h24": 1594.09
+            },
+            "pairCreatedAt": 1792235703000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x32324930c0610cf1a3320b1a9c8b3f5ba1ddb2116cbef14010d5e97db52e4260",
+            "baseToken": {
+              "address": "0x3bA500F1AbabbCF0F0247D06D1c56Fd7E6C4c09D"
+            },
+            "quoteToken": {
+              "address": "0x0000000000000000000000000000000000000000"
+            },
+            "liquidity": {
+              "usd": 1599.72
+            },
+            "volume": {
+              "h24": 2977.37
+            },
+            "pairCreatedAt": 1789725753000
+          },
+          {
+            "dexId": "up",
+            "labels": ["v3"],
+            "pairAddress": "0x917aD5c605081EcE302daE3AbCec18A323a76Ea0",
+            "baseToken": {
+              "address": "0x3bA500F1AbabbCF0F0247D06D1c56Fd7E6C4c09D"
+            },
+            "quoteToken": {
+              "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73"
+            },
+            "liquidity": {
+              "usd": 80.68
+            },
+            "volume": {
+              "h24": 23.64
+            },
+            "pairCreatedAt": null
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x727e029821a368daef711a6998b5ef5624adc1af255f072f236bb257e5a02d4b",
+            "baseToken": {
+              "address": "0x3bA500F1AbabbCF0F0247D06D1c56Fd7E6C4c09D"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 72.99
+            },
+            "volume": {
+              "h24": 106.47
+            },
+            "pairCreatedAt": 1792143762000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x4fc7d54bfeaae6086cf5028c4b1d6c04fa522e83903eb0cb9dece7a4c1c2158d",
+            "baseToken": {
+              "address": "0x3bA500F1AbabbCF0F0247D06D1c56Fd7E6C4c09D"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 69.25
+            },
+            "volume": {
+              "h24": 19.75
+            },
+            "pairCreatedAt": 1789698138000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x7f26e1578a84adce698ba4977c5d51116ffd18b0b9dfb163838ee2a4da9d9c77",
+            "baseToken": {
+              "address": "0x3bA500F1AbabbCF0F0247D06D1c56Fd7E6C4c09D"
+            },
+            "quoteToken": {
+              "address": "0x0000000000000000000000000000000000000000"
+            },
+            "liquidity": {
+              "usd": 46.93
+            },
+            "volume": {
+              "h24": 8.26
+            },
+            "pairCreatedAt": 1789786303000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0xa918af00d5de956492ee61fef334ca9c8a25cfbfc289df47af33324dc1452fc7",
+            "baseToken": {
+              "address": "0x3bA500F1AbabbCF0F0247D06D1c56Fd7E6C4c09D"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 32.66
+            },
+            "volume": {
+              "h24": 3.54
+            },
+            "pairCreatedAt": 1791799879000
+          }
+        ],
+        "initialize": [
+          {
+            "address": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+            "topics": [
+              "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+              "0xf49ee5b66c4e7163026e5d25e6a1f93cff46dca4d3752f712d181d9392c1d567",
+              "0x0000000000000000000000003ba500f1ababbcf0f0247d06d1c56fd7e6c4c09d",
+              "0x000000000000000000000000894e1ec2d74ffe5aef8dc8a9e84686accb964f2a"
+            ],
+            "data": "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c8000000000000000000000000e5e702641ea86f4ae6cc3cdaed2b886f976be0440000000000000000000000000000000000000000001f78e45e1cc4c66b35a1ecfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffdaaff",
+            "blockNumber": "0x373ce30",
+            "transactionHash": "0xfa4dac6b6d64ae00b34794fcbb9a5e6d6c762255b10b5649e30e25a30c5c7b48",
+            "logIndex": "0xa4"
+          },
+          {
+            "address": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+            "topics": [
+              "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+              "0xa9b026c115b9630e693307b51d0fa05a216a9c1cfbd5a090434dfe62eef39dd6",
+              "0x0000000000000000000000003ba500f1ababbcf0f0247d06d1c56fd7e6c4c09d",
+              "0x0000000000000000000000005fc5360d0400a0fd4f2af552add042d716f1d168"
+            ],
+            "data": "0x000000000000000000000000000000000000000000000000000000000000bea000000000000000000000000000000000000000000000000000000000000001e8000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000013ff06327b0b93bbdd0fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffafdb4",
+            "blockNumber": "0x3f5e56f",
+            "transactionHash": "0x45662f3fd7716dd95032666e5eded09a1a89f07f291d24fb4262bae82dc7a213",
+            "logIndex": "0x23"
+          },
+          {
+            "address": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+            "topics": [
+              "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+              "0x5ea36826ed6dc26945496eb19aa9e6f2d5d6b0b31c9924a98c71aee1217f55af",
+              "0x0000000000000000000000003ba500f1ababbcf0f0247d06d1c56fd7e6c4c09d",
+              "0x0000000000000000000000005fc5360d0400a0fd4f2af552add042d716f1d168"
+            ],
+            "data": "0x0000000000000000000000000000000000000000000000000000000000004e2000000000000000000000000000000000000000000000000000000000000000c80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000157ce4524a29f33b06afffffffffffffffffffffffffffffffffffffffffffffffffffffffffffb0353",
+            "blockNumber": "0x3f81c95",
+            "transactionHash": "0x9d43a5da7ba924181d677d3978c7220c8e94674d0afc63790c343060407cacff",
+            "logIndex": "0x1a"
+          },
+          {
+            "address": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+            "topics": [
+              "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+              "0xaf2452f42ed940852d4e0d98dc984edd8310836f31f6c271795e7912ca44eaae",
+              "0x0000000000000000000000003ba500f1ababbcf0f0247d06d1c56fd7e6c4c09d",
+              "0x0000000000000000000000005fc5360d0400a0fd4f2af552add042d716f1d168"
+            ],
+            "data": "0x0000000000000000000000000000000000000000000000000000000000004d6200000000000000000000000000000000000000000000000000000000000000c6000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007eae7c33da09bc0662fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffab552",
+            "blockNumber": "0x5725964",
+            "transactionHash": "0x3437bb986fc8fb9f7a75b0bc8fd5e3f0667e99d2be3c02f1f1575972c5830046",
+            "logIndex": "0x4"
+          },
+          {
+            "address": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+            "topics": [
+              "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+              "0x54908b51634752e61e2faa3bdd628fbf38f7c96b267db1e4dd5ee68b1fa793f0",
+              "0x0000000000000000000000003ba500f1ababbcf0f0247d06d1c56fd7e6c4c09d",
+              "0x0000000000000000000000005fc5360d0400a0fd4f2af552add042d716f1d168"
+            ],
+            "data": "0x0000000000000000000000000000000000000000000000000000000000004da800000000000000000000000000000000000000000000000000000000000000c7000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007eae7c33da09bc0662fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffab552",
+            "blockNumber": "0x56ac5f9",
+            "transactionHash": "0x3015b50e647837feb78cb3ca6d6be37d58d35fee7c6794657c7f1e967c97eb44",
+            "logIndex": "0x4"
+          },
+          {
+            "address": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+            "topics": [
+              "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+              "0x32324930c0610cf1a3320b1a9c8b3f5ba1ddb2116cbef14010d5e97db52e4260",
+              "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "0x0000000000000000000000003ba500f1ababbcf0f0247d06d1c56fd7e6c4c09d"
+            ],
+            "data": "0x0000000000000000000000000000000000000000000000000000000000004a3800000000000000000000000000000000000000000000000000000000000000be000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002d1467cdc6be482ace76921c273000000000000000000000000000000000000000000000000000000000002022b",
+            "blockNumber": "0x3f12f59",
+            "transactionHash": "0x6d647f8176610dfe78d30622ebb0417382c87fbbd67f1adaec4a2375e4820b91",
+            "logIndex": "0x3c"
+          }
+        ]
+      },
+      "RH": {
+        "token": "0x99f2e3420c1071bff35b8aef98a1339ea823ce24",
+        "pairs": [
+          {
+            "dexId": "uniswap",
+            "labels": ["v3"],
+            "pairAddress": "0xa7B6a6A6ba5c7bfe5235Cae718dD7A9138599F6F",
+            "baseToken": {
+              "address": "0x99F2e3420c1071bff35B8AEF98A1339EA823cE24"
+            },
+            "quoteToken": {
+              "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73"
+            },
+            "liquidity": {
+              "usd": 54771.96
+            },
+            "volume": {
+              "h24": 7687.87
+            },
+            "pairCreatedAt": 1790089514000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v3"],
+            "pairAddress": "0x653D5CC9e89962A93aAb2DC1244Ef34f431C28A3",
+            "baseToken": {
+              "address": "0x99F2e3420c1071bff35B8AEF98A1339EA823cE24"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 6016.11
+            },
+            "volume": {
+              "h24": 46.69
+            },
+            "pairCreatedAt": 1792000696000
+          }
+        ],
+        "initialize": []
+      },
+      "OWN": {
+        "token": "0xb933a37616ded5df47b92fbfd425223da4e77777",
+        "pairs": [
+          {
+            "dexId": "uniswap",
+            "labels": ["v2"],
+            "pairAddress": "0x36F5cEEEe2C3A59c20C425cCdBDB9A7b4dCA668A",
+            "baseToken": {
+              "address": "0xB933a37616Ded5dF47b92fbFd425223da4e77777"
+            },
+            "quoteToken": {
+              "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73"
+            },
+            "liquidity": {
+              "usd": 50147.37
+            },
+            "volume": {
+              "h24": 332087.91
+            },
+            "pairCreatedAt": 1792277365000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x5345cc33c4871b2aeeb19cb807ee2d7b10eef8a8f0a3fa0c07e3e73a1f4c4077",
+            "baseToken": {
+              "address": "0xB933a37616Ded5dF47b92fbFd425223da4e77777"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 89.99
+            },
+            "volume": {
+              "h24": 203.07
+            },
+            "pairCreatedAt": 1792289013000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x7d45be5d12a8711b5c45de1587d1af95ce0f00775322ac5da068739bcf697700",
+            "baseToken": {
+              "address": "0xB933a37616Ded5dF47b92fbFd425223da4e77777"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 11.21
+            },
+            "volume": {
+              "h24": 423.68
+            },
+            "pairCreatedAt": 1792288698000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x1eb3c1344cec7a2ec1b468466105d98a6275fc32266e93b3df0600d6f5c6b75d",
+            "baseToken": {
+              "address": "0xB933a37616Ded5dF47b92fbFd425223da4e77777"
+            },
+            "quoteToken": {
+              "address": "0x0000000000000000000000000000000000000000"
+            },
+            "liquidity": {
+              "usd": 8.5
+            },
+            "volume": {
+              "h24": 12.41
+            },
+            "pairCreatedAt": 1792290185000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x89253bc89cf452fa3df6bbf2cf78b031d828a7c010fb9671da7ba32126d144ed",
+            "baseToken": {
+              "address": "0xB933a37616Ded5dF47b92fbFd425223da4e77777"
+            },
+            "quoteToken": {
+              "address": "0x0000000000000000000000000000000000000000"
+            },
+            "liquidity": {
+              "usd": 5.2
+            },
+            "volume": {
+              "h24": 10.04
+            },
+            "pairCreatedAt": 1792290195000
+          },
+          {
+            "dexId": "flapsh",
+            "labels": null,
+            "pairAddress": "0xb319c4A4E8F6Ad5c19B190a06b9c7fE302f99cD8",
+            "baseToken": {
+              "address": "0xB933a37616Ded5dF47b92fbFd425223da4e77777"
+            },
+            "quoteToken": {
+              "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73"
+            },
+            "liquidity": {
+              "usd": null
+            },
+            "volume": {
+              "h24": 32165.75
+            },
+            "pairCreatedAt": 1792277365000
+          }
+        ],
+        "initialize": []
+      },
+      "ASTEROID": {
+        "token": "0xfd82d8db539b6ace0d50815845133767e24f1e18",
+        "pairs": [
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0x15a09db785c7b5fc9d794f685a04e4ad38842a2035b9a8fab17909c0e54c425f",
+            "baseToken": {
+              "address": "0xFd82D8DB539b6AcE0D50815845133767e24F1E18"
+            },
+            "quoteToken": {
+              "address": "0x4a0E65A3EcceC6dBe60AE065F2e7bb85Fae35eEa"
+            },
+            "liquidity": {
+              "usd": 198850.21
+            },
+            "volume": {
+              "h24": 58956.58
+            },
+            "pairCreatedAt": 1784047356000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v3"],
+            "pairAddress": "0xd7291Ee5956d53A0318cefCfb0E64d792B106992",
+            "baseToken": {
+              "address": "0xFd82D8DB539b6AcE0D50815845133767e24F1E18"
+            },
+            "quoteToken": {
+              "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73"
+            },
+            "liquidity": {
+              "usd": 1177.42
+            },
+            "volume": {
+              "h24": 559.91
+            },
+            "pairCreatedAt": 1788992310000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0xf82d284d000aec9896ad3aa0a850c4cc27804d106e2a2fbf8956a454a99efb34",
+            "baseToken": {
+              "address": "0x5B9e0EF3Ac099C93b88cEC061DDad79A40383F70"
+            },
+            "quoteToken": {
+              "address": "0xFd82D8DB539b6AcE0D50815845133767e24F1E18"
+            },
+            "liquidity": {
+              "usd": 121.19
+            },
+            "volume": {
+              "h24": 1.36
+            },
+            "pairCreatedAt": 1790404871000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v3"],
+            "pairAddress": "0x10C643fb5ECe43c340ed5598F2AF12c91CFE7188",
+            "baseToken": {
+              "address": "0xFd82D8DB539b6AcE0D50815845133767e24F1E18"
+            },
+            "quoteToken": {
+              "address": "0x1c252b71E231269D39F78765b3Ad457204561E18"
+            },
+            "liquidity": {
+              "usd": 112.17
+            },
+            "volume": {
+              "h24": 32.03
+            },
+            "pairCreatedAt": 1790457504000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0xcac4d72632414615f2c6850c737aa905f0f775cd40a7947e0a37655fcf0b644e",
+            "baseToken": {
+              "address": "0xFd82D8DB539b6AcE0D50815845133767e24F1E18"
+            },
+            "quoteToken": {
+              "address": "0x0000000000000000000000000000000000000000"
+            },
+            "liquidity": {
+              "usd": 62.61
+            },
+            "volume": {
+              "h24": 4.44
+            },
+            "pairCreatedAt": 1789180497000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v2"],
+            "pairAddress": "0x066a95631a5e8e8Eea659B3F8c5EeB5008C4b675",
+            "baseToken": {
+              "address": "0xFd82D8DB539b6AcE0D50815845133767e24F1E18"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": 5.9
+            },
+            "volume": {
+              "h24": 0.7
+            },
+            "pairCreatedAt": 1788502192000
+          },
+          {
+            "dexId": "uniswap",
+            "labels": ["v4"],
+            "pairAddress": "0xbecd5549051a85314feb302c16a392cc6586ad623cb3c02d3db4cc6e8df45596",
+            "baseToken": {
+              "address": "0xFd82D8DB539b6AcE0D50815845133767e24F1E18"
+            },
+            "quoteToken": {
+              "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+            },
+            "liquidity": {
+              "usd": null
+            },
+            "volume": {
+              "h24": 17.49
+            },
+            "pairCreatedAt": 1788967869000
+          }
+        ],
+        "initialize": [
+          {
+            "address": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+            "topics": [
+              "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+              "0x15a09db785c7b5fc9d794f685a04e4ad38842a2035b9a8fab17909c0e54c425f",
+              "0x0000000000000000000000004a0e65a3eccec6dbe60ae065f2e7bb85fae35eea",
+              "0x000000000000000000000000fd82d8db539b6ace0d50815845133767e24f1e18"
+            ],
+            "data": "0x000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000080000000000000000000000004e3468951d49f2eea976ed0d6e75ffcb44a9a5440000000000000000000000000000000000000a54f2371ed83c1dadbfdb16765900000000000000000000000000000000000000000000000000000000000267b0",
+            "blockNumber": "0x93bbfd",
+            "transactionHash": "0x32c99aa36d5be719b549f8f1349548bdd70bceac73fb5ffb7801f073c327d8b1",
+            "logIndex": "0x24"
+          }
+        ]
+      }
+    }
+  },
+  "asteroid": {
+    "token": "0xfd82d8db539b6ace0d50815845133767e24f1e18",
+    "explanation": "What is reassuring\n\nThe market read is complete, with deep liquidity and trading spread over 222 trades in 24 hours. No liquidity removal was observed, and the trading rules cannot change trade amounts. Of the supply, 79.59% circulates outside pools. The largest holder has 4.27% of it, across 2968 holder addresses.\n\nWhat deserves attention\n\nThe creator sold this token over its 96-day life and sold in 8 of 10 other checked launches, within 11 days of each. The creator also received 6.91% of supply as trading fees from the hook in 52 transfers. Six addresses received 7.71% of supply from the creator, and one of them passed its share on to 105 addresses. SEAL found 11 launches, and graduation is read only on pons, so their outcomes are unknown.\n\nWhere the signals diverge\n\nThe current holder picture looks dispersed, yet the launch window tells another story. 17 early buyers bought 17.94% of supply within 60 seconds and now hold 0.00%. Four of the addresses that bought early also received tokens from the creator, and one of them (0x7d5d\u2026) is the wallet that first funded the creator. A transfer links addresses without proving who controls them. None of the top 8 holders received tokens from the creator, so the linked addresses are no longer among the visible holders. The report is partial: only 3 holder pages were read, so smaller holders are not covered.",
+    "creatorFacts": {
+      "measured": true,
+      "note": "creator read from its Doppler launchpad 0x22e9\u2026 launch record; 11 launches found across the known launchpads",
+      "address": "0xf53e580690c1bdcab8292eaee58a479e375e372c",
+      "launched": 11,
+      "detailed": 11,
+      "graduated": 0,
+      "abandoned": 0,
+      "undetermined": 11,
+      "active": 0,
+      "checked": 10,
+      "soldIntoPool": 8,
+      "liquidityPulled": 0,
+      "feesCollected": 1,
+      "ownFees": {
+        "share": 0.069066,
+        "transfers": 52
+      },
+      "salesChecked": 10,
+      "liquidityChecked": 9,
+      "source": "deployer",
+      "role": "launcher",
+      "launchContract": "0x22e99278308b393ea1260859b181ad7e78f5eeed",
+      "launchesListed": true,
+      "transactionCount": 1405,
+      "launchpad": "Doppler launchpad 0x22e9\u2026",
+      "creatorFrom": "launch-record",
+      "notListed": ["Doppler", "contracts deployed directly"],
+      "graduation": "not-measured",
+      "ownSales": {
+        "days": 96,
+        "wholeLife": true
+      }
+    },
+    "timeline": [
+      {
+        "address": "0x52f8cb1b33ca9f1c96124c38b7d61daf90fd4877",
+        "block": 145841,
+        "sold": null,
+        "pulled": null,
+        "current": false
+      },
+      {
+        "address": "0x57c4888d7e8fcbae5fa343abdf131dbce68c297c",
+        "block": 1879975,
+        "sold": true,
+        "pulled": false,
+        "current": false
+      },
+      {
+        "address": "0x6e47d95928cb39b5e51be425aab2a5190418e943",
+        "block": 3167276,
+        "sold": true,
+        "pulled": null,
+        "current": false
+      },
+      {
+        "address": "0x0ecaadd42ab120fdf0f5e97bc731f47a72d4e43d",
+        "block": 4024560,
+        "sold": true,
+        "pulled": false,
+        "current": false
+      },
+      {
+        "address": "0x133df35d192e06e24bbad7e27548a64249345f86",
+        "block": 4368277,
+        "sold": true,
+        "pulled": false,
+        "current": false
+      },
+      {
+        "address": "0x5c2e7bb81a4c4a0c05e13e4a720303ac22ca7d90",
+        "block": 4541384,
+        "sold": true,
+        "pulled": false,
+        "current": false
+      },
+      {
+        "address": "0xa91dabfa413203c13a87d25c396a94f302fd7659",
+        "block": 6134049,
+        "sold": true,
+        "pulled": false,
+        "current": false
+      },
+      {
+        "address": "0x9c227a4a90cc6634e19e955648313ac9f25c74c8",
+        "block": 6163428,
+        "sold": true,
+        "pulled": false,
+        "current": false
+      },
+      {
+        "address": "0xfd82d8db539b6ace0d50815845133767e24f1e18",
+        "block": 9681917,
+        "sold": true,
+        "pulled": false,
+        "current": true
+      },
+      {
+        "address": "0x06f4a81efb46eede7c7a8ee96412e171fd9c2cc8",
+        "block": 14744621,
+        "sold": false,
+        "pulled": false,
+        "current": false
+      },
+      {
+        "address": "0x3c8352ce45234da2430a91ceb298fd246f2a0fd9",
+        "block": 14764044,
+        "sold": false,
+        "pulled": false,
+        "current": false
+      }
+    ]
+  },
+  "mut8": {
+    "token": "0x48d343cae84ab737c46ce63cb74c926609eb03bb",
+    "explanation": "What is reassuring\n\nNo sale by the creator and no liquidity removal were observed on this token over its whole life, which is one day. Trading is active, with buys and sells in similar numbers, and the creator's wallet was funded by an ordinary wallet with no other creators on record. The trading rules (hook) have no standard upgrade slot set, though other upgrade patterns were not checked.\n\nWhat deserves attention\n\nOnly 80.04% of the supply circulates outside pools and the lock contract, and three contracts hold about 27% each of that. The top 10 hold 87.34%. The creator's own launch transaction delivered 71.43% of the supply to 3 other addresses, all contracts, and they still hold 64.54%. That links them to the creator, though it does not show who controls them. 189 early buyers bought 97.16% of the supply in the first minute, a sum of purchases, not a holding.\n\nWhere the signals diverge\n\nThe creator's record looks quiet: no sales and no withdrawals. Yet the supply sits in a few contracts tied to the creator's launch transaction. The transfer read also found 0 holders that received tokens from the creator outside markets, so the link comes only from that launch transaction, which delivered into pools. The hook can alter trade amounts, and what it does with that power cannot be read. Distinct traders were not collected, so 671 trades cannot show breadth. The report is partial: other launches by this creator cannot be listed, graduation is undetermined, and holder pages are incomplete.",
+    "summary": {
+      "moves": 1116,
+      "earlySeconds": 60,
+      "creatorAtLaunch": 0,
+      "creatorBought": 0,
+      "creatorSold": 0,
+      "creatorFirstBuyAt": null,
+      "creatorLastSaleAt": null,
+      "creatorSaleConfirmed": false,
+      "creatorTx": {
+        "transaction": "0xc8f6de6899152ab92be1ff76b0b0a4c4d99ce9bcf67d6637a8d901f586e0449a",
+        "addresses": 3,
+        "share": 0.714285,
+        "heldNow": 0.645435,
+        "contracts": 3
+      },
+      "early": {
+        "wallets": 189,
+        "share": 0.971589,
+        "within": 59.7,
+        "heldNow": 0.645948,
+        "unread": 92,
+        "contracts": null
+      },
+      "bundle": {
+        "transaction": "0xc8f6de6899152ab92be1ff76b0b0a4c4d99ce9bcf67d6637a8d901f586e0449a",
+        "wallets": 3,
+        "share": 0.714285,
+        "seconds": 0,
+        "heldNow": 0.645435,
+        "unread": 0,
+        "contracts": 3
+      },
+      "receiptsRead": 60,
+      "receiptsWanted": 1098,
+      "balancesRead": 100,
+      "balancesWanted": 192
+    }
+  },
+  "ai": {
+    "token": "0x2e8c31162b855a2ffa90f6f8634643ad6f111e18",
+    "specialists": [
+      {
+        "specialist": "code-reuse",
+        "title": "Code Reuse",
+        "question": "Have this market\u2019s trading rules (hook) already been used by other markets?",
+        "signal": "unknown",
+        "facts": [],
+        "limits": ["the on-chain lookups for this question did not finish in time"]
+      },
+      {
+        "specialist": "wallet-age",
+        "title": "Wallet Age",
+        "question": "Did the creator\u2019s wallet exist before this launch?",
+        "signal": "unknown",
+        "facts": [],
+        "limits": ["the on-chain lookups for this question did not finish in time"]
+      },
+      {
+        "specialist": "funding-trace",
+        "title": "Funding Trace",
+        "question": "Who paid for the creator\u2019s wallet, and did they fund other creators?",
+        "signal": "unknown",
+        "facts": [],
+        "limits": ["the on-chain lookups for this question did not finish in time"]
+      },
+      {
+        "specialist": "name-clone",
+        "title": "Name Clone",
+        "question": "Does the token borrow a name it does not own, or reuse an earlier token\u2019s name?",
+        "signal": "unknown",
+        "facts": [],
+        "limits": ["the on-chain lookups for this question did not finish in time"]
+      },
+      {
+        "specialist": "holder-spread",
+        "title": "Holder Spread",
+        "question": "How much of the supply sits in a few wallets?",
+        "signal": "reassurance",
+        "facts": [
+          "6.5% of the whole supply sits in its trading pools, trading-rules contracts and burn addresses and is left out: only 93.5% is held outside them.",
+          "The largest holder (a wallet) has 3.3% of the supply held outside pools; the top 10 have 17.7%.",
+          "58487 holder addresses in total.",
+          "Outside its markets and burn addresses, the creator sent this token directly to 4 addresses, 0.1% of the supply in all: 0x8fc11454322ccc99884ab071d5f1ba6532dc491a (<0.1%), 0xcbc7e8a39a0ec84d6b0e8e0dd98655f348ecd44f (<0.1%), 0x20481f270ef6842c0938219c2a51fe13ec8435bf (<0.1%), 0xa1627ad8a4e6ad23e1085c6872079a60f985007b (<0.1%)."
+        ],
+        "limits": [
+          "Pools, launch curves, launch contracts and burn addresses are excluded; shares are over the holders actually fetched."
+        ]
+      },
+      {
+        "specialist": "creator-history",
+        "title": "Creator History",
+        "question": "What happened to the creator\u2019s previous tokens?",
+        "signal": "quiet",
+        "facts": [
+          "The creator launched 40 other token(s): 0 graduated; the creator sold into the pool on 0 of the 10 checked for sales, and liquidity removals could not be checked on them (each in the first 11 days after its launch; this token not counted)."
+        ],
+        "limits": [
+          "creator read from its Doppler launchpad 0x22e9\u2026 launch record; 41 most recent of 80 launches read in detail"
+        ]
+      },
+      {
+        "specialist": "sell-path",
+        "title": "Sell Path",
+        "question": "Can holders sell, and can the trading rules (hook) stand in the way?",
+        "signal": "quiet",
+        "facts": [
+          "No Uniswap v4 trading rules (hook) sit in front of trades: this token trades on a trading pair listed by DexScreener (0xcbdf\u2026ce27).",
+          "244 sell(s) and 83 buy(s) went through in the last 24 hours."
+        ],
+        "limits": [
+          "the pool\u2019s own contract is not read here; recent sells show that selling worked in that window"
+        ]
+      },
+      {
+        "specialist": "volume-reality",
+        "title": "Volume Reality",
+        "question": "Does the trading come from many people, or from a few addresses going back and forth?",
+        "signal": "quiet",
+        "facts": ["327 trades in 24 hours, averaging 624.46 USD each."],
+        "limits": ["distinct traders not collected"]
+      },
+      {
+        "specialist": "liquidity-move",
+        "title": "Liquidity Move",
+        "question": "Has liquidity been taken out, and can the trading rules (hook) touch withdrawals?",
+        "signal": "unknown",
+        "facts": [],
+        "limits": ["the on-chain lookups for this question did not finish in time"]
+      },
+      {
+        "specialist": "rule-change",
+        "title": "Rule Change",
+        "question": "Can the trading rules (hook) be rewritten after people have bought?",
+        "signal": "unknown",
+        "facts": [],
+        "limits": ["the on-chain lookups for this question did not finish in time"]
+      }
+    ]
+  },
+  "aml": {
+    "token": "0xd202f27a48649524b8555eac3365d366be8a1e18",
+    "explanation": "What is reassuring\n\nNone of the 6 holder addresses read received tokens from the creator, and no liquidity removal was observed in the first 11 days. The trading rules (hook) have no standard upgrade slot, though only that one pattern was checked and the token's own contract was not.\n\nWhat deserves attention\n\nIt also took tokens out of the liquidity position as collected fees without removing liquidity, and the hook paid it 0.02% of supply in 3 transfers. Only 0.15% of supply circulates outside pools and trading-rules contracts, and one wallet holds 86.13% of that sliver. The hook can alter any trade amount, and what it does with that power is not readable here.\n\nWhere the signals diverge\n\nThe market looks large, with about 8.1 million USD of liquidity and 7.3 million USD of 24-hour volume. Yet almost nothing circulates, and the 11 early buyers, who bought 11.23% of supply in the first minute, hold 0.00% today. No swap has occurred for at least an hour, despite that daily volume. The distinct traders were not collected, so whether the volume comes from many people cannot be settled. The creator's other Doppler launches cannot be listed and graduation is undetermined, so the report is partial.",
+    "creatorFacts": {
+      "measured": true,
+      "note": "creator read from its Doppler launch transaction; this address\u2019s other launches on Doppler cannot be listed from the chain",
+      "address": "0x0b4c63dcc14ea61d0108f08c851baffadcba1dc0",
+      "launched": 1,
+      "detailed": 1,
+      "graduated": 0,
+      "abandoned": 0,
+      "undetermined": 1,
+      "active": 0,
+      "checked": 1,
+      "soldIntoPool": 1,
+      "liquidityPulled": 0,
+      "feesCollected": 1,
+      "ownFees": {
+        "share": 0.000243,
+        "transfers": 3
+      },
+      "salesChecked": 1,
+      "liquidityChecked": 1,
+      "source": "deployer",
+      "role": "launcher",
+      "launchContract": "0xeb7c034704ef8dcd2d32324c1545f62fb4ad0862",
+      "launchesListed": false,
+      "transactionCount": 19,
+      "launchpad": "Doppler",
+      "creatorFrom": "transaction",
+      "notListed": ["Doppler", "contracts deployed directly"],
+      "graduation": "not-measured",
+      "ownSales": {
+        "days": 0,
+        "wholeLife": true
+      }
+    }
+  },
+  "kel": {
+    "token": "0xf703a6ef83465fbe73d0d31bb274e8dc3f3a1e18",
+    "explanation": "What is reassuring\n\nNo liquidity removal was observed on this pool, and the trading rules contract has no standard upgrade slot set, though other upgrade patterns were not checked. The creator's first funder is an ordinary wallet with no other creators on record.\n\nWhat deserves attention\n\nThe creator sold this token and took tokens out of the liquidity position without withdrawing liquidity. The trading rules paid it 0.12% of supply in fees in 1 transfer. Only 0.20% of supply circulates outside pools, so one wallet holding all of that is a very thin base. The first funder of the creator's wallet also bought in the launch window and sold again about 70 seconds later. The 3 first-minute buyers bought 5.37% of supply and hold 0.00% today. The trading rules can alter any trade amount, and what they do with that power is not readable.\n\nWhere the signals diverge\n\nThe market looks alive, with about 12,000 USD traded in 24 hours and 18,650 USD of liquidity, yet no trade has occurred for at least 6 hours. Volume is also split 34 buys to 66 sells, and distinct traders were not collected. That makes it unclear whether many people trade or a few addresses cycle. The creator record is partial: other Doppler launches cannot be listed, and graduation is undetermined. Reassuring liquidity facts therefore sit beside creator sales and fee extraction that the available history cannot put in context.",
+    "launch": {
+      "token": "0xf703a6ef83465fbe73d0d31bb274e8dc3f3a1e18",
+      "launchBlock": 90691752,
+      "launchedAt": "2026-10-17T05:46:34.000Z",
+      "windowSeconds": 600,
+      "supply": "1000000000000000000000000000",
+      "moves": [
+        {
+          "kind": "mint",
+          "seconds": 0,
+          "block": 0,
+          "actor": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "counterparty": "0x0000000000000000000000000000000000000000",
+          "actorKind": "pool",
+          "share": 0.999999,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0.99792,
+          "transaction": "0xfba374c4d5d20decfa13c791b567fe51d16ad35d69a131f0d7eae44b12a81569"
+        },
+        {
+          "kind": "buy",
+          "seconds": 11,
+          "block": 107,
+          "actor": "0x9ca561b3fd444bb0ff7a6e1441772b3623519a54",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.009249,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xb4820c9d455cefa5ec05d6e87285a12cfe8138a14ba983231881014655ece5af"
+        },
+        {
+          "kind": "buy",
+          "seconds": 19,
+          "block": 183,
+          "actor": "0xa598bd81b5d01d1cdb2346cbcd2eb1ef9c6958da",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 4.2e-5,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0x43f611a2e55ecca30e9f76e41719849be84bcc54931d0d79902ae7e8c5e04e21"
+        },
+        {
+          "kind": "buy",
+          "seconds": 28,
+          "block": 268,
+          "actor": "0x2422fe8a1ccb19189d9536583452cda95acbc7b6",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.02272,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xc7950a4c3933114d875eae05fa4be2c4d3f8c4774c09d900b427bc61b1780367"
+        },
+        {
+          "kind": "buy",
+          "seconds": 28,
+          "block": 269,
+          "actor": "0x2422fe8a1ccb19189d9536583452cda95acbc7b6",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.021668,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0x7dc7c94c8709d238a64636af65256a8011a9647cec6ab101eed2323e97cbf5c3"
+        },
+        {
+          "kind": "allocation",
+          "seconds": 35,
+          "block": 338,
+          "actor": "0xb9563d511c1db345f154dd3635bf0ab04cc44e55",
+          "counterparty": "0x2422fe8a1ccb19189d9536583452cda95acbc7b6",
+          "actorKind": "wallet",
+          "share": 0.014888,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xb62ab1f12424b5ce9f7597860c7c3844e19cc39768e6bedc08f245e5194a14e4"
+        },
+        {
+          "kind": "allocation",
+          "seconds": 35,
+          "block": 338,
+          "actor": "0xb7bb8c26cfd2fa63cd13d26b087eec585ec5966e",
+          "counterparty": "0x2422fe8a1ccb19189d9536583452cda95acbc7b6",
+          "actorKind": "wallet",
+          "share": 0.013463,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xb62ab1f12424b5ce9f7597860c7c3844e19cc39768e6bedc08f245e5194a14e4"
+        },
+        {
+          "kind": "buy",
+          "seconds": 69,
+          "block": 676,
+          "actor": "0x6310aa39429cc11a3ec592a4107beec5e0209f92",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.010464,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xf7608cdee69236b901fff6b6fdc13360cda1bceb3dae475432e70d0ccd02092b"
+        },
+        {
+          "kind": "buy",
+          "seconds": 69,
+          "block": 676,
+          "actor": "0xe7022ee6ec08483ccb9560c744f33749369e0e7d",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.010232,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0x982dab3a19d868a148374068ce363157958c1bcfeb045546e1d94c191ac8fc58"
+        },
+        {
+          "kind": "buy",
+          "seconds": 69,
+          "block": 677,
+          "actor": "0x8ee44e336aac5e6253cf39f3affca63370225e8a",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.010008,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xc9cff9bec95694003c59876408842481ccad8259bd98780b4df282f7d4a1d75e"
+        },
+        {
+          "kind": "buy",
+          "seconds": 69,
+          "block": 677,
+          "actor": "0xb805db9472a80198a95804913c620dea2373a876",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.009791,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0x5aa017cc46bb19bf2cc1a28bcc2b91266cb1faafad55c89d2faf7189ece1ac25"
+        },
+        {
+          "kind": "buy",
+          "seconds": 72,
+          "block": 705,
+          "actor": "0x150995869713ac761c9176394822f6e2b7b529fa",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.004816,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0x3650ef187280b562c6e86524bf8d1610ff2647af14363d185879196f0a9fdcc8"
+        },
+        {
+          "kind": "buy",
+          "seconds": 72,
+          "block": 705,
+          "actor": "0xcd7aeab534dcef0db6c1949d4448fc120fbf0d02",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.004765,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0x6d89d9b4192f623bcdec2a4b2bb474c85848d698dec2cbeac9523b7a96fa3735"
+        },
+        {
+          "kind": "buy",
+          "seconds": 74,
+          "block": 727,
+          "actor": "0xf9d33b7def5d8d6015ce2784e6fcf82802e247dd",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.01347,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0x96970b13e4d9541bc8341a712fec7d412d615c7a92c50c61d7ec802953957526"
+        },
+        {
+          "kind": "buy",
+          "seconds": 74,
+          "block": 727,
+          "actor": "0xb0b72fd48bd4212c77e75756a7ec977165a41657",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.016896,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0x50aec3a1b388d0bccdc027d4b9a6ab53f31020cd65c22cbd2572af0f84a80325"
+        },
+        {
+          "kind": "buy",
+          "seconds": 74,
+          "block": 727,
+          "actor": "0x873a6043fb89fdfaaa3f116b9526451836cbc892",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.012634,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0x7d364efc069cf6fdbed915933b30d4c98d0e999af8ab7cba6cc06432f9208e88"
+        },
+        {
+          "kind": "buy",
+          "seconds": 74,
+          "block": 727,
+          "actor": "0x762565c177986a09f091b32ac204aa262b3f200a",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.014405,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0x67270ba5373c3b37541ff5018cae57336b778fabe7ef3acaac3b96606323a7fa"
+        },
+        {
+          "kind": "buy",
+          "seconds": 74,
+          "block": 727,
+          "actor": "0xa580cdba20944a0d58e1198ff7e6e7e517f389dd",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.013132,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xa01178a4363dd20c195e4cb7eeb9eaa1a59d3725c175b09f58fd6ba5f7905613"
+        },
+        {
+          "kind": "sell",
+          "seconds": 83,
+          "block": 815,
+          "actor": "0x9ca561b3fd444bb0ff7a6e1441772b3623519a54",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.009249,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xdb6bfcbb9fa8ac2c3077317d29126047724f775e7c6aa5be771a1ee23b7cb567"
+        },
+        {
+          "kind": "buy",
+          "seconds": 84,
+          "block": 816,
+          "actor": "0x10afdb54ef386974759791b5bd9e6e623eac4745",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.004282,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xd5cdfd267ceeef9140da7af538e8477228bbb0911b853aebaa8941afde7aa16d"
+        },
+        {
+          "kind": "sell",
+          "seconds": 84,
+          "block": 825,
+          "actor": "0xb7bb8c26cfd2fa63cd13d26b087eec585ec5966e",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.013463,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xf9c153dd7f287cc928c4934fac5b48cc86aea496a76eec006b327f2b4753ca3d"
+        },
+        {
+          "kind": "sell",
+          "seconds": 86,
+          "block": 839,
+          "actor": "0xf9d33b7def5d8d6015ce2784e6fcf82802e247dd",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.01347,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xc0b3de1969210cbac950559ebbcdf1801f173d73524c8557a01d3ee75199142d"
+        },
+        {
+          "kind": "sell",
+          "seconds": 86,
+          "block": 839,
+          "actor": "0x873a6043fb89fdfaaa3f116b9526451836cbc892",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.012634,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xd057e9e94eed3a03c857b218620d5fbb3d5d55f0508eda85a16ceaad65a753aa"
+        },
+        {
+          "kind": "sell",
+          "seconds": 86,
+          "block": 839,
+          "actor": "0x762565c177986a09f091b32ac204aa262b3f200a",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.014405,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xaabc7f7f38131d69be74f65f547536f4bba4620fe54db36a487a04a1eab3e6d5"
+        },
+        {
+          "kind": "sell",
+          "seconds": 86,
+          "block": 839,
+          "actor": "0xb0b72fd48bd4212c77e75756a7ec977165a41657",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.016896,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0x5eda6c6220533a00513896279acd1cf954e91584a1264b98796d75a59688af6a"
+        },
+        {
+          "kind": "sell",
+          "seconds": 86,
+          "block": 839,
+          "actor": "0xa580cdba20944a0d58e1198ff7e6e7e517f389dd",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.013132,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0x4d922a9003d3ec3fa2d7e0107bd203e82098e97f48d3498c0292784dbbef88b3"
+        },
+        {
+          "kind": "buy",
+          "seconds": 90,
+          "block": 877,
+          "actor": "0x0ce258fa60b6e5470993df512eedc22e339c17f4",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.006852,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xf53c45490895ae9a5b66d7fdd576ceb35edf02daecfd7fa62338daab0e23a54c"
+        },
+        {
+          "kind": "buy",
+          "seconds": 91,
+          "block": 892,
+          "actor": "0x18c0f63dcbf237775d579a7655ef757ba1e39083",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.00952,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0x68e82d71dc4b0b62f8443773a901b5aaef973b1a990aea83e48c9a12aeb80e78"
+        },
+        {
+          "kind": "sell",
+          "seconds": 91,
+          "block": 893,
+          "actor": "0x10afdb54ef386974759791b5bd9e6e623eac4745",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.004282,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xc506acc5dc546dcfbc2b685d923a96b4bb30369c759b1589887289a7acd60890"
+        },
+        {
+          "kind": "buy",
+          "seconds": 93,
+          "block": 911,
+          "actor": "0x18c0f63dcbf237775d579a7655ef757ba1e39083",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.009407,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0x22a4af9f7bb03dc3003af740f852aa86f2ab6c3f33aaa55406e909b08885eb03"
+        },
+        {
+          "kind": "buy",
+          "seconds": 105,
+          "block": 1032,
+          "actor": "0xa7f6bc4d8429ea499726972ff2feed7bd12eb991",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.001954,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0.001954,
+          "transaction": "0xb2d0a5fa518cf8d686a8b87e2ec4e2e0c24da2bcb3ea55d1931d7dd2a871821d"
+        },
+        {
+          "kind": "buy",
+          "seconds": 115,
+          "block": 1124,
+          "actor": "0x6bbd29a1966e36a0a5ecdd7fd582218ed553edef",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.00231,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0x44643b0e72c9b39ec80d9f5ec5fb2bccaa9949e9f44a061af1fb499eac2efcc5"
+        },
+        {
+          "kind": "sell",
+          "seconds": 124,
+          "block": 1202,
+          "actor": "0xcd7aeab534dcef0db6c1949d4448fc120fbf0d02",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.004765,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0x998644141b57aa290691119184647907e45a647720240142b792a72cad1af86f"
+        },
+        {
+          "kind": "sell",
+          "seconds": 124,
+          "block": 1202,
+          "actor": "0x150995869713ac761c9176394822f6e2b7b529fa",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.004816,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0x8c51a878c4d848dc650ab53315fb20740d90c35ddcfae08bb86fd9a41fdb1e29"
+        },
+        {
+          "kind": "sell",
+          "seconds": 127,
+          "block": 1235,
+          "actor": "0x0ce258fa60b6e5470993df512eedc22e339c17f4",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.006852,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xfb8f1b8743ff4745ec02325458875bb5cd688f751e086ba690299e94692d15e3"
+        },
+        {
+          "kind": "sell",
+          "seconds": 128,
+          "block": 1247,
+          "actor": "0xb9563d511c1db345f154dd3635bf0ab04cc44e55",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.014888,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0x74d3e7b2ce6c48b1f7595c078b30e394ee886bd8a09c88a7dc9e46570e4fbf3c"
+        },
+        {
+          "kind": "buy",
+          "seconds": 136,
+          "block": 1323,
+          "actor": "0xa0b012ab788ac991688d14978b7e86ce09553e8a",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.000752,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0x4f8af7a382c03c073254b0f3edaa5dc5f651ad839a982283687adeeae2de9876"
+        },
+        {
+          "kind": "allocation",
+          "seconds": 137,
+          "block": 1327,
+          "actor": "0xb9563d511c1db345f154dd3635bf0ab04cc44e55",
+          "counterparty": "0x2422fe8a1ccb19189d9536583452cda95acbc7b6",
+          "actorKind": "wallet",
+          "share": 0.008042,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xe69c03c99d378b378b3a8713b8746d80cfded6b98de8169a1225e789a7bfa590"
+        },
+        {
+          "kind": "sell",
+          "seconds": 227,
+          "block": 2221,
+          "actor": "0x2422fe8a1ccb19189d9536583452cda95acbc7b6",
+          "counterparty": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "actorKind": "wallet",
+          "share": 0.016036,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xefbb0246b3c49b2b28b674a546a66f13843670c97f139844f743d54a9f592afc"
+        }
+      ],
+      "movesInWindow": 55,
+      "summary": {
+        "moves": 55,
+        "earlySeconds": 60,
+        "creatorAtLaunch": 0,
+        "creatorBought": 0,
+        "creatorSold": 0,
+        "creatorFirstBuyAt": null,
+        "creatorLastSaleAt": null,
+        "creatorSaleConfirmed": false,
+        "creatorTx": null,
+        "early": {
+          "wallets": 3,
+          "share": 0.05368,
+          "within": 28,
+          "heldNow": 0,
+          "unread": 0,
+          "contracts": 0
+        },
+        "bundle": null,
+        "receiptsRead": 50,
+        "receiptsWanted": 50,
+        "balancesRead": 24,
+        "balancesWanted": 24
+      }
+    },
+    "funding": {
+      "specialist": "funding-trace",
+      "title": "Funding Trace",
+      "question": "Who paid for the creator\u2019s wallet, and did they fund other creators?",
+      "signal": "quiet",
+      "facts": [
+        "The creator wallet was first funded by 0x9ca561b3fd444bb0ff7a6e1441772b3623519a54, 10 transactions.",
+        "No other token creator funded by that wallet is on record."
+      ],
+      "limits": [],
+      "funding": {
+        "kind": "wallet",
+        "linkedCreators": 0,
+        "launches": null,
+        "depth": 1,
+        "path": [
+          {
+            "address": "0x9ca561b3fd444bb0ff7a6e1441772b3623519a54",
+            "kind": "wallet",
+            "name": null,
+            "txCount": 10
+          }
+        ]
+      }
+    }
+  }
+}

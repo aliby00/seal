@@ -14,6 +14,7 @@ vi.mock('@/lib/specialists/brief', () => ({
 }));
 
 const { POST } = await import('../../src/app/api/analyze/route');
+briefSpecialists.mockResolvedValue({ answers: [], unanswered: [], name: null, symbol: null });
 const { RateLimitError, NotFoundError } = await import('../../src/lib/errors');
 const { resetRateLimits } = await import('../../src/lib/guard');
 const { analysisCache } = await import('../../src/lib/analysis-cache');
@@ -41,8 +42,14 @@ function post(body: unknown): Request {
   });
 }
 
+// The ten questions answered, unless a test says otherwise: a question
+// left unanswered makes the report partial, and it is then not cached.
+const answered = { answers: [], unanswered: [], name: null, symbol: null };
+
 afterEach(() => {
   vi.clearAllMocks();
+  briefSpecialists.mockReset();
+  briefSpecialists.mockResolvedValue(answered);
   resetRateLimits();
   analysisCache.clear();
 });
@@ -177,6 +184,57 @@ describe('configuration', () => {
     });
     explain.mockResolvedValue({ text: 'ok', cost: { costUsd: 0.01 }, violations: [] });
     await POST(post({ token: TOKEN }));
+    await POST(post({ token: TOKEN }));
+    expect(collect).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('a partial report (fourth audit)', () => {
+  // AI, 18/10/2026: served and cached with "no other launch" while the indexer had not answered.
+  it('is never cached when a read failed, even without a source note saying so', async () => {
+    collect.mockResolvedValue({
+      ...report,
+      creator: { ...report.creator, sources: [{ name: 'robinhood-rpc' }] },
+      failedReads: [{ read: 'creator-launches', note: 'the SEAL indexer did not answer' }],
+    });
+    explain.mockResolvedValue({ text: 'ok', cost: { costUsd: 0.01 }, violations: [] });
+    await POST(post({ token: TOKEN }));
+    await POST(post({ token: TOKEN }));
+    expect(collect).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('questions out of time (fifth audit)', () => {
+  // AI, 18/10/2026: six of ten questions "did not finish in time", no
+  // partial notice, and the report cached.
+  it('makes the report partial and keeps it out of the cache', async () => {
+    collect.mockResolvedValue(structuredClone(report));
+    explain.mockResolvedValue({ text: 'ok', cost: { costUsd: 0.01 }, violations: [] });
+    briefSpecialists.mockResolvedValue({
+      name: null,
+      symbol: null,
+      answers: Array.from({ length: 10 }, () => ({
+        specialist: 'code-reuse',
+        title: 't',
+        question: 'q',
+        signal: 'unknown',
+        facts: [],
+        limits: ['the on-chain lookups for this question did not finish in time'],
+      })),
+      unanswered: [
+        'code-reuse',
+        'wallet-age',
+        'funding-trace',
+        'name-clone',
+        'liquidity-move',
+        'rule-change',
+      ],
+    });
+    // The stub report has no facts to draw: the failed read is checked where the model gets it.
+    await POST(post({ token: TOKEN }));
+    expect(explain.mock.calls.at(-1)?.[0].failedReads).toEqual([
+      expect.objectContaining({ read: 'questions' }),
+    ]);
     await POST(post({ token: TOKEN }));
     expect(collect).toHaveBeenCalledTimes(2);
   });
