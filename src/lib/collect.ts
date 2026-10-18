@@ -28,7 +28,7 @@ import type {
 } from './contracts';
 import { IncompleteDataError, NotFoundError, RateLimitError, SealError } from './errors';
 import { createBudget, type RequestBudget } from './http';
-import { fetchHolderDistribution } from './holders';
+import { fetchHolderDistribution, setAsideRoles } from './holders';
 import {
   fetchHoldersFromChain,
   findFirstMint,
@@ -43,6 +43,8 @@ import {
   type DexScreenerPair,
 } from './market';
 import { POOL_MANAGER } from './chain/pools';
+import { isContractCode } from './chain/code';
+import { linkCreatorToHolders, withLinks } from './holders/links';
 import { log } from './logger';
 import { TtlCache } from './cache';
 import { indexer } from './indexer/client';
@@ -97,15 +99,33 @@ export const LAUNCH_BUDGET = 40;
 const REPLAY_RETRY_MS = 4_000;
 
 /** A pons launch names its creator in its own launch record. */
-function ponsOrigin(factory: string): CreatorOrigin {
+function ponsOrigin(factory: string, transactionCount: number | null = null): CreatorOrigin {
   return {
     source: 'pons',
     role: 'launcher',
     launchpad: { id: 'pons', name: 'pons', address: factory.toLowerCase() },
     creatorFrom: 'launch-record',
     launchesListed: true,
-    transactionCount: null,
+    transactionCount,
   };
+}
+
+/**
+ * Transactions a creator's wallet has sent; `null` for a contract or when
+ * unread. A wallet delegating under EIP-7702 has code and is still a wallet.
+ * Read for pons creators too, so the facts and the wallet-age question
+ * quote the same count (Mike: "1088 transactions" in the text, none in the facts).
+ */
+async function walletTransactionCount(rpc: RpcClient, creator: string): Promise<number | null> {
+  const [code, count] = await rpc
+    .callBatch<string>([
+      { method: 'eth_getCode', params: [creator, 'latest'] },
+      { method: 'eth_getTransactionCount', params: [creator, 'latest'] },
+    ])
+    .catch(() => []);
+  if (!code?.ok || !count?.ok || isContractCode(code.value)) return null;
+  const n = Number(count.value);
+  return Number.isFinite(n) ? n : null;
 }
 
 /**
@@ -203,6 +223,25 @@ async function otherLaunchpads(
   return merged;
 }
 
+/** Requests for the creator's links to its holders: a supply, a batch of codes, two log reads. */
+const LINKS_BUDGET = 6;
+
+/** The analysed token marked as sold by its creator. */
+function withOwnSale(history: CreatorHistory, own: (t: LaunchedToken) => boolean): CreatorHistory {
+  const tokens = history.data.tokens.map((t) => (own(t) ? { ...t, creatorDumped: true } : t));
+  return {
+    ...history,
+    data: {
+      ...history.data,
+      tokens,
+      counts: {
+        ...history.data.counts,
+        creatorDumped: tokens.filter((t) => t.creatorDumped === true).length,
+      },
+    },
+  };
+}
+
 function failed<T>(
   name: 'robinhood-rpc' | 'blockscout' | 'dexscreener',
   fetchedAt: string,
@@ -283,6 +322,18 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
   // launchpads' launches: asked for in parallel, it never blocks the rest.
   const ix = indexer();
   const indexedToken = launch && ix ? ix.token(address) : Promise.resolve(undefined);
+  // The token's v4 markets as the indexer read them: their trading rules
+  // (hooks) hold the token for the market, never for a person.
+  const indexedHooks: Promise<string[]> = ix
+    ? ix
+        .markets(address)
+        .then((answer) =>
+          (answer?.markets ?? [])
+            .map((m) => m.hook.toLowerCase())
+            .filter((h) => /^0x[0-9a-f]{40}$/.test(h) && !/^0x0{40}$/.test(h)),
+        )
+        .catch(() => [])
+    : Promise.resolve([]);
 
   // Not a pons launch: the creator is traced from the transaction of the
   // token's first mint — the launch event of a known launchpad when there is
@@ -332,8 +383,8 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     scannedRange: { fromBlock: 0, toBlock: 0 },
   });
 
-  const chainRead: CreatorHistory = launch
-    ? await settled(
+  const chainReading: Promise<CreatorHistory> = launch
+    ? settled(
         creatorHistoryCache
           .resolve(cacheKey, async () => {
             const history = await fetchCreatorHistory(launch.deployer, {
@@ -345,13 +396,16 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
             });
             // After the pons read, not alongside it: both are log queries
             // on a node that paces them.
-            const others = await otherLaunchpads(rpc, launch.deployer, latest, listedByIndexer);
+            const [others, transactionCount] = await Promise.all([
+              otherLaunchpads(rpc, launch.deployer, latest, listedByIndexer),
+              walletTransactionCount(rpc, launch.deployer),
+            ]);
             return withOtherLaunchpads(
               {
                 ...history,
                 data: {
                   ...history.data,
-                  origin: history.data.origin ?? ponsOrigin(launch.factory),
+                  origin: history.data.origin ?? ponsOrigin(launch.factory, transactionCount),
                 },
               },
               others,
@@ -370,7 +424,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
           ) as CreatorHistory,
       )
     : origin
-      ? await settled(
+      ? settled(
           creatorHistoryCache
             .resolve(cacheKey, () =>
               fetchDeployerHistory(rpc, origin, {
@@ -392,18 +446,183 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
               emptyHistory(origin.creator),
             ) as CreatorHistory,
         )
-      : (failed(
-          'robinhood-rpc',
-          collectedAt,
-          lookupError ??
-            new Error(
-              mintLog
-                ? 'no launch record found, and the transaction of its first mint could not be read — creator not available'
-                : 'no launch record found, and the token’s first mint was not found — creator not available',
-            ),
-          emptyHistory('0x'),
-        ) as CreatorHistory);
+      : Promise.resolve(
+          failed(
+            'robinhood-rpc',
+            collectedAt,
+            lookupError ??
+              new Error(
+                mintLog
+                  ? 'no launch record found, and the transaction of its first mint could not be read — creator not available'
+                  : 'no launch record found, and the token’s first mint was not found — creator not available',
+              ),
+            emptyHistory('0x'),
+          ) as CreatorHistory,
+        );
 
+  /**
+   * Holders, the launch replay and the pools' balances: they need only the
+   * creator and the launch block. A token traced from its first mint knows
+   * both before its creator's history is read, and reads them alongside it
+   * (MEME: 24 s of history, then 10 s of these, one after the other).
+   */
+  async function readRest(chainCreator: string, launchBlock: number | undefined) {
+    // Every address that holds the token for trading or for its launch, and
+    // why: none of them is a holder. The launch pool alone was passed before,
+    // and a launchpad's curve (99.9 % of a flap.sh token), the pairs listed
+    // since, the launchpad's own contracts and its lock contract all read as
+    // the largest holders.
+    // The later entries win: a launch contract that is also the curve (the
+    // flap.sh portal) is named for the curve.
+    const setAside: { address: string; role: SetAsideRole }[] = [
+      ...(origin?.launchContract
+        ? [{ address: origin.launchContract, role: 'launchpad' as const }]
+        : []),
+      ...(launch?.pool && launch.pool !== '0x'
+        ? [{ address: launch.pool, role: 'pool' as const }]
+        : []),
+      ...(origin?.venues.pools ?? []).map((address) => ({ address, role: 'pool' as const })),
+      ...(listedVenues?.pools ?? []).map((address) => ({ address, role: 'pool' as const })),
+      ...(origin?.venues.curves ?? []).map((address) => ({ address, role: 'curve' as const })),
+      ...[...new Set([...(origin?.venues.hooks ?? []), ...(await indexedHooks)])].map(
+        (address) => ({
+          address,
+          role: 'hook' as const,
+        }),
+      ),
+    ];
+    const hooks = setAside.filter((s) => s.role === 'hook').map((s) => s.address);
+    // Without a Blockscout key, a pons token's holders are rebuilt from its
+    // transfers since launch — free, and exact when the whole history is read.
+    function readHolders(): Promise<HolderDistribution> {
+      if (!options.blockscoutApiKey && latest > 0) {
+        return (async () => {
+          const holdersRpc = createRpcClient(options.rpcUrl, holdersBudget);
+          // Not a pons launch: start from the token's first mint instead.
+          const from =
+            launchBlock ??
+            (mintLog
+              ? Number(mintLog.blockNumber)
+              : await findFirstMint(holdersRpc, address, latest));
+          if (from === undefined) {
+            throw new IncompleteDataError(
+              'robinhood-rpc',
+              'the start of this token’s history could not be found',
+            );
+          }
+          return fetchHoldersFromChain(holdersRpc, address, {
+            fromBlock: from,
+            toBlock: latest,
+            setAside,
+            now,
+          });
+        })();
+      }
+      return fetchHolderDistribution(address, {
+        apiKey: options.blockscoutApiKey,
+        budget: holdersBudget,
+        setAside,
+        now,
+      }).then(async (distribution) =>
+        distribution.completeness === 'unavailable' || latest === 0
+          ? distribution
+          : {
+              ...distribution,
+              // Blockscout calls a wallet delegating under EIP-7702 a contract.
+              data: await recheckContracts(
+                createRpcClient(options.rpcUrl, createBudget(RECHECK_BUDGET)),
+                distribution.data,
+              ).catch(() => distribution.data),
+            },
+      );
+    }
+
+    // The first minutes, read on their own budget: they never cost the three blocks anything.
+    const launchFrom = launchBlock ?? (mintLog ? Number(mintLog.blockNumber) : undefined);
+    const replayOptions = {
+      launchBlock: launchFrom ?? 0,
+      latestBlock: latest,
+      // Every place the token's supply sits for trading: the launch pool,
+      // the pairs created at launch and since, a launchpad's curve.
+      pools: [
+        launch?.pool,
+        ...(origin?.venues.pools ?? []),
+        ...(origin?.venues.curves ?? []),
+        ...(listedVenues?.pools ?? []),
+      ].filter((pool): pool is string => Boolean(pool) && pool !== '0x'),
+      hooks,
+      creator: chainCreator,
+      now,
+    };
+    // The replay runs alongside the holders' rebuild, the busiest read of all:
+    // a node that turned it away is asked once more, after a pause.
+    const readReplay = async () => {
+      try {
+        return await readLaunchReplay(
+          createRpcClient(options.rpcUrl, createBudget(LAUNCH_BUDGET)),
+          address,
+          replayOptions,
+        );
+      } catch (error) {
+        if (!(error instanceof RateLimitError)) throw error;
+        await new Promise((resolve) => setTimeout(resolve, REPLAY_RETRY_MS));
+        return readLaunchReplay(
+          createRpcClient(options.rpcUrl, createBudget(LAUNCH_BUDGET)),
+          address,
+          replayOptions,
+        );
+      }
+    };
+    const replay =
+      launchFrom !== undefined && latest > 0
+        ? settled(readReplay(), (error) => {
+            log.warn('replay du lancement indisponible', { token: address, error: String(error) });
+            return undefined;
+          })
+        : Promise.resolve(undefined);
+
+    // What the token's pools hold today, against what DexScreener lists: a
+    // removal is on chain at once, the listed liquidity can lag it by hours.
+    const poolsShare =
+      latest > 0
+        ? settled(
+            readPoolsShare(
+              createRpcClient(options.rpcUrl, createBudget(POOLS_BUDGET)),
+              address,
+              // Every market the token trades on: its pairs, its curve, the v4 PoolManager.
+              [
+                ...setAside
+                  .filter((s) => s.role === 'pool' || s.role === 'curve')
+                  .map((s) => s.address),
+                POOL_MANAGER,
+              ],
+            ),
+            () => null,
+          )
+        : Promise.resolve(null);
+
+    const [holders, launchReplay, pooledNow] = await Promise.all([
+      settled<HolderDistribution>(
+        readHolders(),
+        (error) =>
+          failed(options.blockscoutApiKey ? 'blockscout' : 'robinhood-rpc', collectedAt, error, {
+            token: address,
+            countedSupply: '0',
+            holderCount: null,
+            top: [],
+            concentration: { top1: 0, top10: 0 },
+            distinctTraders: null,
+          }) as HolderDistribution,
+      ),
+      replay,
+      poolsShare,
+    ]);
+    return { holders, launchReplay, pooledNow, setAside, launchFrom };
+  }
+
+  // Not a pons launch: started now, alongside the history.
+  const early = launch ? undefined : readRest(origin?.creator ?? '0x', origin?.blockNumber);
+  const chainRead = await chainReading;
   const chain = withIndexedLaunches(chainRead, indexed, collectedAt);
 
   const graduation = await settled(
@@ -421,170 +640,74 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     () => undefined,
   );
 
-  // Without a Blockscout key, a pons token's holders are rebuilt from its
-  // transfers since launch — free, and exact when the whole history is read.
-  const launchBlock = chain.data.tokens.find(
-    (t) => t.address.toLowerCase() === address.toLowerCase(),
-  )?.launchedAtBlock;
-  // Every address that holds the token for trading or for its launch, and
-  // why: none of them is a holder. The launch pool alone was passed before,
-  // and a launchpad's curve (99.9 % of a flap.sh token), the pairs listed
-  // since, the launchpad's own contracts and its lock contract all read as
-  // the largest holders.
-  // The later entries win: a launch contract that is also the curve (the
-  // flap.sh portal) is named for the curve.
-  const setAside: { address: string; role: SetAsideRole }[] = [
-    ...(origin?.launchContract
-      ? [{ address: origin.launchContract, role: 'launchpad' as const }]
-      : []),
-    ...(launch?.pool && launch.pool !== '0x'
-      ? [{ address: launch.pool, role: 'pool' as const }]
-      : []),
-    ...(origin?.venues.pools ?? []).map((address) => ({ address, role: 'pool' as const })),
-    ...(listedVenues?.pools ?? []).map((address) => ({ address, role: 'pool' as const })),
-    ...(origin?.venues.curves ?? []).map((address) => ({ address, role: 'curve' as const })),
-  ];
-  function readHolders(): Promise<HolderDistribution> {
-    if (!options.blockscoutApiKey && latest > 0) {
-      return (async () => {
-        const holdersRpc = createRpcClient(options.rpcUrl, holdersBudget);
-        // Not a pons launch: start from the token's first mint instead.
-        const from =
-          launchBlock ??
-          (mintLog
-            ? Number(mintLog.blockNumber)
-            : await findFirstMint(holdersRpc, address, latest));
-        if (from === undefined) {
-          throw new IncompleteDataError(
-            'robinhood-rpc',
-            'the start of this token’s history could not be found',
-          );
-        }
-        return fetchHoldersFromChain(holdersRpc, address, {
-          fromBlock: from,
-          toBlock: latest,
-          setAside,
-          now,
-        });
-      })();
-    }
-    return fetchHolderDistribution(address, {
-      apiKey: options.blockscoutApiKey,
-      budget: holdersBudget,
-      setAside,
-      now,
-    }).then(async (distribution) =>
-      distribution.completeness === 'unavailable' || latest === 0
-        ? distribution
-        : {
-            ...distribution,
-            // Blockscout calls a wallet delegating under EIP-7702 a contract.
-            data: await recheckContracts(
-              createRpcClient(options.rpcUrl, createBudget(RECHECK_BUDGET)),
-              distribution.data,
-            ).catch(() => distribution.data),
+  const own = (t: LaunchedToken) => t.address.toLowerCase() === address.toLowerCase();
+  const { holders, launchReplay, pooledNow, setAside, launchFrom } = await (early ??
+    readRest(chain.data.creator, chain.data.tokens.find(own)?.launchedAtBlock));
+  const marketRead = await settled<MarketState>(
+    (async () => {
+      if ('error' in pairs) throw pairs.error;
+      return toMarketState(address, pairs.pairs, { graduation, now });
+    })(),
+    (error) =>
+      failed('dexscreener', collectedAt, error, {
+        token: address,
+        pair: null,
+        priceUsd: null,
+        liquidityUsd: null,
+        pairedEth: null,
+        graduation: null,
+        volumeUsd: null,
+        txns: null,
+        fdvUsd: null,
+        pairCreatedAt: null,
+      }) as MarketState,
+  );
+
+  // A creator sale the launch replay saw confirmed by a trade is a sale in
+  // the history too: the replay and the history must not disagree (AML).
+  const creator =
+    launchReplay?.data.summary?.creatorSaleConfirmed &&
+    chain.data.tokens.some((t) => own(t) && t.creatorDumped !== true)
+      ? withOwnSale(chain, own)
+      : chain;
+
+  // Which holders received from the creator: its own transfers, set against the list.
+  const sends = creator.data.tokens.find(own)?.creatorSends;
+  const linkedHolders =
+    sends && holders.completeness !== 'unavailable' && latest > 0
+      ? await settled(
+          (async () => {
+            const linksRpc = createRpcClient(options.rpcUrl, createBudget(LINKS_BUDGET));
+            const supply = launchReplay
+              ? BigInt(launchReplay.data.supply)
+              : BigInt(
+                  (await linksRpc.call<string>('eth_call', [
+                    { to: address, data: '0x18160ddd' },
+                    'latest',
+                  ])) || '0x0',
+                );
+            if (supply === 0n) return holders;
+            const links = await linkCreatorToHolders(linksRpc, {
+              token: address.toLowerCase(),
+              sends,
+              holders: holders.data,
+              supply,
+              setAside: new Set(
+                [...setAsideRoles({ setAside }).keys(), ...setAside.map((s) => s.address)].map(
+                  (a) => a.toLowerCase(),
+                ),
+              ),
+              fromBlock: launchFrom ?? 0,
+              toBlock: latest,
+            });
+            return { ...holders, data: withLinks(holders.data, links) };
+          })(),
+          (error) => {
+            log.warn('liens créateur illisibles', { token: address, error: String(error) });
+            return holders;
           },
-    );
-  }
-
-  // The first minutes, read on their own budget: they never cost the three blocks anything.
-  const launchFrom = launchBlock ?? (mintLog ? Number(mintLog.blockNumber) : undefined);
-  const replayOptions = {
-    launchBlock: launchFrom ?? 0,
-    latestBlock: latest,
-    // Every place the token's supply sits for trading: the launch pool,
-    // the pairs created at launch and since, a launchpad's curve.
-    pools: [
-      launch?.pool,
-      ...(origin?.venues.pools ?? []),
-      ...(origin?.venues.curves ?? []),
-      ...(listedVenues?.pools ?? []),
-    ].filter((pool): pool is string => Boolean(pool) && pool !== '0x'),
-    creator: chain.data.creator,
-    now,
-  };
-  // The replay runs alongside the holders' rebuild, the busiest read of all:
-  // a node that turned it away is asked once more, after a pause.
-  const readReplay = async () => {
-    try {
-      return await readLaunchReplay(
-        createRpcClient(options.rpcUrl, createBudget(LAUNCH_BUDGET)),
-        address,
-        replayOptions,
-      );
-    } catch (error) {
-      if (!(error instanceof RateLimitError)) throw error;
-      await new Promise((resolve) => setTimeout(resolve, REPLAY_RETRY_MS));
-      return readLaunchReplay(
-        createRpcClient(options.rpcUrl, createBudget(LAUNCH_BUDGET)),
-        address,
-        replayOptions,
-      );
-    }
-  };
-  const replay =
-    launchFrom !== undefined && latest > 0
-      ? settled(readReplay(), (error) => {
-          log.warn('replay du lancement indisponible', { token: address, error: String(error) });
-          return undefined;
-        })
-      : Promise.resolve(undefined);
-
-  // What the token's pools hold today, against what DexScreener lists: a
-  // removal is on chain at once, the listed liquidity can lag it by hours.
-  const poolsShare =
-    latest > 0
-      ? settled(
-          readPoolsShare(
-            createRpcClient(options.rpcUrl, createBudget(POOLS_BUDGET)),
-            address,
-            // Every market the token trades on: its pairs, its curve, the v4 PoolManager.
-            [
-              ...setAside
-                .filter((s) => s.role === 'pool' || s.role === 'curve')
-                .map((s) => s.address),
-              POOL_MANAGER,
-            ],
-          ),
-          () => null,
         )
-      : Promise.resolve(null);
-
-  const [holders, marketRead, launchReplay, pooledNow] = await Promise.all([
-    settled<HolderDistribution>(
-      readHolders(),
-      (error) =>
-        failed(options.blockscoutApiKey ? 'blockscout' : 'robinhood-rpc', collectedAt, error, {
-          token: address,
-          countedSupply: '0',
-          holderCount: null,
-          top: [],
-          concentration: { top1: 0, top10: 0 },
-          distinctTraders: null,
-        }) as HolderDistribution,
-    ),
-    settled<MarketState>(
-      (async () => {
-        if ('error' in pairs) throw pairs.error;
-        return toMarketState(address, pairs.pairs, { graduation, now });
-      })(),
-      (error) =>
-        failed('dexscreener', collectedAt, error, {
-          token: address,
-          pair: null,
-          priceUsd: null,
-          liquidityUsd: null,
-          pairedEth: null,
-          graduation: null,
-          volumeUsd: null,
-          txns: null,
-          fdvUsd: null,
-          pairCreatedAt: null,
-        }) as MarketState,
-    ),
-    replay,
-    poolsShare,
-  ]);
+      : holders;
 
   // No listed pair: the launch pool's own trades, counted by the indexer.
   const market = checkLiquidity(
@@ -593,8 +716,8 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
   );
 
   const completeness = combineCompleteness([
-    chain.completeness,
-    holders.completeness,
+    creator.completeness,
+    linkedHolders.completeness,
     market.completeness,
   ]);
 
@@ -608,8 +731,8 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
   return {
     token: address,
     collectedAt,
-    creator: chain,
-    holders,
+    creator,
+    holders: linkedHolders,
     market,
     ...(launchReplay ? { launch: launchReplay } : {}),
     completeness,

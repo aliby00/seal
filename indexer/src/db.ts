@@ -92,7 +92,9 @@ CREATE TABLE IF NOT EXISTS funders (
   name TEXT,
   is_contract INTEGER NOT NULL,
   tx_count INTEGER,
-  checked_at INTEGER NOT NULL
+  checked_at INTEGER NOT NULL,
+  -- 1 once the code was read: a wallet delegating under EIP-7702 has code.
+  code_checked INTEGER NOT NULL DEFAULT 0
 ) WITHOUT ROWID;
 `;
 
@@ -127,6 +129,8 @@ export type FunderRow = {
   is_contract: number;
   tx_count: number | null;
   checked_at: number;
+  /** 1 once the address's code was read; 0 for a contract profiled before. */
+  code_checked: number;
 };
 
 export type FundingRow = {
@@ -165,6 +169,15 @@ function migrate(db: DatabaseSync): void {
   if (!funding.includes('origin')) db.exec('ALTER TABLE funding ADD COLUMN origin TEXT');
   if (!funding.includes('effective')) db.exec('ALTER TABLE funding ADD COLUMN effective TEXT');
   db.exec('CREATE INDEX IF NOT EXISTS funding_effective ON funding (effective)');
+  // Funders profiled before their code was read: Blockscout flags a wallet
+  // delegating under EIP-7702 as a contract, and every contract is a
+  // service. Those stored as contracts are profiled again (code_checked = 0).
+  const funders = (db.prepare('PRAGMA table_info(funders)').all() as { name: string }[]).map(
+    (c) => c.name,
+  );
+  if (!funders.includes('code_checked')) {
+    db.exec('ALTER TABLE funders ADD COLUMN code_checked INTEGER NOT NULL DEFAULT 0');
+  }
 }
 
 export function openDb(path: string, now: () => number = Date.now) {
@@ -207,11 +220,11 @@ export function openDb(path: string, now: () => number = Date.now) {
   const getFunding = db.prepare('SELECT * FROM funding WHERE creator = ?');
   const getFunder = db.prepare('SELECT * FROM funders WHERE address = ?');
   const upsertFunder = db.prepare(
-    `INSERT INTO funders (address, kind, name, is_contract, tx_count, checked_at)
-     VALUES (?, ?, ?, ?, ?, ?)
+    `INSERT INTO funders (address, kind, name, is_contract, tx_count, checked_at, code_checked)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (address) DO UPDATE SET kind = excluded.kind, name = excluded.name,
        is_contract = excluded.is_contract, tx_count = excluded.tx_count,
-       checked_at = excluded.checked_at`,
+       checked_at = excluded.checked_at, code_checked = excluded.code_checked`,
   );
   // A tool groups by the sender behind it (NULL until read); anything else by itself.
   const regroup = db.prepare(
@@ -366,7 +379,8 @@ export function openDb(path: string, now: () => number = Date.now) {
         : row;
     },
     /** Stores a funder's profile and regroups every funding it made. */
-    setFunder(profile: FunderProfile, kind: FunderKind): void {
+    /** `codeChecked`: the address's code was read, so a contract here is not an EIP-7702 wallet. */
+    setFunder(profile: FunderProfile, kind: FunderKind, codeChecked = false): void {
       transaction(() => {
         upsertFunder.run(
           profile.address,
@@ -375,6 +389,7 @@ export function openDb(path: string, now: () => number = Date.now) {
           profile.isContract ? 1 : 0,
           profile.txCount,
           now(),
+          codeChecked ? 1 : 0,
         );
         regroup.run(kind, profile.address);
       });

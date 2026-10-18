@@ -79,6 +79,16 @@ function Story({ story }: { story: LaunchStory }) {
       label: 'taken by the creator in the launch block itself',
     });
   }
+  // Delivered by the creator's own launch transaction to other addresses:
+  // linked to the creator by that transaction, whoever controls them.
+  if (story.creatorTx && story.creatorTx.share >= 0.01) {
+    const n = story.creatorTx.addresses;
+    items.push({
+      tone: story.creatorTx.share >= 0.05 ? 'attention' : 'neutral',
+      figure: pct(story.creatorTx.share),
+      label: `delivered by the creator’s own launch transaction to ${n} ${addressesWord(n, story.creatorTx.contracts)} other than the creator’s wallet`,
+    });
+  }
   // An old replay counted the moves listed only: said, so it is not read as a total.
   const among = story.counted === 'shown' && story.partial ? ' among the moves shown' : '';
   if (early.wallets > 0) {

@@ -40,7 +40,32 @@ export type LaunchedToken = {
    * read with the sales (the analysed token only); `null` when not all read.
    */
   creatorRecipients?: number | null;
+  /**
+   * The creator took tokens out of a v4 position on this token's market
+   * without removing its liquidity: its fees collected. `null` when not all
+   * read; absent when the market's liquidity events were not read.
+   */
+  feesCollected?: boolean | null;
+  /** What the creator sent of this token outside its markets (the analysed token only). */
+  creatorSends?: CreatorSends | null;
 };
+
+/**
+ * Where the creator's own transfers of the analysed token went, outside its
+ * markets: raw amounts, so they can be set against the supply and against
+ * today's holders.
+ */
+export type CreatorSends = {
+  /** The largest recipients first, at most CREATOR_SENDS_LISTED. */
+  recipients: { address: string; value: string }[];
+  /** Distinct recipients, burn addresses excluded. */
+  distinct: number;
+  /** Sent to the zero or the 0x…dead address. */
+  burned: string;
+};
+
+/** Recipients of the creator kept by amount. */
+export const CREATOR_SENDS_LISTED = 25;
 
 /** The blocks a creator's sales were read over, and how long that is. */
 export type SalesWindow = {

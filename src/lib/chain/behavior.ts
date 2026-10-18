@@ -1,8 +1,9 @@
 import type { Address } from 'viem';
+import { CREATOR_SENDS_LISTED, type CreatorSends } from '../contracts/creator';
 import { getLogsBatched, type RawLog } from './logs';
 import { POOL_MANAGER } from './pools';
 import type { RpcClient } from './rpc';
-import { readTxNatures } from './trades';
+import { findRoutedSales, readTxNatures, SWAP_TOPICS } from './trades';
 
 /**
  * Deux signaux de comportement que le whitepaper met en avant : le créateur
@@ -22,6 +23,11 @@ export const BURN_TOPIC = '0x0c396cd989a39f4459b5fa1aed6a9a8dcdbc45908acfd67e028
 export function topicFor(address: string): string {
   return `0x${address.toLowerCase().replace(/^0x/, '').padStart(64, '0')}`;
 }
+
+const BURN = new Set([
+  '0x0000000000000000000000000000000000000000',
+  '0x000000000000000000000000000000000000dead',
+]);
 
 function addressFromTopic(topic: string | undefined): string {
   return topic ? `0x${topic.slice(26)}`.toLowerCase() : '';
@@ -67,6 +73,8 @@ export async function detectCreatorSales(
   window: BehaviorWindow,
   /** Filled with the creator's transfers read, for a caller that counts their recipients. */
   read?: { logs: RawLog[]; truncated: boolean },
+  /** The analysed token: its routed transactions are read first. */
+  focus?: string,
 ): Promise<Map<string, boolean>> {
   const result = new Map<string, boolean>(tokens.map((t) => [t.token.toLowerCase(), false]));
   if (tokens.length === 0) return result;
@@ -90,25 +98,38 @@ export async function detectCreatorSales(
   }
 
   const poolOf = new Map(tokens.map((t) => [t.token.toLowerCase(), t.pool.toLowerCase()]));
-  // Vers le pool = vente possible. Vers un autre wallet = simple transfert, ambigu.
+  // Vers le pool = vente possible. Vers un autre wallet = simple transfert,
+  // ambigu — or a sale routed through a router, which the receipt tells.
   const intoPool = new Map<string, string[]>();
+  const elsewhere: { token: string; to: string; hash: string }[] = [];
   for (const log of logs) {
     const token = log.address.toLowerCase();
-    if (addressFromTopic(log.topics[2]) !== poolOf.get(token)) continue;
+    const to = addressFromTopic(log.topics[2]);
+    if (to !== poolOf.get(token)) {
+      if (to && !BURN.has(to)) elsewhere.push({ token, to, hash: log.transactionHash });
+      continue;
+    }
     intoPool.set(token, [...(intoPool.get(token) ?? []), log.transactionHash]);
   }
-  if (intoPool.size === 0) return unseenAsUnknown(result, truncated);
 
   const pools = new Set([...poolOf.values(), POOL_MANAGER.toLowerCase()]);
-  const natures = await readTxNatures(rpc, [...intoPool.values()].flat(), pools).catch(
-    () => new Map<string, never>(),
-  );
+  const marketsOf = (token: string): ReadonlySet<string> =>
+    new Set([poolOf.get(token) ?? '', POOL_MANAGER.toLowerCase()].filter(Boolean));
+  const [natures, routed] = await Promise.all([
+    intoPool.size > 0
+      ? readTxNatures(rpc, [...intoPool.values()].flat(), pools).catch(
+          () => new Map<string, never>(),
+        )
+      : Promise.resolve(new Map<string, never>()),
+    findRoutedSales(rpc, creator, elsewhere, marketsOf, SWAP_TOPICS, focus),
+  ]);
   for (const [token, hashes] of intoPool) {
     const read = hashes.map((h) => natures.get(h));
     if (read.includes('swap')) result.set(token, true);
     // A transaction whose receipt was not read could have been a sale.
     else if (read.includes(undefined)) result.delete(token);
   }
+  for (const token of routed) result.set(token, true);
   return unseenAsUnknown(result, truncated);
 }
 
@@ -231,6 +252,37 @@ export function salesWindowDays(input: {
     return Math.max(0, Math.round((age * span) / (input.latest - input.fromBlock)));
   }
   return Math.round((span * SECONDS_PER_BLOCK) / 86_400);
+}
+
+/**
+ * What the creator sent of `token` outside its markets, by recipient, and
+ * what it burned. Read from the same transfers as its sales: no extra query.
+ */
+export function creatorSendsOf(
+  logs: readonly RawLog[],
+  token: string,
+  creator: string,
+  markets: ReadonlySet<string>,
+): CreatorSends {
+  const from = topicFor(creator);
+  const sent = new Map<string, bigint>();
+  let burned = 0n;
+  for (const log of logs) {
+    if (log.address.toLowerCase() !== token.toLowerCase()) continue;
+    if ((log.topics[1] ?? '').toLowerCase() !== from || log.topics.length !== 3) continue;
+    const to = addressFromTopic(log.topics[2]);
+    const raw = log.data.startsWith('0x') ? log.data.slice(2) : log.data;
+    if (!to || raw.length < 64) continue;
+    const value = BigInt(`0x${raw.slice(0, 64)}`);
+    if (value === 0n) continue;
+    if (BURN.has(to)) burned += value;
+    else if (!markets.has(to)) sent.set(to, (sent.get(to) ?? 0n) + value);
+  }
+  const recipients = [...sent.entries()]
+    .sort((a, b) => (b[1] > a[1] ? 1 : b[1] < a[1] ? -1 : 0))
+    .slice(0, CREATOR_SENDS_LISTED)
+    .map(([address, value]) => ({ address, value: value.toString() }));
+  return { recipients, distinct: sent.size, burned: burned.toString() };
 }
 
 /** Distinct addresses `creator` sent the token to, outside the markets and burn addresses. */

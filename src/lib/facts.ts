@@ -1,5 +1,5 @@
 import { launchpadById } from './chain/launchpads';
-import type { SetAsideRole, TokenReport } from './contracts';
+import type { CreatorLinks, SetAsideRole, TokenReport } from './contracts';
 
 /**
  * The numbers the report screen draws, taken from the collected report and
@@ -27,6 +27,12 @@ export type ReportFacts = {
     checked: number;
     soldIntoPool: number;
     liquidityPulled: number;
+    /**
+     * Launches where the creator took tokens out of a v4 position on the
+     * market without removing liquidity: fees collected (AML, +387 s).
+     * Absent from older reports.
+     */
+    feesCollected?: number;
     /** Launches where each signal was actually measured (the other may not be). */
     salesChecked: number;
     liquidityChecked: number;
@@ -66,8 +72,23 @@ export type ReportFacts = {
     pooled: number | null;
     top1: number;
     top10: number;
-    /** Largest holders, pools and burn addresses excluded. */
-    top: { address: string; share: number; kind: 'wallet' | 'contract' }[];
+    /**
+     * Largest holders, pools and burn addresses excluded. `fromCreator`: what
+     * the holder received from the creator, as a share of the whole supply,
+     * directly or `via` a contract the creator sent tokens to.
+     */
+    top: {
+      address: string;
+      share: number;
+      kind: 'wallet' | 'contract';
+      fromCreator?: { share: number; via: string | null };
+    }[];
+    /**
+     * What the creator's own transfers say about the holders: burns, the
+     * contracts that passed its tokens on, the holders that received from
+     * it. Absent when its transfers were not all read.
+     */
+    creatorLinks?: CreatorLinks;
     /**
      * Distinct addresses the creator sent this token to outside its markets:
      * when it nears the holder count, most holders received tokens rather
@@ -174,6 +195,9 @@ export function toFacts(report: TokenReport): ReportFacts {
       checked: checked.length,
       soldIntoPool: tokens.filter((t) => t.creatorDumped === true).length,
       liquidityPulled: tokens.filter((t) => t.liquidityPulled === true).length,
+      ...(tokens.some((t) => t.feesCollected === true)
+        ? { feesCollected: tokens.filter((t) => t.feesCollected === true).length }
+        : {}),
       salesChecked: tokens.filter((t) => t.creatorDumped !== null).length,
       liquidityChecked: tokens.filter((t) => t.liquidityPulled !== null).length,
       source: creator.data.origin?.source ?? null,
@@ -202,8 +226,14 @@ export function toFacts(report: TokenReport): ReportFacts {
             h.kind === 'wallet' || h.kind === 'contract',
         )
         .slice(0, TOP_SHOWN)
-        .map((h) => ({ address: h.address, share: h.share, kind: h.kind })),
+        .map((h) => ({
+          address: h.address,
+          share: h.share,
+          kind: h.kind,
+          ...(h.fromCreator ? { fromCreator: h.fromCreator } : {}),
+        })),
       ...(holders.data.setAside ? { setAside: holders.data.setAside } : {}),
+      ...(holders.data.creatorLinks ? { creatorLinks: holders.data.creatorLinks } : {}),
       ...(own?.creatorRecipients !== undefined ? { fromCreator: own.creatorRecipients } : {}),
     },
     market: {

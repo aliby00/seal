@@ -11,7 +11,15 @@ import type { Sourced } from './completeness';
  *  - `locker`: a launchpad's lock contract, holding locked liquidity;
  *  - `burn`: the zero and dead addresses.
  */
-export type SetAsideRole = 'pool' | 'pool-manager' | 'curve' | 'launchpad' | 'locker' | 'burn';
+export type SetAsideRole =
+  | 'pool'
+  | 'pool-manager'
+  | 'curve'
+  | 'launchpad'
+  | 'locker'
+  /** A market's trading rules (Uniswap v4 hook), or a contract plugged into them. */
+  | 'hook'
+  | 'burn';
 
 export type Holder = {
   address: string;
@@ -26,6 +34,24 @@ export type Holder = {
   kind: 'wallet' | 'pool' | 'burn' | 'contract';
   /** Present on set-aside addresses. */
   role?: SetAsideRole;
+  /**
+   * What this holder received from the creator, as a share of the whole
+   * supply: directly (`via` null), or through a contract the creator sent
+   * tokens to. A transfer, not a proof of who controls the address.
+   */
+  fromCreator?: { share: number; via: string | null };
+};
+
+/** What the creator's own transfers of the token say about today's holders. */
+export type CreatorLinks = {
+  /** Distinct addresses the creator sent the token to, outside its markets. */
+  sentTo: number;
+  /** Share of the supply the creator sent to a burn address. */
+  burned: number;
+  /** Listed holders that received from the creator, directly or through one contract. */
+  holders: { address: string; share: number; via: string | null }[];
+  /** Contracts the creator sent tokens to that passed them on to many addresses. */
+  distributors: { address: string; share: number; recipients: number; complete: boolean }[];
 };
 
 /** One address set aside, with its part of the whole supply (null when the supply is unknown). */
@@ -60,6 +86,8 @@ export type HolderDistributionData = {
   setAside?: SetAsideHolding[];
   /** Nombre d'adresses distinctes ayant échangé sur la période observée. */
   distinctTraders: number | null;
+  /** Links from the creator to the holders, when its transfers were all read. */
+  creatorLinks?: CreatorLinks;
 };
 
 export type HolderDistribution = Sourced<HolderDistributionData>;

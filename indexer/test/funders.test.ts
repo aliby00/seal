@@ -165,6 +165,91 @@ describe('funding stream: profiles and senders', () => {
   });
 });
 
+describe('funding stream: wallets delegating under EIP-7702 (audit 18/10/2026)', () => {
+  // GNRG's first funder: Blockscout says contract, 139 transactions; its code
+  // is a 7702 delegation (nonce 138). Every contract is a service, so it was
+  // stored as one and linked nobody.
+  const GNRG_FUNDER = '0x526cd5f2446732ed30aa78ea7e4eb38fdd2c4729';
+  const DELEGATION = '0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b';
+  const blockscout = (async (url: string) =>
+    Response.json(
+      String(url).includes('/counters')
+        ? { transactions_count: '139' }
+        : { is_contract: true, name: null, metadata: null },
+    )) as unknown as typeof fetch;
+
+  it('profiles it as a wallet, its code read by the RPC', async () => {
+    const db = memoryDb();
+    launch(db, CREATOR);
+    fund(db, CREATOR, GNRG_FUNDER);
+    const rpc = fakeRpc({
+      call: ({ method }) => (method === 'eth_getCode' ? DELEGATION : null),
+    });
+    const stream = fundingStream({
+      db,
+      apiKey: 'k',
+      log: silent,
+      rpc,
+      sleep: async () => undefined,
+      fetch: blockscout,
+    });
+    stream.prioritizeProfile(GNRG_FUNDER);
+    expect(await stream.step()).toBe(true);
+    expect(db.funder(GNRG_FUNDER)).toMatchObject({
+      kind: 'wallet',
+      is_contract: 0,
+      tx_count: 139,
+      code_checked: 1,
+    });
+  });
+
+  it('reads again a contract row stored before codes were read', async () => {
+    const db = memoryDb();
+    launch(db, CREATOR);
+    fund(db, CREATOR, GNRG_FUNDER);
+    // As stored by the earlier indexer: a contract, a service, no code read.
+    db.setFunder(
+      { address: GNRG_FUNDER, isContract: true, name: null, txCount: 139, tags: [] },
+      'service',
+    );
+    expect(db.funder(GNRG_FUNDER)).toMatchObject({ kind: 'service', code_checked: 0 });
+    const rpc = fakeRpc({
+      call: ({ method }) => (method === 'eth_getCode' ? DELEGATION : null),
+    });
+    const stream = fundingStream({
+      db,
+      apiKey: 'k',
+      log: silent,
+      rpc,
+      sleep: async () => undefined,
+      fetch: blockscout,
+    });
+    expect(await stream.step()).toBe(true);
+    expect(db.funder(GNRG_FUNDER)).toMatchObject({ kind: 'wallet', code_checked: 1 });
+    // A contract whose code was read is not read again before its time.
+    expect(await stream.step()).toBe(false);
+  });
+
+  it('adds code_checked to a funders table created before it', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'seal-funders-'));
+    const path = join(dir, 'old.db');
+    try {
+      const old = new DatabaseSync(path);
+      old.exec(`CREATE TABLE funders (address TEXT PRIMARY KEY, kind TEXT NOT NULL, name TEXT,
+        is_contract INTEGER NOT NULL, tx_count INTEGER, checked_at INTEGER NOT NULL) WITHOUT ROWID;`);
+      old
+        .prepare('INSERT INTO funders VALUES (?, ?, ?, ?, ?, ?)')
+        .run(GNRG_FUNDER, 'service', null, 1, 139, 1);
+      old.close();
+      const db = openDb(path);
+      expect(db.funder(GNRG_FUNDER)).toMatchObject({ kind: 'service', code_checked: 0 });
+      db.close();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('network walk', () => {
   /** creator ← W1 ← W2 ← W3 ← W4, each wallet funding `n` other creators. */
   function chain(n = 2) {

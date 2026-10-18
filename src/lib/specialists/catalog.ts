@@ -1,6 +1,5 @@
 import { launchpadProse } from '../chain/launchpads';
 import { NATIVE } from '../chain/pools';
-import { MAX_BEHAVIOR_TOKENS } from '../chain';
 import { OTHER_LAUNCH_SALES_DAYS } from '../contracts/creator';
 import { volumePerTrade } from '../market';
 import { whereSetAside } from '../set-aside';
@@ -455,6 +454,28 @@ const holderSpread: Specialist = {
         `The creator sent this token directly to ${fromCreator} addresses: most of the holders received it from the creator rather than buying it.`,
       );
     }
+    // Who among today's holders received from the creator: said, not left
+    // to be guessed (AGEM, moon, DELTA: the largest holder did).
+    const links = holders.data.creatorLinks;
+    if (links) {
+      const linked = holders.data.top.filter((h) => h.fromCreator);
+      for (const h of linked.slice(0, 3)) {
+        const f = h.fromCreator!;
+        facts.push(
+          f.via
+            ? `Holder ${h.address} received ${pctBounded(f.share)} of the supply from ${f.via}, a contract the creator sent tokens to.`
+            : `Holder ${h.address} received ${pctBounded(f.share)} of the supply directly from the creator.`,
+        );
+      }
+      for (const d of links.distributors) {
+        facts.push(
+          `The creator sent ${pctBounded(d.share)} of the supply to the contract ${d.address}, which passed it on to ${d.recipients} addresses.`,
+        );
+      }
+      if (links.burned >= 0.001) {
+        facts.push(`The creator sent ${pctBounded(links.burned)} of the supply to a burn address.`);
+      }
+    }
     const limits = [
       'Pools, launch curves, launch contracts and burn addresses are excluded; shares are over the holders actually fetched.',
     ];
@@ -499,8 +520,17 @@ const creatorHistory: Specialist = {
     const pulled = others.filter((t) => t.liquidityPulled === true).length;
     const dumped = others.filter((t) => t.creatorDumped === true).length;
     const graduated = others.filter((t) => t.outcome === 'graduated').length;
+    // Counted over the other launches only: the most recent checked include
+    // this one, which ASTEROID's answer counted as "other" (10 of 10).
+    const salesChecked = others.filter((t) => t.creatorDumped !== null).length;
+    const liquidityChecked = others.filter((t) => t.liquidityPulled !== null).length;
     const facts = [
-      `The creator launched ${others.length} other token(s): ${graduated} graduated, ${pulled} saw liquidity removed, ${dumped} saw the creator sell into the pool (sales and removals checked on the ${MAX_BEHAVIOR_TOKENS} most recent, in the first ${OTHER_LAUNCH_SALES_DAYS} days after each launch).`,
+      `The creator launched ${others.length} other token(s): ${graduated} graduated; ` +
+        `the creator sold into the pool on ${dumped} of the ${salesChecked} checked for sales, ` +
+        (liquidityChecked > 0
+          ? `and liquidity was removed on ${pulled} of the ${liquidityChecked} checked for removals`
+          : 'and liquidity removals could not be checked on them') +
+        ` (each in the first ${OTHER_LAUNCH_SALES_DAYS} days after its launch; this token not counted).`,
     ];
     if (pulled + dumped > 0) return finding('creator-history', 'concern', facts, limits);
     if (graduated > 0) return finding('creator-history', 'reassurance', facts, limits);
@@ -655,6 +685,14 @@ const liquidityMove: Specialist = {
       signal = 'quiet';
     } else {
       limits.push('liquidity removals on this token were not determined');
+    }
+    // Fees taken out of the market's position are tokens the creator
+    // withdrew from it, without removing the liquidity itself.
+    if (self?.feesCollected === true) {
+      facts.push(
+        'The creator collected trading fees from this token’s liquidity position, taking tokens out of the market without removing its liquidity.',
+      );
+      if (signal === 'quiet' || signal === 'unknown') signal = 'observation';
     }
 
     if (hook) {
