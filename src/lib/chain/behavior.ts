@@ -65,6 +65,8 @@ export async function detectCreatorSales(
   creator: Address,
   tokens: readonly BehaviorTarget[],
   window: BehaviorWindow,
+  /** Filled with the creator's transfers read, for a caller that counts their recipients. */
+  read?: { logs: RawLog[]; truncated: boolean },
 ): Promise<Map<string, boolean>> {
   const result = new Map<string, boolean>(tokens.map((t) => [t.token.toLowerCase(), false]));
   if (tokens.length === 0) return result;
@@ -82,6 +84,10 @@ export async function detectCreatorSales(
     },
     window,
   );
+  if (read) {
+    read.logs = logs;
+    read.truncated = truncated;
+  }
 
   const poolOf = new Map(tokens.map((t) => [t.token.toLowerCase(), t.pool.toLowerCase()]));
   // Vers le pool = vente possible. Vers un autre wallet = simple transfert, ambigu.
@@ -192,4 +198,62 @@ export async function detectLiquidityRemovals(
 
 function topicForId(id: bigint): string {
   return `0x${id.toString(16).padStart(64, '0')}`;
+}
+
+/**
+ * The analysed token's own sales are read over its whole life: a creator who
+ * sold on day 78 (ASTEROID, tx 0x765959…, a swap on the v4 PoolManager) was
+ * reported as never having sold, the read stopping at day 11. It is one
+ * token, so one address: 10 M-block windows, up to this many blocks (~140
+ * days at 0.1 s a block). Beyond, the report says up to which day it read.
+ */
+export const OWN_SALES_MAX_BLOCKS = 120_000_000;
+
+/** Seconds per block on Robinhood Chain, measured: only used when no time is known. */
+const SECONDS_PER_BLOCK = 0.101;
+
+/**
+ * How long a sales window is, in days from the launch. With the launch time
+ * and the time now, a window that reached the latest block is the token's
+ * age; a shorter one is that age in proportion.
+ */
+export function salesWindowDays(input: {
+  fromBlock: number;
+  toBlock: number;
+  latest: number;
+  launchedAt: string | null;
+  now: Date;
+}): number | null {
+  const span = Math.max(0, input.toBlock - input.fromBlock);
+  const launched = input.launchedAt ? Date.parse(input.launchedAt) : NaN;
+  if (Number.isFinite(launched) && input.latest > input.fromBlock) {
+    const age = (input.now.getTime() - launched) / 86_400_000;
+    return Math.max(0, Math.round((age * span) / (input.latest - input.fromBlock)));
+  }
+  return Math.round((span * SECONDS_PER_BLOCK) / 86_400);
+}
+
+/** Distinct addresses `creator` sent the token to, outside the markets and burn addresses. */
+export function distinctRecipients(
+  logs: readonly RawLog[],
+  token: string,
+  creator: string,
+  markets: ReadonlySet<string>,
+): number {
+  const from = topicFor(creator);
+  const out = new Set<string>();
+  for (const log of logs) {
+    if (log.address.toLowerCase() !== token.toLowerCase()) continue;
+    if ((log.topics[1] ?? '').toLowerCase() !== from) continue;
+    const to = addressFromTopic(log.topics[2]);
+    if (
+      !to ||
+      markets.has(to) ||
+      /^0x0{40}$/.test(to) ||
+      to === '0x000000000000000000000000000000000000dead'
+    )
+      continue;
+    out.add(to);
+  }
+  return out.size;
 }

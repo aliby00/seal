@@ -51,6 +51,12 @@ export type ReportFacts = {
      * read, or a step that does not exist for this token.
      */
     graduation?: 'measured' | 'not-measured' | 'not-applicable';
+    /**
+     * Over how long the analysed token's own sales were read: its whole life
+     * so far, or up to a day. The other launches are read over their first
+     * OTHER_LAUNCH_SALES_DAYS. Absent when not checked, or from older reports.
+     */
+    ownSales?: { days: number | null; wholeLife: boolean } | null;
   };
   holders: {
     measured: boolean;
@@ -62,6 +68,12 @@ export type ReportFacts = {
     top10: number;
     /** Largest holders, pools and burn addresses excluded. */
     top: { address: string; share: number; kind: 'wallet' | 'contract' }[];
+    /**
+     * Distinct addresses the creator sent this token to outside its markets:
+     * when it nears the holder count, most holders received tokens rather
+     * than bought them. Absent when not read.
+     */
+    fromCreator?: number | null;
     /**
      * Where the part set aside sits: pools, curves, launch contracts, burn.
      * Optional: absent from reports cached before it was recorded.
@@ -134,6 +146,7 @@ function graduationOf(
 export function toFacts(report: TokenReport): ReportFacts {
   const { creator, holders, market } = report;
   const tokens = creator.data.tokens;
+  const own = tokens.find((t) => String(t.address).toLowerCase() === report.token.toLowerCase());
   const checked = tokens.filter((t) => t.creatorDumped !== null || t.liquidityPulled !== null);
   const note = (sources: { note?: string }[]) => sources.find((s) => s.note)?.note;
 
@@ -162,6 +175,9 @@ export function toFacts(report: TokenReport): ReportFacts {
       creatorFrom: creator.data.origin?.creatorFrom ?? null,
       notListed: creator.data.origin?.launchpadsNotRead ?? [],
       graduation: graduationOf(creator.data.origin),
+      ...(own?.salesWindow && own.creatorDumped !== null
+        ? { ownSales: { days: own.salesWindow.days, wholeLife: own.salesWindow.wholeLife } }
+        : {}),
     },
     holders: {
       measured: holders.completeness !== 'unavailable',
@@ -178,6 +194,7 @@ export function toFacts(report: TokenReport): ReportFacts {
         .slice(0, TOP_SHOWN)
         .map((h) => ({ address: h.address, share: h.share, kind: h.kind })),
       ...(holders.data.setAside ? { setAside: holders.data.setAside } : {}),
+      ...(own?.creatorRecipients !== undefined ? { fromCreator: own.creatorRecipients } : {}),
     },
     market: {
       measured: market.completeness !== 'unavailable',

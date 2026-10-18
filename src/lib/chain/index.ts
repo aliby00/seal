@@ -17,9 +17,13 @@ import { fetchBlockTimestamps, fetchGraduationStatusOf, type GraduationStatus } 
 import {
   detectCreatorSales,
   detectLiquidityRemovals,
+  distinctRecipients,
+  OWN_SALES_MAX_BLOCKS,
+  salesWindowDays,
   TRANSFER_TOPIC,
   type LaunchPosition,
 } from './behavior';
+import { POOL_MANAGER } from './pools';
 import { classifyLogError, createRpcClient, DEFAULT_RPC_URL, type RpcClient } from './rpc';
 
 export * from './rpc';
@@ -322,18 +326,22 @@ export async function fetchCreatorHistory(
   // the token being analysed), each over its first BEHAVIOR_WINDOW_BLOCKS: one
   // query per token and per signal. Reading every launch over its whole life
   // cost 400 queries for a creator with 76 tokens — 100 s on the public node.
+  const isFocus = (token: string) => token.toLowerCase() === options.focus?.toLowerCase();
   const watched = launches
-    .filter(
-      (l, i) =>
-        i >= launches.length - MAX_BEHAVIOR_TOKENS ||
-        l.token.toLowerCase() === options.focus?.toLowerCase(),
-    )
+    .filter((l, i) => i >= launches.length - MAX_BEHAVIOR_TOKENS || isFocus(l.token))
     .map((l) => ({
       token: l.token,
       pool: l.pool,
       fromBlock: l.blockNumber,
       toBlock: Math.min(latest, l.blockNumber + BEHAVIOR_WINDOW_BLOCKS - 1),
     }));
+  // The analysed token's own sales over its whole life (up to a cap): a sale
+  // on day 78 is a sale. Liquidity keeps the launch window, one query each.
+  const salesWatched = watched.map((w) =>
+    isFocus(w.token)
+      ? { ...w, toBlock: Math.min(latest, w.fromBlock + OWN_SALES_MAX_BLOCKS - 1) }
+      : w,
+  );
   const window = { fromBlock: scanned.fromBlock, toBlock: scanned.toBlock };
   const positions = await launchPositions(rpc, launches, watched);
   // Un échec ici donne une Map vide, donc `null` par token plus bas : on ne
@@ -347,15 +355,22 @@ export async function fetchCreatorHistory(
     )
     .slice(-MAX_ACTIVITY_CHECKS)
     .map((l) => l.token);
+  const transfers = { logs: [] as RawLog[], truncated: true };
   const [sold, pulled, activity] = await Promise.all([
-    detectCreatorSales(rpc, creator, watched, window).catch(() => new Map<string, boolean>()),
+    detectCreatorSales(rpc, creator, salesWatched, window, transfers).catch(
+      () => new Map<string, boolean>(),
+    ),
     detectLiquidityRemovals(rpc, positions, window).catch(() => new Map<string, boolean>()),
     readRecentActivity(rpc, candidates, latest).catch(() => new Map<string, boolean>()),
   ]);
 
+  const salesWindowFor = new Map(salesWatched.map((w) => [w.token.toLowerCase(), w]));
+  const now = options.now ?? (() => new Date());
   const tokens: LaunchedToken[] = launches.map((launch, i) => {
     const status = statuses[i] ?? null;
     const key = launch.token.toLowerCase();
+    const salesRead = salesWindowFor.get(key);
+    const focus = isFocus(launch.token);
     return {
       address: launch.token,
       pool: launch.pool,
@@ -367,6 +382,34 @@ export async function fetchCreatorHistory(
       // pas arrivé ». La complétude du bloc porte déjà cette nuance.
       liquidityPulled: pulled.get(key) ?? null,
       creatorDumped: sold.get(key) ?? null,
+      ...(salesRead && sold.has(key)
+        ? {
+            salesWindow: {
+              fromBlock: salesRead.fromBlock,
+              toBlock: salesRead.toBlock,
+              days: salesWindowDays({
+                fromBlock: salesRead.fromBlock,
+                toBlock: salesRead.toBlock,
+                latest,
+                launchedAt: timestamps[i] ?? null,
+                now: now(),
+              }),
+              wholeLife: salesRead.toBlock >= latest,
+            },
+          }
+        : {}),
+      ...(focus
+        ? {
+            creatorRecipients: transfers.truncated
+              ? null
+              : distinctRecipients(
+                  transfers.logs,
+                  launch.token,
+                  creator,
+                  new Set([launch.pool.toLowerCase(), POOL_MANAGER.toLowerCase()]),
+                ),
+          }
+        : {}),
     };
   });
 

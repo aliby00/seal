@@ -1,4 +1,5 @@
 import type { LaunchMove, LaunchReplay, TokenReport } from '../contracts';
+import { OTHER_LAUNCH_SALES_DAYS } from '../contracts/creator';
 import { roleWord, whereSetAside } from '../set-aside';
 import type { SpecialistAnswer } from '../specialists/brief';
 
@@ -98,9 +99,22 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
   const salesChecked = c.tokens.filter((t) => t.creatorDumped !== null);
   const liquidityChecked = c.tokens.filter((t) => t.liquidityPulled !== null);
   if (salesChecked.length > 0) {
+    const own = salesChecked.find(
+      (t) => String(t.address).toLowerCase() === report.token.toLowerCase(),
+    );
+    const w = own?.salesWindow;
+    const ownWindow = w
+      ? w.wholeLife
+        ? `ce token-ci lu sur toute sa vie jusqu’à aujourd’hui${w.days !== null ? ` (${w.days} jours)` : ''}`
+        : `ce token-ci lu jusqu’au jour ${w.days ?? '?'} après son lancement seulement`
+      : null;
     lines.push(
       `Ventes du créateur dans le marché : sur ${salesChecked.length} lancements vérifiés, ` +
-        `${salesChecked.filter((t) => t.creatorDumped === true).length} (dans les ~11 jours suivant chaque lancement).`,
+        `${salesChecked.filter((t) => t.creatorDumped === true).length} (` +
+        (ownWindow
+          ? `${ownWindow} ; les autres lancements dans les ${OTHER_LAUNCH_SALES_DAYS} premiers jours après chacun`
+          : `dans les ${OTHER_LAUNCH_SALES_DAYS} premiers jours après chaque lancement`) +
+        '). Dis la fenêtre quand tu cites ces ventes.',
     );
   }
   if (liquidityChecked.length > 0) {
@@ -146,6 +160,15 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
     for (const aside of (h.setAside ?? []).slice(0, 4)) {
       lines.push(
         `- mis de côté : ${aside.address} (${roleWord(aside.role)})${aside.share !== null ? ` : ${(aside.share * 100).toFixed(2)} % de l'offre totale` : ''}`,
+      );
+    }
+    const ownToken = report.creator.data.tokens.find(
+      (t) => String(t.address).toLowerCase() === report.token.toLowerCase(),
+    );
+    const sent = ownToken?.creatorRecipients ?? null;
+    if (sent !== null && h.holderCount !== null && sent >= h.holderCount / 2) {
+      lines.push(
+        `Le créateur a envoyé ce token directement à ${sent} adresses (hors marchés) pour ${h.holderCount} détenteurs : la plupart l’ont reçu du créateur, pas acheté. Ne présente pas le nombre de détenteurs comme rassurant.`,
       );
     }
     lines.push(`Part du premier détenteur : ${(h.concentration.top1 * 100).toFixed(2)} %`);

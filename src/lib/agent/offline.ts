@@ -1,3 +1,4 @@
+import { OTHER_LAUNCH_SALES_DAYS } from '../contracts/creator';
 import type { TokenReport } from '../contracts';
 import type { SpecialistAnswer } from '../specialists/brief';
 import { volumePerTrade } from '../market';
@@ -51,13 +52,24 @@ function deployerAccount(report: TokenReport): string {
   const sales = data.tokens.filter((t) => t.creatorDumped !== null);
   const liquidity = data.tokens.filter((t) => t.liquidityPulled !== null);
   if (sales.length > 0) {
+    const own = sales.find((t) => String(t.address).toLowerCase() === report.token.toLowerCase());
+    const window = own?.salesWindow;
+    const ownWords = window
+      ? window.wholeLife
+        ? `this token over its whole life so far${window.days !== null ? ` (${window.days} days)` : ''}`
+        : `this token up to day ${window.days ?? '?'} after its launch`
+      : null;
+    const others = sales.length - (own ? 1 : 0);
     sentences.push(
-      `Of ${sales.length} launch${sales.length === 1 ? '' : 'es'} checked, the creator sold into the market on ${sales.filter((t) => t.creatorDumped).length} within about 11 days of launch.`,
+      `Of ${sales.length} launch${sales.length === 1 ? '' : 'es'} checked, the creator sold into the market on ${sales.filter((t) => t.creatorDumped).length}` +
+        (ownWords
+          ? ` (sales read for ${ownWords}${others > 0 ? `, and in the first ${OTHER_LAUNCH_SALES_DAYS} days after each other launch` : ''}).`
+          : ` within the first ${OTHER_LAUNCH_SALES_DAYS} days after each launch.`),
     );
   }
   if (liquidity.length > 0) {
     sentences.push(
-      `Of ${liquidity.length} with a market that could be read, liquidity was removed on ${liquidity.filter((t) => t.liquidityPulled).length} over the same window.`,
+      `Of ${liquidity.length} with a market that could be read, liquidity was removed on ${liquidity.filter((t) => t.liquidityPulled).length} in the first ${OTHER_LAUNCH_SALES_DAYS} days after each launch.`,
     );
   }
   sentences.push(

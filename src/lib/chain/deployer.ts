@@ -1,6 +1,13 @@
 import type { Address } from 'viem';
-import type { CreatorHistory, CreatorOrigin, LaunchedToken } from '../contracts';
-import { TRANSFER_TOPIC, topicFor, BURN_TOPIC } from './behavior';
+import type { CreatorHistory, CreatorOrigin, LaunchedToken, SalesWindow } from '../contracts';
+import {
+  BURN_TOPIC,
+  distinctRecipients,
+  OWN_SALES_MAX_BLOCKS,
+  salesWindowDays,
+  TRANSFER_TOPIC,
+  topicFor,
+} from './behavior';
 import { isContractCode } from './code';
 import { fetchBlockTimestamps } from './graduation';
 import {
@@ -63,6 +70,20 @@ export const V4_INITIALIZE_TOPIC =
 /** Uniswap v4 `ModifyLiquidity(bytes32,address,int24,int24,int256,bytes32)`. */
 export const MODIFY_LIQUIDITY_TOPIC =
   '0xf208f4912782fd25c7f114ca3723a2d5dd6f3bcc3ac8db5af63baa85f711d5ec';
+
+/** A sales window, with how many days it covers. */
+export function salesWindowOf(
+  window: { fromBlock: number; toBlock: number },
+  latest: number,
+  launchedAt: string | null,
+  now: () => Date,
+): SalesWindow {
+  return {
+    ...window,
+    days: salesWindowDays({ ...window, latest, launchedAt, now: now() }),
+    wholeLife: window.toBlock >= latest,
+  };
+}
 
 /** Launches read in detail, and launches whose sales and liquidity are checked. */
 export const MAX_DETAILED_DEPLOYER_LAUNCHES = 40;
@@ -620,7 +641,8 @@ export async function fetchDeployerHistory(
   origin: TokenOrigin,
   options: DeployerHistoryOptions,
 ): Promise<CreatorHistory> {
-  const fetchedAt = (options.now ?? (() => new Date()))().toISOString();
+  const now = options.now ?? (() => new Date());
+  const fetchedAt = now().toISOString();
   const latest = options.latestBlock;
   const creator = origin.creator;
   const registry = origin.registry;
@@ -770,13 +792,32 @@ export async function fetchDeployerHistory(
     for (const id of venues.get(l.token)?.v4Markets ?? []) tokenOfMarket.set(id, l.token);
   }
 
+  // The analysed token's own sales are read over its whole life, up to a
+  // cap; the other launches' over their first ~11 days. One token is one
+  // address: a busy one is split rather than given up.
+  const ownWindow = {
+    fromBlock: origin.blockNumber,
+    toBlock: Math.min(latest, origin.blockNumber + OWN_SALES_MAX_BLOCKS - 1),
+  };
+  const ownTarget = salesTargets.find((l) => l.token === origin.token);
+  const otherTargets = salesTargets.filter((l) => l.token !== origin.token);
   const none = { logs: [] as RawLog[], truncated: false };
-  const [sales, liquidityLogs, timestamps] = await Promise.all([
-    salesTargets.length
+  const [ownSales, otherSales, liquidityLogs, timestamps] = await Promise.all([
+    ownTarget
       ? getLogsBatched(
           rpc,
           {
-            addresses: salesTargets.map((l) => ({ address: l.token, ...windowOf(l) })),
+            addresses: [{ address: ownTarget.token, ...ownWindow }],
+            topics: [TRANSFER_TOPIC, topicFor(creator)],
+          },
+          { fromBlock: 0, toBlock: latest },
+        ).catch(() => ({ logs: [], truncated: true }))
+      : Promise.resolve(none),
+    otherTargets.length
+      ? getLogsBatched(
+          rpc,
+          {
+            addresses: otherTargets.map((l) => ({ address: l.token, ...windowOf(l) })),
             topics: [TRANSFER_TOPIC, topicFor(creator)],
           },
           { fromBlock: 0, toBlock: latest },
@@ -810,7 +851,8 @@ export async function fetchDeployerHistory(
   // contract keeps the older reading: a transfer into it is a sale on its curve.
   const sold = new Map(salesTargets.map((l) => [l.token, false]));
   const intoMarket: { token: string; hash: string }[] = [];
-  for (const log of sales.logs) {
+  // The analysed token's transfers first: its receipts are read before the others'.
+  for (const log of [...ownSales.logs, ...otherSales.logs]) {
     const token = lower(log.address);
     const to = fromTopic(log.topics[2]);
     const venue = venues.get(token);
@@ -835,7 +877,25 @@ export async function fetchDeployerHistory(
   }
   // A transaction whose receipt was not read could have been a sale.
   for (const token of unread) if (!sold.get(token)) sold.delete(token);
-  const soldKnown = unseenAsUnknown(sold, sales.truncated);
+  // A window not read leaves "no sale" unknown, for the tokens it covered only.
+  const soldKnown = new Map(
+    [...sold].filter(
+      ([token, seen]) =>
+        seen || !(token === origin.token ? ownSales.truncated : otherSales.truncated),
+    ),
+  );
+  // Whom the creator sent the analysed token to, outside its markets: an
+  // airdrop to thousands is why a token has thousands of holders.
+  const ownMarkets = new Set([
+    ...own.saleRecipients,
+    ...own.pools,
+    ...(own.curves ?? []),
+    lower(POOL_MANAGER),
+  ]);
+  const creatorRecipients =
+    ownTarget && !ownSales.truncated
+      ? distinctRecipients(ownSales.logs, origin.token, creator, ownMarkets)
+      : null;
 
   const liquidityTargets = new Set([...tokenOfPool.values(), ...tokenOfMarket.values()]);
   // Removals of any liquidity on the token's markets, by anyone.
@@ -877,6 +937,17 @@ export async function fetchDeployerHistory(
       liquidityPulled: checkedTokens.has(l.token) ? (pulledKnown.get(l.token) ?? null) : null,
       creatorDumped: checkedTokens.has(l.token) ? (soldKnown.get(l.token) ?? null) : null,
       ...(l.launchpad ? { launchpad: l.launchpad.name } : {}),
+      ...(checkedTokens.has(l.token)
+        ? {
+            salesWindow: salesWindowOf(
+              l.token === origin.token ? ownWindow : windowOf(l),
+              latest,
+              timestamps[i] ?? null,
+              now,
+            ),
+          }
+        : {}),
+      ...(l.token === origin.token ? { creatorRecipients } : {}),
     };
   });
 

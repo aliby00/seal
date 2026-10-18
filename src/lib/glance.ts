@@ -1,3 +1,4 @@
+import { OTHER_LAUNCH_SALES_DAYS } from './contracts/creator';
 import type { LaunchReplayData } from './contracts/launch';
 import type { ReportFacts, TimelineLaunch } from './facts';
 import { addressesWord, buildStory } from './launch-story';
@@ -63,10 +64,51 @@ function spanOf(timeline: TimelineLaunch[] | undefined): { days: number; words: 
   return { days, words: days === 1 ? 'within a day' : `in ${days} days` };
 }
 
-function salesItem(creator: ReportFacts['creator']): GlanceItem | null {
+/** "over its whole life so far (78 days)", "up to day 140", or nothing when unknown. */
+export function ownSalesWords(own: ReportFacts['creator']['ownSales']): string | null {
+  if (!own) return null;
+  const days =
+    own.days === null ? null : own.days < 1 ? 'less than a day' : plural(own.days, 'day');
+  if (own.wholeLife) return `over its whole life so far${days ? ` (${days})` : ''}`;
+  return own.days !== null ? `up to day ${own.days} after its launch` : null;
+}
+
+function salesItem(
+  creator: ReportFacts['creator'],
+  launch: LaunchReplayData | undefined,
+): GlanceItem | null {
   const checked = creator.salesChecked ?? creator.checked;
   if (!creator.measured || checked === 0) return null;
   const sold = creator.soldIntoPool;
+  const own = ownSalesWords(creator.ownSales);
+  // Each launch is read over its own window, and the reader is told which.
+  const detail = own
+    ? checked === 1
+      ? `Sales of this token checked ${own}, confirmed by a trade in its market.`
+      : `This token’s sales checked ${own}; the creator’s other launches in the first ${OTHER_LAUNCH_SALES_DAYS} days after each. Each confirmed by a trade in the market.`
+    : `Sales checked in the first ${OTHER_LAUNCH_SALES_DAYS} days after each launch, confirmed by a trade in the pool.`;
+  // A buy sold back at once is a round trip, not a creator selling an allocation.
+  const summary = launch?.summary;
+  const roundTrip =
+    checked === 1 &&
+    sold === 1 &&
+    summary &&
+    summary.creatorBought > 0 &&
+    summary.creatorFirstBuyAt !== null &&
+    summary.creatorLastSaleAt !== null &&
+    Math.abs(summary.creatorSold - summary.creatorBought) <= summary.creatorBought * 0.01
+      ? Math.round(summary.creatorLastSaleAt - summary.creatorFirstBuyAt)
+      : null;
+  if (roundTrip !== null && summary) {
+    return {
+      id: 'sales',
+      tone: 'neutral',
+      figure: pct(summary.creatorBought),
+      title: `The creator bought ${pct(summary.creatorBought)} of the supply, then sold back the same amount ${roundTrip} s later.`,
+      detail,
+      href: '#launch-title',
+    };
+  }
   const title =
     sold === 0
       ? checked === 1
@@ -82,7 +124,7 @@ function salesItem(creator: ReportFacts['creator']): GlanceItem | null {
     tone: sold > 0 ? 'attention' : 'reassuring',
     figure: `${sold}/${checked}`,
     title,
-    detail: 'Sales found in each launch’s first days, confirmed by a trade in the pool.',
+    detail,
     href: '#fact-creator',
   };
 }
@@ -326,7 +368,7 @@ const ORDER: Record<GlanceTone, number> = { attention: 0, neutral: 1, reassuring
 export function buildGlance({ facts, timeline, launch, specialists }: GlanceInput): Glance | null {
   if (!facts) return null;
   const candidates = [
-    salesItem(facts.creator),
+    salesItem(facts.creator, launch),
     networkItem(specialists),
     recordItem(facts.creator, timeline),
     liquidityItem(facts.creator),

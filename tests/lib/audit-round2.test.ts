@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { draftMoves, readLaunchReplay, separateLiquidity } from '../../src/lib/chain/launch';
+import { fetchDeployerHistory } from '../../src/lib/chain/deployer';
 import { classifyFunder as appClassifyFunder } from '../../src/lib/chain/funder-kind';
 import { firstIncoming, sentBy } from '../../src/lib/chain/funding';
 import type { RawLog } from '../../src/lib/chain/logs';
@@ -514,5 +515,143 @@ describe('funding: an unwrap is not a funding, a contract is not a wallet (bug 3
       'a high-volume service (an upgradeable contract, 2,973,472 transactions)',
     );
     expect(describeContract('ERC1967Proxy')).toBe('an upgradeable contract');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Creator sales over the analysed token's whole life (bug 4)
+
+describe('creator sales: the analysed token is read over its whole life (bug 4)', () => {
+  const ASTEROID = '0xfd82d8db539b6ace0d50815845133767e24f1e18';
+  const CREATOR = '0xf53e580690c1bdcab8292eaee58a479e375e372c';
+  const SALE_TX = '0x7659595f90e75b2cc27dfb06143f1aa1d6141fa201c6001780443d493f9567ee';
+  const V4_SWAP = '0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f';
+  const LAUNCH = 9_681_917;
+  const SALE = 77_427_045;
+  const LATEST = 91_320_000;
+
+  it('ASTEROID: the creator’s day-78 sale on the v4 PoolManager is found', async () => {
+    const asked: { fromBlock: number; toBlock: number }[] = [];
+    const rpc = {
+      async call() {
+        throw new Error('not used');
+      },
+      async callBatch(batch: { method: string; params: unknown[] }[]) {
+        return batch.map((r) => {
+          const p = r.params[0] as { address?: string; fromBlock?: string; toBlock?: string };
+          let value: unknown = null;
+          if (r.method === 'eth_getLogs') {
+            const from = Number(p.fromBlock);
+            const to = Number(p.toBlock);
+            if (p.address === ASTEROID) asked.push({ fromBlock: from, toBlock: to });
+            value =
+              p.address === ASTEROID && from <= SALE && SALE <= to
+                ? [
+                    {
+                      address: ASTEROID,
+                      topics: [TRANSFER, pad(CREATOR), pad(POOL_MANAGER)],
+                      data: `0x${(405_054n * 10n ** 18n).toString(16).padStart(64, '0')}`,
+                      blockNumber: `0x${SALE.toString(16)}`,
+                      transactionHash: SALE_TX,
+                      logIndex: '0x1',
+                    },
+                  ]
+                : [];
+          } else if (r.method === 'eth_getCode') value = '0x';
+          else if (r.method === 'eth_getTransactionCount') value = '0x57c';
+          else if (r.method === 'eth_getBlockByNumber') value = { timestamp: '0x68756e9c' };
+          else if (r.method === 'eth_getTransactionReceipt')
+            value = {
+              contractAddress: null,
+              logs: [{ address: POOL_MANAGER, topics: [V4_SWAP], data: '0x' }],
+            };
+          return { ok: true, value };
+        });
+      },
+    } as unknown as RpcClient;
+    const history = await fetchDeployerHistory(
+      rpc,
+      {
+        token: ASTEROID,
+        creator: CREATOR,
+        role: 'launcher',
+        blockNumber: LAUNCH,
+        transactionHash: '0xlaunch',
+        venues: {
+          pools: [],
+          v4Markets: ['0x15a09db785c7b5fc9d794f685a04e4ad38842a2035b9a8fab17909c0e54c425f'],
+          saleRecipients: [POOL_MANAGER],
+        },
+      },
+      { latestBlock: LATEST, maxListingQueries: 0, now: () => new Date('2026-10-18T00:00:00Z') },
+    );
+    const own = history.data.tokens.find((t) => t.address === ASTEROID);
+    expect(own?.creatorDumped).toBe(true);
+    expect(own?.salesWindow).toMatchObject({ fromBlock: LAUNCH, toBlock: LATEST, wholeLife: true });
+    // Read in 10 M-block windows up to the latest block, not the first 11 days only.
+    expect(Math.max(...asked.map((a) => a.toBlock))).toBe(LATEST);
+  });
+
+  it('says over which days each launch was read', () => {
+    const f = glanceFacts({});
+    f.creator = {
+      ...f.creator,
+      measured: true,
+      launched: 11,
+      detailed: 11,
+      checked: 10,
+      salesChecked: 10,
+      soldIntoPool: 8,
+      ownSales: { days: 96, wholeLife: true },
+    };
+    const sales = buildGlance({ facts: f })!.items.find((i) => i.id === 'sales');
+    expect(sales?.detail).toBe(
+      'This token’s sales checked over its whole life so far (96 days); the creator’s other launches in the first 11 days after each. Each confirmed by a trade in the market.',
+    );
+  });
+});
+
+describe('holders: an airdrop is not a spread of buyers (bug 10)', () => {
+  it('ELON: 10,030 holders, 10,100 of them sent the token by the creator', () => {
+    const ELON = '0x90f2e43af1028a443a4a0b2cf224ebdfe43a1236';
+    const report = {
+      token: ELON,
+      creator: {
+        completeness: 'partial',
+        sources: [],
+        data: {
+          creator: '0x6eae1530779565e778919603479fe99c69ad7d20',
+          tokens: [
+            {
+              address: ELON,
+              pool: '0x',
+              launchedAtBlock: 1,
+              launchedAt: null,
+              outcome: 'undetermined',
+              graduationProgress: 0,
+              liquidityPulled: false,
+              creatorDumped: null,
+              creatorRecipients: 10_100,
+            },
+          ],
+        },
+      },
+      holders: {
+        completeness: 'partial',
+        sources: [],
+        data: {
+          token: ELON,
+          countedSupply: '1',
+          holderCount: 10_030,
+          top: [],
+          concentration: { top1: 0.05, top10: 0.2 },
+          pooledShare: 0.509104,
+          distinctTraders: null,
+        },
+      },
+    } as unknown as SpecialistContext['report'];
+    const f = CATALOG['holder-spread'].run({ token: ELON, report } as SpecialistContext);
+    expect(f.signal).not.toBe('reassurance');
+    expect(f.facts.join(' ')).toMatch(/sent this token directly to 10100 addresses/);
   });
 });

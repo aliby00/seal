@@ -1,6 +1,7 @@
 import { launchpadById } from '../chain/launchpads';
 import { NATIVE } from '../chain/pools';
 import { MAX_BEHAVIOR_TOKENS } from '../chain';
+import { OTHER_LAUNCH_SALES_DAYS } from '../contracts/creator';
 import { volumePerTrade } from '../market';
 import { whereSetAside } from '../set-aside';
 import {
@@ -402,7 +403,7 @@ const holderSpread: Specialist = {
   id: 'holder-spread',
   title: 'Holder Spread',
   question: 'How much of the supply sits in a few wallets?',
-  run({ report }: SpecialistContext): Finding {
+  run({ report, token }: SpecialistContext): Finding {
     const holders = report?.holders;
     if (!holders || holders.completeness === 'unavailable') {
       return unknown('holder-spread', holders?.sources[0]?.note ?? 'holder data not collected');
@@ -430,12 +431,25 @@ const holderSpread: Specialist = {
       `The largest holder${what} has ${pct(top1)} of the supply held outside pools; the top 10 have ${pct(top10)}.`,
       ...(count !== null ? [`${count} holder addresses in total.`] : []),
     ];
+    // Thousands of holders who were sent the token by its creator are an
+    // airdrop, not thousands of buyers: said, and never read as a spread.
+    const own = report?.creator.data.tokens.find(
+      (t) => String(t.address).toLowerCase() === token.toLowerCase(),
+    );
+    const fromCreator = own?.creatorRecipients ?? null;
+    const airdropped = fromCreator !== null && count !== null && fromCreator >= count / 2;
+    if (airdropped) {
+      facts.push(
+        `The creator sent this token directly to ${fromCreator} addresses: most of the holders received it from the creator rather than buying it.`,
+      );
+    }
     const limits = [
       'Pools, launch curves, launch contracts and burn addresses are excluded; shares are over the holders actually fetched.',
     ];
     if (top1 >= TOP1_CONCERN || top10 >= TOP10_CONCERN) {
       return finding('holder-spread', 'concern', facts, limits, ['creator-history']);
     }
+    if (airdropped) return finding('holder-spread', 'observation', facts, limits);
     if (top10 < TOP10_SPREAD && count !== null && count >= SPREAD_MIN_HOLDERS) {
       return finding('holder-spread', 'reassurance', facts, limits);
     }
@@ -474,7 +488,7 @@ const creatorHistory: Specialist = {
     const dumped = others.filter((t) => t.creatorDumped === true).length;
     const graduated = others.filter((t) => t.outcome === 'graduated').length;
     const facts = [
-      `The creator launched ${others.length} other token(s): ${graduated} graduated, ${pulled} saw liquidity removed, ${dumped} saw the creator sell into the pool (sales and removals checked on the ${MAX_BEHAVIOR_TOKENS} most recent, in the ~11 days after each launch).`,
+      `The creator launched ${others.length} other token(s): ${graduated} graduated, ${pulled} saw liquidity removed, ${dumped} saw the creator sell into the pool (sales and removals checked on the ${MAX_BEHAVIOR_TOKENS} most recent, in the first ${OTHER_LAUNCH_SALES_DAYS} days after each launch).`,
     ];
     if (pulled + dumped > 0) return finding('creator-history', 'concern', facts, limits);
     if (graduated > 0) return finding('creator-history', 'reassurance', facts, limits);
@@ -624,7 +638,7 @@ const liquidityMove: Specialist = {
       signal = 'concern';
     } else if (self?.liquidityPulled === false) {
       facts.push(
-        'No liquidity removal was observed on this token’s pool in the ~11 days after its launch.',
+        `No liquidity removal was observed on this token’s pool in the first ${OTHER_LAUNCH_SALES_DAYS} days after its launch.`,
       );
       signal = 'quiet';
     } else {
