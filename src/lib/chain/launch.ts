@@ -419,10 +419,28 @@ export function tallyLaunch(
   };
 }
 
+/** The code size of each contract among `bought`, when every one was read. */
+function codeSizesOf(
+  bought: ReadonlyMap<string, bigint>,
+  info: ReadonlyMap<string, { kind: LaunchMove['actorKind'] | null; codeSize?: number | null }>,
+): { codeSizes?: number[] } {
+  const sizes: number[] = [];
+  for (const address of bought.keys()) {
+    const known = info.get(address);
+    if (known?.kind !== 'contract') continue;
+    if (typeof known.codeSize !== 'number') return {};
+    sizes.push(known.codeSize);
+  }
+  return sizes.length > 0 ? { codeSizes: sizes } : {};
+}
+
 /** The totals, with what the addresses read hold today. */
 export function summarize(
   tally: LaunchTally,
-  info: ReadonlyMap<string, { kind: LaunchMove['actorKind'] | null; held: number | null }>,
+  info: ReadonlyMap<
+    string,
+    { kind: LaunchMove['actorKind'] | null; held: number | null; codeSize?: number | null }
+  >,
   counts: Pick<
     LaunchSummary,
     'receiptsRead' | 'receiptsWanted' | 'balancesRead' | 'balancesWanted' | 'moves'
@@ -474,6 +492,7 @@ export function summarize(
           share: total(viaCreator.bought),
           heldNow: viaCreator.heldNow,
           contracts: viaCreator.contracts,
+          ...codeSizesOf(viaCreator.bought, info),
         }
       : null,
     early: {
@@ -658,7 +677,12 @@ export async function readLaunchReplay(
         balance?.ok && balance.value && balance.value !== '0x'
           ? shareOf(BigInt(balance.value), supply)
           : null;
-      return [address, { kind, held }] as const;
+      // Bytes of code: 45 is a minimal proxy (MUT8's three launch recipients).
+      const codeSize =
+        code?.ok && typeof code.value === 'string' && code.value.startsWith('0x')
+          ? (code.value.length - 2) / 2
+          : null;
+      return [address, { kind, held, codeSize }] as const;
     }),
   );
 

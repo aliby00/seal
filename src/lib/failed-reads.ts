@@ -33,6 +33,7 @@ export const READ_WORDS: Record<ReadId, string> = {
   'launch-replay': 'the first minutes after its launch',
   holders: 'who holds it',
   market: 'its trading',
+  questions: 'some of the ten questions',
 };
 
 /** The same reads, said to the model (in the prompt's language). */
@@ -43,6 +44,7 @@ export const READ_WORDS_FR: Record<ReadId, string> = {
   'launch-replay': 'les premières minutes après le lancement',
   holders: 'la liste des détenteurs',
   market: 'les échanges du token',
+  questions: 'certaines des dix questions',
 };
 
 /** One entry per read, the first note kept. */
@@ -64,3 +66,21 @@ export const UNREAD = {
   /** The indexer, which lists the launchpads the node cannot. */
   indexer: 'the SEAL indexer did not answer: the launches it lists could not be read this time',
 } as const;
+
+/** The limit a question gives when its lookups ran out of time. */
+export const QUESTION_TIMED_OUT = 'the on-chain lookups for this question did not finish in time';
+/** The limit a question gives when it failed. */
+export const QUESTION_FAILED = 'this question could not be answered for this token';
+
+/**
+ * Questions that did not finish in time, or failed, are a failed read:
+ * AI's report answered six of ten "did not finish in time", served no
+ * partial notice and was cached (staging, 18/10/2026).
+ */
+export function questionsFailed(unanswered: readonly string[], total: number): FailedRead | null {
+  if (unanswered.length === 0) return null;
+  return {
+    read: 'questions',
+    note: `${unanswered.length} of the ${total} questions did not finish in time or could not be answered this time (${unanswered.join(', ')})`,
+  };
+}

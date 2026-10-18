@@ -51,10 +51,24 @@ export type LaunchedToken = {
    * token's life, after its launch block: its fees, as a share of the supply.
    * The analysed token only; absent when none was seen or not read.
    */
-  feesTaken?: { share: number; transfers: number; hooks: string[] };
+  feesTaken?: {
+    share: number;
+    transfers: number;
+    hooks: string[];
+    /** What each paying contract is to this token. Absent from reports made before. */
+    payers?: FeePayer[];
+  };
   /** What the creator sent of this token outside its markets (the analysed token only). */
   creatorSends?: CreatorSends | null;
 };
+
+/**
+ * A contract that paid the creator fees in this token, and what it is to
+ * the token: the trading rules (hook) of its main pool, of another of its
+ * pools, a launchpad's contract (Doppler's 0x4e34…, its launch hook and fee
+ * distributor) that is neither, or a hook of a market not listed.
+ */
+export type FeePayer = { address: string; role: 'main-hook' | 'pool-hook' | 'launch' | 'hook' };
 
 /**
  * Where the creator's own transfers of the analysed token went, outside its

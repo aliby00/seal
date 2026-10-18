@@ -2,7 +2,7 @@ import { OTHER_LAUNCH_SALES_DAYS } from './contracts/creator';
 import type { LaunchReplayData } from './contracts/launch';
 import type { ReportFacts, TimelineLaunch } from './facts';
 import { addressesWord, buildStory } from './launch-story';
-import { whereSetAside } from './set-aside';
+import { feePayerWords, whereSetAside } from './set-aside';
 import type { SpecialistAnswer } from './specialists/brief';
 import { READ_WORDS, readFailed } from './failed-reads';
 
@@ -64,7 +64,9 @@ function pct(value: number): string {
   return `${(value * 100).toFixed(value < 0.1 || (value >= 0.995 && value < 1) ? 1 : 0)}%`;
 }
 
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+/** "1 launch", "9 launches" (not "launchs": ASTEROID, staging 18/10/2026). */
+export const plural = (n: number, word: string) =>
+  `${n} ${word}${n === 1 ? '' : /(?:s|x|z|ch|sh)$/.test(word) ? 'es' : 's'}`;
 
 /**
  * "in 3 days", "within a day", or nothing when the dates are not known.
@@ -268,17 +270,21 @@ function recordItem(
 function liquidityItem(creator: ReportFacts['creator']): GlanceItem | null {
   const checked = creator.liquidityChecked ?? creator.checked;
   if (!creator.measured) return null;
-  // Fees the market's trading rules paid out to the creator are measured
-  // even where withdrawals were not (MEME: 0.52 % over 28 transfers).
+  // Fees paid out to the creator are measured even where withdrawals were
+  // not (MEME: 0.52 % over 28 transfers), and their size is given wherever
+  // they are (ASTEROID: 6.91 % over 52 transfers, said as "on 1 of them").
   const own = creator.ownFees;
-  if (checked === 0 && own && own.transfers > 0) {
+  const feesSized =
+    own && own.transfers > 0
+      ? `the creator received ${pct(own.share)} of the supply from ${feePayerWords(own.payers, own.hooks ?? [])}, in ${plural(own.transfers, 'transfer')}: trading fees taken out of the market`
+      : null;
+  if (checked === 0 && feesSized) {
     return {
       id: 'liquidity',
       tone: 'neutral',
-      figure: pct(own.share),
-      title: `The creator received ${pct(own.share)} of the supply from the market’s trading rules (hook), in ${plural(own.transfers, 'transfer')}: trading fees taken out of the market.`,
-      detail:
-        'Transfers of this token from the market’s trading rules to the creator, over its life.',
+      figure: pct(own!.share),
+      title: `On this token, ${feesSized}.`,
+      detail: 'Transfers of this token from those contracts to the creator, over its life.',
       href: '#fact-creator',
     };
   }
@@ -287,13 +293,14 @@ function liquidityItem(creator: ReportFacts['creator']): GlanceItem | null {
   // Fees taken out of the position are tokens the creator withdrew from the
   // market: "never withdrawn" alone would hide them (AML, +387 s).
   const fees = creator.feesCollected ?? 0;
-  const feesWords =
-    fees > 0
+  const feesWords = feesSized
+    ? ` On this token, ${feesSized}.`
+    : fees > 0
       ? ` The creator did collect trading fees from the market’s liquidity position on ${fees === checked ? (checked === 1 ? 'it' : 'all of them') : `${fees} of them`}.`
       : '';
   return {
     id: 'liquidity',
-    tone: pulled > 0 ? 'attention' : fees > 0 ? 'neutral' : 'reassuring',
+    tone: pulled > 0 ? 'attention' : fees > 0 || feesSized ? 'neutral' : 'reassuring',
     figure: `${pulled}/${checked}`,
     title:
       pulled === 0
@@ -417,7 +424,8 @@ function launchBuysItem(launch: LaunchReplayData | undefined): GlanceItem | null
       id: 'launch-buys',
       tone: viaCreator.share >= 0.05 ? 'attention' : 'neutral',
       figure: pct(viaCreator.share),
-      title: `The creator’s own launch transaction delivered ${pct(viaCreator.share)} of the supply to ${n} ${addressesWord(n, viaCreator.contracts)} other than the creator’s wallet; who controls ${n === 1 ? 'it' : 'them'} is not shown.`,
+      // Pools are left out of these addresses: never "delivered into pools" (MUT8).
+      title: `The creator’s own launch transaction delivered ${pct(viaCreator.share)} of the supply to ${n} ${addressesWord(n, viaCreator.contracts)} other than the creator’s wallet, none of them a pool; who controls ${n === 1 ? 'it' : 'them'} is not shown.`,
       detail,
       href: '#launch-title',
     };

@@ -20,6 +20,7 @@ import { tokenStats } from '../src/stats.ts';
 import { firstIncoming, fundingStream } from '../src/streams/funding.ts';
 import { cursorName, launchFrontier, launchStream } from '../src/streams/launches.ts';
 import { BACK, FORWARD, swapStream, TARGET } from '../src/streams/swaps.ts';
+import { MARKETS } from '../src/streams/markets.ts';
 import { fakeRpc, fixedClock, launchLog, memoryDb, pad, swapLog, topic } from './helpers.ts';
 
 const FACTORY = '0x00000000000000000000000000000000000000f1';
@@ -511,6 +512,45 @@ describe('API', () => {
       pool: POOL,
       timestamp: '2023-11-14T22:13:20.000Z',
     });
+  });
+
+  // Fifth audit: a recent window counted "1 market" on the hook 0xe5e7…
+  // for each of MUT8, HYPURRT, WAFER and COVENANT. The indexer counts them all.
+  it('counts every market on a hook, over the whole history read', () => {
+    const { db, get } = api();
+    const hook = '0xe5e702641ea86f4ae6cc3cdaed2b886f976be044';
+    const eth = '0x0000000000000000000000000000000000000000';
+    const tokens = [
+      '0x48d343cae84ab737c46ce63cb74c926609eb03bb',
+      '0xff6a3387cf21ef2ed2e94da324bce290ca9abc3b',
+      '0x9182f4791dd6ac83323a935760c5cfe2ad25361b',
+      '0x2eef2a627ac024cb9f545f6193b1940f0416a1de',
+    ];
+    db.insertMarkets(
+      tokens.map((token, i) => ({
+        id: `0x${String(i + 1).padStart(64, '0')}`,
+        currency0: eth,
+        currency1: token,
+        fee: 0,
+        tickSpacing: 60,
+        hook,
+        block: 100 + i,
+        txHash: `0x${String(i + 1).padStart(64, 'a')}`,
+        logIndex: 0,
+        ts: null,
+      })),
+    );
+    db.setCursor(MARKETS, 490);
+    expect(get(`/v1/hook/${hook}`).body).toEqual({
+      hook,
+      indexedTo: 490,
+      markets: 4,
+      pairs: 4,
+      firstBlock: 100,
+      lastBlock: 103,
+    });
+    // A hook no market runs is an answer too: none.
+    expect(get(`/v1/hook/0x${'1'.repeat(40)}`).body).toMatchObject({ markets: 0, indexedTo: 490 });
   });
 });
 

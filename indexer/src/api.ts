@@ -91,6 +91,14 @@ export function createApi(deps: ApiDeps) {
      WHERE currency0 = ? OR currency1 = ? ORDER BY block LIMIT ${MAX_ROWS}`,
   );
 
+  // Every market on these trading rules, over the whole history read: the
+  // count a recent window gave contradicted itself (0xe5e7…, the hook of
+  // MUT8, HYPURRT, WAFER and COVENANT, "used by 1 market" on each).
+  const onHook = db.raw.prepare(
+    `SELECT COUNT(*) AS markets, COUNT(DISTINCT currency0 || currency1) AS pairs,
+            MIN(block) AS first, MAX(block) AS last FROM markets WHERE hook = ?`,
+  );
+
   const launchesTo = () => {
     const f = launchFrontier(db);
     return Number.isFinite(f) ? f : deps.clock.head();
@@ -324,6 +332,25 @@ export function createApi(deps: ApiDeps) {
     });
   }
 
+  /** How many v4 markets run on these trading rules (hook), over the whole history read. */
+  function hookOf(address: string): ApiResponse {
+    const indexedTo = db.cursor(MARKETS) ?? 0;
+    const row = onHook.get(address) as {
+      markets: number;
+      pairs: number;
+      first: number | null;
+      last: number | null;
+    };
+    return json(200, {
+      hook: address,
+      indexedTo,
+      markets: row.markets,
+      pairs: row.pairs,
+      firstBlock: row.first,
+      lastBlock: row.last,
+    });
+  }
+
   /** The creators linked to this one through the wallets that funded it, up to three levels. */
   function networkOf(address: string): ApiResponse {
     const indexedTo = launchesTo();
@@ -352,6 +379,7 @@ export function createApi(deps: ApiDeps) {
     token,
     funder,
     markets,
+    hook: hookOf,
     network: networkOf,
   };
 
@@ -368,7 +396,7 @@ export function createApi(deps: ApiDeps) {
     if (!sameToken(bearer, deps.token)) return json(401, { error: 'unauthorized' }, 'no-store');
     if (path === '/v1/coverage') return coverage();
 
-    const match = /^\/v1\/(creator|token|funder|markets|network)\/([^/]+)$/.exec(path);
+    const match = /^\/v1\/(creator|token|funder|markets|hook|network)\/([^/]+)$/.exec(path);
     if (!match) return json(404, { error: 'not found' });
     const address = match[2] as string;
     if (!ADDRESS.test(address)) return json(400, { error: 'invalid address' });

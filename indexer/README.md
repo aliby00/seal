@@ -139,6 +139,9 @@ une adresse inconnue répond 404, une absence de jeton 401.
   `incomplete` + `reason` quand un financement ou un profil manque (il passe
   alors en tête de file).
 - `GET /v1/markets/:token` : les marchés v4 où ce token est l'une des deux monnaies.
+- `GET /v1/hook/:address` : combien de marchés v4 tournent sur ces règles de trading
+  (hook) sur tout l'historique lu (`markets`, `pairs`, `firstBlock`, `lastBlock`,
+  `indexedTo`).
 
 ```bash
 curl -s -H "Authorization: Bearer $INDEXER_TOKEN" http://127.0.0.1:8795/v1/token/0x…

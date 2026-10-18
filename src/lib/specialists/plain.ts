@@ -93,13 +93,23 @@ export function shortAnswer(answer: SpecialistAnswer): string {
     case 'rule-change':
       if (signal === 'concern') return 'Its rules can be rewritten after people buy';
       if (signal === 'reassurance') return 'Its rules cannot be upgraded';
+      if (/\bAnother pool of this token \([^)]*\) runs trading rules\b/.test(all))
+        return 'Its main pool has no special trading rules; another pool has';
       if (/no trading rules/i.test(all)) return 'No special trading rules';
       break;
     case 'code-reuse': {
-      if (/no hook|without trading rules/i.test(all)) return 'No special trading rules';
+      const otherHooked = /\bAnother pool of this token \([^)]*\) runs trading rules\b/.test(all);
+      if (/no hook|without trading rules/i.test(all.split('Another pool')[0] ?? all))
+        return otherHooked
+          ? 'Its main pool has no special trading rules; another pool has'
+          : 'No special trading rules';
       const markets = num(all, /used by (\d+) market/);
       if (markets !== null && Number(markets) <= 1) return 'Its trading rules are its own';
       if (markets !== null) return `Its trading rules are used by ${count(markets)} markets`;
+      const recent = num(all, /(\d+) other markets?(?:\(s\))? use the trading rules/);
+      if (recent === '0') return 'No other recent market uses its trading rules';
+      if (recent !== null)
+        return `Its trading rules are used by ${count(recent)} other recent markets`;
       if (signal === 'observation' || signal === 'concern')
         return 'Its trading rules are used by other markets too';
       break;

@@ -14,6 +14,7 @@ vi.mock('@/lib/specialists/brief', () => ({
 }));
 
 const { POST } = await import('../../src/app/api/analyze/route');
+briefSpecialists.mockResolvedValue({ answers: [], unanswered: [], name: null, symbol: null });
 const { RateLimitError, NotFoundError } = await import('../../src/lib/errors');
 const { resetRateLimits } = await import('../../src/lib/guard');
 const { analysisCache } = await import('../../src/lib/analysis-cache');
@@ -41,8 +42,14 @@ function post(body: unknown): Request {
   });
 }
 
+// The ten questions answered, unless a test says otherwise: a question
+// left unanswered makes the report partial, and it is then not cached.
+const answered = { answers: [], unanswered: [], name: null, symbol: null };
+
 afterEach(() => {
   vi.clearAllMocks();
+  briefSpecialists.mockReset();
+  briefSpecialists.mockResolvedValue(answered);
   resetRateLimits();
   analysisCache.clear();
 });

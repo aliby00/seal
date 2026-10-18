@@ -1,5 +1,5 @@
 import { launchpadById } from './chain/launchpads';
-import type { CreatorLinks, FailedRead, SetAsideRole, TokenReport } from './contracts';
+import type { CreatorLinks, FailedRead, FeePayer, SetAsideRole, TokenReport } from './contracts';
 
 /**
  * The numbers the report screen draws, taken from the collected report and
@@ -42,7 +42,13 @@ export type ReportFacts = {
      * What the market's trading rules (hooks) paid out to the creator over
      * this token's life: its fees, summed. Absent when none was seen.
      */
-    ownFees?: { share: number; transfers: number };
+    ownFees?: {
+      share: number;
+      transfers: number;
+      /** The contracts that paid, and what each is to this token. Absent from older reports. */
+      hooks?: string[];
+      payers?: FeePayer[];
+    };
     /** Launches where each signal was actually measured (the other may not be). */
     salesChecked: number;
     liquidityChecked: number;
@@ -210,7 +216,14 @@ export function toFacts(report: TokenReport): ReportFacts {
         ? { feesCollected: tokens.filter((t) => t.feesCollected === true).length }
         : {}),
       ...(own?.feesTaken
-        ? { ownFees: { share: own.feesTaken.share, transfers: own.feesTaken.transfers } }
+        ? {
+            ownFees: {
+              share: own.feesTaken.share,
+              transfers: own.feesTaken.transfers,
+              hooks: own.feesTaken.hooks,
+              ...(own.feesTaken.payers ? { payers: own.feesTaken.payers } : {}),
+            },
+          }
         : {}),
       salesChecked: tokens.filter((t) => t.creatorDumped !== null).length,
       liquidityChecked: tokens.filter((t) => t.liquidityPulled !== null).length,

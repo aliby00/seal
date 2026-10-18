@@ -83,6 +83,11 @@ export type LaunchSummary = {
     heldNow: number | null;
     /** How many of them are contracts; `null` when not read. */
     contracts: number | null;
+    /**
+     * The size of each contract's code, in bytes (MUT8: three of 45, minimal
+     * proxies). Absent from older replays, or when not read.
+     */
+    codeSizes?: number[];
   } | null;
   early: {
     /** Distinct addresses (not the creator) whose first buy came within `earlySeconds`. */

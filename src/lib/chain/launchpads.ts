@@ -398,18 +398,27 @@ export const LAUNCH_LOCKERS: readonly { address: string; name: string }[] = [
  * Any other market's hook is read from its `Initialize` (deployer.ts) and set
  * aside the same way.
  */
-export const LAUNCH_HOOKS: readonly { address: string; name: string }[] = [
+export const LAUNCH_HOOKS: readonly {
+  address: string;
+  name: string;
+  /** What it is when it pays fees out, said where it is not the main pool's hook. */
+  payer: string;
+}[] = [
   {
     address: '0xe5e702641ea86f4ae6cc3cdaed2b886f976be044',
     name: 'the trading rules (hook) of the markets 0x7ed5 tokens graduate to',
+    payer: 'the fee contract of the markets 0x7ed5 tokens graduate to',
   },
   {
     address: '0x4e3468951d49f2eea976ed0d6e75ffcb44a9a544',
     name: 'Doppler’s trading rules (hook) and initializer',
+    payer:
+      'Doppler’s launch contract, which holds the positions of the markets Doppler opens and pays out their fees',
   },
   {
     address: '0x6f02324d20cc679d0e585290caa6b16bacbc0f77',
     name: 'a contract plugged into Doppler’s trading rules (hook)',
+    payer: 'a fee contract plugged into Doppler’s launch contract',
   },
 ];
 

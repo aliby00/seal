@@ -1,8 +1,9 @@
 import { launchpadProse } from '../chain/launchpads';
 import { NATIVE } from '../chain/pools';
 import { OTHER_LAUNCH_SALES_DAYS } from '../contracts/creator';
-import { volumePerTrade } from '../market';
-import { whereSetAside } from '../set-aside';
+import { poolLabel, usdShort, volumePerTrade } from '../market';
+import { decodeHookPermissions, describeHookPermissions } from '../chain/hooks';
+import { feePayerWords, whereSetAside } from '../set-aside';
 import {
   addressesSoftware,
   describeService,
@@ -16,6 +17,7 @@ import { readFailed } from '../failed-reads';
 import type {
   Finding,
   FundingDisplay,
+  PoolRules,
   FundingPathStep,
   Signal,
   Specialist,
@@ -109,35 +111,154 @@ export const SPREAD_MIN_HOLDERS = 50;
 export const TRADERS_PER_TRADE_CONCERN = 0.1;
 export const MIN_TRADES_FOR_VOLUME = 20;
 
+/** Why the market questions stop: the main pool's rules were not read. */
+const MAIN_UNREAD =
+  'the trading rules (hook) of this token’s main pool could not be read this time';
+
+const hooked = (p: PoolRules) => typeof p.hook === 'string' && p.hook !== NATIVE;
+
+/** "0xf4a6…0935, $186.4k liquidity": a pool named with its size. */
+function poolDetail(pool: PoolRules): string {
+  return `${poolLabel(pool.id)}${pool.liquidityUsd !== null ? `, ${usdShort(pool.liquidityUsd)} liquidity` : ''}`;
+}
+
+/** "The main pool of this token (0xf4a6…0935, $186.4k liquidity)", or "This market" without a listing. */
+function mainSubject(context: SpecialistContext): string {
+  return context.mainPool
+    ? `The main pool of this token (${poolDetail(context.mainPool)})`
+    : 'This market';
+}
+
+const MAX_POOL_LINES = 3;
+
+/**
+ * The other pools whose rules differ from the main pool's, one line each:
+ * a hook where the main pool has none or another one, no hook where it has
+ * one, rules that could not be read. Empty when they all match.
+ */
+function otherPoolLines(context: SpecialistContext, mainHook: string | null): string[] {
+  const differ = (context.otherPools ?? []).filter((p) =>
+    p.hook === undefined ? true : hooked(p) ? p.hook !== mainHook : mainHook !== null,
+  );
+  // Pools with a hook first: they are the ones a sell can pass through.
+  differ.sort((a, b) => Number(hooked(b)) - Number(hooked(a)));
+  const lines = differ.slice(0, MAX_POOL_LINES).map((p) => {
+    const where = `Another pool of this token (${poolDetail(p)})`;
+    if (p.hook === undefined)
+      return `${where} is a Uniswap v4 pool whose trading rules (hook) could not be read this time.`;
+    if (hooked(p)) {
+      const alters = describeHookPermissions(decodeHookPermissions(p.hook as string)).some(
+        (c) => c.id === 'alters-swap-amounts',
+      );
+      return `${where} runs trading rules (hook) ${p.hook}${alters ? ', which may change the amount of a trade' : ''}: a trade in that pool passes through them.`;
+    }
+    return p.version === 'v4'
+      ? `${where} runs no trading rules (hook).`
+      : `${where} is a Uniswap ${p.version ?? 'v2/v3'} pair, with no hook.`;
+  });
+  if (differ.length > MAX_POOL_LINES) {
+    lines.push(
+      `${differ.length - MAX_POOL_LINES} more pool(s) of this token differ in the same way.`,
+    );
+  }
+  return lines;
+}
+
+/**
+ * Pools beside the main one that run a hook, or whose rules could not be
+ * read: either way, "no contract sits between a sell and the pool" is not
+ * true of every pool the token trades in.
+ */
+const otherHooks = (context: SpecialistContext): PoolRules[] =>
+  (context.otherPools ?? []).filter((p) => hooked(p) || p.hook === undefined);
+
 const codeReuse: Specialist = {
   id: 'code-reuse',
   title: 'Code Reuse',
   question: 'Have this market’s trading rules (hook) already been used by other markets?',
-  run({ market, index, report }: SpecialistContext): Finding {
-    if (!market) return unknown('code-reuse', noV4Market(report));
+  run(context: SpecialistContext): Finding {
+    const { market, index, report, hookUse } = context;
+    if (context.mainRulesUnread) return unknown('code-reuse', MAIN_UNREAD);
+    if (!market) {
+      if (otherHooks(context).length > 0 && context.mainPool) {
+        return finding(
+          'code-reuse',
+          'observation',
+          [
+            `The main pool of this token (${poolLabel(context.mainPool.id)}) is a Uniswap ${context.mainPool.version ?? 'v2/v3'} pair, with no trading rules (hook).`,
+            ...otherPoolLines(context, null),
+          ],
+          [],
+          ['sell-path', 'rule-change'],
+        );
+      }
+      return unknown('code-reuse', noV4Market(report));
+    }
     if (market.hook === NATIVE) {
+      const others = otherPoolLines(context, null);
+      if (otherHooks(context).length > 0) {
+        return finding(
+          'code-reuse',
+          'observation',
+          [`${mainSubject(context)} runs without trading rules (hook).`, ...others],
+          [],
+          ['sell-path', 'rule-change'],
+        );
+      }
       return finding('code-reuse', 'quiet', ['This market runs without trading rules (no hook).']);
+    }
+    const others = otherPoolLines(context, market.hook);
+    // The whole history, from the indexer: a recent window counted "1
+    // market" for each of four tokens on the same hook (0xe5e7…).
+    if (hookUse) {
+      const covered = market.blockNumber <= hookUse.indexedTo;
+      const total = hookUse.markets + (covered ? 0 : 1);
+      const facts = [
+        `The trading rules (hook) ${market.hook} are used by ${total} market(s) on Robinhood Chain, this one included (every Uniswap v4 market the SEAL indexer has read, up to block ${hookUse.indexedTo}).`,
+        ...others,
+      ];
+      if (total < REUSE_NOTABLE) return finding('code-reuse', 'quiet', facts);
+      return finding(
+        'code-reuse',
+        'observation',
+        facts,
+        [
+          'Shared trading rules can be a launchpad’s standard ones; reuse alone does not say what they do.',
+        ],
+        ['rule-change', 'sell-path'],
+      );
     }
     if (!index || index.size === 0) {
       return unknown('code-reuse', 'the cross-market index was not loaded');
     }
     const siblings = index.onHook(market.hook).filter((m) => m.id !== market.id);
     const range = index.all();
-    const window = `blocks ${range[0]?.blockNumber} to ${range.at(-1)?.blockNumber}`;
+    const from = range[0]?.blockNumber;
+    const window = `the markets created in blocks ${from} to ${range.at(-1)?.blockNumber}`;
+    const inWindow = from !== undefined && market.blockNumber >= from;
+    const windowLimit = `only ${window} were compared (about the last 50 minutes)${inWindow ? '' : ', and this market was created before them'}: earlier markets on the same trading rules are not counted`;
     if (siblings.length + 1 < REUSE_NOTABLE) {
-      return finding('code-reuse', 'quiet', [
-        `The trading rules (hook) ${market.hook} are used by ${siblings.length + 1} market(s) in the indexed window (${window}).`,
-      ]);
+      return finding(
+        'code-reuse',
+        'quiet',
+        [
+          `Among ${window}, ${siblings.length} other market(s) use the trading rules (hook) ${market.hook}.`,
+          ...others,
+        ],
+        [windowLimit],
+      );
     }
     const facts = [
-      `The trading rules (hook) ${market.hook} are shared by ${siblings.length + 1} markets in the indexed window (${window}).`,
+      `Among ${window}, ${siblings.length} other markets use the trading rules (hook) ${market.hook}.`,
     ];
     const tokens = new Set(siblings.map((s) => s.token));
     facts.push(`Those markets list ${tokens.size} distinct other token(s).`);
+    facts.push(...others);
     const judged = siblings.filter((s) => s.outcome === 'harmed' || s.outcome === 'unharmed');
     const harmed = judged.filter((s) => s.outcome === 'harmed').length;
     const limits = [
       'Shared trading rules can be a launchpad’s standard ones; reuse alone does not say what they do.',
+      windowLimit,
     ];
     if (judged.length === 0) {
       limits.push('What happened afterwards to the other markets is not known yet.');
@@ -581,38 +702,70 @@ const sellPath: Specialist = {
   id: 'sell-path',
   title: 'Sell Path',
   question: 'Can holders sell, and can the trading rules (hook) stand in the way?',
-  run({ hook, report, market }: SpecialistContext): Finding {
+  run(context: SpecialistContext): Finding {
+    const { hook, report, market } = context;
+    if (context.mainRulesUnread) return unknown('sell-path', MAIN_UNREAD);
+    const txns = report?.market.data.txns?.h24 ?? null;
+    const trades = txns
+      ? [`${txns.sells} sell(s) and ${txns.buys} buy(s) went through in the last 24 hours.`]
+      : [];
     if (market && hook === null) {
-      // A v4 pool without a hook: nothing sits between a sell and the pool.
-      const txns = report?.market.data.txns?.h24 ?? null;
-      const facts = [
-        'This token’s Uniswap v4 pool has no trading rules (hook): no contract sits between a sell and the pool.',
-      ];
-      if (txns)
-        facts.push(
-          `${txns.sells} sell(s) and ${txns.buys} buy(s) went through in the last 24 hours.`,
+      // A v4 pool without a hook: nothing sits between a sell and that pool.
+      // Another pool with a hook is said beside it, and the answer is then
+      // no reassurance: a sell routed there passes through its rules.
+      const others = otherHooks(context);
+      if (others.length > 0) {
+        return finding(
+          'sell-path',
+          'observation',
+          [
+            `${mainSubject(context)} has no trading rules (hook): no contract sits between a sell in that pool and the pool.`,
+            ...otherPoolLines(context, null),
+            ...trades,
+          ],
+          txns ? [] : ['recent trades were not collected'],
+          ['rule-change'],
         );
+      }
       return finding(
         'sell-path',
         'reassurance',
-        facts,
+        [
+          'This token’s Uniswap v4 pool has no trading rules (hook): no contract sits between a sell and the pool.',
+          ...trades,
+        ],
         txns ? [] : ['recent trades were not collected'],
       );
     }
     if (hook === undefined || hook === null) {
+      // Not looked up (the lookups ran out of time): nothing is said of the rules.
+      if (market === undefined && context.mainPool === undefined) {
+        return unknown('sell-path', 'the trading rules of this token’s pools were not read');
+      }
       const where = marketElsewhere(report);
-      const txns = report?.market.data.txns?.h24 ?? null;
       if (!where) return unknown('sell-path', noV4Market(report));
+      const others = otherPoolLines(context, null);
       const facts = [
-        `No Uniswap v4 trading rules (hook) sit in front of trades: this token trades on ${where}.`,
+        `No Uniswap v4 trading rules (hook) sit in front of trades in its main pool: this token trades on ${where}.`,
+        ...others,
       ];
-      if (txns && txns.sells > 0) {
-        facts.push(
-          `${txns.sells} sell(s) and ${txns.buys} buy(s) went through in the last 24 hours.`,
+      if (otherHooks(context).length > 0) {
+        return finding(
+          'sell-path',
+          'observation',
+          [...facts, ...trades],
+          ['the main pool’s own contract is not read here'],
         );
-        return finding('sell-path', 'quiet', facts, [
-          'the pool’s own contract is not read here; recent sells show that selling worked in that window',
-        ]);
+      }
+      if (txns && txns.sells > 0) {
+        return finding(
+          'sell-path',
+          'quiet',
+          [...facts, ...trades],
+          [
+            'the pool’s own contract is not read here; recent sells show that selling worked in that window',
+          ],
+        );
       }
       return finding('sell-path', 'unknown', facts, [
         txns
@@ -621,7 +774,6 @@ const sellPath: Specialist = {
       ]);
     }
     const ids = new Set(hook.capabilities.map((c) => c.id));
-    const txns = report?.market.data.txns?.h24 ?? null;
     const facts: string[] = [];
     const limits = hook.inconsistent.length
       ? [
@@ -634,24 +786,33 @@ const sellPath: Specialist = {
       );
     else limits.push('recent trades were not collected');
 
+    // The other pools come last: the lines above are about the main pool's rules.
+    const others = otherPoolLines(context, hook.hook);
     if (ids.has('alters-swap-amounts')) {
       facts.push(
         'The trading rules (hook) may change the amount of any trade, which gives them the power to take a cut of a sell or to stop it; what they do with that power is not readable from their permissions.',
       );
       if (txns && txns.buys >= 10 && txns.sells === 0) {
         facts.push('No sell has gone through despite repeated buys.');
-        return finding('sell-path', 'concern', facts, limits, ['rule-change']);
+        return finding('sell-path', 'concern', [...facts, ...others], limits, ['rule-change']);
       }
-      return finding('sell-path', 'observation', facts, limits, ['rule-change']);
+      return finding('sell-path', 'observation', [...facts, ...others], limits, ['rule-change']);
     }
     if (ids.has('intercepts-swaps')) {
       facts.push(
         'The trading rules (hook) are called on every trade but cannot change trade amounts.',
       );
-      return finding('sell-path', 'quiet', facts, limits);
+      return finding('sell-path', 'quiet', [...facts, ...others], limits);
     }
     facts.push('The trading rules (hook) have no permission over trades.');
-    return finding('sell-path', 'reassurance', facts, limits);
+    return finding(
+      'sell-path',
+      others.some((l) => /runs trading rules|could not be read/.test(l))
+        ? 'observation'
+        : 'reassurance',
+      [...facts, ...others],
+      limits,
+    );
   },
 };
 
@@ -732,7 +893,7 @@ const liquidityMove: Specialist = {
       // Summed over every transfer the market's trading rules made to the
       // creator, whenever it came (MEME: 28 transfers, 0.52 %).
       facts.push(
-        `The creator received ${pctBounded(taken.share)} of the supply from the market’s trading rules (hook) ${taken.hooks.join(', ')}, in ${plural(taken.transfers, 'transfer')}: trading fees taken out of the market without removing its liquidity.`,
+        `The creator received ${pctBounded(taken.share)} of the supply from ${feePayerWords(taken.payers, taken.hooks)}, in ${plural(taken.transfers, 'transfer')}: trading fees taken out of the market without removing its liquidity.`,
       );
       if (signal === 'quiet' || signal === 'unknown') signal = 'observation';
     } else if (self?.feesCollected === true) {
@@ -760,12 +921,40 @@ const ruleChange: Specialist = {
   id: 'rule-change',
   title: 'Rule Change',
   question: 'Can the trading rules (hook) be rewritten after people have bought?',
-  run({ market, hookCode, report }: SpecialistContext): Finding {
-    if (!market) return unknown('rule-change', noV4Market(report));
+  run(context: SpecialistContext): Finding {
+    const { market, hookCode, report } = context;
+    if (context.mainRulesUnread) return unknown('rule-change', MAIN_UNREAD);
+    const others = otherHooks(context);
+    const othersUnchecked = 'The code of the other pools’ trading rules is not checked here.';
+    if (!market) {
+      if (others.length > 0 && context.mainPool) {
+        return finding(
+          'rule-change',
+          'observation',
+          [
+            `The main pool of this token (${poolLabel(context.mainPool.id)}) is a Uniswap ${context.mainPool.version ?? 'v2/v3'} pair, with no trading rules (hook) to rewrite.`,
+            ...otherPoolLines(context, null),
+          ],
+          [othersUnchecked],
+        );
+      }
+      return unknown('rule-change', noV4Market(report));
+    }
     if (market.hook === NATIVE) {
       // Only the absence of a hook is checked: the token's own contract may
       // still be upgradeable or carry an owner's powers (MEME's text read
       // "nothing can be rewritten later" into this).
+      if (others.length > 0) {
+        return finding(
+          'rule-change',
+          'observation',
+          [
+            `${mainSubject(context)} has no trading rules (hook), so that pool has no hook to rewrite.`,
+            ...otherPoolLines(context, null),
+          ],
+          [othersUnchecked, 'Whether the token’s own contract can be changed is not checked here.'],
+        );
+      }
       return finding(
         'rule-change',
         'quiet',
@@ -778,8 +967,10 @@ const ruleChange: Specialist = {
     if (!hookCode || hookCode.codeSize === null) {
       return unknown('rule-change', 'the code of the trading rules (hook) could not be read');
     }
+    const differing = otherPoolLines(context, market.hook);
     const limits = [
       'Only the standard upgrade slot (EIP-1967) is checked; other upgrade patterns exist.',
+      ...(others.some((p) => p.hook !== market.hook) ? [othersUnchecked] : []),
     ];
     if (hookCode.codeSize === 0) {
       return finding(
@@ -794,13 +985,14 @@ const ruleChange: Specialist = {
         `The trading rules (hook) are an upgradeable proxy: their code currently lives at ${hookCode.implementation} and can be replaced without changing address.`,
       ];
       if (hookCode.admin) facts.push(`The upgrade admin is ${hookCode.admin}.`);
-      return finding('rule-change', 'concern', facts, limits);
+      return finding('rule-change', 'concern', [...facts, ...differing], limits);
     }
     return finding(
       'rule-change',
       'reassurance',
       [
         `The code of the trading rules (hook) (${hookCode.codeSize} bytes) has no standard upgrade slot set.`,
+        ...differing,
       ],
       limits,
     );

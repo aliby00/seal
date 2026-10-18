@@ -153,6 +153,16 @@ export type IndexerMarkets = {
   }[];
 };
 
+/** How many v4 markets run on one hook, over every `Initialize` the indexer has read. */
+export type IndexerHook = {
+  hook: string;
+  indexedTo: number;
+  markets: number;
+  pairs: number;
+  firstBlock: number | null;
+  lastBlock: number | null;
+};
+
 /** How far the indexer has read each launchpad's launches, by launchpad id. */
 export type IndexerCoverage = { head: number; launchpads: Record<string, number> };
 
@@ -176,6 +186,8 @@ export type IndexerClient = {
   token(address: string): Promise<IndexerToken | undefined>;
   funder(address: string): Promise<IndexerFunder | undefined>;
   markets(token: string): Promise<IndexerMarkets | undefined>;
+  /** Markets on these trading rules (hook), all history. Absent from older clients. */
+  hook?(address: string): Promise<IndexerHook | undefined>;
   /** Creators linked through the wallets that funded this one. */
   network(creator: string): Promise<IndexerNetwork | undefined>;
 };
@@ -268,6 +280,7 @@ export function createIndexerClient(
     tokenAnswer: (address) => answer<IndexerToken>('token', address),
     funder: (address) => get<IndexerFunder>('funder', address),
     markets: (token) => get<IndexerMarkets>('markets', token),
+    hook: (address) => get<IndexerHook>('hook', address),
     network: (creator) => get<IndexerNetwork>('network', creator),
   };
 }
