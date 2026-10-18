@@ -39,6 +39,12 @@ import { readFailed } from '../failed-reads';
  *    it, "sold in 8 of 10 other checked launches" for 7 of 9 (ASTEROID): it
  *    is corrected in place rather than cut.
  *
+ * And from the seventh (staging, 18/10/2026):
+ *
+ *  - `remover-unknown`: "who removed it is not stated here" (MOON), while the
+ *    data names the sender of the removal transaction (the creator) and
+ *    where the market returned the token (48.07 % of the supply, to it).
+ *
  * A cut never leaves a dangling sentence behind: "It also took tokens out…"
  * opened AML's section once the sentence before it was cut. The next
  * sentence gets its subject back, or goes too.
@@ -52,7 +58,8 @@ export type ClaimKind =
   | 'unread'
   | 'immutable'
   | 'count'
-  | 'into-pools';
+  | 'into-pools'
+  | 'remover-unknown';
 
 export type Claim = { kind: ClaimKind; sentence: string };
 
@@ -147,6 +154,8 @@ export function forbiddenClaims(report: TokenReport): Set<ClaimKind> {
   if ((summary?.creatorTx?.share ?? 0) >= 0.01) kinds.add('took-nothing');
   // MUT8: the launch transaction delivered to contracts, which are not pools.
   if ((summary?.creatorTx?.share ?? 0) >= 0.01) kinds.add('into-pools');
+  // MOON: the sender of the removal transaction is in the data.
+  if ((own(report)?.liquidityRemovals?.length ?? 0) > 0) kinds.add('remover-unknown');
   return kinds;
 }
 
@@ -156,7 +165,15 @@ const INTO_POOLS: RegExp[] = [
   /\b(?:delivered|sent)\s+(?:\w+\s+){0,4}?into\s+(?:the\s+|its\s+)?pools?\b[^.]*\blaunch\s+transaction\b/i,
 ];
 
+/** "Who removed it is not stated here" (MOON), with the remover in the data. */
+const REMOVER_UNKNOWN: RegExp[] = [
+  /\bwho\s+(?:removed|pulled|withdrew|took\s+out)\b[^.]*\b(?:not\s+(?:stated|known|shown|said|given|clear|identified|named|recorded)|unknown|unclear|cannot\s+be\s+(?:told|said|identified|named))/i,
+  /\b(?:not\s+(?:stated|known|shown|said|clear)|unknown|unclear)\b[^.]*\bwho\s+(?:removed|pulled|withdrew)\b/i,
+  /\b(?:removed|pulled|withdrawn)\s+by\s+(?:an?\s+)?(?:unknown|unidentified|unnamed)\b/i,
+];
+
 const PATTERNS: Record<Exclude<ClaimKind, 'unread' | 'count'>, RegExp[]> = {
+  'remover-unknown': REMOVER_UNKNOWN,
   'into-pools': INTO_POOLS,
   'only-token': ONLY_TOKEN,
   'clean-record': CLEAN,

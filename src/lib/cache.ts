@@ -22,6 +22,13 @@ export type TtlCacheOptions<T = unknown> = {
   /** Nombre maximal d'entrées. Au-delà, la plus ancienne est évincée. */
   maxEntries?: number;
   now?: () => number;
+  /**
+   * How long a computation in flight is shared with the requests that ask
+   * for the same key. One older than this is not waited on any more: a
+   * computation that never settles would otherwise hold every later request
+   * for that key with it. Unlimited by default.
+   */
+  inflightMaxMs?: number;
 };
 
 export class TtlCache<T> {
@@ -29,7 +36,8 @@ export class TtlCache<T> {
   private readonly ttlMs: number;
   private readonly maxEntries: number;
   private readonly now: () => number;
-  private readonly inflight = new Map<string, Promise<T>>();
+  private readonly inflight = new Map<string, { promise: Promise<T>; startedAt: number }>();
+  private readonly inflightMaxMs: number;
   private readonly keep: (value: T) => boolean;
   private hits = 0;
   private misses = 0;
@@ -39,6 +47,7 @@ export class TtlCache<T> {
     this.maxEntries = options.maxEntries ?? 100;
     this.now = options.now ?? Date.now;
     this.keep = options.keep ?? (() => true);
+    this.inflightMaxMs = options.inflightMaxMs ?? Number.POSITIVE_INFINITY;
   }
 
   get(key: string): T | undefined {
@@ -77,15 +86,19 @@ export class TtlCache<T> {
     // Two requests for the same key share one computation instead of both
     // rescanning the chain.
     const pending = this.inflight.get(key);
-    if (pending) return { value: await pending, cached: true };
+    if (pending && this.now() - pending.startedAt < this.inflightMaxMs) {
+      return { value: await pending.promise, cached: true };
+    }
     const promise = compute();
-    this.inflight.set(key, promise);
+    const entry = { promise, startedAt: this.now() };
+    this.inflight.set(key, entry);
     try {
       const value = await promise;
       if (this.keep(value)) this.set(key, value);
       return { value, cached: false };
     } finally {
-      this.inflight.delete(key);
+      // A newer computation that replaced this one stays shared.
+      if (this.inflight.get(key) === entry) this.inflight.delete(key);
     }
   }
 

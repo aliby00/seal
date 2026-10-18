@@ -52,14 +52,13 @@ async function launchPositions(
     .map((w) => ({ w, launch: launches.find((l) => l.token === w.token) }))
     .filter((t): t is { w: (typeof watched)[number]; launch: TokenLaunch } => !!t.launch);
   if (targets.length === 0) return [];
-  const outcomes = await rpc
-    .callBatch<string>(
-      targets.map(({ launch }) => ({
-        method: 'eth_call',
-        params: [{ to: launch.factory, data: encodeGetLaunchedToken(launch.token) }, 'latest'],
-      })),
-    )
-    .catch(() => []);
+  // A batch that fails throws: the caller says the liquidity could not be read.
+  const outcomes = await rpc.callBatch<string>(
+    targets.map(({ launch }) => ({
+      method: 'eth_call',
+      params: [{ to: launch.factory, data: encodeGetLaunchedToken(launch.token) }, 'latest'],
+    })),
+  );
   return targets.flatMap(({ w, launch }, i) => {
     const outcome = outcomes[i];
     const info = outcome?.ok ? decodeGetLaunchedToken(outcome.value) : null;
@@ -345,7 +344,12 @@ export async function fetchCreatorHistory(
       : w,
   );
   const window = { fromBlock: scanned.fromBlock, toBlock: scanned.toBlock };
-  const positions = await launchPositions(rpc, launches, watched);
+  // A read of the liquidity that failed is said, never left as "not checked".
+  let liquidityFailed = false;
+  const positions = await launchPositions(rpc, launches, watched).catch(() => {
+    liquidityFailed = true;
+    return [] as LaunchPosition[];
+  });
   // Un échec ici donne une Map vide, donc `null` par token plus bas : on ne
   // prétend pas avoir observé une absence de vente alors qu'on n'a pas regardé.
   // Old launches under the threshold: whether they still trade decides
@@ -365,7 +369,10 @@ export async function fetchCreatorHistory(
     detectCreatorSales(rpc, creator, salesWatched, window, transfers, options.focus).catch(
       () => new Map<string, boolean>(),
     ),
-    detectLiquidityRemovals(rpc, positions, window).catch(() => new Map<string, boolean>()),
+    detectLiquidityRemovals(rpc, positions, window).catch(() => {
+      liquidityFailed = true;
+      return new Map<string, boolean>();
+    }),
     readRecentActivity(rpc, candidates, latest).catch(() => new Map<string, boolean>()),
   ]);
 
@@ -447,7 +454,8 @@ export async function fetchCreatorHistory(
     focus !== undefined &&
     tokens.some((t) => t.address.toLowerCase() === focus && t.creatorDumped === null);
   return {
-    completeness: partial || focusUnread ? 'partial' : 'full',
+    completeness:
+      partial || focusUnread || (liquidityFailed && focus !== undefined) ? 'partial' : 'full',
     sources: [
       {
         name: 'robinhood-rpc',
@@ -464,6 +472,9 @@ export async function fetchCreatorHistory(
       },
       ...(focusUnread
         ? [{ name: 'robinhood-rpc' as const, fetchedAt, note: UNREAD.ownSales }]
+        : []),
+      ...(liquidityFailed && focus !== undefined
+        ? [{ name: 'robinhood-rpc' as const, fetchedAt, note: UNREAD.removals }]
         : []),
     ],
     data: { creator, tokens, counts, scannedRange: scanned },

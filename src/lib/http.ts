@@ -75,6 +75,9 @@ export function backoffDelay(attempt: number, jitter = Math.random()): number {
   return Math.round(BASE_BACKOFF_MS * 2 ** attempt * (0.5 + jitter / 2));
 }
 
+/** Statuses whose response has no body. */
+const NULL_BODY = new Set([101, 103, 204, 205, 304]);
+
 async function once(url: string, options: FetchOptions): Promise<Response> {
   const { source, timeoutMs = DEFAULT_TIMEOUT_MS, init } = options;
   const controller = new AbortController();
@@ -84,7 +87,17 @@ async function once(url: string, options: FetchOptions): Promise<Response> {
     const signal = init?.signal
       ? AbortSignal.any([controller.signal, init.signal])
       : controller.signal;
-    return await fetch(url, { ...init, signal });
+    const response = await fetch(url, { ...init, signal });
+    // The body is read under the same timeout: a source that sends its
+    // headers and then stalls would otherwise hold the request forever, the
+    // timer cleared once the headers came (COVENANT, staging, 18/10/2026: no
+    // answer in 320 s).
+    const body = NULL_BODY.has(response.status) ? null : await response.arrayBuffer();
+    return new Response(body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       throw new TimeoutError(source, timeoutMs);

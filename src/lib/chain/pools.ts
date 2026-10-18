@@ -159,7 +159,7 @@ export async function findMarketsById(
   pools: readonly { id: string; createdAt?: number | null }[],
   latestBlock: number,
   options: { now?: number; fullScanFor?: number } = {},
-): Promise<{ markets: V4Market[]; unread: boolean }> {
+): Promise<{ markets: V4Market[]; unread: boolean; failed?: boolean }> {
   const wanted = pools
     .map((p) => ({ id: p.id.toLowerCase(), createdAt: p.createdAt ?? null }))
     .filter(
@@ -168,6 +168,8 @@ export async function findMarketsById(
   if (wanted.length === 0 || latestBlock <= 0) return { markets: [], unread: false };
   const now = options.now ?? Date.now();
   const found = new Map<string, V4Market>();
+  // A query the node failed is not a market that does not exist.
+  let failed = false;
 
   async function ask(queries: { id: string; window: Window }[]): Promise<void> {
     if (queries.length === 0) return;
@@ -185,9 +187,15 @@ export async function findMarketsById(
           ],
         })),
       )
-      .catch(() => []);
+      .catch(() => {
+        failed = true;
+        return [];
+      });
     for (const outcome of outcomes) {
-      if (!outcome.ok || !Array.isArray(outcome.value)) continue;
+      if (!outcome.ok || !Array.isArray(outcome.value)) {
+        failed = true;
+        continue;
+      }
       for (const log of outcome.value) {
         const market = decodeInitialize(log);
         if (!found.has(market.id)) found.set(market.id, market);
@@ -221,9 +229,11 @@ export async function findMarketsById(
   // Then the whole chain, for the first ones still missing (the main pool first).
   const missing = wanted.filter((p) => !found.has(p.id)).slice(0, options.fullScanFor ?? 1);
   await ask(missing.flatMap(({ id }) => fullScan(latestBlock).map((window) => ({ id, window }))));
+  const unread = wanted.some((p) => !found.has(p.id));
   return {
     markets: [...found.values()],
-    unread: wanted.some((p) => !found.has(p.id)),
+    unread,
+    ...(failed && unread ? { failed: true } : {}),
   };
 }
 

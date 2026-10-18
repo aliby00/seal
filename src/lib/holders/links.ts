@@ -2,6 +2,7 @@ import { TRANSFER_TOPIC, topicFor } from '../chain/behavior';
 import { isContractCode } from '../chain/code';
 import { getLogsBatched, type RawLog } from '../chain/logs';
 import type { RpcClient } from '../chain/rpc';
+import { IncompleteDataError } from '../errors';
 import type { CreatorSends } from '../contracts/creator';
 import {
   CREATOR_RECIPIENTS_LISTED,
@@ -78,6 +79,8 @@ export async function linkCreatorToHolders(
     setAside: ReadonlySet<string>;
     fromBlock: number;
     toBlock: number;
+    /** Told when a distributor's transfers could not be read: its count is then a minimum. */
+    onUnread?: (error: unknown) => void;
   },
 ): Promise<CreatorLinks> {
   const { token, sends, holders, supply, setAside } = input;
@@ -99,11 +102,16 @@ export async function linkCreatorToHolders(
     .slice(0, MAX_CODES_READ);
   const distributors: CreatorLinks['distributors'] = [];
   if (candidates.length > 0) {
-    const codes = await rpc
-      .callBatch<string>(
-        candidates.map((c) => ({ method: 'eth_getCode', params: [c.address, 'latest'] })),
-      )
-      .catch(() => []);
+    // Codes that could not be read would hide a distributor: the read fails.
+    const codes = await rpc.callBatch<string>(
+      candidates.map((c) => ({ method: 'eth_getCode', params: [c.address, 'latest'] })),
+    );
+    if (codes.some((c) => !c?.ok)) {
+      throw new IncompleteDataError(
+        'robinhood-rpc',
+        'the codes of the creator’s largest recipients could not be read',
+      );
+    }
     const contracts = candidates
       .filter((_, i) => codes[i]?.ok && isContractCode(codes[i]?.value as string))
       .slice(0, MAX_DISTRIBUTORS_READ);
@@ -119,7 +127,10 @@ export async function linkCreatorToHolders(
           },
           { fromBlock: input.fromBlock, toBlock: input.toBlock },
           { split: false },
-        ).catch(() => ({ logs: [] as RawLog[], truncated: true })),
+        ).catch((error: unknown) => {
+          input.onUnread?.(error);
+          return { logs: [] as RawLog[], truncated: true };
+        }),
       ),
     );
     const linked = new Set(links.map((l) => l.address));

@@ -7,6 +7,7 @@ import { SealError } from '@/lib/errors';
 import { ANALYZE_LIMIT, guardedJson } from '@/lib/guard';
 import { log } from '@/lib/logger';
 import { overBudget, recordSpend } from '@/lib/spend';
+import { funderOf } from '@/lib/agent/prompt';
 import { analysisCache, type CachedAnalysis } from '@/lib/analysis-cache';
 import { mergeFailedReads, questionsFailed } from '@/lib/failed-reads';
 import {
@@ -29,7 +30,13 @@ export const maxDuration = 60;
 const COLLECT_TIMEOUT_MS = 30_000;
 const COLLECT_TIMEOUT_MESSAGE = 'timeout global';
 /** What the whole request may take, under maxDuration with a margin. */
-const REQUEST_BUDGET_MS = 56_000;
+const REQUEST_BUDGET_MS = 54_000;
+/**
+ * The hard deadline: whatever is still running then, the route answers 504.
+ * COVENANT on staging (18/10/2026) got no answer in 320 s; every outbound
+ * read has its own timeout, and this one stands behind them all.
+ */
+const REQUEST_DEADLINE_MS = 57_000;
 /** Kept for the model: the provider's own timeout. */
 const MODEL_ALLOWANCE_MS = 25_000;
 /** Below this, the model is not worth calling: the facts are worded offline. */
@@ -47,9 +54,12 @@ const PUBLIC_MESSAGE: Record<string, string> = {
 };
 
 /** The charts are a bonus on top of the text: a malformed report must not fail the response. */
-function chartable(report: Parameters<typeof toFacts>[0]): ReportFacts | undefined {
+function chartable(
+  report: Parameters<typeof toFacts>[0],
+  funder: string | undefined,
+): ReportFacts | undefined {
   try {
-    return toFacts(report);
+    return toFacts(report, funder ? { funder } : {});
   } catch (error) {
     log.warn('faits non représentables', { error: String(error) });
     return undefined;
@@ -89,9 +99,24 @@ function errorResponse(status: number, message: string, detail?: string) {
   return NextResponse.json({ error: message, ...(detail ? { detail } : {}) }, { status });
 }
 
+/** The answer, or a 504 when it is not ready by `REQUEST_DEADLINE_MS`. */
 export async function POST(request: Request): Promise<Response> {
   const started = Date.now();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<Response>((resolve) => {
+    timer = setTimeout(() => {
+      log.error('analyse hors délai', { ms: Date.now() - started });
+      resolve(errorResponse(504, 'The analysis took too long this time. Try again in a moment.'));
+    }, REQUEST_DEADLINE_MS);
+  });
+  try {
+    return await Promise.race([analyze(request, started), late]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
+async function analyze(request: Request, started: number): Promise<Response> {
   const guarded = await guardedJson(request, ANALYZE_LIMIT, 'analyze');
   if ('response' in guarded) return guarded.response;
   const token = (guarded.body as { token?: unknown } | null)?.token;
@@ -172,7 +197,7 @@ export async function POST(request: Request): Promise<Response> {
       costUsd: explanation.cost.costUsd,
       collectedAt: report.collectedAt,
       offline: explanation.offline,
-      facts: chartable(report),
+      facts: chartable(report, funderOf(brief?.answers)),
       timeline: timeline(report),
       ...(report.launch ? { launch: report.launch.data } : {}),
       ...(brief ? { name: brief.name, symbol: brief.symbol, specialists: brief.answers } : {}),

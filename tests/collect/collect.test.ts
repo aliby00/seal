@@ -377,7 +377,10 @@ describe("cache de l'historique du créateur", () => {
             ? r.params?.[0]?.topics?.[0] === TOPIC
               ? launch
               : []
-            : '0x';
+            : // A wallet's count is read: one the node did not answer keeps the history uncached.
+              r.method === 'eth_getTransactionCount'
+              ? '0x2'
+              : '0x';
       const body = Array.isArray(raw)
         ? raw.map((r) => ({ id: r.id, result: answer(r as never) }))
         : { result: answer(raw as never) };

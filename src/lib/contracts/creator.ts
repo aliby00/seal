@@ -60,6 +60,33 @@ export type LaunchedToken = {
   };
   /** What the creator sent of this token outside its markets (the analysed token only). */
   creatorSends?: CreatorSends | null;
+  /**
+   * The liquidity removals on this token's markets, the most recent first:
+   * who sent each, and where the tokens taken out went (the analysed token
+   * only; absent when none was seen, or from histories made before).
+   */
+  liquidityRemovals?: LiquidityRemoval[];
+};
+
+/**
+ * One removal of liquidity from a market: who sent the transaction, and to
+ * whom the market returned the token in it. MOON on staging, 18/10/2026: tx
+ * 0xf58e531e…, sent by the creator, had the PoolManager return 48.07 % of the
+ * supply to the creator, held today; the text said "who removed it is not
+ * stated here".
+ */
+export type LiquidityRemoval = {
+  transaction: string;
+  block: number;
+  /** Who sent the removal transaction. */
+  sender: string;
+  /** The creator, or someone else (the creator's funder is told apart later, from its funding). */
+  by: 'creator' | 'other';
+  /**
+   * Who got the token back from the market in that transaction, net of what
+   * passed through, as shares of the supply; what each holds today, when read.
+   */
+  returned: { address: string; share: number; isCreator: boolean; heldNow: number | null }[];
 };
 
 /**

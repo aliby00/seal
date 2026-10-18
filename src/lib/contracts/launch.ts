@@ -52,6 +52,9 @@ export const BUNDLE_MIN_WALLETS = 3;
  * transaction serving 100 wallets and 87.5 % of the supply read as 35 wallets
  * and 32 %.
  */
+/** Round trips kept with their timings; beyond, they are counted only. */
+export const ROUND_TRIPS_LISTED = 60;
+
 export type LaunchSummary = {
   /** Moves counted, the same as `movesInWindow`. */
   moves: number;
@@ -116,6 +119,23 @@ export type LaunchSummary = {
     unread: number;
     contracts: number | null;
   } | null;
+  /**
+   * Addresses that bought and then sold back within the window, counted over
+   * every move read, not over the moves drawn (RH: "three of the addresses
+   * that bought at +433 s sold back", 61 really). Absent from older replays.
+   */
+  roundTrips?: {
+    /** Distinct addresses that bought, then sold back in the window. */
+    wallets: number;
+    /** Whether the creator is one of them. */
+    creator: boolean;
+    /** The shortest and longest delay between the first buy and the sale back, in seconds. */
+    delays: { min: number; max: number } | null;
+    /** Of the addresses the bundle transaction delivered to, how many sold back; null without one. */
+    fromBundle: number | null;
+    /** The trips, the creator's first, then by first buy: at most ROUND_TRIPS_LISTED. */
+    listed: { address: string; boughtAt: number; soldAt: number }[];
+  };
   /** Receipts read to tell trades from liquidity changes, of those wanted. */
   receiptsRead: number;
   receiptsWanted: number;

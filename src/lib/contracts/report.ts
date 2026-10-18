@@ -13,7 +13,12 @@ import type { MarketState } from './market';
  * - `creator-sales`: whether the creator sold this token;
  * - `launch-replay`: the first minutes after the launch;
  * - `holders`: the holders list;
- * - `market`: the token's trading (listed pair, or the launch pool's swaps).
+ * - `market`: the token's trading (listed pair, or the launch pool's swaps);
+ * - `creator-wallet`: how many transactions the creator's wallet has sent;
+ * - `creator-fees`: the fees the market's trading rules (hooks) paid the creator;
+ * - `liquidity`: what the token's pools hold on chain today;
+ * - `market-rules`: the trading rules (hooks) of the token's markets;
+ * - `graduation`: the launch's progress toward graduation.
  */
 export type ReadId =
   | 'creator'
@@ -22,6 +27,11 @@ export type ReadId =
   | 'launch-replay'
   | 'holders'
   | 'market'
+  | 'creator-wallet'
+  | 'creator-fees'
+  | 'liquidity'
+  | 'market-rules'
+  | 'graduation'
   /** Some of the ten questions did not finish in time, or could not be answered. */
   | 'questions';
 
