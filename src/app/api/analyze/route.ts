@@ -11,7 +11,9 @@ import { analysisCache, type CachedAnalysis } from '@/lib/analysis-cache';
 import {
   briefSpecialists,
   SPECIALIST_TIMEOUT_MS,
+  startSpecialists,
   type SpecialistBrief,
+  type SpecialistStart,
 } from '@/lib/specialists/brief';
 
 export const dynamic = 'force-dynamic';
@@ -68,11 +70,13 @@ async function specialists(
   token: string,
   report: Parameters<typeof toFacts>[0],
   timeoutMs: number,
+  started?: SpecialistStart,
 ): Promise<SpecialistBrief | undefined> {
   try {
     return await briefSpecialists(token, report, {
       rpcUrl: process.env.RPC_URL || undefined,
       timeoutMs,
+      ...(started ? { started } : {}),
     });
   } catch (error) {
     log.warn('spécialistes indisponibles', { token, error: String(error) });
@@ -103,6 +107,8 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
+    // What the questions can read without the report starts now, alongside it.
+    const questions = startSpecialists(token, { rpcUrl: process.env.RPC_URL || undefined });
     const report = await Promise.race([
       collect(token, {
         rpcUrl: process.env.RPC_URL || undefined,
@@ -121,6 +127,7 @@ export async function POST(request: Request): Promise<Response> {
       token,
       report,
       Math.max(MIN_SPECIALIST_MS, Math.min(SPECIALIST_TIMEOUT_MS, left)),
+      questions,
     );
     // Whatever the model has left is cut at the budget's end, so the response
     // leaves before the platform kills the function and loses a paid answer.

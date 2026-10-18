@@ -65,6 +65,11 @@ export type LaunchStory = {
     /** How many of the addresses served are contracts; `null` when not known. */
     contracts: number | null;
   } | null;
+  /**
+   * What the launch block's transactions sent by the creator delivered to
+   * other addresses than the creator's; `null` when none, or not read.
+   */
+  creatorTx: { share: number; addresses: number; contracts: number | null } | null;
   /** True when the window had more moves than were read. */
   partial: boolean;
   /**
@@ -197,6 +202,13 @@ export function buildStory(launch: LaunchReplayData): LaunchStory {
           unread: early.length - read.length,
           contracts: contractsAmong(new Set(early.map((b) => b.address.toLowerCase()))),
         },
+    creatorTx: summary?.creatorTx
+      ? {
+          share: summary.creatorTx.share,
+          addresses: summary.creatorTx.addresses,
+          contracts: summary.creatorTx.contracts,
+        }
+      : null,
     counted: summary ? 'all' : 'shown',
     buyers,
     curve,

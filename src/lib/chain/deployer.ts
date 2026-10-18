@@ -2,6 +2,7 @@ import type { Address } from 'viem';
 import type { CreatorHistory, CreatorOrigin, LaunchedToken, SalesWindow } from '../contracts';
 import {
   BURN_TOPIC,
+  creatorSendsOf,
   distinctRecipients,
   OWN_SALES_MAX_BLOCKS,
   salesWindowDays,
@@ -21,7 +22,7 @@ import {
 import { getLogsBatched, SINGLE_ADDRESS_SPAN, type RawLog } from './logs';
 import { POOL_MANAGER } from './pools';
 import { classifyLogError, DEFAULT_RPC_URL, logsRpcUrl, type RpcClient } from './rpc';
-import { readTxNatures, SWAP_TOPICS } from './trades';
+import { findRoutedSales, readTxNatures, SWAP_TOPICS } from './trades';
 
 /**
  * The creator of a token that is not a pons launch.
@@ -40,6 +41,10 @@ import { readTxNatures, SWAP_TOPICS } from './trades';
  */
 
 const ZERO_TOPIC = `0x${'0'.repeat(64)}`;
+const BURN_ADDRESSES = new Set([
+  '0x0000000000000000000000000000000000000000',
+  '0x000000000000000000000000000000000000dead',
+]);
 
 /** ERC-4337 EntryPoints (v0.6, v0.7, v0.8): the transaction sender is a bundler. */
 export const ENTRY_POINTS: readonly string[] = [
@@ -116,6 +121,11 @@ export type TradingVenues = {
    */
   curves?: string[];
   curveTrades?: string[];
+  /**
+   * The trading rules (hooks) of the v4 markets created at launch, from their
+   * `Initialize`: they hold the token for the market, never for a person.
+   */
+  hooks?: string[];
   /** Addresses a transfer from the creator into counts as a sale. */
   saleRecipients: string[];
 };
@@ -204,6 +214,7 @@ export function findVenues(
   const tokenTopic = topicFor(token);
   const pools: string[] = [];
   const v4Markets: string[] = [];
+  const hooks: string[] = [];
   for (const log of logs) {
     const named = log.topics.slice(1).includes(tokenTopic);
     if (!named) continue;
@@ -214,11 +225,16 @@ export function findVenues(
       log.topics[0] === V4_INITIALIZE_TOPIC &&
       lower(log.address) === lower(POOL_MANAGER) &&
       log.topics[1]
-    )
+    ) {
       v4Markets.push(lower(log.topics[1]));
+      // `Initialize(id, currency0, currency1, fee, tickSpacing, hooks, …)`: the third data word.
+      const hook = lower(`0x${word(log.data, 2).slice(24)}`);
+      if (/^0x[0-9a-f]{40}$/.test(hook) && !/^0x0{40}$/.test(hook)) hooks.push(hook);
+    }
   }
   const uniquePools = [...new Set(pools)].slice(0, MAX_VENUES);
   const uniqueMarkets = [...new Set(v4Markets)].slice(0, MAX_VENUES);
+  const uniqueHooks = [...new Set(hooks)].slice(0, MAX_VENUES);
   // A launch contract that holds the curve buys and sells itself: a transfer
   // from the creator into it is a sale on that curve.
   const recipients = [
@@ -226,7 +242,12 @@ export function findVenues(
     ...(uniqueMarkets.length > 0 ? [lower(POOL_MANAGER)] : []),
     ...(launchContract ? [lower(launchContract)] : []),
   ];
-  return { pools: uniquePools, v4Markets: uniqueMarkets, saleRecipients: [...new Set(recipients)] };
+  return {
+    pools: uniquePools,
+    v4Markets: uniqueMarkets,
+    ...(uniqueHooks.length > 0 ? { hooks: uniqueHooks } : {}),
+    saleRecipients: [...new Set(recipients)],
+  };
 }
 
 /** Adds what a launch event says about the token's markets to the venues found in its receipt. */
@@ -249,7 +270,14 @@ export function withRecordVenues(
       ...curves,
     ]),
   ];
-  return { pools, v4Markets, curves, curveTrades, saleRecipients };
+  return {
+    pools,
+    v4Markets,
+    curves,
+    curveTrades,
+    ...(venues.hooks ? { hooks: venues.hooks } : {}),
+    saleRecipients,
+  };
 }
 
 export const launchpadRef = (launchpad: Launchpad): LaunchpadRef => ({
@@ -383,21 +411,32 @@ export function modifyRemovedLiquidity(log: RawLog): boolean {
 /** Removal transactions checked for their sender; beyond, the answer is unknown. */
 const MAX_REMOVALS_CHECKED = 60;
 
+/** True when a v4 `ModifyLiquidity` changed no liquidity: a position's fees being collected. */
+export function modifyCollectedFees(log: RawLog): boolean {
+  const delta = word(log.data, 2);
+  return delta.length === 64 && /^0+$/.test(delta);
+}
+
 /**
  * Which tokens had liquidity removed by the creator: each removal's
  * transaction is read for its sender. A token whose removals could not all be
  * read, and none of the read ones was the creator's, is left out: unknown.
+ * The same reading for `collections`, the fee collections on a v4 market.
  */
 async function creatorRemovals(
   rpc: RpcClient,
   creator: string,
   targets: ReadonlySet<string>,
   removals: readonly { token: string; log: RawLog }[],
-): Promise<Map<string, boolean>> {
+  collections: readonly { token: string; log: RawLog }[] = [],
+): Promise<{ pulled: Map<string, boolean>; collected: Map<string, boolean> }> {
   const pulled = new Map([...targets].map((t) => [t, false]));
-  if (removals.length === 0) return pulled;
+  const collected = new Map([...targets].map((t) => [t, false]));
+  if (removals.length === 0 && collections.length === 0) return { pulled, collected };
   // The most recent first: a pull ends a market's life, it rarely starts it.
-  const hashes = [...new Set([...removals].reverse().map((r) => r.log.transactionHash))];
+  const hashes = [
+    ...new Set([...removals, ...collections].reverse().map((r) => r.log.transactionHash)),
+  ];
   const read = hashes.slice(0, MAX_REMOVALS_CHECKED);
   const outcomes = await rpc
     .callBatch<{ from?: string } | null>(
@@ -410,14 +449,18 @@ async function creatorRemovals(
       return [hash, outcome?.ok && outcome.value?.from ? lower(outcome.value.from) : null];
     }),
   );
-  const unread = new Set<string>();
-  for (const { token, log } of removals) {
-    const from = sender.get(log.transactionHash);
-    if (from === lower(creator)) pulled.set(token, true);
-    else if (from === undefined || from === null) unread.add(token);
-  }
-  for (const token of unread) if (pulled.get(token) === false) pulled.delete(token);
-  return pulled;
+  const settle = (events: readonly { token: string; log: RawLog }[], out: Map<string, boolean>) => {
+    const unread = new Set<string>();
+    for (const { token, log } of events) {
+      const from = sender.get(log.transactionHash);
+      if (from === lower(creator)) out.set(token, true);
+      else if (from === undefined || from === null) unread.add(token);
+    }
+    for (const token of unread) if (out.get(token) === false) out.delete(token);
+  };
+  settle(removals, pulled);
+  settle(collections, collected);
+  return { pulled, collected };
 }
 
 type WindowQuery = {
@@ -851,24 +894,40 @@ export async function fetchDeployerHistory(
   // contract keeps the older reading: a transfer into it is a sale on its curve.
   const sold = new Map(salesTargets.map((l) => [l.token, false]));
   const intoMarket: { token: string; hash: string }[] = [];
+  // Transfers to anything else may still be a sale, routed through a router.
+  const elsewhere: { token: string; to: string; hash: string }[] = [];
   // The analysed token's transfers first: its receipts are read before the others'.
   for (const log of [...ownSales.logs, ...otherSales.logs]) {
     const token = lower(log.address);
     const to = fromTopic(log.topics[2]);
     const venue = venues.get(token);
-    if (!venue?.saleRecipients.includes(to)) continue;
+    if (!venue) continue;
+    if (!venue.saleRecipients.includes(to)) {
+      if (!BURN_ADDRESSES.has(to)) elsewhere.push({ token, to, hash: log.transactionHash });
+      continue;
+    }
     if (heuristic && to === lower(heuristic) && !venue.curves?.includes(to)) sold.set(token, true);
     else intoMarket.push({ token, hash: log.transactionHash });
   }
   const curves = [...venues.values()].flatMap((v) => v.curves ?? []);
   const curveTrades = [...venues.values()].flatMap((v) => v.curveTrades ?? []);
   const marketAddresses = new Set([...tokenOfPool.keys(), lower(POOL_MANAGER), ...curves]);
-  const natures = await readTxNatures(
-    rpc,
-    intoMarket.map((t) => t.hash),
-    marketAddresses,
-    new Set([...SWAP_TOPICS, ...curveTrades]),
-  ).catch(() => new Map<string, never>());
+  const tradeTopics = new Set([...SWAP_TOPICS, ...curveTrades]);
+  const marketsOf = (token: string): ReadonlySet<string> => {
+    const v = venues.get(token);
+    return new Set([...(v?.saleRecipients ?? []), ...(v?.pools ?? []), ...(v?.curves ?? [])]);
+  };
+  const [natures, routed] = await Promise.all([
+    readTxNatures(
+      rpc,
+      intoMarket.map((t) => t.hash),
+      marketAddresses,
+      tradeTopics,
+    ).catch(() => new Map<string, never>()),
+    // Only where no direct sale settles it: the analysed token first.
+    findRoutedSales(rpc, creator, elsewhere, marketsOf, tradeTopics, origin.token),
+  ]);
+  for (const token of routed) if (sold.has(token)) sold.set(token, true);
   const unread = new Set<string>();
   for (const { token, hash } of intoMarket) {
     const nature = natures.get(hash);
@@ -896,18 +955,29 @@ export async function fetchDeployerHistory(
     ownTarget && !ownSales.truncated
       ? distinctRecipients(ownSales.logs, origin.token, creator, ownMarkets)
       : null;
+  const creatorSends =
+    ownTarget && !ownSales.truncated
+      ? creatorSendsOf(ownSales.logs, origin.token, creator, ownMarkets)
+      : null;
 
   const liquidityTargets = new Set([...tokenOfPool.values(), ...tokenOfMarket.values()]);
   // Removals of any liquidity on the token's markets, by anyone.
   const removals: { token: string; log: RawLog }[] = [];
+  // A v4 position's fees, taken out without touching its liquidity: tokens
+  // the market paid back to whoever owns the position (AML, +387 s: the
+  // creator called Doppler's hook, two ModifyLiquidity of zero, and the token
+  // came back to the creator).
+  const collections: { token: string; log: RawLog }[] = [];
   for (const log of liquidityLogs.logs) {
     if (log.topics[0] === MODIFY_LIQUIDITY_TOPIC) {
       const token = tokenOfMarket.get(lower(log.topics[1] ?? ''));
-      if (!token || !modifyRemovedLiquidity(log)) continue;
+      if (!token) continue;
+      const removed = modifyRemovedLiquidity(log);
+      if (!removed && !modifyCollectedFees(log)) continue;
       // Outside its own window, a removal is not the one being asked about.
       const launch = checked.find((l) => l.token === token);
       if (launch && Number(log.blockNumber) <= windowOf(launch).toBlock) {
-        removals.push({ token, log });
+        (removed ? removals : collections).push({ token, log });
       }
     } else {
       const token = tokenOfPool.get(lower(log.address));
@@ -917,8 +987,15 @@ export async function fetchDeployerHistory(
   // Anyone can add liquidity to a market and take it back: only a removal the
   // creator signed is theirs. Verified live, where a third party rebalancing
   // its own range made SEAL report the creator's liquidity as pulled.
-  const pulled = await creatorRemovals(rpc, creator, liquidityTargets, removals);
+  const { pulled, collected } = await creatorRemovals(
+    rpc,
+    creator,
+    liquidityTargets,
+    removals,
+    collections,
+  );
   const pulledKnown = unseenAsUnknown(pulled, liquidityLogs.truncated);
+  const collectedKnown = unseenAsUnknown(collected, liquidityLogs.truncated);
 
   const checkedTokens = new Set(checked.map((l) => l.token));
   const tokens: LaunchedToken[] = detailed.map((l, i) => {
@@ -936,6 +1013,9 @@ export async function fetchDeployerHistory(
       graduationProgress: 0,
       liquidityPulled: checkedTokens.has(l.token) ? (pulledKnown.get(l.token) ?? null) : null,
       creatorDumped: checkedTokens.has(l.token) ? (soldKnown.get(l.token) ?? null) : null,
+      ...(tokenOfMarket.size > 0 && [...tokenOfMarket.values()].includes(l.token)
+        ? { feesCollected: collectedKnown.get(l.token) ?? null }
+        : {}),
       ...(l.launchpad ? { launchpad: l.launchpad.name } : {}),
       ...(checkedTokens.has(l.token)
         ? {
@@ -947,7 +1027,7 @@ export async function fetchDeployerHistory(
             ),
           }
         : {}),
-      ...(l.token === origin.token ? { creatorRecipients } : {}),
+      ...(l.token === origin.token ? { creatorRecipients, creatorSends } : {}),
     };
   });
 

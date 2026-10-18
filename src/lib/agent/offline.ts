@@ -127,6 +127,24 @@ export function offlineExplanation(report: TokenReport, specialists?: Specialist
     parts.push(
       `Holders: the largest holds ${pct(holders.data.concentration.top1)} of ${holders.completeness === 'full' ? 'the supply held outside pools and burn addresses' : 'the supply held by the holders that could be read'}; the top 10 hold ${pct(holders.data.concentration.top10)} combined.`,
     );
+    const links = holders.data.creatorLinks;
+    const linked = holders.data.top.filter((h) => h.fromCreator);
+    if (links && (linked.length > 0 || links.distributors.length > 0 || links.burned > 0)) {
+      const bits = [
+        ...linked
+          .slice(0, 3)
+          .map(
+            (h) =>
+              `${h.address} received ${pct(h.fromCreator!.share)} of the supply ${h.fromCreator!.via ? `through ${h.fromCreator!.via}, a contract the creator sent tokens to` : 'directly from the creator'}`,
+          ),
+        ...links.distributors.map(
+          (d) =>
+            `the creator sent ${pct(d.share)} of the supply to ${d.address}, which passed it on to ${d.recipients} addresses`,
+        ),
+        ...(links.burned > 0 ? [`the creator burned ${pct(links.burned)} of the supply`] : []),
+      ];
+      parts.push(`From the creator’s own transfers: ${bits.join('; ')}.`);
+    }
   }
   if (market.completeness === 'unavailable') {
     parts.push(`Market: ${market.sources[0]?.note ?? 'no data available'}.`);

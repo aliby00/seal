@@ -15,7 +15,7 @@ import { POOL_MANAGER } from './pools';
 import { LogQueryTooBroadError, type RpcClient } from './rpc';
 import { isContractCode } from './code';
 import { LAUNCHPADS, launchInfrastructure } from './launchpads';
-import { readTxNatures, SWAP_TOPICS, type TxNature } from './trades';
+import { readTxDetails, readTxNatures, SWAP_TOPICS, type TxDetail, type TxNature } from './trades';
 
 /**
  * The first minutes of a token, replayed from its own `Transfer` events.
@@ -90,8 +90,18 @@ export type DraftMove = {
  * factory, a launch contract) is folded away, so the move reads from the real
  * source to the real recipient: "the pool sold to this wallet", not "the pool
  * sold to the router, which gave to this wallet".
+ *
+ * `markets` are the addresses that trade (pools, curves, the PoolManager):
+ * they are never folded. A launch contract set aside with them is folded
+ * when it only relays: Doppler's Airlock and hook pass the whole supply on
+ * to the PoolManager in the launch transaction, and that is the pool being
+ * seeded with what was minted, not an "allocation" between two contracts.
  */
-export function draftMoves(logs: readonly RawLog[], pools: ReadonlySet<string>): DraftMove[] {
+export function draftMoves(
+  logs: readonly RawLog[],
+  pools: ReadonlySet<string>,
+  markets: ReadonlySet<string> = pools,
+): DraftMove[] {
   const byTx = new Map<string, Transfer[]>();
   for (const log of logs) {
     const transfer = readTransfer(log);
@@ -113,7 +123,7 @@ export function draftMoves(logs: readonly RawLog[], pools: ReadonlySet<string>):
     // least 99 % of what it received in the same transaction still makes it a
     // relay, not a holder.
     const passThrough = (address: string) => {
-      if (pools.has(address) || address === ZERO) return false;
+      if (markets.has(address) || address === ZERO) return false;
       const inflow = received.get(address) ?? 0n;
       const outflow = sent.get(address) ?? 0n;
       return inflow > 0n && outflow * 100n >= inflow * 99n && outflow <= inflow;
@@ -304,6 +314,14 @@ type LaunchTally = {
   /** The transaction serving the most supply to several addresses, and what each got. */
   bundle: { transaction: string; seconds: number; bought: Map<string, bigint> } | null;
   bundled: string[];
+  /**
+   * What the launch block's transactions sent by the creator delivered to
+   * other addresses than the creator's own (MUT8: 71.4 % to three contracts
+   * in the creator's launch transaction), by recipient.
+   */
+  creatorTx: { transaction: string; bought: Map<string, bigint> } | null;
+  /** A creator sale whose receipt shows a trade in the market. */
+  creatorSaleConfirmed: boolean;
   supply: bigint;
 };
 
@@ -314,9 +332,19 @@ type LaunchTally = {
  */
 export function tallyLaunch(
   moves: readonly TimedMove[],
-  context: { creator: string | null; from: number; pools: ReadonlySet<string>; supply: bigint },
+  context: {
+    creator: string | null;
+    from: number;
+    pools: ReadonlySet<string>;
+    supply: bigint;
+    /** Who sent each transaction whose receipt was read. */
+    senders?: ReadonlyMap<string, string | null>;
+    natures?: ReadonlyMap<string, TxNature>;
+  },
 ): LaunchTally {
   const { creator, from, pools, supply } = context;
+  const senders = context.senders ?? new Map<string, string | null>();
+  const natures = context.natures ?? new Map<string, TxNature>();
   const buys = moves.filter((m) => m.kind === 'buy' && !pools.has(m.actor) && !BURN.has(m.actor));
   const own = (m: DraftMove) => creator !== null && m.actor === creator;
   const sum = (list: readonly DraftMove[]) => list.reduce((n, m) => n + m.value, 0n);
@@ -358,7 +386,25 @@ export function tallyLaunch(
       .map(([transaction, g]) => ({ transaction, seconds: g.seconds, bought: g.bought }))[0] ??
     null;
 
+  // Delivered in the launch block, in a transaction the creator sent, to
+  // anyone but the creator, a pool or a burn address.
+  const viaCreator = new Map<string, bigint>();
+  let creatorTransaction: string | null = null;
+  for (const m of moves) {
+    if (creator === null || m.block !== from || own(m)) continue;
+    if (m.kind !== 'buy' && m.kind !== 'mint' && m.kind !== 'allocation') continue;
+    if (pools.has(m.actor) || BURN.has(m.actor)) continue;
+    if (senders.get(m.transaction) !== creator) continue;
+    viaCreator.set(m.actor, (viaCreator.get(m.actor) ?? 0n) + m.value);
+    creatorTransaction ??= m.transaction;
+  }
+
   return {
+    creatorTx:
+      viaCreator.size > 0 && creatorTransaction
+        ? { transaction: creatorTransaction, bought: viaCreator }
+        : null,
+    creatorSaleConfirmed: creatorSales.some((m) => natures.get(m.transaction) === 'swap'),
     creatorAtLaunch: shareOf(creatorAtLaunch, supply),
     creatorBought: shareOf(sum(creatorBuys), supply),
     creatorSold: shareOf(sum(creatorSales), supply),
@@ -409,6 +455,9 @@ export function summarize(
     );
   const early = held(tally.earlyBought);
   const bundle = tally.bundle ? { ...tally.bundle, ...held(tally.bundle.bought) } : null;
+  const viaCreator = tally.creatorTx
+    ? { ...tally.creatorTx, ...held(tally.creatorTx.bought) }
+    : null;
   return {
     moves: counts.moves,
     earlySeconds: EARLY_SECONDS,
@@ -417,6 +466,16 @@ export function summarize(
     creatorSold: tally.creatorSold,
     creatorFirstBuyAt: tally.creatorFirstBuyAt,
     creatorLastSaleAt: tally.creatorLastSaleAt,
+    creatorSaleConfirmed: tally.creatorSaleConfirmed,
+    creatorTx: viaCreator
+      ? {
+          transaction: viaCreator.transaction,
+          addresses: viaCreator.bought.size,
+          share: total(viaCreator.bought),
+          heldNow: viaCreator.heldNow,
+          contracts: viaCreator.contracts,
+        }
+      : null,
     early: {
       wallets: tally.early.length,
       share: total(tally.earlyBought),
@@ -449,16 +508,21 @@ export async function readLaunchReplay(
     latestBlock: number;
     /** Every address that holds a market's tokens: the pons pool, DEX pairs, the v4 PoolManager. */
     pools: readonly string[];
+    /** The markets' trading rules (hooks), read from their `Initialize`: set aside, never buyers. */
+    hooks?: readonly string[];
     creator?: string | null;
     now?: () => Date;
   },
 ): Promise<LaunchReplay> {
   const fetchedAt = (options.now ?? (() => new Date()))().toISOString();
-  // A launchpad's own contracts and its lock contract hold supply for the
-  // launch, like a pool: the 0x7ed5 lock receiving 8.163 % at graduation is
-  // not a buyer of the first minute.
+  // A launchpad's own contracts, its lock contract and the markets' hooks
+  // hold supply for the launch, like a pool: the 0x7ed5 lock receiving
+  // 8.163 % at graduation is not a buyer of the first minute.
+  const markets = new Set([...options.pools, POOL_MANAGER].map((a) => a.toLowerCase()));
   const pools = new Set(
-    [...options.pools, POOL_MANAGER, ...launchInfrastructure().keys()].map((a) => a.toLowerCase()),
+    [...markets, ...launchInfrastructure().keys(), ...(options.hooks ?? [])].map((a) =>
+      a.toLowerCase(),
+    ),
   );
   const creator = options.creator?.toLowerCase() ?? null;
   const from = options.launchBlock;
@@ -472,7 +536,21 @@ export async function readLaunchReplay(
     throw new IncompleteDataError('robinhood-rpc', 'the token’s supply could not be read');
   }
 
-  const drafts = draftMoves(logs, pools);
+  // A hook taking its fee from the PoolManager, and paying it back, on
+  // every trade (Doppler's 0x6f02…, 0x7ed5's 0xe5e7…) is the market's own
+  // plumbing: between two set-aside addresses, not a move of the supply.
+  const hooks = new Set([
+    ...(options.hooks ?? []).map((h) => h.toLowerCase()),
+    ...[...launchInfrastructure()].filter(([, role]) => role === 'hook').map(([a]) => a),
+  ]);
+  const drafts = draftMoves(logs, pools, markets).filter(
+    (m) =>
+      !(
+        pools.has(m.actor) &&
+        pools.has(m.counterparty) &&
+        (hooks.has(m.actor) || hooks.has(m.counterparty))
+      ),
+  );
 
   // The window's edges first: every move is placed between them, and only the
   // moves kept are timed exactly.
@@ -498,18 +576,23 @@ export async function readLaunchReplay(
   // which the totals rest on.
   const early = (m: DraftMove) =>
     m.kind === 'buy' && secondsAt(m.block, edgeTimes) - launchTime <= EARLY_SECONDS;
+  // The launch block's own transactions come first: who sent them says
+  // whether what they delivered came with the creator's launch.
   const wantedReceipts = [
     ...new Set(
       [
+        ...inWindow.filter((m) => m.block === from && m.kind !== 'sell'),
         ...selected.filter((m) => m.kind === 'buy' || m.kind === 'sell'),
         ...inWindow.filter(early),
         ...inWindow.filter((m) => m.kind === 'buy' || m.kind === 'sell'),
       ].map((m) => m.transaction),
     ),
   ];
-  const natures = await readTxNatures(rpc, wantedReceipts, pools, TRADE_TOPICS).catch(
-    () => new Map<string, TxNature>(),
+  const details = await readTxDetails(rpc, wantedReceipts, pools, TRADE_TOPICS).catch(
+    () => new Map<string, TxDetail>(),
   );
+  const natures = new Map([...details].map(([hash, d]) => [hash, d.nature]));
+  const senders = new Map([...details].map(([hash, d]) => [hash, d.from]));
   const kept = await separateLiquidity(rpc, selected, pools, natures);
   const everyMove = inWindow.map((m) => relabel(m, natures));
 
@@ -525,18 +608,22 @@ export async function readLaunchReplay(
 
   const totals = tallyLaunch(
     everyMove.map((m) => ({ ...m, seconds: at(m.block) })),
-    { creator, from, pools, supply },
+    { creator, from, pools, supply, senders, natures },
   );
 
   // Who each actor is, and what it holds today: the moves drawn first, then
   // the first buyers and the addresses one transaction served, up to a cap.
   const shown = [...new Set(listed.map((m) => m.actor))];
-  const wanted = [...new Set([...shown, ...totals.bundled, ...totals.early])];
-  const actors = wanted.slice(0, Math.max(MAX_BALANCES_READ, shown.length));
+  const linked = [...(totals.creatorTx?.bought.keys() ?? [])];
+  const wanted = [...new Set([...shown, ...linked, ...totals.bundled, ...totals.early])];
+  const actors = wanted.slice(0, Math.max(MAX_BALANCES_READ, shown.length + linked.length));
   // Codes say wallet or contract: needed for the moves drawn and for the
   // addresses one transaction served, whose count the report words.
   const typed = new Set(
-    [...new Set([...shown, ...totals.bundled])].slice(0, Math.max(MAX_CODES_READ, shown.length)),
+    [...new Set([...shown, ...linked, ...totals.bundled])].slice(
+      0,
+      Math.max(MAX_CODES_READ, shown.length + linked.length),
+    ),
   );
   const coded = actors.filter((a) => typed.has(a));
   const [codeList, balances] = await Promise.all([
@@ -575,7 +662,7 @@ export async function readLaunchReplay(
     }),
   );
 
-  const moves: LaunchMove[] = listed.map((m) => ({
+  const drawn: LaunchMove[] = listed.map((m) => ({
     kind: m.kind,
     seconds: Math.round(m.seconds * 10) / 10,
     block: m.block - from,
@@ -588,6 +675,9 @@ export async function readLaunchReplay(
     heldNow: info.get(m.actor)?.held ?? null,
     transaction: m.transaction,
   }));
+  // A launch contract sending dust to a burn address in the launch
+  // transaction (Doppler's Airlock, to 0x…dead) is not a move worth a line.
+  const moves = drawn.filter((m) => !(m.actorKind === 'burn' && m.share === 0));
 
   const summary = summarize(totals, info, {
     receiptsRead: Math.min(wantedReceipts.length, natures.size),

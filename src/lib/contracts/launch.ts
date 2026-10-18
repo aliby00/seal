@@ -66,6 +66,24 @@ export type LaunchSummary = {
   /** Seconds of the creator's first buy and last sale in the window, when there are some. */
   creatorFirstBuyAt: number | null;
   creatorLastSaleAt: number | null;
+  /** A creator sale in the window whose receipt shows a trade. Absent from older replays. */
+  creatorSaleConfirmed?: boolean;
+  /**
+   * What the launch block's transactions sent by the creator delivered to
+   * other addresses than the creator's (MUT8: 71.4 % to three contracts in
+   * the creator's own launch transaction). Linked to the creator by that
+   * transaction; who controls those addresses is not shown. Absent from
+   * older replays; `null` when there was none.
+   */
+  creatorTx?: {
+    transaction: string;
+    addresses: number;
+    share: number;
+    /** What they hold today, capped at what they received; `null` when unread. */
+    heldNow: number | null;
+    /** How many of them are contracts; `null` when not read. */
+    contracts: number | null;
+  } | null;
   early: {
     /** Distinct addresses (not the creator) whose first buy came within `earlySeconds`. */
     wallets: number;

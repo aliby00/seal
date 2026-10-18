@@ -1,11 +1,12 @@
 import { findViolations } from '../agent/guardrails';
 import { readTokenMetas } from '../chain/facts';
-import { createRpcClient } from '../chain/rpc';
+import type { MarketIndex } from '../chain/pools';
+import { createRpcClient, type RpcClient } from '../chain/rpc';
 import type { TokenReport } from '../contracts';
 import { createBudget } from '../http';
 import { log } from '../logger';
 import { CATALOG } from './catalog';
-import { gatherContext } from './context';
+import { discoverMarkets, gatherContext, type MarketDiscovery } from './context';
 import { liveIndex } from './live-index';
 import { displayName } from './names';
 import {
@@ -119,6 +120,32 @@ function within<T>(work: Promise<T>, ms: number): Promise<T> {
 }
 
 /**
+ * What the questions can read before the report is ready: the recent
+ * markets, the token's own v4 markets, its name. Started alongside the
+ * collection, so the questions do not wait for it and then for their own
+ * reads one after the other (MEME: 39 s, two questions out of time).
+ */
+export type SpecialistStart = {
+  rpc: RpcClient;
+  index: Promise<MarketIndex | undefined>;
+  discovery: Promise<MarketDiscovery>;
+  metas: Promise<Awaited<ReturnType<typeof readTokenMetas>> | undefined>;
+};
+
+export function startSpecialists(
+  token: string,
+  options: { rpcUrl?: string } = {},
+): SpecialistStart {
+  const rpc = createRpcClient(options.rpcUrl, createBudget(SPECIALIST_BUDGET));
+  const index = liveIndex(rpc).catch(() => undefined);
+  const discovery = index.then((i) => discoverMarkets(rpc, token, i));
+  // Read once settled: a failure here is the question's own "not found".
+  discovery.catch(() => undefined);
+  const metas = readTokenMetas(rpc, [token]).catch(() => undefined);
+  return { rpc, index, discovery, metas };
+}
+
+/**
  * Gathers what the specialists need beyond the report — the v4 market, its
  * rulebook, the creator's wallet, the recent markets — under a time and
  * request budget, then asks the ten questions. Never throws.
@@ -126,17 +153,18 @@ function within<T>(work: Promise<T>, ms: number): Promise<T> {
 export async function briefSpecialists(
   token: string,
   report: TokenReport | undefined,
-  options: { rpcUrl?: string; timeoutMs?: number } = {},
+  options: { rpcUrl?: string; timeoutMs?: number; started?: SpecialistStart } = {},
 ): Promise<SpecialistBrief> {
-  const rpc = createRpcClient(options.rpcUrl, createBudget(SPECIALIST_BUDGET));
+  const started = options.started ?? startSpecialists(token, { rpcUrl: options.rpcUrl });
+  const { rpc } = started;
   const timeoutMs = options.timeoutMs ?? SPECIALIST_TIMEOUT_MS;
 
-  const metas = within(readTokenMetas(rpc, [token]), timeoutMs).catch(() => undefined);
+  const metas = within(started.metas, timeoutMs).catch(() => undefined);
   let timedOut = false;
   const context = await within(
     (async () => {
-      const index = await liveIndex(rpc).catch(() => undefined);
-      return gatherContext(rpc, token, report, index);
+      const index = await started.index;
+      return gatherContext(rpc, token, report, index, started.discovery);
     })(),
     timeoutMs,
   ).catch((error: unknown): SpecialistContext => {

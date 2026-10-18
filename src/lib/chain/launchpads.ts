@@ -378,12 +378,48 @@ export const LAUNCH_LOCKERS: readonly { address: string; name: string }[] = [
   },
 ];
 
-export type LaunchInfrastructureRole = 'launchpad' | 'locker';
+/**
+ * Trading rules (Uniswap v4 hooks) and the contracts plugged into them that
+ * launchpads attach to every market they open. They take fees in the token
+ * and hold it for the market's mechanism: never anyone's position. Read on
+ * chain on 18/10/2026:
+ *
+ * - `0xe5e7…` is the hook of the v4 markets 0x7ed5 tokens graduate to
+ *   (HYPURRT, MUT8, ROBINHOOD, WAFER, WORM, COVENANT): in every buy it takes
+ *   a fee in the token, and it held 2.68 % of HYPURRT, its "largest holder";
+ * - `0x4e34…` is Doppler's hook and initializer: named as `hooks` in the
+ *   `Initialize` of AML, MEME and KEL, it receives the supply from the
+ *   Airlock, seeds the PoolManager with it and owns the positions (AML's
+ *   largest holder, KEL's third);
+ * - `0x6f02…` is a contract plugged into that hook: it registers each new
+ *   Doppler market in its launch transaction (an event keyed by the market
+ *   id) and trades a fee on every swap of AML, MEME, AI, BONER, KEL, ASTEROID.
+ *
+ * Any other market's hook is read from its `Initialize` (deployer.ts) and set
+ * aside the same way.
+ */
+export const LAUNCH_HOOKS: readonly { address: string; name: string }[] = [
+  {
+    address: '0xe5e702641ea86f4ae6cc3cdaed2b886f976be044',
+    name: 'the trading rules (hook) of the markets 0x7ed5 tokens graduate to',
+  },
+  {
+    address: '0x4e3468951d49f2eea976ed0d6e75ffcb44a9a544',
+    name: 'Doppler’s trading rules (hook) and initializer',
+  },
+  {
+    address: '0x6f02324d20cc679d0e585290caa6b16bacbc0f77',
+    name: 'a contract plugged into Doppler’s trading rules (hook)',
+  },
+];
 
-/** Every launchpad, router and lock contract SEAL knows, by lowercase address. */
+export type LaunchInfrastructureRole = 'launchpad' | 'locker' | 'hook';
+
+/** Every launchpad, router, lock contract and launch hook SEAL knows, by lowercase address. */
 export function launchInfrastructure(): Map<string, LaunchInfrastructureRole> {
   const out = new Map<string, LaunchInfrastructureRole>();
   for (const l of LAUNCHPADS) out.set(l.address.toLowerCase(), 'launchpad');
   for (const l of LAUNCH_LOCKERS) out.set(l.address.toLowerCase(), 'locker');
+  for (const l of LAUNCH_HOOKS) out.set(l.address.toLowerCase(), 'hook');
   return out;
 }
