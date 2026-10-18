@@ -911,3 +911,28 @@ describe('wording: contracts are not "wallets" (bug 10)', () => {
     expect(addressesWord(16, 0)).toBe('wallets');
   });
 });
+
+describe('launch replay: the 0x7ed5 lock contract is not a first buyer (bugs 1 and 2)', () => {
+  it('WORM: 8.163 % moved from the curve to 0x2674… at graduation is not a purchase', async () => {
+    const token = '0x3ba500f1ababbcf0f0247d06d1c56fd7e6c4c09d';
+    const curve = '0xa13e3c0000000000000000000000000000000000';
+    const supply = E27;
+    const rpc = launchNode(
+      [
+        transferLog(token, curve, LOCKER_7ED5, (supply * 81_633n) / 1_000_000n, 101, '0xgrad'),
+        transferLog(token, curve, n40(77), supply / 100n, 101, '0xbuy'),
+      ],
+      supply,
+      () => [{ address: curve, topics: [CURVE_BUY], data: '0x' }],
+      100,
+    );
+    const replay = await readLaunchReplay(rpc, token as `0x${string}`, {
+      launchBlock: 100,
+      latestBlock: 1_000_000,
+      pools: [curve],
+    });
+    expect(replay.data.summary?.early.wallets).toBe(1);
+    expect(replay.data.summary?.early.share).toBeCloseTo(0.01, 6);
+    expect(replay.data.moves.find((m) => m.actor === LOCKER_7ED5)?.kind).toBe('allocation');
+  });
+});

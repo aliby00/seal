@@ -14,7 +14,7 @@ import type { RawLog } from './logs';
 import { POOL_MANAGER } from './pools';
 import { LogQueryTooBroadError, type RpcClient } from './rpc';
 import { isContractCode } from './code';
-import { LAUNCHPADS } from './launchpads';
+import { LAUNCHPADS, launchInfrastructure } from './launchpads';
 import { readTxNatures, SWAP_TOPICS, type TxNature } from './trades';
 
 /**
@@ -451,7 +451,12 @@ export async function readLaunchReplay(
   },
 ): Promise<LaunchReplay> {
   const fetchedAt = (options.now ?? (() => new Date()))().toISOString();
-  const pools = new Set([...options.pools, POOL_MANAGER].map((a) => a.toLowerCase()));
+  // A launchpad's own contracts and its lock contract hold supply for the
+  // launch, like a pool: the 0x7ed5 lock receiving 8.163 % at graduation is
+  // not a buyer of the first minute.
+  const pools = new Set(
+    [...options.pools, POOL_MANAGER, ...launchInfrastructure().keys()].map((a) => a.toLowerCase()),
+  );
   const creator = options.creator?.toLowerCase() ?? null;
   const from = options.launchBlock;
   const [read, supplyHex] = await Promise.all([
