@@ -1,11 +1,13 @@
 import type { Address } from 'viem';
 import type {
+  CheckedSample,
   CreatorHistory,
   CreatorOrigin,
   LaunchedToken,
   LiquidityRemoval,
   SalesWindow,
 } from '../contracts';
+import { OTHER_LAUNCH_SALES_DAYS } from '../contracts/creator';
 import {
   BURN_TOPIC,
   creatorSendsOf,
@@ -16,6 +18,7 @@ import {
   topicFor,
 } from './behavior';
 import { isContractCode } from './code';
+import type { SentTransaction } from './funding';
 import { IncompleteDataError } from '../errors';
 import { UNREAD } from '../failed-reads';
 import { fetchBlockTimestamps } from './graduation';
@@ -106,7 +109,54 @@ export function salesWindowOf(
 
 /** Launches read in detail, and launches whose sales and liquidity are checked. */
 export const MAX_DETAILED_DEPLOYER_LAUNCHES = 40;
+/** Other launches checked on each launchpad the creator used, at most. */
 export const MAX_CHECKED_DEPLOYER_LAUNCHES = 10;
+/** Other launches checked in all, across launchpads. */
+export const MAX_CHECKED_DEPLOYER_TOTAL = 20;
+/** How a launch made by no known launchpad is grouped in the checks. */
+export const OTHER_LAUNCHES = 'its launch contract';
+
+/**
+ * The other launches whose sales and liquidity are checked, picked on every
+ * launchpad the creator used: the most recent of each in turn, up to
+ * MAX_CHECKED_DEPLOYER_LAUNCHES per launchpad and MAX_CHECKED_DEPLOYER_TOTAL
+ * in all. AI, staging 18/10/2026: 59 launches on Doppler's 0x22e9 and 21 on
+ * pons; the ten most recent were all Doppler ones, "no sale on 0 of 10",
+ * while the creator sold into the pool of 3 of its 10 latest pons launches
+ * (0x2d2e4913…, tx 0xdc76a12b…).
+ */
+export function pickCheckedLaunches<L extends Launch & { launchpad?: { name: string } }>(
+  launches: readonly L[],
+  own: string,
+  perLaunchpad = MAX_CHECKED_DEPLOYER_LAUNCHES,
+  total = MAX_CHECKED_DEPLOYER_TOTAL,
+): { checked: L[]; sample: CheckedSample[] } {
+  const groups = new Map<string, L[]>();
+  for (const l of [...launches].sort((a, b) => b.blockNumber - a.blockNumber)) {
+    if (l.token === own) continue;
+    const name = l.launchpad?.name ?? OTHER_LAUNCHES;
+    groups.set(name, [...(groups.get(name) ?? []), l]);
+  }
+  const taken = new Map<string, number>([...groups.keys()].map((k) => [k, 0]));
+  const checked: L[] = [];
+  for (let round = 0; round < perLaunchpad && checked.length < total; round += 1) {
+    for (const [name, list] of groups) {
+      if (checked.length >= total) break;
+      const next = list[round];
+      if (!next) continue;
+      checked.push(next);
+      taken.set(name, round + 1);
+    }
+  }
+  return {
+    checked,
+    sample: [...groups].map(([launchpad, list]) => ({
+      launchpad,
+      listed: list.length,
+      checked: taken.get(launchpad) ?? 0,
+    })),
+  };
+}
 /** Same window as for pons launches: ~11.5 days at 0.101 s per block. */
 export const DEPLOYER_BEHAVIOR_WINDOW = 10_000_000;
 /** Markets created in one launch: more is a router doing something else. */
@@ -454,6 +504,192 @@ export function modifyCollectedFees(log: RawLog): boolean {
 }
 
 /**
+ * Uniswap v4's PositionManager on Robinhood Chain (`name()` = "Uniswap v4
+ * Positions NFT", read on 18/10/2026). Nearly every removal on the markets of
+ * AI, MEME, BONER, AGEM and Wheel Smith went through it: 1,916 removal
+ * transactions on AGEM's eight markets in its first days, 26,269 on MEME's,
+ * far more than the senders that can be read in time.
+ */
+export const V4_POSITION_MANAGER = '0x58daec3116aae6d93017baaea7749052e8a04fa7';
+/** ERC-721 `Approval(owner, approved, tokenId)` and `ApprovalForAll(owner, operator, approved)`. */
+export const APPROVAL_TOPIC = '0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925';
+export const APPROVAL_FOR_ALL_TOPIC =
+  '0x17307eab39ab6107e8899845ad3d59bd9653f200f220920489ca2b5937696c31';
+
+/**
+ * Uniswap v3's NonfungiblePositionManager on Robinhood Chain (`name()` =
+ * "Uniswap V3 Positions NFT-V1"): the owner of nearly every v3 burn on the
+ * pools of AI (1,389 in its first days), MEME and BONER.
+ */
+export const V3_POSITION_MANAGER = '0x73991a25c818bf1f1128deaab1492d45638de0d3';
+/** `positions(uint256)` on the v3 manager: its tick range is in words 5 and 6. */
+const V3_POSITIONS_CALL = '0x99fbab88';
+/** Positions of the v3 manager whose range is read, at most. */
+const MAX_V3_POSITIONS_READ = 20;
+
+/**
+ * The positions the creator could ever act on, in one position manager:
+ * those it received or was approved for, from the block it could, and from
+ * when it was made an operator of someone's positions. Only a position's
+ * owner, or an address it approved, can take its liquidity out.
+ */
+export type ManagerHoldings = {
+  /** v4: token id → first block; v3: tick range "lower:upper" → first block. */
+  since: ReadonlyMap<string, number>;
+  /** First block the creator was made an operator of someone's positions; `null` never. */
+  operatorSince: number | null;
+};
+
+/** What the creator held in each manager; `null` for a manager not read whole. */
+export type PositionHoldings = { v4: ManagerHoldings | null; v3: ManagerHoldings | null };
+
+const signed = (hex: string): number => {
+  const v = BigInt(hex.startsWith('0x') ? hex : `0x${hex}`);
+  return Number(v >= 1n << 255n ? v - (1n << 256n) : v);
+};
+
+const earliest = (map: Map<string, number>, key: string, block: number) =>
+  map.set(key, Math.min(map.get(key) ?? block, block));
+
+/**
+ * The positions the creator ever received or was approved for in a
+ * manager, read from its NFT events; `null` when not all could be read.
+ */
+async function readManager(
+  rpc: RpcClient,
+  manager: string,
+  creator: string,
+  latest: number,
+): Promise<{ since: Map<string, number>; operatorSince: number | null } | null> {
+  const read = (topic: string) =>
+    getLogsBatched(
+      rpc,
+      { addresses: [manager], topics: [topic, null, topicFor(creator)] },
+      { fromBlock: 0, toBlock: latest },
+    );
+  try {
+    const [received, approved, operator] = await Promise.all([
+      read(TRANSFER_TOPIC),
+      read(APPROVAL_TOPIC),
+      read(APPROVAL_FOR_ALL_TOPIC),
+    ]);
+    if (received.truncated || approved.truncated || operator.truncated) return null;
+    const since = new Map<string, number>();
+    for (const log of [...received.logs, ...approved.logs]) {
+      if (!log.topics[3]) return null;
+      earliest(since, BigInt(log.topics[3]).toString(), Number(log.blockNumber));
+    }
+    // `ApprovalForAll(…, true)`: from then on, every position of that owner.
+    const grants = operator.logs
+      .filter((l) => /[1-9a-f]/i.test(word(l.data, 0)))
+      .map((l) => Number(l.blockNumber));
+    return { since, operatorSince: grants.length > 0 ? Math.min(...grants) : null };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Every position the creator could act on, in the v4 and v3 managers asked.
+ * A v3 pool's `Burn` does not name the position, only its owner (the
+ * manager) and its range: the creator's positions are read for their range.
+ */
+export async function readPositionHoldings(
+  rpc: RpcClient,
+  creator: string,
+  latest: number,
+  managers: { v4: boolean; v3: boolean } = { v4: true, v3: true },
+): Promise<PositionHoldings> {
+  const [v4, v3ids] = await Promise.all([
+    managers.v4 ? readManager(rpc, V4_POSITION_MANAGER, creator, latest) : null,
+    managers.v3 ? readManager(rpc, V3_POSITION_MANAGER, creator, latest) : null,
+  ]);
+  let v3: ManagerHoldings | null = null;
+  if (v3ids && v3ids.since.size <= MAX_V3_POSITIONS_READ) {
+    const ids = [...v3ids.since.keys()];
+    const outcomes =
+      ids.length > 0
+        ? await rpc
+            .callBatch<string>(
+              ids.map((id) => ({
+                method: 'eth_call',
+                params: [
+                  {
+                    to: V3_POSITION_MANAGER,
+                    data: `${V3_POSITIONS_CALL}${BigInt(id).toString(16).padStart(64, '0')}`,
+                  },
+                  'latest',
+                ],
+              })),
+            )
+            .catch(() => null)
+        : [];
+    const ranges = new Map<string, number>();
+    const all = outcomes?.every((o, i) => {
+      const raw = o.ok && typeof o.value === 'string' ? o.value.slice(2) : '';
+      if (raw.length < 7 * 64) return false;
+      const range = `${signed(raw.slice(5 * 64, 6 * 64))}:${signed(raw.slice(6 * 64, 7 * 64))}`;
+      earliest(ranges, range, v3ids.since.get(ids[i]!) ?? 0);
+      return true;
+    });
+    // A position whose range was not read (a burned NFT): no v3 proof.
+    if (outcomes && all) v3 = { since: ranges, operatorSince: v3ids.operatorSince };
+  }
+  return { v4, v3 };
+}
+
+/**
+ * The creator's own transactions over a block range, all of them: from
+ * Blockscout, which lists an address's transactions (the node does not).
+ */
+export type CreatorSent = { hashes: ReadonlySet<string>; fromBlock: number; toBlock: number };
+
+/**
+ * Whether a removal or fee collection is provably not the creator's,
+ * without reading its sender: a transaction the creator's complete list
+ * over that range does not hold, or a PositionManager position the creator
+ * never held nor was approved for. `creator` when its list holds it.
+ */
+export function removalWithoutSender(
+  log: RawLog,
+  creator: string,
+  proof: { positions?: PositionHoldings | null; sent?: CreatorSent | null },
+): 'creator' | 'not-creator' | null {
+  const block = Number(log.blockNumber);
+  const sent = proof.sent;
+  if (sent && block >= sent.fromBlock && block <= sent.toBlock) {
+    return sent.hashes.has(lower(log.transactionHash)) ? 'creator' : 'not-creator';
+  }
+  const positions = proof.positions;
+  // A position the creator could not act on at that block was not its to remove.
+  const notHeld = (held: ManagerHoldings | null | undefined, key: string) =>
+    held !== null &&
+    held !== undefined &&
+    (held.operatorSince === null || block < held.operatorSince) &&
+    !(held.since.has(key) && block >= (held.since.get(key) ?? 0));
+  if (
+    log.topics[0] === MODIFY_LIQUIDITY_TOPIC &&
+    fromTopic(log.topics[2]) === V4_POSITION_MANAGER &&
+    lower(creator) !== V4_POSITION_MANAGER
+  ) {
+    const salt = word(log.data, 3);
+    if (salt.length === 64 && notHeld(positions?.v4, BigInt(`0x${salt}`).toString())) {
+      return 'not-creator';
+    }
+  }
+  if (
+    log.topics[0] === BURN_TOPIC &&
+    fromTopic(log.topics[1]) === V3_POSITION_MANAGER &&
+    log.topics[2] &&
+    log.topics[3] &&
+    notHeld(positions?.v3, `${signed(log.topics[2])}:${signed(log.topics[3])}`)
+  ) {
+    return 'not-creator';
+  }
+  return null;
+}
+
+/**
  * Which tokens had liquidity removed by the creator: each removal's
  * transaction is read for its sender. A token whose removals could not all be
  * read, and none of the read ones was the creator's, is left out: unknown.
@@ -470,6 +706,8 @@ export async function creatorRemovals(
   clock: () => number = Date.now,
   /** No new batch after this time (epoch ms), whatever is left. */
   by: number = Number.POSITIVE_INFINITY,
+  /** What settles a removal without its sender: see `removalWithoutSender`. */
+  proof: { positions?: PositionHoldings | null; sent?: CreatorSent | null } = {},
 ): Promise<{
   pulled: Map<string, boolean>;
   collected: Map<string, boolean>;
@@ -485,10 +723,18 @@ export async function creatorRemovals(
   // market's life, it rarely starts it. Removals before fee collections, each
   // with its own allowance, so a market busy with collections still has its
   // removals read.
+  // A removal the proof settles needs no sender read: only the others are
+  // asked, and the cap is spent on them alone.
+  const settled = new Map<string, 'creator' | 'not-creator'>();
+  for (const { log } of [...removals, ...collections]) {
+    const known = removalWithoutSender(log, creator, proof);
+    if (known) settled.set(log.transactionHash, known);
+  }
   const ordered = (events: readonly { token: string; log: RawLog }[], cap: number) =>
     [
       ...new Set(
         [...events]
+          .filter((e) => !settled.has(e.log.transactionHash))
           .sort(
             (a, b) =>
               Number(b.token === first) - Number(a.token === first) ||
@@ -531,7 +777,9 @@ export async function creatorRemovals(
     const unread = new Set<string>();
     for (const { token, log } of events) {
       const from = sender.get(log.transactionHash);
-      if (from === lower(creator)) out.set(token, true);
+      const known = settled.get(log.transactionHash);
+      if (from === lower(creator) || known === 'creator') out.set(token, true);
+      else if (known === 'not-creator') continue;
       else if (from === undefined || from === null) unread.add(token);
     }
     for (const token of unread) if (out.get(token) === false) out.delete(token);
@@ -605,7 +853,7 @@ export async function detailRemovals(
   if (hashes.length === 0) return { removals: [], failed: false };
   let failed = false;
   const outcomes = await rpc
-    .callBatch<{ logs: RawLog[] } | string | null>([
+    .callBatch<{ logs: RawLog[]; from?: string } | string | null>([
       ...hashes.map((hash) => ({ method: 'eth_getTransactionReceipt', params: [hash] })),
       { method: 'eth_call', params: [{ to: token, data: TOTAL_SUPPLY_CALL }, 'latest'] },
     ])
@@ -624,9 +872,11 @@ export async function detailRemovals(
   const read: { hash: string; block: number; from: string; got: Map<string, bigint> }[] = [];
   hashes.forEach((hash, i) => {
     const receipt = outcomes[i];
-    const from = sender.get(hash) ?? null;
-    const logs =
-      receipt?.ok && receipt.value && typeof receipt.value === 'object' ? receipt.value.logs : null;
+    const value =
+      receipt?.ok && receipt.value && typeof receipt.value === 'object' ? receipt.value : null;
+    const logs = value ? value.logs : null;
+    // A receipt names its sender too: a sender not read in time is read here.
+    const from = sender.get(hash) ?? (value?.from ? lower(value.from) : null);
     if (!logs || !from) {
       failed = true;
       return;
@@ -937,7 +1187,62 @@ export type DeployerHistoryOptions = {
    * creator remove liquidity" unknown, said so.
    */
   sendersBy?: number;
+  /**
+   * The creator's own transactions over a block range, all of them, or
+   * `null` when they could not all be listed (Blockscout, which the node
+   * cannot replace). With them, a removal is the creator's or not without
+   * its sender being read, and a market too busy to read whole is still
+   * settled from the creator's own transactions.
+   */
+  creatorSent?: (creator: string) => Promise<SentTransaction[] | null>;
 };
+
+/** The creator's own transactions whose receipts are read, at most. */
+export const MAX_SENT_RECEIPTS = 100;
+
+/**
+ * Whether any of these transactions removed liquidity from, or collected
+ * fees on, the token's markets: read from their receipts. `null` when there
+ * are too many to read, or one was not read.
+ */
+export async function removalsInTransactions(
+  rpc: RpcClient,
+  hashes: readonly string[],
+  venues: Pick<TradingVenues, 'pools' | 'v4Markets'>,
+): Promise<{ removed: boolean; collected: boolean; transactions: number } | null> {
+  if (hashes.length > MAX_SENT_RECEIPTS) return null;
+  if (hashes.length === 0) return { removed: false, collected: false, transactions: 0 };
+  const markets = new Set(venues.v4Markets.map(lower));
+  const pools = new Set(venues.pools.map(lower));
+  const outcomes = await rpc
+    .callBatch<ChainReceipt | null>(
+      hashes.map((hash) => ({ method: 'eth_getTransactionReceipt', params: [hash] })),
+    )
+    .catch(() => null);
+  if (!outcomes || outcomes.some((o) => !o.ok || !o.value)) return null;
+  let removed = false;
+  let collected = false;
+  for (const outcome of outcomes) {
+    for (const log of (outcome as { ok: true; value: ChainReceipt }).value.logs) {
+      const topic = log.topics[0];
+      if (
+        topic === MODIFY_LIQUIDITY_TOPIC &&
+        lower(log.address) === lower(POOL_MANAGER) &&
+        markets.has(lower(log.topics[1] ?? ''))
+      ) {
+        if (modifyRemovedLiquidity(log)) removed = true;
+        else if (modifyCollectedFees(log)) collected = true;
+      } else if (
+        (topic === BURN_TOPIC || topic === V2_BURN_TOPIC) &&
+        pools.has(lower(log.address)) &&
+        burnMovedLiquidity(log)
+      ) {
+        removed = true;
+      }
+    }
+  }
+  return { removed, collected, transactions: hashes.length };
+}
 
 /**
  * The creator's launches on every known launchpad (and through the same
@@ -1008,6 +1313,16 @@ export async function fetchDeployerHistory(
         ).catch(() => ({ logs: [], truncated: true }))
       : Promise.resolve(none);
 
+  // The creator's own transactions over this token's liquidity window, read
+  // alongside the rest: they settle its removals without their senders.
+  const ownLiquidityWindow = {
+    fromBlock: origin.blockNumber,
+    toBlock: Math.min(latest, origin.blockNumber + DEPLOYER_BEHAVIOR_WINDOW - 1),
+  };
+  const sentRead: Promise<SentTransaction[] | null> = options.creatorSent
+    ? options.creatorSent(creator).catch(() => null)
+    : Promise.resolve(null);
+
   const covered = options.indexed?.covered ?? new Set<string>();
   const [nodeListing, listed, account] = await Promise.all([
     listCreatorLaunches(rpc, creator, latest, {
@@ -1076,19 +1391,30 @@ export async function fetchDeployerHistory(
   // that failed: retrying will not list them either.
   const registryTooBroad = !listing.truncated && Boolean(listed?.truncated && listed.tooBroad);
 
-  const detailed = all.slice(-MAX_DETAILED_DEPLOYER_LAUNCHES);
-  if (!detailed.some((l) => l.token === origin.token)) {
-    const own = all.find((l) => l.token === origin.token);
-    if (own) detailed.unshift(own);
-  }
   // A listing that took too long leaves no time for the other launches'
   // checks: they are left unchecked, and said so, rather than lose the request.
   const late =
     options.checkOthersBy !== undefined && (options.clock ?? Date.now)() > options.checkOthersBy;
-  const checked = detailed.filter(
-    (l, i) =>
-      l.token === origin.token || (!late && i >= detailed.length - MAX_CHECKED_DEPLOYER_LAUNCHES),
-  );
+  // Every launchpad the creator used has its most recent launches checked;
+  // the rest of the detail is the most recent launches overall.
+  const picked = pickCheckedLaunches(all, origin.token);
+  const ownLaunch = all.find((l) => l.token === origin.token);
+  const inDetail = new Set([
+    ...(ownLaunch ? [ownLaunch.token] : []),
+    ...picked.checked.map((l) => l.token),
+  ]);
+  for (const l of [...all].reverse()) {
+    if (inDetail.size >= MAX_DETAILED_DEPLOYER_LAUNCHES) break;
+    inDetail.add(l.token);
+  }
+  const detailed = all.filter((l) => inDetail.has(l.token));
+  const othersChecked = late ? [] : picked.checked;
+  const checkedSet = new Set([origin.token, ...othersChecked.map((l) => l.token)]);
+  const checked = detailed.filter((l) => checkedSet.has(l.token));
+  const sample: CheckedSample[] = picked.sample.map((s) => ({
+    ...s,
+    checked: late ? 0 : s.checked,
+  }));
   const othersUnchecked = late && detailed.some((l) => l.token !== origin.token);
 
   const heuristic = origin.launchpad ? undefined : origin.launchContract;
@@ -1271,6 +1597,35 @@ export async function fetchDeployerHistory(
   // Anyone can add liquidity to a market and take it back: only a removal the
   // creator signed is theirs. Verified live, where a third party rebalancing
   // its own range made SEAL report the creator's liquidity as pulled.
+  // What settles a removal without its sender: the creator's own
+  // transactions, and the PositionManager positions it ever held — read
+  // only when removals went through it outside that list's range.
+  // Whole only when it holds as many transactions as the wallet's nonce:
+  // Blockscout may lag the head, and a transaction it has not seen yet
+  // could be the removal.
+  const sentList = await sentRead;
+  const sent: CreatorSent | null =
+    sentList && transactionCount !== null && sentList.length === transactionCount
+      ? { hashes: new Set(sentList.map((t) => t.hash)), fromBlock: 0, toBlock: latest }
+      : null;
+  const clock = options.clock ?? Date.now;
+  const unsettled = [...removals, ...collections].filter(
+    ({ log }) => removalWithoutSender(log, creator, { sent }) === null,
+  );
+  const managers = {
+    v4: unsettled.some(
+      ({ log }) =>
+        log.topics[0] === MODIFY_LIQUIDITY_TOPIC &&
+        fromTopic(log.topics[2]) === V4_POSITION_MANAGER,
+    ),
+    v3: unsettled.some(
+      ({ log }) => log.topics[0] === BURN_TOPIC && fromTopic(log.topics[1]) === V3_POSITION_MANAGER,
+    ),
+  };
+  const positions =
+    (managers.v4 || managers.v3) && clock() < (options.sendersBy ?? Number.POSITIVE_INFINITY)
+      ? await readPositionHoldings(rpc, creator, latest, managers)
+      : null;
   const { pulled, collected, sender } = await creatorRemovals(
     rpc,
     creator,
@@ -1278,9 +1633,28 @@ export async function fetchDeployerHistory(
     removals,
     collections,
     origin.token,
-    options.clock ?? Date.now,
+    clock,
     options.sendersBy,
+    { positions, sent },
   );
+  // A market too busy to read whole: the creator's own transactions over
+  // the window say whether it removed liquidity there (MEME: 132,798
+  // ModifyLiquidity on its launch market in its first days).
+  const ownFromSent =
+    liquidityLogs.truncated && sent && liquidityTargets.has(origin.token)
+      ? await removalsInTransactions(
+          rpc,
+          (sentList ?? [])
+            .filter(
+              (t) =>
+                t.call &&
+                t.block >= ownLiquidityWindow.fromBlock &&
+                t.block <= ownLiquidityWindow.toBlock,
+            )
+            .map((t) => t.hash),
+          own,
+        )
+      : null;
   // Who removed the analysed token's liquidity, and to whom it went: said,
   // whoever sent it (MOON: the creator, 48.07 % of the supply back to it).
   const ownRemovals = await detailRemovals(
@@ -1293,6 +1667,15 @@ export async function fetchDeployerHistory(
   );
   const pulledKnown = unseenAsUnknown(pulled, liquidityLogs.truncated);
   const collectedKnown = unseenAsUnknown(collected, liquidityLogs.truncated);
+  if (ownFromSent) {
+    pulledKnown.set(origin.token, ownFromSent.removed || pulled.get(origin.token) === true);
+    if (tokenOfMarket.size > 0 && [...tokenOfMarket.values()].includes(origin.token)) {
+      collectedKnown.set(
+        origin.token,
+        ownFromSent.collected || collected.get(origin.token) === true,
+      );
+    }
+  }
 
   const checkedTokens = new Set(checked.map((l) => l.token));
   const tokens: LaunchedToken[] = detailed.map((l, i) => {
@@ -1355,7 +1738,7 @@ export async function fetchDeployerHistory(
           ? `${traced}; this address’s other launches on ${origin.launchpad.name} cannot be listed from the chain`
           : `${traced}; its other launches outside the known launchpads cannot be listed from the chain`
         : capped
-          ? `${traced}; ${detailed.length} most recent of ${all.length} launches read in detail`
+          ? `${traced}; ${detailed.length} of ${all.length} launches read in detail, the most recent on each launchpad`
           : `${traced}; ${all.length} launch${all.length === 1 ? '' : 'es'} found across the known launchpads`;
 
   // This token's own sales, when they were looked for and could not be told.
@@ -1381,6 +1764,15 @@ export async function fetchDeployerHistory(
         : ownLiquidityUnread
           ? [{ name: 'robinhood-rpc' as const, fetchedAt, note: UNREAD.removalSenders }]
           : []),
+      ...(ownFromSent
+        ? [
+            {
+              name: 'blockscout' as const,
+              fetchedAt,
+              note: `this token’s markets log too many liquidity changes to list every removal; the ${ownFromSent.transactions} contract calls the creator sent over its first ${OTHER_LAUNCH_SALES_DAYS} days were all read instead, and ${ownFromSent.removed ? 'one of them removed liquidity' : 'none of them removed liquidity'}`,
+            },
+          ]
+        : []),
     ],
     data: {
       creator,
@@ -1397,6 +1789,7 @@ export async function fetchDeployerHistory(
       },
       tokens,
       counts,
+      checkedSample: sample,
       scannedRange: { fromBlock: 0, toBlock: latest },
     },
   };

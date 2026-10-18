@@ -1,6 +1,10 @@
 import type { LaunchMove, LaunchReplay, TokenReport } from '../contracts';
 import { OTHER_LAUNCH_SALES_DAYS } from '../contracts/creator';
 import { launchpadProse } from '../chain/launchpads';
+import { checkedByLaunchpad, checkedWords, joinClauses } from '../checked-sample';
+import { roundTripsExcludedWords } from '../launch-story';
+
+export { roundTripsExcludedWords };
 import { feePayerWords, roleWord, whereSetAside } from '../set-aside';
 import type { SpecialistAnswer } from '../specialists/brief';
 import { mostHoldersFromCreator } from '../contracts/holders';
@@ -42,7 +46,11 @@ Structure the response with these three explicit headings, separated from paragr
 2. What deserves attention
 3. Where the signals diverge — the most important section; do not gloss over it.
 
-Each section must stand on its own. Never open a section, or a sentence, with a reference to something it does not name ("the two reads", "both signals", "together", "this"): name what you mean. Draw no conclusion the facts do not state, and write "together" or "so" only after the sentences that state both parts.
+Each section must stand on its own. Never open a section, or a sentence, with a reference to something it does not name ("the two reads", "both signals", "together", "this"): name what you mean. Never open a section with "Yet", "But", "However" or "Still": a contrast needs what it contrasts with, in the same section.
+"What is reassuring" holds only what reassures. A limit of the data (a partial read, pages not read, a read that failed) is no reassurance: say it under "Where the signals diverge", never as a sentence of its own in the first section.
+What early buyers "still hold" is a share of the whole supply, as the data gives it: never write that it is a share "of what they bought".
+When you give a count of the creator's other launches checked, say which ones they are, as the data does per launchpad ("the 10 most recent of its 21 launches on pons"): never a bare "10 other launches checked".
+When you give the round-trip count, give the exclusions the data states next to it ("3 more excluded: …"). Draw no conclusion the facts do not state, and write "together" or "so" only after the sentences that state both parts.
 
 The reader already sees every figure drawn as charts next to your text. Do not restate the numbers one by one: say what they mean together. Keep the whole answer under 220 words, two to four short sentences per section. Write plain text: no bold, no bullet lists, no tables.
 
@@ -186,6 +194,18 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
       );
     }
   }
+  // Which launches were checked, launchpad by launchpad: "0 of 10" was the
+  // ten latest Doppler launches of a creator who sold on its pons ones (AI).
+  const by = checkedByLaunchpad(c, report.token);
+  if (by.some((r) => r.salesChecked + r.liquidityChecked > 0)) {
+    lines.push(
+      `Which other launches were checked (the most recent on each launchpad the creator used): sales, ${joinClauses(checkedWords(by, 'sales'))}` +
+        (by.some((r) => r.liquidityChecked > 0)
+          ? `; liquidity removals, ${joinClauses(checkedWords(by, 'liquidity'))}`
+          : '') +
+        '. When you cite these counts, say which launches they cover, in these words.',
+    );
+  }
   const anySold = salesChecked.some((t) => t.creatorDumped === true);
   if (anySold) {
     lines.push(
@@ -217,13 +237,18 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
   }
   const yesNo = (value: boolean | null) =>
     value === null ? 'not checked' : value ? 'yes' : 'not observed';
-  for (const token of c.tokens.slice(-10)) {
+  // The launches checked, each named (every launchpad's), and the latest ones.
+  const latestTen = new Set(c.tokens.slice(-10));
+  const listed = c.tokens
+    .filter((t) => latestTen.has(t) || t.creatorDumped !== null || t.liquidityPulled !== null)
+    .slice(-30);
+  for (const token of listed) {
     lines.push(
       `- ${token.address}: ` +
         (deployer
           ? ''
           : `${token.outcome}, progress ${(token.graduationProgress * 100).toFixed(2)}%, `) +
-        `creator sale: ${yesNo(token.creatorDumped)}, liquidity removal ${deployer ? 'by the creator' : 'from the launch position'}: ${yesNo(token.liquidityPulled)}`,
+        `${token.launchpad ? `${token.launchpad}, ` : ''}creator sale: ${yesNo(token.creatorDumped)}, liquidity removal ${deployer ? 'by the creator' : 'from the launch position'}: ${yesNo(token.liquidityPulled)}`,
     );
   }
   lines.push('');
@@ -521,33 +546,6 @@ export function renderLaunch(launch: LaunchReplay, options: { funder?: string } 
 
 /** Round trips listed to the model, at most: the count is over all of them. */
 const ROUND_TRIPS_SHOWN = 8;
-
-/**
- * What the round-trip count leaves out, said next to it: an address that
- * bought and sold back within one single transaction never held the token
- * (an arbitrage through it), and one that put its tokens back into a pool as
- * liquidity did not sell them (RH: 25 counted, 27 on chain).
- */
-export function roundTripsExcludedWords(
-  excluded: { sameTransaction: number; liquidity: number } | undefined,
-): string {
-  if (!excluded) return '';
-  const total = excluded.sameTransaction + excluded.liquidity;
-  if (total === 0) return '';
-  const why = [
-    ...(excluded.sameTransaction > 0
-      ? [
-          `${excluded.sameTransaction === total ? '' : `${excluded.sameTransaction} `}bought and sold back within one single transaction, never holding the token`,
-        ]
-      : []),
-    ...(excluded.liquidity > 0
-      ? [
-          `${excluded.liquidity === total ? '' : `${excluded.liquidity} `}put the tokens back into a pool as liquidity rather than selling`,
-        ]
-      : []),
-  ];
-  return ` (${total} more excluded: ${why.join('; ')})`;
-}
 
 /**
  * Round trips over every move of the window, counted like the other totals

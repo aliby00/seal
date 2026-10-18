@@ -368,7 +368,7 @@ describe('ASTEROID: the other launches are counted without this one (item 9)', (
   it('says 7 of the 9 others checked, where it said "checked on the 10 most recent"', () => {
     const answer = CATALOG['creator-history'].run({ token: ASTEROID, report } as SpecialistContext);
     expect(answer.facts[0]).toBe(
-      'The creator launched 10 other token(s): 0 graduated; the creator sold into the pool on 7 of the 9 checked for sales, and liquidity removals could not be checked on them (each in the first 11 days after its launch; this token not counted).',
+      'The creator launched 10 other token(s): 0 graduated; the creator sold into the pool on 7 of the 9 checked for sales: 7 of the 9 most recent of its 10 launches on pons; liquidity removals could not be checked on them (each in the first 11 days after its launch; this token not counted).',
     );
   });
 
@@ -387,7 +387,7 @@ describe('ASTEROID: the other launches are counted without this one (item 9)', (
     }));
     const sales = buildGlance({ facts, timeline })!.items.find((i) => i.id === 'sales');
     expect(sales?.title).toBe(
-      'The creator sold into the pool on 8 of 10 launches checked, this token included.',
+      'The creator sold into the pool on 8 of 10 launches checked, this token included. On its other launches: 7 of the 9 most recent of its 10 launches on pons.',
     );
   });
 });

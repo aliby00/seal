@@ -151,8 +151,17 @@ describe('offlineExplanation', () => {
     expect(text).toMatch(/69\.39 USD per trade/);
   });
 
-  it('signale explicitement une partial view', () => {
-    expect(text).toMatch(/partial view/);
+  it('says a page-limited read is partial without claiming a source failed', () => {
+    expect(text).toMatch(/cover only part of the data/);
+    expect(text).not.toMatch(/Not all sources responded/);
+  });
+
+  it('says a failed read once, at the top, with no closing limit line', () => {
+    const failed = offlineExplanation(
+      report({ failedReads: [{ read: 'creator-sales', note: 'could not be read this time' }] }),
+    );
+    expect(failed).toMatch(/^Partial report: some reads failed/m);
+    expect(failed).not.toMatch(/cover only part of the data/);
   });
 
   it('reste lisible quand tout manque', () => {

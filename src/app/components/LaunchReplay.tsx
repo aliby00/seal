@@ -7,6 +7,7 @@ import {
   BUYERS_LISTED,
   buildStory,
   type Buyer,
+  roundTripsExcludedWords,
   type LaunchStory,
 } from '@/lib/launch-story';
 
@@ -129,9 +130,19 @@ function Story({ story }: { story: LaunchStory }) {
       label: `sold by the creator in these first minutes${among}`,
     });
   }
+  // The round trips, with those left out of the count and why (RH: 25
+  // counted, 3 more excluded, which the text never said).
+  const trips = story.roundTrips;
+  if (trips && trips.wallets > 0) {
+    items.push({
+      tone: 'neutral',
+      figure: String(trips.wallets),
+      label: `${trips.wallets === 1 ? 'address' : 'addresses'} bought and sold back within these first minutes${roundTripsExcludedWords(trips.excluded ?? undefined)}`,
+    });
+  }
   return (
     <ul className="launch-story">
-      {items.slice(0, 4).map((item) => (
+      {items.slice(0, 5).map((item) => (
         <li key={item.label} data-tone={item.tone}>
           <strong>{item.figure}</strong>
           <span>{item.label}</span>
