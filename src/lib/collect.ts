@@ -23,6 +23,8 @@ import type {
   CreatorHistory,
   FailedRead,
   HolderDistribution,
+  LaunchReplay,
+  NamedAddress,
   SetAsideRole,
   FeePayer,
   LaunchedToken,
@@ -63,6 +65,8 @@ import {
 import { findMarketsById, POOL_MANAGER, type V4Market } from './chain/pools';
 import { isContractCode } from './chain/code';
 import { linkCreatorToHolders, withLinks } from './holders/links';
+import { withRoles } from './holders/roles';
+import { knownNames, readAddressRoles } from './chain/roles';
 import { log } from './logger';
 import { TtlCache } from './cache';
 import {
@@ -1074,6 +1078,51 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
         )
       : holders;
 
+  // What the largest holders and the launch's recipients are: a lock, a pool
+  // no listing names, a launchpad's wallet (SIRIUS: its "largest holder, a
+  // contract" was Virtuals' TokenTable lock for the creator).
+  const named =
+    latest > 0 && linkedHolders.completeness !== 'unavailable'
+      ? valueOr(
+          await ledger.read('address-roles', async () => {
+            const rolesRpc = createRpcClient(options.rpcUrl, createBudget(ROLES_BUDGET));
+            const supply = await supplyOf(rolesRpc);
+            const names = await readAddressRoles(
+              rolesRpc,
+              roleCandidates(linkedHolders.data, launchReplay),
+              {
+                token: address,
+                supply,
+                launchpad: origin?.launchpad?.id ?? null,
+                curves: origin?.venues.curves ?? [],
+                now,
+              },
+            );
+            return { names, supply };
+          }),
+          null,
+        )
+      : null;
+  // A failed read still leaves what is known without one: a launchpad's
+  // wallets and contracts, the launch's curve (the read is filed as failed).
+  const roles: NamedAddress[] =
+    named?.names ??
+    knownNames(roleCandidates(linkedHolders.data, launchReplay), {
+      launchpad: origin?.launchpad?.id ?? null,
+      curves: origin?.venues.curves ?? [],
+    });
+  const namedHolders: HolderDistribution =
+    roles.length > 0
+      ? {
+          ...linkedHolders,
+          data: withRoles(
+            linkedHolders.data,
+            roles,
+            named?.supply ?? (launchReplay ? BigInt(launchReplay.data.supply) : null),
+          ),
+        }
+      : linkedHolders;
+
   const fees = await feesRead;
   const pools = await poolsRead;
   const creator: CreatorHistory =
@@ -1126,7 +1175,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
   failures.push(
     ...failedReadsOfSources({
       creator,
-      holders: linkedHolders,
+      holders: namedHolders,
       market,
       ...(launchReplay ? { launch: launchReplay } : {}),
     }),
@@ -1150,7 +1199,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
 
   const completeness = combineCompleteness([
     creator.completeness,
-    linkedHolders.completeness,
+    namedHolders.completeness,
     market.completeness,
   ]);
 
@@ -1165,12 +1214,47 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     token: address,
     collectedAt,
     creator,
-    holders: linkedHolders,
+    holders: namedHolders,
     market,
     ...(launchReplay ? { launch: launchReplay } : {}),
+    ...(roles.length > 0 ? { roles } : {}),
     completeness,
     ...(failedReads.length > 0 ? { failedReads } : {}),
   };
+}
+
+/** Requests for the roles: the supply, codes, probes, a lock's schedules, pools — small batches. */
+const ROLES_BUDGET = 10;
+
+/**
+ * The addresses worth naming: the largest holders outside pools, then every
+ * address the launch moved supply to or from.
+ */
+export function roleCandidates(
+  holders: HolderDistribution['data'],
+  launch: LaunchReplay | undefined,
+): { address: string; isContract: boolean | null }[] {
+  const out = new Map<string, boolean | null>();
+  for (const h of holders.top
+    .filter((h) => h.kind === 'wallet' || h.kind === 'contract')
+    .slice(0, 10)) {
+    out.set(h.address.toLowerCase(), h.kind === 'contract');
+  }
+  for (const m of launch?.data.moves ?? []) {
+    if (m.kind !== 'mint' && m.kind !== 'allocation') continue;
+    if (m.actorKind === 'wallet' || m.actorKind === 'contract' || m.actorKind === 'pool') {
+      if (!out.has(m.actor.toLowerCase())) {
+        out.set(
+          m.actor.toLowerCase(),
+          m.actorKind === 'wallet' ? false : m.actorKind === 'contract' ? true : null,
+        );
+      }
+    }
+    if (m.kind === 'allocation' && !out.has(m.counterparty.toLowerCase())) {
+      out.set(m.counterparty.toLowerCase(), null);
+    }
+  }
+  return [...out].map(([address, isContract]) => ({ address, isContract }));
 }
 
 /** One batch of `Initialize` queries, one per 10 M blocks, and a retry. */

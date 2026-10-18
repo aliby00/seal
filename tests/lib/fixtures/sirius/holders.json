@@ -1,0 +1,132 @@
+{
+  "_source": "Every SIRIUS Transfer since block 48,392,950, summed per address on 18/10/2026 (11,447 transfers, 157 holders); code read with eth_getCode.",
+  "holderCount": 157,
+  "supply": "1000000000000000000000000000",
+  "top": [
+    {
+      "address": "0x75eb52136c4263b45bd22c0fb786f1e976b629e1",
+      "balance": "285747237009407436151027887",
+      "isContract": true
+    },
+    {
+      "address": "0xe2890629ef31b32132003c02b29a50a025deee8a",
+      "balance": "179500000000000000000000000",
+      "isContract": false
+    },
+    {
+      "address": "0x828571e17c68de8badf1b9b24890c71726c8dba5",
+      "balance": "130926795731643611912409270",
+      "isContract": true
+    },
+    {
+      "address": "0x1991eefbd75557ccde431a35bde3c7d9b4df16c9",
+      "balance": "50499999999999999998516186",
+      "isContract": true
+    },
+    {
+      "address": "0x9080acd0298cd64841436cd2f1a714ec38b374b8",
+      "balance": "26166658242965833045341900",
+      "isContract": true
+    },
+    {
+      "address": "0xceadd8e0670483f86e70000ff8dd2a3f5147ea06",
+      "balance": "25327944883969416107931479",
+      "isContract": false
+    },
+    {
+      "address": "0xa1560b29fe5f64381b10bff866a2370415a32f51",
+      "balance": "22437274433335782320836489",
+      "isContract": false
+    },
+    {
+      "address": "0xfca2e20da6c3cda1a1078e82c9abfabdb7cf307e",
+      "balance": "21730123289443696673721379",
+      "isContract": false
+    },
+    {
+      "address": "0x3eb3394f5d89465a77f73a83d3675b0ed051f852",
+      "balance": "20000000000000000001483814",
+      "isContract": true
+    },
+    {
+      "address": "0x8c2b4efffc2a0e93e9cfa2ca945bacf6db72f209",
+      "balance": "19809997732265150061577058",
+      "isContract": false
+    },
+    {
+      "address": "0x6da0668a6f5ef3d86a880bf4421bd9b3a31ec744",
+      "balance": "19661964979019446109946649",
+      "isContract": true
+    },
+    {
+      "address": "0x0e49931340da953c28a59b3c5cb734922c109484",
+      "balance": "19587020835957362249979095",
+      "isContract": false
+    },
+    {
+      "address": "0x1d91bf7f8ddfb499c8349de802aa0d83514ba954",
+      "balance": "18502750815317310800599860",
+      "isContract": false
+    },
+    {
+      "address": "0xf465067b8b737bd550a528382b5db225dd782164",
+      "balance": "16971994011827359834980543",
+      "isContract": false
+    },
+    {
+      "address": "0x1a5c8142137f74a5f7dc393d26bb689f09e11285",
+      "balance": "16388216248132448881340918",
+      "isContract": false
+    },
+    {
+      "address": "0x974eb26c6ad1f155b34ee938afd07799ab8b0438",
+      "balance": "15454460411995854637677829",
+      "isContract": false
+    },
+    {
+      "address": "0x25b54150dd0d1ed9553ae98961d9ebbf18b53765",
+      "balance": "13815835248146468247283823",
+      "isContract": false
+    },
+    {
+      "address": "0xc07dd88d8ef56c38b4acdb03322ee0eb4a7391fc",
+      "balance": "12592799671049127935459398",
+      "isContract": false
+    },
+    {
+      "address": "0xc9cafef2258a07f8455da92438360318b34848e2",
+      "balance": "11691735455418238302656410",
+      "isContract": false
+    },
+    {
+      "address": "0xef86a19acaae44e88c16651ef4edf1b2fb474af7",
+      "balance": "9491517798990523699282129",
+      "isContract": false
+    },
+    {
+      "address": "0xc80b473202b65ad87c29e3d2eab9aff62432f901",
+      "balance": "9164866778766934425607059",
+      "isContract": false
+    },
+    {
+      "address": "0x6ef5eb570633f1b0912060b7b0a1c8211a7c633e",
+      "balance": "8981353840877568701185141",
+      "isContract": false
+    },
+    {
+      "address": "0xd7a204d2b2b97832b1069ca0764f5405e96625e9",
+      "balance": "8547798447861344810839370",
+      "isContract": false
+    },
+    {
+      "address": "0x0828914298f9da8a16c63e0a40ecc8eb5fbaf369",
+      "balance": "7563014232878414651854668",
+      "isContract": false
+    },
+    {
+      "address": "0x6bdc608bc62a6b90abdcd7841df8404e500fb0bf",
+      "balance": "6004243883594368141546541",
+      "isContract": false
+    }
+  ]
+}

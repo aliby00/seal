@@ -122,6 +122,17 @@ export const LAUNCHPADS: readonly LaunchpadSource[] = [
     pool: { topic: 3 },
     fromBlock: 89_500_000,
   },
+  // Virtuals : 26 185 lancements au 18/10/2026. Son launchpad (`0xd4cc…`) ne
+  // nomme pas le créateur ; son gestionnaire de taxe, dans la même
+  // transaction, émet `TokenRegistered(token, creator, …)`, les deux indexés.
+  {
+    id: 'virtuals',
+    address: '0x6d80b81d9fc56a7a839b1af9006eb49151961ce7',
+    topic0: '0x8c768b5da89e637b23caac626ccd760ef89b9e8eaa2f45bbf8c9d68e231dabef',
+    token: { topic: 1 },
+    creator: { topic: 2 },
+    fromBlock: 220_000,
+  },
 ];
 
 export const PONS_FACTORIES: readonly FactoryRange[] = LAUNCHPADS.filter((l) => l.id === 'pons');

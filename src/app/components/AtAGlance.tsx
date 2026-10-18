@@ -60,8 +60,7 @@ export function AtAGlance({ glance }: { glance: Glance }) {
       )}
       {glance.unseen.length > 0 && (
         <p className="glance-unseen">
-          <strong>Not measured here:</strong> {glance.unseen.join(', ')}. Missing data is not good
-          news, nor bad news.
+          <strong>Not measured here:</strong> {glance.unseen.join(', ')}.
         </p>
       )}
     </section>

@@ -41,6 +41,8 @@ export type SpecialistAnswer = {
   limits: string[];
   /** The funding question only: what the funder is, and the path up from the creator. */
   funding?: FundingDisplay;
+  /** The question does not apply to this token: not a gap in what was measured. */
+  notApplicable?: true;
 };
 
 export type SpecialistBrief = {
@@ -117,12 +119,14 @@ export function answerAll(
     let facts: string[] = [];
     let limits: string[] = [FAILED];
     let funding: FundingDisplay | undefined;
+    let notApplicable = false;
     try {
       const finding = specialist.run(context);
       signal = finding.signal;
       facts = finding.facts;
       limits = finding.limits;
       funding = finding.funding;
+      notApplicable = finding.notApplicable === true;
     } catch (error) {
       log.warn('spécialiste en échec', { specialist: id, error: String(error) });
     }
@@ -137,6 +141,7 @@ export function answerAll(
       facts: screened(facts),
       limits: screened(limits),
       ...(funding ? { funding: screenedFunding(funding) } : {}),
+      ...(notApplicable && !options.timedOut ? { notApplicable: true as const } : {}),
     };
   });
 }

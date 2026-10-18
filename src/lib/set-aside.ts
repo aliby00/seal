@@ -16,6 +16,7 @@ const WORD: Record<SetAsideRole, string> = {
   launchpad: 'launch contracts',
   locker: 'liquidity lock contract',
   hook: 'trading-rules contracts',
+  vesting: 'vesting locks',
   burn: 'burn addresses',
 };
 
@@ -41,6 +42,7 @@ export function roleWord(role: SetAsideRole): string {
     launchpad: 'a launch contract',
     locker: 'a liquidity lock contract',
     hook: 'the trading rules (hook) of a market',
+    vesting: 'a vesting lock',
     burn: 'a burn address',
   }[role];
 }

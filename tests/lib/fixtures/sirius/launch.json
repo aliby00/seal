@@ -1,0 +1,118 @@
+{
+  "_source": "SEAL production response for SIRIUS, 18/10/2026: the launch replay as read from the token transfers (block 48,392,950).",
+  "launch": {
+    "token": "0x72e936815982a577386e8fcde94f5c9335836c88",
+    "launchBlock": 48392950,
+    "launchedAt": "2026-08-28T15:06:36.000Z",
+    "windowSeconds": 600,
+    "supply": "1000000000000000000000000000",
+    "moves": [
+      {
+        "kind": "mint",
+        "seconds": 0,
+        "block": 0,
+        "actor": "0x0539b29ff2c295d396a5618b33db2788706334f0",
+        "counterparty": "0x0000000000000000000000000000000000000000",
+        "actorKind": "pool",
+        "share": 0.5,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0,
+        "transaction": "0xb0cac924c480126ec9b3642e78c5b12ff4b3f14b9f655da1919ec1c7459424d6"
+      },
+      {
+        "kind": "mint",
+        "seconds": 0,
+        "block": 0,
+        "actor": "0x81f7ca6af86d1ca6335e44a2c28bc88807491415",
+        "counterparty": "0x0000000000000000000000000000000000000000",
+        "actorKind": "wallet",
+        "share": 0.5,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0,
+        "transaction": "0xb0cac924c480126ec9b3642e78c5b12ff4b3f14b9f655da1919ec1c7459424d6"
+      },
+      {
+        "kind": "allocation",
+        "seconds": 29,
+        "block": 286,
+        "actor": "0xe2890629ef31b32132003c02b29a50a025deee8a",
+        "counterparty": "0x81f7ca6af86d1ca6335e44a2c28bc88807491415",
+        "actorKind": "wallet",
+        "share": 0.25,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0.1795,
+        "transaction": "0x2dd1ba8fe6c901e9a92158998ca5196ddb03a2a60af56d41ceb14fc26b02541c"
+      },
+      {
+        "kind": "allocation",
+        "seconds": 90,
+        "block": 888,
+        "actor": "0x75eb52136c4263b45bd22c0fb786f1e976b629e1",
+        "counterparty": "0x81f7ca6af86d1ca6335e44a2c28bc88807491415",
+        "actorKind": "contract",
+        "share": 0.25,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0.285747,
+        "transaction": "0xc87f1a364555980c40d673f487a6b411d654ad9595bdcddd6dcc9936e8b7341b"
+      }
+    ],
+    "movesInWindow": 4,
+    "summary": {
+      "moves": 4,
+      "earlySeconds": 60,
+      "creatorAtLaunch": 0,
+      "creatorBought": 0,
+      "creatorSold": 0,
+      "creatorFirstBuyAt": null,
+      "creatorLastSaleAt": null,
+      "creatorSaleConfirmed": false,
+      "creatorTx": {
+        "transaction": "0xb0cac924c480126ec9b3642e78c5b12ff4b3f14b9f655da1919ec1c7459424d6",
+        "addresses": 1,
+        "share": 0.5,
+        "heldNow": 0,
+        "contracts": 0
+      },
+      "early": {
+        "wallets": 0,
+        "share": 0,
+        "within": 0,
+        "heldNow": null,
+        "unread": 0,
+        "contracts": 0
+      },
+      "bundle": null,
+      "roundTrips": {
+        "wallets": 0,
+        "creator": false,
+        "delays": null,
+        "fromBundle": null,
+        "listed": [],
+        "excluded": {
+          "sameTransaction": 0,
+          "liquidity": 0
+        }
+      },
+      "receiptsRead": 1,
+      "receiptsWanted": 1,
+      "balancesRead": 4,
+      "balancesWanted": 4
+    }
+  },
+  "market": {
+    "measured": true,
+    "priceUsd": 0.0001747,
+    "liquidityUsd": 45746.01,
+    "quietHours": null,
+    "volume24hUsd": 2808.12,
+    "buys24h": 2,
+    "sells24h": 8,
+    "fdvUsd": 174701,
+    "graduation": null
+  },
+  "creator": "0xc47ff45c87ee89a999b95ed6d4f408674d9bed9f"
+}

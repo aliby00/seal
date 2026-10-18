@@ -1,0 +1,96 @@
+{
+  "_source": "readAddressRoles on the public node, 18/10/2026, for the SIRIUS holders and launch recipients.",
+  "roles": [
+    {
+      "address": "0xe2890629ef31b32132003c02b29a50a025deee8a",
+      "kind": "capital-formation",
+      "name": "Virtuals’ capital-formation wallet (ACF)",
+      "detail": "Virtuals’ wallet for Automated Capital Formation: it receives 25% of every launch that uses it, and sells it through pools it fills as the price rises, the proceeds going to the team. It is not locked.",
+      "tradable": true,
+      "launchpad": "Virtuals",
+      "evidence": "received 25% of the supply from Virtuals’ reserve wallet on every ACF launch sampled (SIRIUS, UMBRA, MIKO, SYNA, POPHIE, HOUSE)"
+    },
+    {
+      "address": "0x3eb3394f5d89465a77f73a83d3675b0ed051f852",
+      "kind": "batch-sender",
+      "name": "a batch contract of Virtuals’ capital-formation wallet",
+      "detail": "A contract the capital-formation wallet sends tokens through to fill its pools; what it holds is waiting to be placed in a pool.",
+      "tradable": true,
+      "launchpad": "Virtuals",
+      "evidence": "received 70.5 M SIRIUS from the capital-formation wallet on 23/09/2026 and put 50.5 M in the V3 pool against USDG in one transaction (0x5a20a246…)"
+    },
+    {
+      "address": "0x81f7ca6af86d1ca6335e44a2c28bc88807491415",
+      "kind": "distributor",
+      "name": "Virtuals’ reserve wallet",
+      "detail": "The wallet Virtuals’ launchpad sends the reserved part of a launch to; it hands it out within minutes.",
+      "tradable": true,
+      "launchpad": "Virtuals",
+      "evidence": "teamTokenReservedWallet() of Virtuals’ launch configuration 0x3e331fdd9fe54d5047b1b7339fd5c91977d53e2f"
+    },
+    {
+      "address": "0x0539b29ff2c295d396a5618b33db2788706334f0",
+      "kind": "curve",
+      "name": "Virtuals’ launch curve",
+      "detail": "Where the token is first sold, before it moves to an open market: buyers buy from it, and what is left moves to the market at graduation.",
+      "tradable": false,
+      "launchpad": "Virtuals",
+      "evidence": "named as the curve in the launch event"
+    },
+    {
+      "address": "0x75eb52136c4263b45bd22c0fb786f1e976b629e1",
+      "kind": "vesting",
+      "name": "Virtuals’ team lock (TokenTable)",
+      "detail": "Its tokens unlock on a schedule; Virtuals’ reserve wallet manages it and can still cancel schedules and withdraw the deposit.",
+      "tradable": false,
+      "launchpad": "Virtuals",
+      "lock": {
+        "provider": "TokenTable",
+        "version": "2.7.7-TTUnlocker-cancun",
+        "owner": "0x81f7ca6af86d1ca6335e44a2c28bc88807491415",
+        "cancelable": true,
+        "withdrawable": true,
+        "schedules": [
+          {
+            "beneficiary": "0xc47ff45c87ee89a999b95ed6d4f408674d9bed9f",
+            "total": 0.035747,
+            "claimed": 0,
+            "unlocked": 0,
+            "startsAt": "2026-11-29T15:06:37.000Z",
+            "endsAt": "2027-07-27T15:06:37.000Z",
+            "steps": 9
+          },
+          {
+            "beneficiary": "0xc47ff45c87ee89a999b95ed6d4f408674d9bed9f",
+            "total": 0.25,
+            "claimed": 0,
+            "unlocked": 0,
+            "startsAt": "2027-08-28T15:06:08.000Z",
+            "endsAt": "2028-01-25T15:06:08.000Z",
+            "steps": 6
+          }
+        ],
+        "locked": 0.285747,
+        "nextUnlockAt": "2026-11-29T15:06:37.000Z",
+        "fullyUnlockedAt": "2028-01-25T15:06:08.000Z"
+      },
+      "evidence": "version() = \"2.7.7-TTUnlocker-cancun\", getProjectToken() = this token"
+    },
+    {
+      "address": "0x9080acd0298cd64841436cd2f1a714ec38b374b8",
+      "kind": "smart-wallet",
+      "name": "a smart-contract wallet",
+      "detail": "An ERC-4337 account: a wallet run by a contract, for a person or a service.",
+      "tradable": true,
+      "evidence": "entryPoint() = 0x0000000071727de22e5e9d8baf0edac6f37da032"
+    },
+    {
+      "address": "0x1991eefbd75557ccde431a35bde3c7d9b4df16c9",
+      "kind": "pool",
+      "name": "a V3 trading pool against USDG",
+      "detail": "A Uniswap V3-style pool trading this token against USDG: what it holds is liquidity, not anyone’s position.",
+      "tradable": false,
+      "evidence": "token0()/token1() name this token, fee() answers"
+    }
+  ]
+}

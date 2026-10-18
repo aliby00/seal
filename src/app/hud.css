@@ -744,6 +744,13 @@
   box-shadow: 0 0 8px var(--hud-accent);
 }
 .fact-big,
+/* The figure in the donut's hole sits on the hole's own colour: on a phone the
+   ring's arcs reach behind it, and the text must not be read against them. */
+.donut-center strong {
+  padding: 2px 4px;
+  border-radius: 6px;
+  background: var(--hud-ink);
+}
 .donut-center strong,
 .gauge-center strong,
 .fact-pairs dd {
@@ -1809,6 +1816,188 @@ tr[data-kind='withdraw'] .launch-kind::before {
 }
 .fact-pooled strong {
   color: var(--hud-text);
+}
+
+.launch-no-buys {
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--hud-line);
+  border-radius: 14px;
+  background: rgb(0 0 0 / 0.22);
+  font-size: 14.5px;
+  line-height: 1.45;
+  color: var(--hud-text);
+}
+.launch-from {
+  display: block;
+  font-size: 11.5px;
+  color: var(--hud-dim);
+}
+.launch-from a {
+  font-family: var(--font-data);
+  color: var(--hud-dim);
+}
+
+/* ── Where the supply went: one bar of the whole supply, then who passed what to whom. ── */
+.supply-flow {
+  margin-top: 36px;
+  /* Role colours, a fixed order validated for colour-vision deficiency on the HUD surface. */
+  --flow-1: #3987e5;
+  --flow-2: #d95926;
+  --flow-3: #199e70;
+  --flow-4: #c98500;
+  --flow-5: #d55181;
+  --flow-6: #9085e9;
+}
+.flow-bar {
+  display: flex;
+  gap: 2px;
+  height: 34px;
+  margin: 4px 0 18px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.flow-segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 4px;
+  flex-basis: 0;
+  background: var(--slot);
+}
+.flow-segment-label {
+  font: 600 12.5px/1 var(--font-data);
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.55);
+}
+.flow-tree,
+.flow-children {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.flow-tree {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+  align-items: start;
+}
+.flow-children {
+  position: relative;
+  margin: 10px 0 0 14px;
+  padding-left: 16px;
+  border-left: 1px dashed var(--hud-line-strong);
+}
+.flow-children > .flow-node {
+  position: relative;
+}
+.flow-children > .flow-node::before {
+  content: '';
+  position: absolute;
+  top: 26px;
+  left: -16px;
+  width: 14px;
+  border-top: 1px dashed var(--hud-line-strong);
+}
+.flow-node {
+  min-width: 0;
+}
+.flow-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--slot) 38%, var(--hud-line));
+  border-radius: 16px;
+  background:
+    radial-gradient(
+      120% 140% at 0% 0%,
+      color-mix(in srgb, var(--slot) 14%, transparent),
+      transparent 60%
+    ),
+    rgb(0 0 0 / 0.22);
+}
+.flow-card-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 12px;
+}
+.flow-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--slot);
+}
+.flow-role {
+  font: 600 11.5px/1.2 var(--font-body);
+  letter-spacing: 0.02em;
+  color: var(--hud-text);
+}
+.flow-address {
+  margin-left: auto;
+  font: 11.5px var(--font-data);
+  color: var(--hud-dim);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--hud-line-strong);
+}
+.flow-address:hover,
+.flow-address:focus-visible {
+  color: var(--hud-accent-hot);
+}
+.flow-card-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+.flow-share {
+  font: 600 clamp(26px, 4vw, 34px) / 1 var(--font-display);
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--hud-text);
+}
+.flow-name {
+  flex: 1 1 10rem;
+  min-width: 0;
+  font: 500 16px/1.3 var(--font-display);
+  color: var(--hud-text);
+}
+.flow-today,
+.flow-detail,
+.flow-caveat {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--hud-text);
+}
+.flow-detail {
+  font-size: 12.5px;
+  color: var(--hud-dim);
+}
+.flow-caveat {
+  padding-left: 10px;
+  border-left: 2px solid var(--hud-amber);
+  font-size: 12.5px;
+  color: var(--hud-dim);
+}
+.flow-schedules {
+  margin: 0;
+  padding-left: 18px;
+  font: 12px/1.5 var(--font-data);
+  color: var(--hud-dim);
+}
+@media (max-width: 640px) {
+  .flow-children {
+    margin-left: 6px;
+    padding-left: 12px;
+  }
+  .flow-children > .flow-node::before {
+    left: -12px;
+    width: 10px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

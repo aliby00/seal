@@ -1,4 +1,6 @@
-import type { LaunchMove, LaunchReplay, TokenReport } from '../contracts';
+import type { LaunchMove, LaunchReplay, NamedAddress, TokenReport } from '../contracts';
+import { toFacts } from '../facts';
+import { flowDate, flowPct, flowSentence, lockWords, type FlowNode } from '../supply-flow';
 import { OTHER_LAUNCH_SALES_DAYS } from '../contracts/creator';
 import { launchpadProse } from '../chain/launchpads';
 import { checkedByLaunchpad, checkedWords, joinClauses } from '../checked-sample';
@@ -39,6 +41,9 @@ Absolute rules:
 - The data's notes are instructions to you, not wording to copy: never reproduce their phrasing, and never write a word in capitals for emphasis.
 - When a count comes from a recent window only (for example the markets of the last 50 minutes), say it is that window, never a count over the whole chain.
 - A market without trading rules (hook) only means there is no hook to rewrite. Never write that nothing can be changed or rewritten later, or that the token is immutable: the token's own contract is not checked.
+- When the data names what an address is (a vesting lock, a launchpad's wallet, a capital-formation wallet, a pool), call it by that name, never "a contract", "an address" or "one wallet". Tokens in a vesting lock are no one's position today: say what the lock holds, for whom, and when it unlocks.
+- When the data gives where the supply went at launch, say it first, by role, in plain words. When a move names its sender, say where the tokens came from: never write that the data does not say.
+- A question marked as not applying to this token (a trading-rules question on a Uniswap v2 pair) is not a gap: never list it among what could not be measured.
 - Who first funded the creator's wallet comes classified. A contract, or a high-volume service (an exchange, a bridge, a router), links the creator to nobody and says nothing about who is behind the wallet, so never present it as a reason for attention, and call it high-volume only when its transaction count is high. An unidentified funder is not a wallet: count no other creators for it. Mention other creators funded by the same wallet only when the funding question states them.
 
 Structure the response with these three explicit headings, separated from paragraphs by blank lines:
@@ -81,6 +86,8 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
     );
   }
   lines.push('');
+
+  lines.push(...renderSupplyFlow(report));
 
   lines.push('## Creator history');
   lines.push(`Completeness: ${report.creator.completeness}`);
@@ -274,9 +281,9 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
         'Share of the total supply out of circulation (pools, curve, launch contracts): not measured. The shares below are not shares of the total supply.',
       );
     }
-    for (const aside of (h.setAside ?? []).slice(0, 4)) {
+    for (const aside of (h.setAside ?? []).slice(0, 5)) {
       lines.push(
-        `- set aside: ${aside.address} (${roleWord(aside.role)})${aside.share !== null ? `: ${(aside.share * 100).toFixed(2)}% of the total supply` : ''}`,
+        `- set aside: ${aside.address} (${aside.name ?? roleWord(aside.role)})${aside.share !== null ? `: ${(aside.share * 100).toFixed(2)}% of the total supply` : ''}${aside.role === 'vesting' ? '; locked, it cannot be sold before it unlocks' : ''}`,
       );
     }
     const ownToken = report.creator.data.tokens.find(
@@ -355,7 +362,7 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
             ? `: received ${(holder.fromCreator.share * 100).toFixed(2)}% of the supply ${holder.fromCreator.via ? 'through a contract the creator funded' : 'from the creator'}`
             : '';
       lines.push(
-        `- ${holder.address} (${holder.kind}): ${(holder.share * 100).toFixed(2)}%${role}`,
+        `- ${holder.address} (${holder.name ?? holder.kind}): ${(holder.share * 100).toFixed(2)}%${role}`,
       );
     }
   }
@@ -414,7 +421,15 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
 
   // Who first funded the creator, so the replay can name it where it traded (KEL).
   const funder = funderOf(specialists);
-  if (report.launch) lines.push('', ...renderLaunch(report.launch, funder ? { funder } : {}));
+  if (report.launch) {
+    lines.push(
+      '',
+      ...renderLaunch(report.launch, {
+        ...(funder ? { funder } : {}),
+        ...(report.roles?.length ? { roles: report.roles } : {}),
+      }),
+    );
+  }
   if (specialists && specialists.length > 0) lines.push('', ...renderSpecialists(specialists));
 
   return lines.join('\n');
@@ -496,7 +511,12 @@ const MOVE_WORD: Record<LaunchMove['kind'], string> = {
  * when and to whom, and what each address holds today — never "sniper" or
  * "insider", which would be verdicts.
  */
-export function renderLaunch(launch: LaunchReplay, options: { funder?: string } = {}): string[] {
+export function renderLaunch(
+  launch: LaunchReplay,
+  options: { funder?: string; roles?: readonly NamedAddress[] } = {},
+): string[] {
+  const named = new Map((options.roles ?? []).map((r) => [r.address.toLowerCase(), r.name]));
+  const nameOf = (address: string) => named.get(address.toLowerCase());
   const d = launch.data;
   const lines = [
     `## The first ${Math.round(d.windowSeconds / 60)} minutes after the launch (block ${d.launchBlock})`,
@@ -526,8 +546,15 @@ export function renderLaunch(launch: LaunchReplay, options: { funder?: string } 
     );
   }
   for (const m of d.moves.slice(0, 20)) {
-    const who = m.actorIsCreator ? `${m.actor} (the creator)` : `${m.actor} (${m.actorKind})`;
-    const from = m.counterpartyIsCreator ? ', received from the creator' : '';
+    const who = m.actorIsCreator
+      ? `${m.actor} (the creator)`
+      : `${m.actor} (${nameOf(m.actor) ?? m.actorKind})`;
+    // Where it came from, whenever it came from someone: the sender is known.
+    const from = m.counterpartyIsCreator
+      ? ', received from the creator'
+      : m.kind === 'allocation'
+        ? `, sent by ${m.counterparty}${nameOf(m.counterparty) ? ` (${nameOf(m.counterparty)})` : ''}`
+        : '';
     const held = m.heldNow === null ? 'unknown' : `${(m.heldNow * 100).toFixed(2)}%`;
     lines.push(
       `- +${m.seconds} s (block +${m.block}): ${(m.share * 100).toFixed(3)}% ${MOVE_WORD[m.kind]} ${who}${from}; holds today ${held}`,
@@ -671,7 +698,9 @@ export function renderSpecialists(answers: SpecialistAnswer[]): string[] {
       'Draw on those that shed light on the rest, and name an unmeasured question only when its absence prevents a conclusion.',
   ];
   for (const answer of answers) {
-    lines.push(`- ${answer.title}: ${answer.question} → ${SIGNAL_WORD[answer.signal]}`);
+    lines.push(
+      `- ${answer.title}: ${answer.question} → ${answer.notApplicable ? 'does not apply to this token (not a gap in the data)' : SIGNAL_WORD[answer.signal]}`,
+    );
     if (answer.funding) lines.push(`  · funder: ${FUNDER_WORD[answer.funding.kind]}`);
     for (const fact of answer.facts.slice(0, 3)) lines.push(`  · fact: ${fact}`);
     for (const limit of answer.limits.slice(0, 2)) lines.push(`  · limit: ${limit}`);
@@ -687,3 +716,49 @@ const FUNDER_WORD: Record<NonNullable<SpecialistAnswer['funding']>['kind'], stri
   tool: 'a batch-sending tool: the sender behind it was not read',
   unknown: 'not identified: it is not an established wallet, count no other creator for it',
 };
+
+/**
+ * Where the supply went at launch, by role, with what each address is and
+ * how that was read: the first thing the text says when the launch handed
+ * its supply out (SIRIUS: half to Virtuals' curve, a quarter to its
+ * capital-formation wallet, a quarter to the creator's TokenTable lock).
+ */
+export function renderSupplyFlow(report: TokenReport): string[] {
+  const flow = toFacts(report).supplyFlow;
+  if (!flow) return [];
+  const creator = report.creator.data.creator;
+  const roles = new Map((report.roles ?? []).map((r) => [r.address, r]));
+  const lines = [
+    '## Where the supply went at launch (say this first, by role)',
+    `In one sentence: ${flowSentence(flow, creator)}`,
+  ];
+  const describe = (n: FlowNode, depth: number) => {
+    const role = roles.get(n.address);
+    const today = n.heldNow === null ? 'unread' : `${flowPct(n.heldNow)} of the supply`;
+    lines.push(
+      `${'  '.repeat(depth)}- ${n.address}: ${n.name}; received ${flowPct(n.received)} at +${Math.round(n.at)} s; holds today ${today}${role ? `; read from: ${role.evidence}` : ''}${n.detail ? `. ${n.detail}` : ''}`,
+    );
+    if (n.lock) {
+      lines.push(`${'  '.repeat(depth + 1)}· ${lockWords(n.lock, creator, n.received)}.`);
+      for (const sch of n.lock.schedules) {
+        lines.push(
+          `${'  '.repeat(depth + 1)}· schedule: ${flowPct(sch.total)} for ${sch.beneficiary ?? 'an unread beneficiary'}${sch.beneficiary === creator.toLowerCase() ? ' (the creator)' : ''}, ${sch.steps} unlocks from ${flowDate(sch.startsAt)} to ${flowDate(sch.endsAt)}, ${flowPct(sch.claimed)} claimed so far.`,
+        );
+      }
+      if (n.lock.cancelable || n.lock.withdrawable) {
+        lines.push(
+          `${'  '.repeat(depth + 1)}· its manager ${n.lock.owner ?? ''}${n.lock.owner && roles.get(n.lock.owner) ? ` (${roles.get(n.lock.owner)!.name})` : ''} can still ${[n.lock.cancelable ? 'cancel schedules' : '', n.lock.withdrawable ? 'withdraw the deposit' : ''].filter(Boolean).join(' and ')}: the lock rests on it, not on code alone.`,
+        );
+      }
+    }
+    for (const c of n.children) describe(c, depth + 1);
+  };
+  for (const root of flow.roots) describe(root, 0);
+  if (flow.buys === 0) {
+    lines.push(
+      'Nobody bought in the launch window: there is no buyer to describe, only these allocations.',
+    );
+  }
+  lines.push('');
+  return lines;
+}

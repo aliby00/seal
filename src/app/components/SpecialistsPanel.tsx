@@ -118,7 +118,9 @@ export function SpecialistsPanel({
   }, []);
 
   const measured = answers.filter((a) => a.signal !== 'unknown');
-  const unmeasured = answers.filter((a) => a.signal === 'unknown');
+  // A question that does not apply is no gap in the data: said apart.
+  const notApplicable = answers.filter((a) => a.signal === 'unknown' && a.notApplicable);
+  const unmeasured = answers.filter((a) => a.signal === 'unknown' && !a.notApplicable);
 
   return (
     <section className="questions" aria-labelledby="questions-title">
@@ -151,6 +153,34 @@ export function SpecialistsPanel({
             <Details answer={answer} />
           </details>
         ))}
+        {notApplicable.length > 0 && (
+          <details className="check-row check-unmeasured" data-signal="unknown">
+            <summary>
+              <span className="check-icon" data-signal="quiet">
+                <SignalIcon signal="quiet" />
+              </span>
+              <span className="check-name">Does not apply to this token</span>
+              <span className="check-answer">
+                {notApplicable.map((a) => PLAIN_LABEL[a.specialist]).join(' · ')}
+              </span>
+            </summary>
+            <div className="check-sublist">
+              {notApplicable.map((answer) => (
+                <details
+                  key={answer.specialist}
+                  id={`question-${answer.specialist}`}
+                  className="check-subrow"
+                >
+                  <summary>
+                    <span className="check-name">{PLAIN_LABEL[answer.specialist]}</span>
+                    <span className="check-answer">{shortAnswer(answer)}</span>
+                  </summary>
+                  <Details answer={answer} />
+                </details>
+              ))}
+            </div>
+          </details>
+        )}
         {unmeasured.length > 0 && (
           <details className="check-row check-unmeasured" data-signal="unknown">
             <summary>

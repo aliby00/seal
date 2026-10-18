@@ -1,0 +1,438 @@
+{
+  "token": "0x72e936815982a577386e8fcde94f5c9335836c88",
+  "explanation": "This account is produced without the reasoning agent: it lists the observed facts without cross-examining or interpreting them.\n\nLaunch: Launched on Virtuals. At launch, 50% of the supply went to Virtuals’ launch curve (now empty: bought there, or moved to its trading pool at graduation), and 50% to Virtuals’ reserve wallet, which passed it all on within 2 minutes: 25% to Virtuals’ capital-formation wallet (ACF), which still holds 18%, and 25% to Virtuals’ team lock (TokenTable), where 28.6% is locked for the creator (3.6% of it added after the launch), unlocking from Nov 29, 2026 to Jan 25, 2028. Nobody bought in the first minutes: the supply was only handed out.\n\nCreator: this token was launched through Virtuals, whose launch record names 0xc47ff45c87ee89a999b95ed6d4f408674d9bed9f. The wallet has sent 11 transactions. Through the same launch contract, this address launched 1 token. Graduation is read on pons launches only, so what became of these launches is not measured here.\n\nHolders: the largest, Virtuals’ capital-formation wallet (ACF), holds 33.7 % of the supply held outside pools, locks and burn addresses; the top 10 hold 70.0 % combined. 28.6 % of the supply sits in Virtuals’ team lock (TokenTable): locked, it is left out of these shares.\n\nMarket: price 0.0001747 USD, liquidity 45746.01 USD.\n\nOver 24 hours: 2808.12 USD in volume across 10 trades, averaging 280.81 USD per trade.",
+  "completeness": "full",
+  "sources": [],
+  "costUsd": 0,
+  "collectedAt": "2026-10-18T12:00:00.000Z",
+  "offline": true,
+  "name": "SIRIUS",
+  "symbol": "SIRIUS",
+  "facts": {
+    "supplyFlow": {
+      "launchpad": "Virtuals",
+      "windowSeconds": 600,
+      "roots": [
+        {
+          "address": "0x0539b29ff2c295d396a5618b33db2788706334f0",
+          "kind": "curve",
+          "name": "Virtuals’ launch curve",
+          "detail": "Where the token is first sold, before it moves to an open market: buyers buy from it, and what is left moves to the market at graduation.",
+          "tradable": false,
+          "received": 0.5,
+          "heldNow": 0,
+          "at": 0,
+          "children": []
+        },
+        {
+          "address": "0x81f7ca6af86d1ca6335e44a2c28bc88807491415",
+          "kind": "distributor",
+          "name": "Virtuals’ reserve wallet",
+          "detail": "The wallet Virtuals’ launchpad sends the reserved part of a launch to; it hands it out within minutes.",
+          "tradable": true,
+          "received": 0.5,
+          "heldNow": 0,
+          "at": 0,
+          "children": [
+            {
+              "address": "0xe2890629ef31b32132003c02b29a50a025deee8a",
+              "kind": "capital-formation",
+              "name": "Virtuals’ capital-formation wallet (ACF)",
+              "detail": "Virtuals’ wallet for Automated Capital Formation: it receives 25% of every launch that uses it, and sells it through pools it fills as the price rises, the proceeds going to the team. It is not locked.",
+              "tradable": true,
+              "received": 0.25,
+              "heldNow": 0.1795,
+              "at": 29,
+              "children": []
+            },
+            {
+              "address": "0x75eb52136c4263b45bd22c0fb786f1e976b629e1",
+              "kind": "vesting",
+              "name": "Virtuals’ team lock (TokenTable)",
+              "detail": "Its tokens unlock on a schedule; Virtuals’ reserve wallet manages it and can still cancel schedules and withdraw the deposit.",
+              "tradable": false,
+              "lock": {
+                "provider": "TokenTable",
+                "version": "2.7.7-TTUnlocker-cancun",
+                "owner": "0x81f7ca6af86d1ca6335e44a2c28bc88807491415",
+                "cancelable": true,
+                "withdrawable": true,
+                "schedules": [
+                  {
+                    "beneficiary": "0xc47ff45c87ee89a999b95ed6d4f408674d9bed9f",
+                    "total": 0.035747,
+                    "claimed": 0,
+                    "unlocked": 0,
+                    "startsAt": "2026-11-29T15:06:37.000Z",
+                    "endsAt": "2027-07-27T15:06:37.000Z",
+                    "steps": 9
+                  },
+                  {
+                    "beneficiary": "0xc47ff45c87ee89a999b95ed6d4f408674d9bed9f",
+                    "total": 0.25,
+                    "claimed": 0,
+                    "unlocked": 0,
+                    "startsAt": "2027-08-28T15:06:08.000Z",
+                    "endsAt": "2028-01-25T15:06:08.000Z",
+                    "steps": 6
+                  }
+                ],
+                "locked": 0.285747,
+                "nextUnlockAt": "2026-11-29T15:06:37.000Z",
+                "fullyUnlockedAt": "2028-01-25T15:06:08.000Z"
+              },
+              "received": 0.25,
+              "heldNow": 0.285747,
+              "at": 90,
+              "children": []
+            }
+          ]
+        }
+      ],
+      "buys": 0
+    },
+    "roles": [
+      {
+        "address": "0xe2890629ef31b32132003c02b29a50a025deee8a",
+        "kind": "capital-formation",
+        "name": "Virtuals’ capital-formation wallet (ACF)",
+        "detail": "Virtuals’ wallet for Automated Capital Formation: it receives 25% of every launch that uses it, and sells it through pools it fills as the price rises, the proceeds going to the team. It is not locked.",
+        "tradable": true,
+        "launchpad": "Virtuals",
+        "evidence": "received 25% of the supply from Virtuals’ reserve wallet on every ACF launch sampled (SIRIUS, UMBRA, MIKO, SYNA, POPHIE, HOUSE)"
+      },
+      {
+        "address": "0x3eb3394f5d89465a77f73a83d3675b0ed051f852",
+        "kind": "batch-sender",
+        "name": "a batch contract of Virtuals’ capital-formation wallet",
+        "detail": "A contract the capital-formation wallet sends tokens through to fill its pools; what it holds is waiting to be placed in a pool.",
+        "tradable": true,
+        "launchpad": "Virtuals",
+        "evidence": "received 70.5 M SIRIUS from the capital-formation wallet on 23/09/2026 and put 50.5 M in the V3 pool against USDG in one transaction (0x5a20a246…)"
+      },
+      {
+        "address": "0x81f7ca6af86d1ca6335e44a2c28bc88807491415",
+        "kind": "distributor",
+        "name": "Virtuals’ reserve wallet",
+        "detail": "The wallet Virtuals’ launchpad sends the reserved part of a launch to; it hands it out within minutes.",
+        "tradable": true,
+        "launchpad": "Virtuals",
+        "evidence": "teamTokenReservedWallet() of Virtuals’ launch configuration 0x3e331fdd9fe54d5047b1b7339fd5c91977d53e2f"
+      },
+      {
+        "address": "0x0539b29ff2c295d396a5618b33db2788706334f0",
+        "kind": "curve",
+        "name": "Virtuals’ launch curve",
+        "detail": "Where the token is first sold, before it moves to an open market: buyers buy from it, and what is left moves to the market at graduation.",
+        "tradable": false,
+        "launchpad": "Virtuals",
+        "evidence": "named as the curve in the launch event"
+      },
+      {
+        "address": "0x75eb52136c4263b45bd22c0fb786f1e976b629e1",
+        "kind": "vesting",
+        "name": "Virtuals’ team lock (TokenTable)",
+        "detail": "Its tokens unlock on a schedule; Virtuals’ reserve wallet manages it and can still cancel schedules and withdraw the deposit.",
+        "tradable": false,
+        "launchpad": "Virtuals",
+        "lock": {
+          "provider": "TokenTable",
+          "version": "2.7.7-TTUnlocker-cancun",
+          "owner": "0x81f7ca6af86d1ca6335e44a2c28bc88807491415",
+          "cancelable": true,
+          "withdrawable": true,
+          "schedules": [
+            {
+              "beneficiary": "0xc47ff45c87ee89a999b95ed6d4f408674d9bed9f",
+              "total": 0.035747,
+              "claimed": 0,
+              "unlocked": 0,
+              "startsAt": "2026-11-29T15:06:37.000Z",
+              "endsAt": "2027-07-27T15:06:37.000Z",
+              "steps": 9
+            },
+            {
+              "beneficiary": "0xc47ff45c87ee89a999b95ed6d4f408674d9bed9f",
+              "total": 0.25,
+              "claimed": 0,
+              "unlocked": 0,
+              "startsAt": "2027-08-28T15:06:08.000Z",
+              "endsAt": "2028-01-25T15:06:08.000Z",
+              "steps": 6
+            }
+          ],
+          "locked": 0.285747,
+          "nextUnlockAt": "2026-11-29T15:06:37.000Z",
+          "fullyUnlockedAt": "2028-01-25T15:06:08.000Z"
+        },
+        "evidence": "version() = \"2.7.7-TTUnlocker-cancun\", getProjectToken() = this token"
+      },
+      {
+        "address": "0x9080acd0298cd64841436cd2f1a714ec38b374b8",
+        "kind": "smart-wallet",
+        "name": "a smart-contract wallet",
+        "detail": "An ERC-4337 account: a wallet run by a contract, for a person or a service.",
+        "tradable": true,
+        "evidence": "entryPoint() = 0x0000000071727de22e5e9d8baf0edac6f37da032"
+      },
+      {
+        "address": "0x1991eefbd75557ccde431a35bde3c7d9b4df16c9",
+        "kind": "pool",
+        "name": "a V3 trading pool against USDG",
+        "detail": "A Uniswap V3-style pool trading this token against USDG: what it holds is liquidity, not anyone’s position.",
+        "tradable": false,
+        "evidence": "token0()/token1() name this token, fee() answers"
+      }
+    ],
+    "creator": {
+      "measured": true,
+      "address": "0xc47ff45c87ee89a999b95ed6d4f408674d9bed9f",
+      "launched": 1,
+      "detailed": 0,
+      "graduated": 0,
+      "abandoned": 0,
+      "undetermined": 0,
+      "active": 0,
+      "checked": 0,
+      "soldIntoPool": 0,
+      "liquidityPulled": 0,
+      "salesChecked": 0,
+      "liquidityChecked": 0,
+      "source": "deployer",
+      "role": "launcher",
+      "launchContract": "0xd4ccbfa37e2f35611b3042e4096ad7a3459bd007",
+      "launchesListed": true,
+      "transactionCount": 11,
+      "launchpad": "Virtuals",
+      "creatorFrom": "launch-record",
+      "notListed": [],
+      "graduation": "not-measured"
+    },
+    "holders": {
+      "measured": true,
+      "holderCount": 154,
+      "pooled": 0.467173,
+      "top1": 0.336882,
+      "top10": 0.6995169999999999,
+      "top": [
+        {
+          "address": "0xe2890629ef31b32132003c02b29a50a025deee8a",
+          "share": 0.336882,
+          "kind": "wallet",
+          "name": "Virtuals’ capital-formation wallet (ACF)"
+        },
+        {
+          "address": "0x9080acd0298cd64841436cd2f1a714ec38b374b8",
+          "share": 0.049109,
+          "kind": "contract",
+          "name": "a smart-contract wallet"
+        },
+        {
+          "address": "0xceadd8e0670483f86e70000ff8dd2a3f5147ea06",
+          "share": 0.047535,
+          "kind": "wallet"
+        },
+        {
+          "address": "0xa1560b29fe5f64381b10bff866a2370415a32f51",
+          "share": 0.042109,
+          "kind": "wallet"
+        },
+        {
+          "address": "0xfca2e20da6c3cda1a1078e82c9abfabdb7cf307e",
+          "share": 0.040782,
+          "kind": "wallet"
+        },
+        {
+          "address": "0x3eb3394f5d89465a77f73a83d3675b0ed051f852",
+          "share": 0.037535,
+          "kind": "contract",
+          "name": "a batch contract of Virtuals’ capital-formation wallet"
+        },
+        {
+          "address": "0x8c2b4efffc2a0e93e9cfa2ca945bacf6db72f209",
+          "share": 0.037179,
+          "kind": "wallet"
+        },
+        {
+          "address": "0x6da0668a6f5ef3d86a880bf4421bd9b3a31ec744",
+          "share": 0.036901,
+          "kind": "contract"
+        }
+      ],
+      "setAside": [
+        {
+          "address": "0x75eb52136c4263b45bd22c0fb786f1e976b629e1",
+          "role": "vesting",
+          "share": 0.285747,
+          "name": "Virtuals’ team lock (TokenTable)"
+        },
+        {
+          "address": "0x828571e17c68de8badf1b9b24890c71726c8dba5",
+          "role": "pool",
+          "share": 0.130926
+        },
+        {
+          "address": "0x1991eefbd75557ccde431a35bde3c7d9b4df16c9",
+          "role": "pool",
+          "share": 0.050499,
+          "name": "a V3 trading pool against USDG"
+        }
+      ]
+    },
+    "market": {
+      "measured": true,
+      "priceUsd": 0.0001747,
+      "liquidityUsd": 45746.01,
+      "volume24hUsd": 2808.12,
+      "buys24h": 2,
+      "sells24h": 8,
+      "fdvUsd": 174701,
+      "graduation": null
+    }
+  },
+  "specialists": [
+    {
+      "specialist": "code-reuse",
+      "title": "Code Reuse",
+      "question": "Have this market’s trading rules (hook) already been used by other markets?",
+      "signal": "unknown",
+      "facts": [],
+      "limits": [
+        "not applicable: this market has no trading-rules contract (Uniswap v2 pair 0x8285…dbA5)"
+      ],
+      "notApplicable": true
+    },
+    {
+      "specialist": "holder-spread",
+      "title": "Holder Spread",
+      "question": "How much of the supply sits in a few wallets?",
+      "signal": "concern",
+      "facts": [
+        "46.7% of the whole supply sits in its vesting locks and trading pools and is left out: only 53.3% is held outside them.",
+        "28.6% of the supply is in Virtuals’ team lock (TokenTable) (0x75eb52136c4263b45bd22c0fb786f1e976b629e1): 28.6% is locked for the creator, unlocking from Nov 29, 2026 to Jan 25, 2028. It is left out of the shares below, as it cannot be sold before it unlocks. Its manager (Virtuals’ reserve wallet) can still cancel schedules and withdraw the deposit.",
+        "The largest holder (Virtuals’ capital-formation wallet (ACF), 0xe2890629ef31b32132003c02b29a50a025deee8a) has 33.7% of the supply held outside pools and locks; the top 10 have 70.0%.",
+        "0xe2890629ef31b32132003c02b29a50a025deee8a is Virtuals’ capital-formation wallet (ACF), with 33.7% of the supply held outside pools and locks: Virtuals’ wallet for Automated Capital Formation: it receives 25% of every launch that uses it, and sells it through pools it fills as the price rises, the proceeds going to the team. It is not locked.",
+        "0x9080acd0298cd64841436cd2f1a714ec38b374b8 is a smart-contract wallet, with 4.9% of the supply held outside pools and locks: An ERC-4337 account: a wallet run by a contract, for a person or a service.",
+        "0x3eb3394f5d89465a77f73a83d3675b0ed051f852 is a batch contract of Virtuals’ capital-formation wallet, with 3.8% of the supply held outside pools and locks: A contract the capital-formation wallet sends tokens through to fill its pools; what it holds is waiting to be placed in a pool.",
+        "154 holder addresses in total."
+      ],
+      "limits": [
+        "Pools, launch curves, launch contracts, vesting locks and burn addresses are excluded; shares are over the holders actually fetched."
+      ]
+    },
+    {
+      "specialist": "rule-change",
+      "title": "Rule Change",
+      "question": "Can the trading rules (hook) be rewritten after people have bought?",
+      "signal": "unknown",
+      "facts": [],
+      "limits": [
+        "not applicable: this market has no trading-rules contract (Uniswap v2 pair 0x8285…dbA5)"
+      ],
+      "notApplicable": true
+    }
+  ],
+  "launch": {
+    "token": "0x72e936815982a577386e8fcde94f5c9335836c88",
+    "launchBlock": 48392950,
+    "launchedAt": "2026-08-28T15:06:36.000Z",
+    "windowSeconds": 600,
+    "supply": "1000000000000000000000000000",
+    "moves": [
+      {
+        "kind": "mint",
+        "seconds": 0,
+        "block": 0,
+        "actor": "0x0539b29ff2c295d396a5618b33db2788706334f0",
+        "counterparty": "0x0000000000000000000000000000000000000000",
+        "actorKind": "pool",
+        "share": 0.5,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0,
+        "transaction": "0xb0cac924c480126ec9b3642e78c5b12ff4b3f14b9f655da1919ec1c7459424d6"
+      },
+      {
+        "kind": "mint",
+        "seconds": 0,
+        "block": 0,
+        "actor": "0x81f7ca6af86d1ca6335e44a2c28bc88807491415",
+        "counterparty": "0x0000000000000000000000000000000000000000",
+        "actorKind": "wallet",
+        "share": 0.5,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0,
+        "transaction": "0xb0cac924c480126ec9b3642e78c5b12ff4b3f14b9f655da1919ec1c7459424d6"
+      },
+      {
+        "kind": "allocation",
+        "seconds": 29,
+        "block": 286,
+        "actor": "0xe2890629ef31b32132003c02b29a50a025deee8a",
+        "counterparty": "0x81f7ca6af86d1ca6335e44a2c28bc88807491415",
+        "actorKind": "wallet",
+        "share": 0.25,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0.1795,
+        "transaction": "0x2dd1ba8fe6c901e9a92158998ca5196ddb03a2a60af56d41ceb14fc26b02541c"
+      },
+      {
+        "kind": "allocation",
+        "seconds": 90,
+        "block": 888,
+        "actor": "0x75eb52136c4263b45bd22c0fb786f1e976b629e1",
+        "counterparty": "0x81f7ca6af86d1ca6335e44a2c28bc88807491415",
+        "actorKind": "contract",
+        "share": 0.25,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0.285747,
+        "transaction": "0xc87f1a364555980c40d673f487a6b411d654ad9595bdcddd6dcc9936e8b7341b"
+      }
+    ],
+    "movesInWindow": 4,
+    "summary": {
+      "moves": 4,
+      "earlySeconds": 60,
+      "creatorAtLaunch": 0,
+      "creatorBought": 0,
+      "creatorSold": 0,
+      "creatorFirstBuyAt": null,
+      "creatorLastSaleAt": null,
+      "creatorSaleConfirmed": false,
+      "creatorTx": {
+        "transaction": "0xb0cac924c480126ec9b3642e78c5b12ff4b3f14b9f655da1919ec1c7459424d6",
+        "addresses": 1,
+        "share": 0.5,
+        "heldNow": 0,
+        "contracts": 0
+      },
+      "early": {
+        "wallets": 0,
+        "share": 0,
+        "within": 0,
+        "heldNow": null,
+        "unread": 0,
+        "contracts": 0
+      },
+      "bundle": null,
+      "roundTrips": {
+        "wallets": 0,
+        "creator": false,
+        "delays": null,
+        "fromBundle": null,
+        "listed": [],
+        "excluded": {
+          "sameTransaction": 0,
+          "liquidity": 0
+        }
+      },
+      "receiptsRead": 1,
+      "receiptsWanted": 1,
+      "balancesRead": 4,
+      "balancesWanted": 4
+    }
+  }
+}

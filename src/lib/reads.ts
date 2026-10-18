@@ -57,6 +57,10 @@ export const OPTIONAL_READS = {
     read: 'launch-replay',
     note: 'the first minutes after the launch could not be read this time',
   },
+  'address-roles': {
+    read: 'holders',
+    note: 'what the largest holders and the launch’s recipients are (locks, pools, launchpad wallets) could not be read this time',
+  },
   'indexer-token': {
     read: 'market',
     note: 'the SEAL indexer did not answer: the launch pool’s trades could not be read this time',

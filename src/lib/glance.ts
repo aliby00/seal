@@ -6,6 +6,7 @@ import { feePayerWords, whereSetAside } from './set-aside';
 import type { SpecialistAnswer } from './specialists/brief';
 import { READ_WORDS, readFailed } from './failed-reads';
 import { checkedWords, joinClauses } from './checked-sample';
+import { flowPct, flowSentence } from './supply-flow';
 
 /**
  * The report's opening: what a reader should know in ten seconds, in plain
@@ -17,7 +18,7 @@ import { checkedWords, joinClauses } from './checked-sample';
 export type GlanceTone = 'attention' | 'reassuring' | 'neutral';
 
 export type GlanceItem = {
-  id: 'sales' | 'record' | 'liquidity' | 'supply' | 'launch-buys' | 'market' | 'network';
+  id: 'flow' | 'sales' | 'record' | 'liquidity' | 'supply' | 'launch-buys' | 'market' | 'network';
   tone: GlanceTone;
   /** The number the line is about, set large. */
   figure: string;
@@ -405,24 +406,56 @@ function supplyItem(facts: ReportFacts, launch: LaunchReplayData | undefined): G
   // are restated against the whole supply so 70% does not read as 70% of it.
   const whole = pooled !== null ? largest.share * (1 - pooled) : null;
   const creator = facts.creator.address?.toLowerCase();
-  // A contract is never "one wallet": what kind of address it is, is part of the fact.
+  // A contract is never "one wallet": what kind of address it is, is part of
+  // the fact, and what the chain says it is, when it says more (SIRIUS:
+  // Virtuals' capital-formation wallet, not "one wallet").
   const who =
     creator && largest.address.toLowerCase() === creator
       ? 'The creator'
-      : largest.kind === 'contract'
-        ? 'One contract'
-        : 'One wallet';
+      : largest.name
+        ? capitalized(largest.name)
+        : largest.kind === 'contract'
+          ? 'One contract'
+          : 'One wallet';
+  const locks = (facts.holders.setAside ?? []).filter((s) => s.role === 'vesting');
+  const lockWords =
+    locks.length > 0
+      ? ` ${pct(locks.reduce((n, l) => n + (l.share ?? 0), 0))} of the supply sits in ${locks.length === 1 ? (locks[0]!.name ?? 'a vesting lock') : `${locks.length} vesting locks`}, left out: it cannot be sold before it unlocks.`
+      : '';
   return {
     id: 'supply',
     tone: largest.share >= 0.2 || link.weight >= 0.05 ? 'attention' : 'neutral',
     figure: pct(largest.share),
     title:
       whole !== null
-        ? `${who} holds ${pct(largest.share)} of the tokens held outside ${where} (${pct(whole)} of the whole supply).${linked}`
-        : `${who} holds ${pct(largest.share)} of the tokens held outside ${where}.${linked}`,
-    detail:
-      'The largest holder; pools, launch curves, launch contracts and burn addresses left out.',
+        ? `${who} holds ${pct(largest.share)} of the tokens held outside ${where} (${pct(whole)} of the whole supply).${lockWords}${linked}`
+        : `${who} holds ${pct(largest.share)} of the tokens held outside ${where}.${lockWords}${linked}`,
+    detail: `The largest holder; pools, launch curves, launch contracts${locks.length > 0 ? ', vesting locks' : ''} and burn addresses left out.`,
     href: '#fact-holders',
+  };
+}
+
+const capitalized = (words: string) => words.charAt(0).toUpperCase() + words.slice(1);
+
+/**
+ * Where the supply went at launch, by role, in one line: the first thing to
+ * know about a launch that handed its supply out (SIRIUS: "Launched on
+ * Virtuals. At launch, 50% of the supply went to Virtuals’ launch curve, and
+ * 50% to Virtuals’ reserve wallet, which passed it all on…").
+ */
+function flowItem(facts: ReportFacts): GlanceItem | null {
+  const flow = facts.supplyFlow;
+  if (!flow) return null;
+  const market = new Set(['pool', 'curve', 'launchpad']);
+  const handed = flow.roots.filter((r) => !market.has(r.kind)).reduce((n, r) => n + r.received, 0);
+  return {
+    id: 'flow',
+    tone: 'neutral',
+    figure: flowPct(handed),
+    title: flowSentence(flow, facts.creator.address),
+    detail:
+      'Where the supply went in the launch’s first minutes, and what each address holds today.',
+    href: '#supply-flow',
   };
 }
 
@@ -614,12 +647,18 @@ export function buildGlance({ facts, timeline, launch, specialists }: GlanceInpu
     launchBuysItem(launch),
     marketItem(facts.market),
   ].filter((item): item is GlanceItem => item !== null);
-  // What deserves attention comes first; within a tone, the order above holds.
-  const items = candidates
-    .map((item, i) => ({ item, i }))
-    .sort((a, b) => ORDER[a.item.tone] - ORDER[b.item.tone] || a.i - b.i)
-    .slice(0, MAX_ITEMS)
-    .map(({ item }) => item);
+  // Where the supply went leads, when the launch handed it out: it is what
+  // the rest is read against. Then what deserves attention; within a tone,
+  // the order above holds.
+  const flow = flowItem(facts);
+  const items = [
+    ...(flow ? [flow] : []),
+    ...candidates
+      .map((item, i) => ({ item, i }))
+      .sort((a, b) => ORDER[a.item.tone] - ORDER[b.item.tone] || a.i - b.i)
+      .slice(0, MAX_ITEMS - (flow ? 1 : 0))
+      .map(({ item }) => item),
+  ];
 
   const unseen: string[] = [];
   if (!facts.creator.measured) unseen.push('who created it and what they did before');

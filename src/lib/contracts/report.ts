@@ -3,6 +3,7 @@ import type { CreatorHistory } from './creator';
 import type { HolderDistribution } from './holders';
 import type { LaunchReplay } from './launch';
 import type { MarketState } from './market';
+import type { NamedAddress } from './roles';
 
 /**
  * A read that failed this time (a rate limit, a timeout, a node or indexer
@@ -56,6 +57,12 @@ export type TokenReport = {
    * as complete as they were.
    */
   launch?: LaunchReplay;
+  /**
+   * What the largest holders and the launch's recipients are, read on chain:
+   * a vesting lock, a pool no listing names, a launchpad's wallet. Absent
+   * when none was named, or from reports made before.
+   */
+  roles?: NamedAddress[];
   /** Complétude d'ensemble, dérivée des trois blocs. */
   completeness: Completeness;
   /**

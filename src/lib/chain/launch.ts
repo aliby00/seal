@@ -15,7 +15,7 @@ import type { RawLog } from './logs';
 import { POOL_MANAGER } from './pools';
 import { LogQueryTooBroadError, type RpcClient } from './rpc';
 import { isContractCode } from './code';
-import { LAUNCHPADS, launchInfrastructure } from './launchpads';
+import { LAUNCHPAD_WALLETS, LAUNCHPADS, launchInfrastructure } from './launchpads';
 import { readTxDetails, readTxNatures, SWAP_TOPICS, type TxDetail, type TxNature } from './trades';
 
 /**
@@ -504,6 +504,8 @@ export function tallyLaunch(
     if (creator === null || m.block !== from || own(m)) continue;
     if (m.kind !== 'buy' && m.kind !== 'mint' && m.kind !== 'allocation') continue;
     if (pools.has(m.actor) || BURN.has(m.actor)) continue;
+    // A launchpad's own wallet, served by the launchpad's rule (Virtuals' reserve wallet).
+    if (LAUNCHPAD_WALLETS.has(m.actor)) continue;
     if (senders.get(m.transaction) !== creator) continue;
     viaCreator.set(m.actor, (viaCreator.get(m.actor) ?? 0n) + m.value);
     creatorTransaction ??= m.transaction;
