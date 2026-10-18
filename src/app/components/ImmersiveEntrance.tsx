@@ -113,6 +113,52 @@ const clamp = (n: number) => Math.max(0, Math.min(1, n));
 const range = (p: number, from: number, to: number) => clamp((p - from) / (to - from));
 const smooth = (n: number) => n * n * (3 - 2 * n);
 
+/**
+ * Scrolls the page to an in-page target over a fixed time. Each step recomputes
+ * where the target is and the last one lands exactly on it, however slow the
+ * frames are: the browser's own smooth scroll can start late or stop short
+ * under load. A timer backs up each animation frame, so the scroll completes
+ * on time even when the renderer stops producing frames for a while. Any input
+ * from the reader hands the scroll back to them.
+ */
+function scrollToTarget(target: HTMLElement, done: () => void) {
+  const inputs = ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const;
+  const from = window.scrollY;
+  const goal = () => {
+    const margin = parseFloat(getComputedStyle(target).scrollMarginTop) || 0;
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    return Math.max(0, Math.min(max, target.getBoundingClientRect().top + window.scrollY - margin));
+  };
+  const duration = Math.min(1400, 600 + Math.abs(goal() - from) * 0.15);
+  const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+  let start = 0;
+  let frame = 0;
+  let backup = 0;
+  function next() {
+    frame = requestAnimationFrame(step);
+    backup = window.setTimeout(() => step(performance.now()), 100);
+  }
+  function finish() {
+    cancelAnimationFrame(frame);
+    window.clearTimeout(backup);
+    for (const type of inputs) window.removeEventListener(type, finish, true);
+    done();
+  }
+  function step(now: number) {
+    cancelAnimationFrame(frame);
+    window.clearTimeout(backup);
+    if (!start) start = now;
+    const t = Math.min(1, (now - start) / duration);
+    const to = goal();
+    window.scrollTo({ top: t < 1 ? from + (to - from) * ease(t) : to, behavior: 'instant' });
+    if (t < 1) next();
+    else finish();
+  }
+  for (const type of inputs)
+    window.addEventListener(type, finish, { capture: true, passive: true });
+  next();
+}
+
 /** Scroll stays native; only decorative transforms follow its position. */
 export function ImmersiveEntrance({
   children,
@@ -125,6 +171,9 @@ export function ImmersiveEntrance({
   const journey = useRef<HTMLElement>(null);
   const copy = useRef<HTMLDivElement>(null);
   const gate = useRef<SVGSVGElement>(null);
+  // While a link scrolls the page, the scene follows the scroll exactly: that
+  // scroll is already eased, a second easing would only lag behind it.
+  const following = useRef(false);
   // The photograph is the first thing seen: fetch it with the document.
   preload('/images/seal-mountain-mist.webp', { as: 'image', fetchPriority: 'high' });
 
@@ -215,13 +264,23 @@ export function ImmersiveEntrance({
       setFlag('gate', p > inside + 0.05 ? 'passed' : 'ahead');
       setFlag('entered', String(p > 0.6));
     }
+    let scrolled = 0;
     function tick(now: number) {
       frame = 0;
       const target = window.scrollY;
       const dt = previous ? Math.min(250, Math.max(0, now - previous)) : 16;
       previous = now;
       const gap = target - shown;
-      if (shown < 0 || reduced.matches || Math.abs(gap) < 0.5 || Math.abs(gap) > viewport * 3) {
+      if (
+        shown < 0 ||
+        reduced.matches ||
+        following.current ||
+        // A jump (a link, the keyboard, a restored position) is shown at once.
+        Math.abs(gap) > viewport ||
+        // Close enough, or the scroll has stopped: land exactly on the target.
+        Math.abs(gap) < 0.5 ||
+        now - scrolled > 600
+      ) {
         shown = target;
       } else {
         shown += gap * (1 - Math.exp(-dt / 110));
@@ -236,6 +295,10 @@ export function ImmersiveEntrance({
     function schedule() {
       if (!frame) frame = requestAnimationFrame(tick);
     }
+    function onScroll() {
+      scrolled = performance.now();
+      schedule();
+    }
     function resize() {
       measure();
       written.clear();
@@ -244,7 +307,7 @@ export function ImmersiveEntrance({
     }
     const observer = new ResizeObserver(resize);
     observer.observe(section);
-    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', resize);
     reduced.addEventListener('change', resize);
     measure();
@@ -252,7 +315,7 @@ export function ImmersiveEntrance({
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
-      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', resize);
       reduced.removeEventListener('change', resize);
     };
@@ -281,12 +344,12 @@ export function ImmersiveEntrance({
         if (target instanceof HTMLDetailsElement) target.open = true;
         if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
         target.focus({ preventScroll: true });
-        target.scrollIntoView({
-          behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
-            ? 'instant'
-            : 'smooth',
-          block: 'start',
-        });
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          target.scrollIntoView({ behavior: 'instant', block: 'start' });
+        } else {
+          following.current = true;
+          scrollToTarget(target, () => (following.current = false));
+        }
         window.history.replaceState(null, '', anchor.hash);
       }}
     >
