@@ -31,6 +31,9 @@ import type {
  */
 
 const pct = (x: number): string => `${(x * 100).toFixed(1)}%`;
+/** A share near the ends: "<0.1%" and ">99.9%" rather than "0.0%" and "100.0%". */
+const pctBounded = (x: number): string =>
+  x > 0 && x < 0.001 ? '<0.1%' : x > 0.999 && x < 1 ? '>99.9%' : pct(x);
 
 function finding(
   specialist: SpecialistId,
@@ -425,10 +428,14 @@ const holderSpread: Specialist = {
       // How much circulates at all comes first: 70 % of 1 % is not 70 % of the token.
       ...(pooled !== null && pooled > 0
         ? [
-            `${pct(pooled)} of the whole supply sits in ${whereSetAside(holders.data.setAside)} and is left out: only ${pct(1 - pooled)} is held outside ${/(curve|contract)$/.test(whereSetAside(holders.data.setAside)) ? 'it' : 'them'}.`,
+            `${pctBounded(pooled)} of the whole supply sits in ${whereSetAside(holders.data.setAside)} and is left out: only ${pctBounded(1 - pooled)} is held outside ${/(curve|contract)$/.test(whereSetAside(holders.data.setAside)) ? 'it' : 'them'}.`,
           ]
         : []),
-      `The largest holder${what} has ${pct(top1)} of the supply held outside pools; the top 10 have ${pct(top10)}.`,
+      ...(largest
+        ? [
+            `The largest holder${what} has ${pct(top1)} of the supply held outside pools; the top 10 have ${pct(top10)}.`,
+          ]
+        : ['No address holds any of the supply outside pools and launch contracts.']),
       ...(count !== null ? [`${count} holder addresses in total.`] : []),
     ];
     // Thousands of holders who were sent the token by its creator are an
@@ -437,7 +444,12 @@ const holderSpread: Specialist = {
       (t) => String(t.address).toLowerCase() === token.toLowerCase(),
     );
     const fromCreator = own?.creatorRecipients ?? null;
-    const airdropped = fromCreator !== null && count !== null && fromCreator >= count / 2;
+    const airdropped =
+      fromCreator !== null &&
+      count !== null &&
+      count > 0 &&
+      fromCreator > 0 &&
+      fromCreator >= count / 2;
     if (airdropped) {
       facts.push(
         `The creator sent this token directly to ${fromCreator} addresses: most of the holders received it from the creator rather than buying it.`,

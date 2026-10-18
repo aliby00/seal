@@ -936,3 +936,26 @@ describe('launch replay: the 0x7ed5 lock contract is not a first buyer (bugs 1 a
     expect(replay.data.moves.find((m) => m.actor === LOCKER_7ED5)?.kind).toBe('allocation');
   });
 });
+
+describe('wording: shares near the top, and launchpad labels in a list (bug 10)', () => {
+  it('AML: 99.66 % in the pools is "99.7%", not "100%"', () => {
+    const glance = buildGlance({ facts: glanceFacts({ pooled: 0.99664 }) })!;
+    expect(glance.items.find((i) => i.id === 'supply')?.title).toMatch(/^99\.7% of the supply/);
+  });
+
+  it('names the 0x7ed5 launchpad once in a list of what is not listed', () => {
+    const f = glanceFacts({});
+    f.creator = {
+      ...f.creator,
+      measured: true,
+      launched: 1,
+      detailed: 1,
+      launchesListed: false,
+      launchpad: 'launchpad 0x7ed5… (used by pons)',
+      notListed: ['Doppler'],
+    };
+    expect(buildGlance({ facts: f })!.items.find((i) => i.id === 'record')?.title).toBe(
+      'No other launch by this creator was found on the launchpads SEAL can list (launchpad 0x7ed5… and Doppler are not listed).',
+    );
+  });
+});

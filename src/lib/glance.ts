@@ -49,7 +49,8 @@ const DAY_MS = 86_400_000;
 function pct(value: number): string {
   if (value > 0 && value < 0.001) return '<0.1%';
   if (value > 0.999 && value < 1) return '>99.9%';
-  return `${(value * 100).toFixed(value < 0.1 ? 1 : 0)}%`;
+  // 99.7% rounded to "100%" would say nothing is left: one decimal near the top.
+  return `${(value * 100).toFixed(value < 0.1 || (value >= 0.995 && value < 1) ? 1 : 0)}%`;
 }
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -86,7 +87,10 @@ function unlistedWords(creator: ReportFacts['creator']): string {
   const items = [
     ...(creator.launchesListed === false && creator.launchpad ? [creator.launchpad] : []),
     ...(creator.notListed ?? []),
-  ].map((n) => (n === 'contracts deployed directly' ? 'direct deploys' : n));
+  ]
+    .map((n) => (n === 'contracts deployed directly' ? 'direct deploys' : n))
+    // "launchpad 0x7ed5… (used by pons)" inside a parenthesis reads double.
+    .map((n) => n.replace(/\s*\([^)]*\)$/, ''));
   const unique = [...new Set(items)];
   if (unique.length === 0) return '';
   const verb = unique.length > 1 || unique[0] === 'direct deploys' ? 'are' : 'is';
@@ -202,7 +206,7 @@ function recordItem(
     id: 'record',
     tone: rapid ? 'attention' : creator.graduated > 0 ? 'reassuring' : 'neutral',
     figure: `${creator.launched}`,
-    title: `This creator launched ${plural(creator.launched, 'token')}${where}${spanWords}.${graduated}`,
+    title: `This creator launched ${plural(creator.launched, 'token')}${span && span.dated >= creator.launched ? spanWords : ''}${where}${span && span.dated < creator.launched ? spanWords : ''}.${graduated}`,
     detail: 'Their launch record on chain, this token included.',
     href: '#fact-creator',
   };
