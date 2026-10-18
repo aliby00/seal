@@ -29,6 +29,19 @@ import { readFailed } from '../failed-reads';
  *  - `count`: a count the data gives otherwise — "two early buyers" for 3
  *    (ECOGPT), "five of the top holders" for 6 (BOOMER), "189 early buyers
  *    holding 97 %" for a share they bought (MUT8).
+ *
+ * And from the fifth (staging, 18/10/2026):
+ *
+ *  - `into-pools`: "that launch transaction, which delivered into pools"
+ *    (MUT8), while it delivered 71.43 % to three contracts that are not
+ *    pools;
+ *  - a count of the creator's "other" launches given with this token in
+ *    it, "sold in 8 of 10 other checked launches" for 7 of 9 (ASTEROID): it
+ *    is corrected in place rather than cut.
+ *
+ * A cut never leaves a dangling sentence behind: "It also took tokens out…"
+ * opened AML's section once the sentence before it was cut. The next
+ * sentence gets its subject back, or goes too.
  */
 export type ClaimKind =
   | 'only-token'
@@ -38,15 +51,18 @@ export type ClaimKind =
   | 'took-nothing'
   | 'unread'
   | 'immutable'
-  | 'count';
+  | 'count'
+  | 'into-pools';
 
 export type Claim = { kind: ClaimKind; sentence: string };
 
 const ONLY_TOKEN: RegExp[] = [
-  /\bonly\s+(?:this\s+)?(?:one\s+|single\s+)?(?:token|launch)\b/i,
+  // "its only launch SEAL could check", "only this token’s sales" are true.
+  /\bonly\s+(?:this\s+)?(?:one\s+|single\s+)?(?:token|launch)\b(?![’']s\b|\s+(?:SEAL\s+)?(?:could|was|were|that\s+(?:SEAL\s+)?could|checked|read|listed|measured)\b)/i,
   /\b(?:just|a\s+single)\s+(?:this\s+)?(?:one\s+)?(?:token|launch)\b(?!\s+(?:of|by)\s+(?:others|other))/i,
   /\b(?:launched|created|deployed)\s+(?:only|just)\b/i,
-  /\b(?:its|their|the\s+creator[’']s|this\s+creator[’']s|the\s+wallet[’']s)\s+(?:very\s+)?first\s+(?:token|launch)\b/i,
+  // "its first launch window" is a time, not a claim about the record.
+  /\b(?:its|their|the\s+creator[’']s|this\s+creator[’']s|the\s+wallet[’']s)\s+(?:very\s+)?first\s+(?:token|launch)\b(?!\s+(?:window|block|minutes?|seconds?|hours?|days?|transaction|pool|price|buyers?)\b)/i,
   /\bfirst\s+(?:token|launch)\s+(?:by|from|of)\s+(?:this|the|its)\s+(?:creator|wallet)\b/i,
   /\bnever\s+launched\s+(?:any|another|other)\b/i,
   /\bno\s+(?:other|prior|previous|earlier)\s+(?:tokens?|launch(?:es)?)\b(?!\s+(?:that|which|where|was|were|has\s+been|have\s+been)?\s*(?:found|seen|listed|recorded|that|which|where)\b)/i,
@@ -129,10 +145,19 @@ export function forbiddenClaims(report: TokenReport): Set<ClaimKind> {
     kinds.add('no-link');
   }
   if ((summary?.creatorTx?.share ?? 0) >= 0.01) kinds.add('took-nothing');
+  // MUT8: the launch transaction delivered to contracts, which are not pools.
+  if ((summary?.creatorTx?.share ?? 0) >= 0.01) kinds.add('into-pools');
   return kinds;
 }
 
+/** "that launch transaction, which delivered into pools" (MUT8). */
+const INTO_POOLS: RegExp[] = [
+  /\blaunch\s+transaction\b[^.]*\b(?:delivered|sent|went|put|placed)\s+(?:\w+\s+){0,4}?(?:into|to|in)\s+(?:the\s+|its\s+|a\s+)?(?:pools?|liquidity|markets?)\b/i,
+  /\b(?:delivered|sent)\s+(?:\w+\s+){0,4}?into\s+(?:the\s+|its\s+)?pools?\b[^.]*\blaunch\s+transaction\b/i,
+];
+
 const PATTERNS: Record<Exclude<ClaimKind, 'unread' | 'count'>, RegExp[]> = {
+  'into-pools': INTO_POOLS,
   'only-token': ONLY_TOKEN,
   'clean-record': CLEAN,
   'no-sale': NO_SALE,
@@ -273,11 +298,126 @@ export function findClaims(text: string, report: TokenReport): Claim[] {
       ) {
         hit = 'unread';
       }
-      if (!hit && countMismatch(sentence, report)) hit = 'count';
+      if (!hit && (countMismatch(sentence, report) || othersCountMismatch(sentence, report)))
+        hit = 'count';
       if (hit) found.push({ kind: hit, sentence });
     }
   }
   return found;
+}
+
+/** "8 of 10 other launches", "seven of the nine earlier launches". */
+const OTHERS_COUNT = new RegExp(
+  `\\b${NUMBER}\\s+(of|out\\s+of)\\s+((?:the|its|their)\\s+)?${NUMBER}\\s+(other|previous|earlier|prior)\\b`,
+  'gi',
+);
+
+/**
+ * The creator's sales over its other launches, this token left out: the
+ * total the data gives (8 of 10, this token included) is not a count of
+ * the others (7 of 9). `null` when this token's own sale is not known.
+ */
+export function otherLaunchSales(
+  report: TokenReport,
+): { sold: number; checked: number; totalSold: number; totalChecked: number } | null {
+  if (report.creator.completeness === 'unavailable') return null;
+  const checked = report.creator.data.tokens.filter((t) => t.creatorDumped !== null);
+  const self = own(report);
+  if (!self || self.creatorDumped === null || !checked.includes(self)) return null;
+  const others = checked.filter((t) => t !== self);
+  return {
+    sold: others.filter((t) => t.creatorDumped === true).length,
+    checked: others.length,
+    totalSold: checked.filter((t) => t.creatorDumped === true).length,
+    totalChecked: checked.length,
+  };
+}
+
+/**
+ * The text with each count of "other" launches the creator sold on set to
+ * what the data says of the others: "sold in 8 of 10 other checked
+ * launches" said this token in the count (ASTEROID). Only a count that is
+ * the total, this token included, is corrected; another one is cut.
+ */
+export function correctOtherCounts(text: string, report: TokenReport): string {
+  const counts = otherLaunchSales(report);
+  if (!counts) return text;
+  return text
+    .split(/\n{2,}/)
+    .map((paragraph) =>
+      sentences(paragraph)
+        .map((sentence) => {
+          if (!/\b(?:sold|sell|sells|selling|sales?)\b/i.test(sentence)) return sentence;
+          return sentence.replace(
+            OTHERS_COUNT,
+            (match, a: string, of: string, the: string | undefined, b: string, word: string) => {
+              const x = numberOf(a);
+              const y = numberOf(b);
+              if (x === counts.totalSold && y === counts.totalChecked) {
+                return `${counts.sold} ${of} ${the ?? ''}${counts.checked} ${word}`;
+              }
+              return match;
+            },
+          );
+        })
+        .join(' '),
+    )
+    .join('\n\n');
+}
+
+/** A count of the other launches that is neither theirs nor the total: cut. */
+function othersCountMismatch(sentence: string, report: TokenReport): boolean {
+  const counts = otherLaunchSales(report);
+  if (!counts || !/\b(?:sold|sell|sells|selling|sales?)\b/i.test(sentence)) return false;
+  for (const m of sentence.matchAll(OTHERS_COUNT)) {
+    const x = m[1] ? numberOf(m[1]) : null;
+    const y = m[4] ? numberOf(m[4]) : null;
+    if (x === null || y === null) continue;
+    if (x !== counts.sold || y !== counts.checked) return true;
+  }
+  return false;
+}
+
+/** A sentence that leans on the one before it: "It also took…", "This came…". */
+const DANGLING = /^(?:It|Its|They|Their|This|That|These|Those|He|She|Also|Both|Such)\b/;
+/** Who the sentence before was about, when it says so plainly. */
+const SUBJECT =
+  /^(The creator(?:[’']s wallet)?|The creator wallet|This token|The token|The largest holder|The market|The main pool)\b/;
+
+/**
+ * Keeps a paragraph readable once sentences are cut from it: the sentence
+ * after a cut one loses its "also", and a pronoun that pointed at the cut
+ * sentence gets that sentence's subject back. A sentence whose reference
+ * cannot be restored is cut too.
+ */
+function coherent(all: readonly string[], banned: ReadonlySet<string>): string[] {
+  const kept: string[] = [];
+  let lastCut: string | null = null;
+  for (const sentence of all) {
+    if (banned.has(sentence)) {
+      lastCut = sentence;
+      continue;
+    }
+    if (lastCut === null) {
+      kept.push(sentence);
+      continue;
+    }
+    let s = sentence.replace(/^(\S+(?:\s+\S+)?)\s+also\s+/i, '$1 ').replace(/^Also,?\s+/i, '');
+    s = s.charAt(0).toUpperCase() + s.slice(1);
+    if (DANGLING.test(s)) {
+      const subject = SUBJECT.exec(lastCut)?.[1];
+      if (subject && /^It\b/.test(s)) s = s.replace(/^It\b/, subject);
+      else if (subject && /^Its\b/.test(s)) s = s.replace(/^Its\b/, `${subject}’s`);
+      else {
+        // Nothing to point at any more: this one goes too.
+        lastCut = sentence;
+        continue;
+      }
+    }
+    kept.push(s);
+    lastCut = null;
+  }
+  return kept;
 }
 
 /**
@@ -289,16 +429,15 @@ export function withoutClaims(
   text: string,
   report: TokenReport,
 ): { text: string | null; dropped: Claim[] } {
-  const dropped = findClaims(text, report);
-  if (dropped.length === 0) return { text, dropped };
+  const corrected = correctOtherCounts(text, report);
+  const dropped = findClaims(corrected, report);
+  if (dropped.length === 0) return { text: corrected, dropped };
   const banned = new Set(dropped.map((c) => c.sentence));
-  const paragraphs = text.split(/\n{2,}/).map((paragraph) => {
-    const kept = sentences(paragraph).filter((s) => !banned.has(s));
-    return kept.join(' ');
-  });
+  const original = corrected.split(/\n{2,}/);
+  const paragraphs = original.map((paragraph) => coherent(sentences(paragraph), banned).join(' '));
   // A heading is a paragraph of its own; a body left empty means the
   // section said nothing else.
-  const emptied = paragraphs.some((p, i) => p === '' && text.split(/\n{2,}/)[i]?.trim() !== '');
+  const emptied = paragraphs.some((p, i) => p === '' && original[i]?.trim() !== '');
   if (emptied) return { text: null, dropped };
   return { text: paragraphs.join('\n\n'), dropped };
 }

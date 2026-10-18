@@ -3,7 +3,7 @@ import type { LaunchReplayData } from './contracts';
 import type { ReportFacts, TimelineLaunch } from './facts';
 import type { SpecialistAnswer } from './specialists/brief';
 import { SharedCache } from './shared-cache';
-import { sourcesFailed } from './failed-reads';
+import { QUESTION_FAILED, QUESTION_TIMED_OUT, sourcesFailed } from './failed-reads';
 
 export { sourcesFailed };
 
@@ -49,6 +49,13 @@ export function keepAnalysis(body: CachedAnalysis, modelConfigured: boolean): bo
   // A read that failed without a source note saying so (the launch replay,
   // the indexer, the creator's other launchpads) is a degraded report too.
   if ((body.facts?.failed?.length ?? 0) > 0) return false;
+  // A question that ran out of time is a read that failed too (AI: six of ten).
+  if (
+    body.specialists?.some(
+      (a) => a.limits.includes(QUESTION_TIMED_OUT) || a.limits.includes(QUESTION_FAILED),
+    )
+  )
+    return false;
   return !(body.offline && modelConfigured);
 }
 

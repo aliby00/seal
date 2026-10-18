@@ -736,16 +736,17 @@ describe('MEME: every transfer from the hook to the creator is a fee taken (item
     const answer = CATALOG['liquidity-move'].run({ token: MEME, report } as SpecialistContext);
     expect(answer.signal).toBe('observation');
     expect(answer.facts[0]).toBe(
-      `The creator received 0.5% of the supply from the market’s trading rules (hook) ${DOPPLER_HOOK}, in 28 transfers: trading fees taken out of the market without removing its liquidity.`,
+      // Round 5: MEME's main pool runs no hook, so Doppler's contract is named by its role.
+      `The creator received 0.5% of the supply from Doppler’s launch contract, which holds the positions of the markets Doppler opens and pays out their fees (${DOPPLER_HOOK}), in 28 transfers: trading fees taken out of the market without removing its liquidity.`,
     );
     const facts = toFacts(report);
-    expect(facts.creator.ownFees).toEqual({ share: fees.share, transfers: 28 });
+    expect(facts.creator.ownFees).toMatchObject({ share: fees.share, transfers: 28 });
     expect(facts.creator.feesCollected).toBe(1);
     const glance = buildGlance({ facts })!;
     expect(glance.items.find((i) => i.id === 'liquidity')?.title).toBe(
-      'The creator received 0.5% of the supply from the market’s trading rules (hook), in 28 transfers: trading fees taken out of the market.',
+      `On this token, the creator received 0.5% of the supply from Doppler’s launch contract, which holds the positions of the markets Doppler opens and pays out their fees (${DOPPLER_HOOK}), in 28 transfers: trading fees taken out of the market.`,
     );
-    expect(renderReport(report)).toMatch(/ont versé au créateur 0.52 % de l’offre en 28 transfert/);
+    expect(renderReport(report)).toMatch(/a versé au créateur 0.52 % de l’offre en 28 transfert/);
   });
 });
 

@@ -1,7 +1,7 @@
 import type { LaunchMove, LaunchReplay, TokenReport } from '../contracts';
 import { OTHER_LAUNCH_SALES_DAYS } from '../contracts/creator';
 import { launchpadProse } from '../chain/launchpads';
-import { roleWord, whereSetAside } from '../set-aside';
+import { feePayerWords, roleWord, whereSetAside } from '../set-aside';
 import type { SpecialistAnswer } from '../specialists/brief';
 import { mostHoldersFromCreator } from '../contracts/holders';
 import { READ_WORDS_FR, readFailed } from '../failed-reads';
@@ -147,13 +147,23 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
         : `ce token-ci lu jusqu’au jour ${w.days ?? '?'} après son lancement seulement`
       : null;
     lines.push(
-      `Ventes du créateur dans le marché : sur ${salesChecked.length} lancements vérifiés, ` +
+      `Ventes du créateur dans le marché : sur ${salesChecked.length} lancements vérifiés${own ? ' AU TOTAL, CE token compris' : ''}, ` +
         `${salesChecked.filter((t) => t.creatorDumped === true).length} (` +
         (ownWindow
           ? `${ownWindow} ; les autres lancements dans les ${OTHER_LAUNCH_SALES_DAYS} premiers jours après chacun`
           : `dans les ${OTHER_LAUNCH_SALES_DAYS} premiers jours après chaque lancement`) +
         '). Dis la fenêtre quand tu cites ces ventes.',
     );
+    // ASTEROID: "sold in 8 of 10 other checked launches", the total said of the others.
+    if (own && own.creatorDumped !== null) {
+      const others = salesChecked.filter((t) => t !== own);
+      lines.push(
+        `Détail : CE token — ${own.creatorDumped ? 'le créateur l’a vendu' : 'aucune vente du créateur observée'} ; ` +
+          `ses AUTRES lancements — ${others.filter((t) => t.creatorDumped === true).length} avec vente sur ${others.length} vérifiés. ` +
+          `Si tu parles de ses « autres » lancements, écris EXACTEMENT ${others.filter((t) => t.creatorDumped === true).length} sur ${others.length} ; ` +
+          `${salesChecked.filter((t) => t.creatorDumped === true).length} sur ${salesChecked.length} est le total CE token compris : ne l’emploie jamais avec « autres ».`,
+      );
+    }
   }
   const ownSold = c.tokens.some(
     (t) =>
@@ -184,7 +194,7 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
   )?.feesTaken;
   if (taken && taken.transfers > 0) {
     lines.push(
-      `Sur toute la vie de ce token, les règles de trading (hook) ${taken.hooks.join(', ')} ont versé au créateur ${(taken.share * 100).toFixed(2)} % de l’offre en ${taken.transfers} transfert(s) : des frais de trading sortis du marché. Dis-le avec ces chiffres.`,
+      `Sur toute la vie de ce token, ${feePayerWords(taken.payers, taken.hooks)} a versé au créateur ${(taken.share * 100).toFixed(2)} % de l’offre en ${taken.transfers} transfert(s) : des frais de trading sortis du marché. Dis-le avec ces chiffres, et nomme ce contrat par ce rôle exact (en anglais ci-dessus) : ne l’appelle « les règles de trading (hook) du marché » que si c’est écrit « of its main pool ».`,
     );
   }
   const yesNo = (value: boolean | null) =>
@@ -360,7 +370,11 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
     lines.push('Volume : non disponible');
   }
 
-  if (report.launch) lines.push('', ...renderLaunch(report.launch));
+  // Who first funded the creator, so the replay can name it where it traded (KEL).
+  const funder = specialists
+    ?.find((a) => a.specialist === 'funding-trace')
+    ?.funding?.path[0]?.address?.toLowerCase();
+  if (report.launch) lines.push('', ...renderLaunch(report.launch, funder ? { funder } : {}));
   if (specialists && specialists.length > 0) lines.push('', ...renderSpecialists(specialists));
 
   return lines.join('\n');
@@ -380,7 +394,7 @@ const MOVE_WORD: Record<LaunchMove['kind'], string> = {
  * when and to whom, and what each address holds today — never "sniper" or
  * "insider", which would be verdicts.
  */
-export function renderLaunch(launch: LaunchReplay): string[] {
+export function renderLaunch(launch: LaunchReplay, options: { funder?: string } = {}): string[] {
   const d = launch.data;
   const lines = [
     `## Les ${Math.round(d.windowSeconds / 60)} premières minutes après le lancement (bloc ${d.launchBlock})`,
@@ -397,7 +411,7 @@ export function renderLaunch(launch: LaunchReplay): string[] {
       `- Premiers acheteurs (hors créateur, dans les ${sm.earlySeconds} premières secondes) : EXACTEMENT ${sm.early.wallets} adresse${sm.early.wallets === 1 ? '' : 's'}${sm.early.contracts !== null ? ` (dont ${sm.early.contracts} contrat${sm.early.contracts === 1 ? '' : 's'})` : ''} — cite ce nombre tel quel. Elles ont ACHETÉ au total ${pc(sm.early.share)} de l’offre (une somme d’achats, pas une détention : ne dis pas qu’elles en « détenaient » autant) ; elles en détiennent encore aujourd’hui ${sm.early.heldNow === null ? 'une part non lue' : pc(sm.early.heldNow)}${sm.early.unread ? ` (${sm.early.unread} non lues)` : ''}.`,
       ...(sm.creatorTx
         ? [
-            `- Dans le bloc de lancement, la transaction envoyée par le CRÉATEUR (${sm.creatorTx.transaction}) a livré ${pc(sm.creatorTx.share)} de l’offre à ${sm.creatorTx.addresses} autres adresses que la sienne${sm.creatorTx.contracts !== null ? ` (dont ${sm.creatorTx.contracts} contrats)` : ''} ; elles en détiennent encore ${sm.creatorTx.heldNow === null ? 'une part non lue' : pc(sm.creatorTx.heldNow)}. Ces tokens sont liés au créateur par sa propre transaction : dis-le, sans affirmer qu’il les contrôle, et n’écris pas que le créateur n’a rien pris au lancement.`,
+            `- Dans le bloc de lancement, la transaction envoyée par le CRÉATEUR (${sm.creatorTx.transaction}) a livré ${pc(sm.creatorTx.share)} de l’offre à ${sm.creatorTx.addresses} autres adresses que la sienne${sm.creatorTx.contracts !== null ? ` (dont ${sm.creatorTx.contracts} contrat${sm.creatorTx.contracts === 1 ? '' : 's'}${sm.creatorTx.codeSizes?.length ? ` ; taille de leur code : ${[...new Set(sm.creatorTx.codeSizes)].join(', ')} octets${sm.creatorTx.codeSizes.every((n) => n === 45) ? ', soit des proxys minimaux, clones EIP-1167' : ''}` : ''})` : ''}. Ce ne sont NI des pools, NI des adresses de burn, NI le créateur : n’écris jamais que cette transaction a livré « dans des pools » ou « dans le marché ». Elles en détiennent encore ${sm.creatorTx.heldNow === null ? 'une part non lue' : pc(sm.creatorTx.heldNow)}. Ces tokens sont liés au créateur par sa propre transaction : dis-le, sans affirmer qu’il les contrôle, et n’écris pas que le créateur n’a rien pris au lancement.`,
           ]
         : []),
       sm.bundle
@@ -422,7 +436,40 @@ export function renderLaunch(launch: LaunchReplay): string[] {
       `(${d.movesInWindow - d.moves.length} mouvements de plus dans la fenêtre, non listés)`,
     );
   }
+  lines.push(...roundTrips(d.moves, options.funder));
   return lines;
+}
+
+/**
+ * Addresses that bought and sold back within the window, with the exact
+ * delay, so the text never works one out (KEL: "about 70 seconds later",
+ * for a buy at +11 s and a sale at +83 s).
+ */
+function roundTrips(moves: readonly LaunchMove[], funder?: string): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  // The creator and its funder first: theirs are the trips the text names.
+  const first = (m: LaunchMove) =>
+    m.actorIsCreator || (funder !== undefined && m.actor.toLowerCase() === funder) ? 0 : 1;
+  for (const buy of [...moves].sort((a, b) => first(a) - first(b))) {
+    if (buy.kind !== 'buy' || seen.has(buy.actor)) continue;
+    const sale = moves.find(
+      (m) => m.kind === 'sell' && m.actor === buy.actor && m.seconds >= buy.seconds,
+    );
+    if (!sale) continue;
+    seen.add(buy.actor);
+    const delay = Math.round((sale.seconds - buy.seconds) * 10) / 10;
+    const who = buy.actorIsCreator
+      ? `${buy.actor} (CRÉATEUR)`
+      : funder && buy.actor.toLowerCase() === funder
+        ? `${buy.actor} (le PREMIER FINANCEUR du wallet du créateur)`
+        : buy.actor;
+    out.push(
+      `- Aller-retour : ${who} a acheté à +${buy.seconds} s et revendu à +${sale.seconds} s, soit ${delay} s plus tard. Cite ces secondes telles quelles.`,
+    );
+    if (out.length >= 5) break;
+  }
+  return out;
 }
 
 /** How each kind of answer is named to the model: the kind of fact, never a verdict. */

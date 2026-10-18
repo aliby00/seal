@@ -16,7 +16,14 @@ import type { MarketState } from './market';
  * - `market`: the token's trading (listed pair, or the launch pool's swaps).
  */
 export type ReadId =
-  'creator' | 'creator-launches' | 'creator-sales' | 'launch-replay' | 'holders' | 'market';
+  | 'creator'
+  | 'creator-launches'
+  | 'creator-sales'
+  | 'launch-replay'
+  | 'holders'
+  | 'market'
+  /** Some of the ten questions did not finish in time, or could not be answered. */
+  | 'questions';
 
 export type FailedRead = { read: ReadId; note: string };
 

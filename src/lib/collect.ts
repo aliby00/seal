@@ -23,7 +23,9 @@ import type {
   FailedRead,
   HolderDistribution,
   SetAsideRole,
+  FeePayer,
   LaunchedToken,
+  ListedPool,
   MarketState,
   TokenReport,
 } from './contracts';
@@ -43,16 +45,25 @@ import {
 import {
   checkLiquidity,
   fetchPairs,
+  listedPools,
+  mainPool,
+  meaningfulPools,
+  pickPrimaryPair,
   toMarketState,
   venuesOf,
   type DexScreenerPair,
 } from './market';
-import { POOL_MANAGER } from './chain/pools';
+import { findMarketsById, POOL_MANAGER, type V4Market } from './chain/pools';
 import { isContractCode } from './chain/code';
 import { linkCreatorToHolders, withLinks } from './holders/links';
 import { log } from './logger';
 import { TtlCache } from './cache';
-import { indexer, type IndexerAnswer, type IndexerClient } from './indexer/client';
+import {
+  indexer,
+  type IndexerAnswer,
+  type IndexerClient,
+  type IndexerMarkets,
+} from './indexer/client';
 import { indexedListing, withIndexedLaunches, withPoolActivity } from './indexer/merge';
 
 /**
@@ -422,16 +433,17 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
       : Promise.resolve({ value: undefined, failed: false });
   // The token's v4 markets as the indexer read them: their trading rules
   // (hooks) hold the token for the market, never for a person.
-  const indexedHooks: Promise<string[]> = ix
+  const indexedMarkets: Promise<IndexerMarkets['markets']> = ix
     ? ix
         .markets(address)
-        .then((answer) =>
-          (answer?.markets ?? [])
-            .map((m) => m.hook.toLowerCase())
-            .filter((h) => /^0x[0-9a-f]{40}$/.test(h) && !/^0x0{40}$/.test(h)),
-        )
+        .then((answer) => answer?.markets ?? [])
         .catch(() => [])
     : Promise.resolve([]);
+  const indexedHooks: Promise<string[]> = indexedMarkets.then((markets) =>
+    markets
+      .map((m) => m.hook.toLowerCase())
+      .filter((h) => /^0x[0-9a-f]{40}$/.test(h) && !/^0x0{40}$/.test(h)),
+  );
 
   // Not a pons launch: the creator is traced from the transaction of the
   // token's first mint — the launch event of a known launchpad when there is
@@ -490,6 +502,28 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
   const listedByIndexer = latest > 0 ? indexedListing(indexed, coverage, latest) : undefined;
   const pairs = await pairsRead;
   const listedVenues = 'pairs' in pairs ? venuesOf(address, pairs.pairs) : undefined;
+  // Every listed pool, and the trading rules (hook) of each v4 one: the
+  // checks of a market's rules read the main pool and weigh the others.
+  const poolsRead: Promise<ListedPool[] | undefined> =
+    'pairs' in pairs
+      ? settled(
+          readPoolRules(
+            createRpcClient(options.rpcUrl, createBudget(POOL_RULES_BUDGET)),
+            listedPools(address, pairs.pairs),
+            indexedMarkets,
+            latest,
+            pickPrimaryPair(
+              pairs.pairs.filter(
+                (p) => p.baseToken?.address?.toLowerCase() === address.toLowerCase(),
+              ),
+            )?.pairAddress?.toLowerCase() ?? null,
+          ),
+          (error) => {
+            log.warn('règles des pools illisibles', { token: address, error: String(error) });
+            return undefined;
+          },
+        )
+      : Promise.resolve(undefined);
   let historyFromCache = false;
   let historyError: unknown;
 
@@ -898,6 +932,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
       : holders;
 
   const fees = await feesRead;
+  const pools = await poolsRead;
   const creator: CreatorHistory =
     fees && fees.transfers > 0
       ? {
@@ -905,7 +940,16 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
           data: {
             ...sold.data,
             tokens: sold.data.tokens.map((t) =>
-              own(t) ? { ...t, feesCollected: true, feesTaken: fees } : t,
+              own(t)
+                ? {
+                    ...t,
+                    feesCollected: true,
+                    feesTaken: {
+                      ...fees,
+                      payers: feePayers(fees.hooks, marketRead.data.pair, pools),
+                    },
+                  }
+                : t,
             ),
           },
         }
@@ -914,7 +958,14 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
   // No listed pair: the launch pool's own trades, counted by the indexer.
   const tokenAnswer = await indexedToken;
   const market = checkLiquidity(
-    withPoolActivity(marketRead, tokenAnswer.value, collectedAt, now),
+    withPoolActivity(
+      pools && pools.length > 0 && marketRead.data.pair !== null
+        ? { ...marketRead, data: { ...marketRead.data, pools } }
+        : marketRead,
+      tokenAnswer.value,
+      collectedAt,
+      now,
+    ),
     pooledNow,
   );
   // A pons token no pair lists trades only where the indexer counts it.
@@ -981,6 +1032,97 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     completeness,
     ...(failedReads.length > 0 ? { failedReads } : {}),
   };
+}
+
+/** One batch of `Initialize` queries, one per 10 M blocks, and a retry. */
+const POOL_RULES_BUDGET = 3;
+
+/**
+ * The trading rules (hook) of each listed v4 pool: from the indexer's
+ * markets first, then from the PoolManager's `Initialize`, by id, over the
+ * whole chain. A pool whose `Initialize` could not be read keeps `v4: null`:
+ * its rules are unknown, never "none".
+ */
+export async function readPoolRules(
+  rpc: RpcClient,
+  pools: readonly ListedPool[],
+  indexed: Promise<IndexerMarkets['markets']>,
+  latest: number,
+  mainPair: string | null,
+): Promise<ListedPool[]> {
+  const known = new Map<string, NonNullable<ListedPool['v4']>>();
+  for (const m of await indexed) {
+    known.set(m.id.toLowerCase(), {
+      hook: m.hook.toLowerCase(),
+      currency0: m.currency0.toLowerCase(),
+      currency1: m.currency1.toLowerCase(),
+      fee: m.fee,
+      tickSpacing: m.tickSpacing,
+      blockNumber: m.block,
+      transactionHash: m.txHash,
+    });
+  }
+  // The main pool and the pools that weigh beside it; dust pools are not read.
+  const listed = { pools: [...pools], pair: mainPair };
+  const weighed = new Set(
+    [mainPool(listed), ...meaningfulPools(listed)].filter(Boolean).map((p) => p!.id),
+  );
+  const missing = pools.filter((p) => p.version === 'v4' && weighed.has(p.id) && !known.has(p.id));
+  if (missing.length > 0 && latest > 0) {
+    // The main pool first: it alone is searched over the whole chain if needed.
+    missing.sort((a, b) => Number(b.id === mainPair) - Number(a.id === mainPair));
+    const { markets } = await findMarketsById(rpc, missing, latest, {
+      fullScanFor: missing[0]?.id === mainPair ? 1 : 0,
+    }).catch(() => ({ markets: [] as V4Market[] }));
+    for (const m of markets) {
+      known.set(m.id, {
+        hook: m.hook,
+        currency0: m.currency0,
+        currency1: m.currency1,
+        fee: m.fee,
+        tickSpacing: m.tickSpacing,
+        blockNumber: m.blockNumber,
+        transactionHash: m.transactionHash,
+      });
+    }
+  }
+  // A dust pool not read is left without rules, not marked unread.
+  return pools.map((p) =>
+    p.version !== 'v4'
+      ? p
+      : known.has(p.id)
+        ? { ...p, v4: known.get(p.id)! }
+        : weighed.has(p.id)
+          ? { ...p, v4: null }
+          : p,
+  );
+}
+
+/**
+ * What each contract that paid the creator fees is to this token: the
+ * trading rules (hook) of its main pool, of another of its pools, or a
+ * launchpad's contract that is neither (MEME: Doppler's 0x4e34… paid fees
+ * while its main pool runs no hook).
+ */
+export function feePayers(
+  payers: readonly string[],
+  mainPair: string | null,
+  pools: readonly ListedPool[] | undefined,
+): FeePayer[] {
+  const main = mainPair ? pools?.find((p) => p.id === mainPair.toLowerCase())?.v4?.hook : undefined;
+  const others = new Set(
+    (pools ?? [])
+      .filter((p) => p.id !== mainPair?.toLowerCase())
+      .map((p) => p.v4?.hook)
+      .filter((h): h is string => Boolean(h)),
+  );
+  return payers.map((address) => {
+    const a = address.toLowerCase();
+    const launch = LAUNCH_HOOKS.find((h) => h.address === a);
+    const role: FeePayer['role'] =
+      main === a ? 'main-hook' : launch ? 'launch' : others.has(a) ? 'pool-hook' : 'hook';
+    return { address: a, role };
+  });
 }
 
 /** Requests for the fees read: the creator's incoming transfers, in a few windows, and the supply. */

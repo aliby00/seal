@@ -4,9 +4,10 @@ import type { MarketIndex } from '../chain/pools';
 import { createRpcClient, type RpcClient } from '../chain/rpc';
 import type { TokenReport } from '../contracts';
 import { createBudget } from '../http';
+import { QUESTION_FAILED as FAILED, QUESTION_TIMED_OUT as TIMED_OUT } from '../failed-reads';
 import { log } from '../logger';
 import { CATALOG } from './catalog';
-import { discoverMarkets, gatherContext, type MarketDiscovery } from './context';
+import { discoverMarkets, fromReport, gatherContext, type MarketDiscovery } from './context';
 import { liveIndex } from './live-index';
 import { displayName } from './names';
 import {
@@ -39,6 +40,11 @@ export type SpecialistAnswer = {
 
 export type SpecialistBrief = {
   answers: SpecialistAnswer[];
+  /**
+   * The questions whose lookups did not finish in time, or that failed:
+   * their answers are missing, not empty, and the report is partial.
+   */
+  unanswered: SpecialistId[];
   /** The token's own name and symbol, read on chain. `null` when unreadable. */
   name: string | null;
   symbol: string | null;
@@ -50,8 +56,14 @@ export const SPECIALIST_TIMEOUT_MS = 12_000;
 export const SPECIALIST_BUDGET = 20;
 
 export const WITHHELD_LINE = '(line withheld: its wording reads as a verdict or advice)';
-const TIMED_OUT = 'the on-chain lookups for this question did not finish in time';
-const FAILED = 'this question could not be answered for this token';
+export { FAILED, TIMED_OUT };
+
+/** The questions left unanswered by a timeout or a failure, by their limits. */
+export function unansweredOf(answers: readonly SpecialistAnswer[]): SpecialistId[] {
+  return answers
+    .filter((a) => a.signal === 'unknown' && a.limits.some((l) => l === TIMED_OUT || l === FAILED))
+    .map((a) => a.specialist);
+}
 
 /** Served text passes the same guardrails as the explanation, line by line. */
 function screened(lines: readonly string[]): string[] {
@@ -170,14 +182,21 @@ export async function briefSpecialists(
   ).catch((error: unknown): SpecialistContext => {
     timedOut = String(error).includes('timeout');
     log.warn('contexte des spécialistes incomplet', { token, error: String(error) });
-    return { token: token.toLowerCase(), ...(report ? { report } : {}) };
+    // What the report already holds is still answered: the main pool and
+    // its rules, read by the collection.
+    return {
+      token: token.toLowerCase(),
+      ...(report ? { report, ...fromReport(token, report) } : {}),
+    };
   });
 
   const meta = (await metas)?.get(token.toLowerCase());
   const name = context.market?.name ?? meta?.name ?? null;
   const symbol = context.market?.symbol ?? meta?.symbol ?? null;
+  const answers = answerAll(context, { timedOut });
   return {
-    answers: answerAll(context, { timedOut }),
+    answers,
+    unanswered: unansweredOf(answers),
     // A token can name itself anything: cleaned, cut, and withheld when it reads as a verdict.
     name: displayName(name),
     symbol: displayName(symbol),

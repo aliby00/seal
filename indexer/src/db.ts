@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS markets (
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS markets_c0 ON markets (currency0);
 CREATE INDEX IF NOT EXISTS markets_c1 ON markets (currency1);
+CREATE INDEX IF NOT EXISTS markets_hook ON markets (hook);
 CREATE TABLE IF NOT EXISTS funding (
   creator TEXT PRIMARY KEY,
   -- 'found' : un premier versement entrant a été trouvé ;

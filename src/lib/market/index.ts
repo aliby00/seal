@@ -1,4 +1,4 @@
-import type { MarketState, MarketStateData, TxnCounts } from '../contracts';
+import type { ListedPool, MarketState, MarketStateData, TxnCounts } from '../contracts';
 import { NotFoundError, UpstreamError } from '../errors';
 import { requestJson, type RequestBudget } from '../http';
 import { tokenPairsUrl, type DexScreenerPair } from './dexscreener';
@@ -211,6 +211,77 @@ export function checkLiquidity(
         ],
     data: { ...market.data, liquidityCheck: { poolsShare: pools.share, current } },
   };
+}
+
+/** Pools kept per report, the most liquid first. */
+export const MAX_LISTED_POOLS = 12;
+/**
+ * A pool beside the main one counts when it holds at least this much, and
+ * at least MEANINGFUL_POOL_SHARE of the main pool: BOOMER's $6.9k hookless
+ * pool beside its $186k main one, MEME's $85.8k pool with a hook beside its
+ * $458k hookless main one. Dust pools anyone can open ($12 for OWN on v4)
+ * do not.
+ */
+export const MEANINGFUL_POOL_USD = 1_000;
+export const MEANINGFUL_POOL_SHARE = 0.02;
+
+const V4_ID = /^0x[0-9a-f]{64}$/;
+
+/** The token's listed pools, the most liquid first, v4 rules not read yet. */
+export function listedPools(token: string, pairs: readonly DexScreenerPair[]): ListedPool[] {
+  const own = token.toLowerCase();
+  const seen = new Set<string>();
+  const pools: ListedPool[] = [];
+  for (const pair of pairs) {
+    const id = pair.pairAddress?.toLowerCase() ?? '';
+    if (!id || seen.has(id)) continue;
+    const base = pair.baseToken?.address?.toLowerCase() === own;
+    if (!base && pair.quoteToken?.address?.toLowerCase() !== own) continue;
+    seen.add(id);
+    const label = (pair.labels ?? []).find((l) => /^v[234]$/.test(l)) as ListedPool['version'];
+    pools.push({
+      id,
+      version: V4_ID.test(id) ? 'v4' : (label ?? null),
+      base,
+      liquidityUsd: num(pair.liquidity?.usd),
+      volume24hUsd: num(pair.volume?.h24),
+      createdAt: num(pair.pairCreatedAt),
+    });
+  }
+  return pools
+    .sort((a, b) => (b.liquidityUsd ?? 0) - (a.liquidityUsd ?? 0))
+    .slice(0, MAX_LISTED_POOLS);
+}
+
+/** The main pool: the listed pair the market state is read from. */
+export function mainPool(
+  market: Pick<MarketStateData, 'pair' | 'pools'> | undefined,
+): ListedPool | null {
+  if (!market?.pair) return null;
+  const id = market.pair.toLowerCase();
+  return market.pools?.find((p) => p.id === id) ?? null;
+}
+
+/** The pools beside the main one with liquidity enough to be traded in, where the token is the base. */
+export function meaningfulPools(
+  market: Pick<MarketStateData, 'pair' | 'pools'> | undefined,
+): ListedPool[] {
+  if (!market?.pools) return [];
+  const main = mainPool(market);
+  const floor = Math.max(MEANINGFUL_POOL_USD, (main?.liquidityUsd ?? 0) * MEANINGFUL_POOL_SHARE);
+  return market.pools.filter((p) => p.base && p.id !== main?.id && (p.liquidityUsd ?? 0) >= floor);
+}
+
+/** "0xf4a6…0935": a pool named short, as the report names pairs. */
+export function poolLabel(id: string): string {
+  return `${id.slice(0, 6)}…${id.slice(-4)}`;
+}
+
+/** "$186.4k", "$1.2M": a pool's liquidity in a few characters. */
+export function usdShort(x: number): string {
+  if (x >= 1_000_000) return `$${(x / 1_000_000).toFixed(1)}M`;
+  if (x >= 1_000) return `$${(x / 1_000).toFixed(1)}k`;
+  return `$${Math.round(x)}`;
 }
 
 /** Récupère l'état du marché. Ne lève que si la source est franchement cassée. */

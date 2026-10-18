@@ -8,6 +8,7 @@ import { ANALYZE_LIMIT, guardedJson } from '@/lib/guard';
 import { log } from '@/lib/logger';
 import { overBudget, recordSpend } from '@/lib/spend';
 import { analysisCache, type CachedAnalysis } from '@/lib/analysis-cache';
+import { mergeFailedReads, questionsFailed } from '@/lib/failed-reads';
 import {
   briefSpecialists,
   SPECIALIST_TIMEOUT_MS,
@@ -129,6 +130,14 @@ export async function POST(request: Request): Promise<Response> {
       Math.max(MIN_SPECIALIST_MS, Math.min(SPECIALIST_TIMEOUT_MS, left)),
       questions,
     );
+    // Questions that ran out of time, or could not be answered, are a read
+    // that failed: the report says it is partial and is cached nowhere.
+    const unanswered = brief
+      ? questionsFailed(brief.unanswered ?? [], brief.answers.length)
+      : { read: 'questions' as const, note: 'the ten questions could not be answered this time' };
+    if (unanswered) {
+      report.failedReads = mergeFailedReads([...(report.failedReads ?? []), unanswered]);
+    }
     // Whatever the model has left is cut at the budget's end, so the response
     // leaves before the platform kills the function and loses a paid answer.
     const modelMs = REQUEST_BUDGET_MS - (Date.now() - started);

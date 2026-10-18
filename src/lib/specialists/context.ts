@@ -2,6 +2,7 @@ import type { TokenReport } from '../contracts';
 import { readOnchainFacts, readTokenMetas } from '../chain/facts';
 import { readHook } from '../chain/hooks';
 import {
+  findMarketsById,
   findMarketsOf,
   NATIVE,
   pickMarket,
@@ -15,7 +16,9 @@ import { isDelegatedWallet } from '../chain/code';
 import { classifyFunder } from '../chain/funder-kind';
 import { classifyFunding, findFirstFunding } from '../chain/funding';
 import { log } from '../logger';
-import type { FundingFacts, SpecialistContext } from './types';
+import type { ListedPool } from '../contracts';
+import { mainPool, meaningfulPools } from '../market';
+import type { FundingFacts, HookUse, PoolRules, SpecialistContext } from './types';
 
 /** Profondeur de recherche du marché v4 d'un token : ~35 jours, comme l'historique créateur. */
 export const MARKET_LOOKBACK_BLOCKS = 30_000_000;
@@ -79,13 +82,31 @@ export async function gatherContext(
       })
     : undefined;
 
+  // The market whose rules are read is the main pool, the most liquid one
+  // listed, and every other pool with liquidity is weighed beside it. Taking
+  // whichever v4 market the recent index held read BOOMER, Wheel Smith and
+  // WORM from a small hookless pool beside a main pool with a hook (staging,
+  // 18/10/2026), and ASTEROID from a pool opened by someone else.
+  const listed = report?.market.data;
+  const main = mainPool(listed);
+  context.mainPool = main ? poolRules(main) : null;
+  context.otherPools = meaningfulPools(listed).map(poolRules);
+
   let market: IndexedMarket | null;
-  try {
-    const { latest, found } = await (discovery ?? discoverMarkets(rpc, token, index));
-    market = await pickMarket(rpc, found, { creator: reported, latestBlock: latest });
-  } catch (error) {
-    log.warn('marché v4 introuvable', { token, error: String(error) });
-    market = index?.ofToken(token)[0] ?? null;
+  if (main && main.version !== 'v4') {
+    // A v2/v3 pair: no Uniswap v4 rules on the main pool.
+    market = null;
+  } else if (main) {
+    market = await mainMarket(rpc, token, main, discovery);
+    if (!market) context.mainRulesUnread = true;
+  } else {
+    try {
+      const { latest, found } = await (discovery ?? discoverMarkets(rpc, token, index));
+      market = await pickMarket(rpc, found, { creator: reported, latestBlock: latest });
+    } catch (error) {
+      log.warn('marché v4 introuvable', { token, error: String(error) });
+      market = index?.ofToken(token)[0] ?? null;
+    }
   }
   context.market = market;
 
@@ -100,6 +121,9 @@ export async function gatherContext(
 
   const hook = market && market.hook !== NATIVE ? market.hook : null;
   context.hook = hook ? readHook(hook) : null;
+  // How many markets run on that hook, over the indexer's whole history:
+  // a recent window gave each of four tokens on 0xe5e7… "1 market".
+  const hookUse = hook ? hookUseOf(hook) : Promise.resolve(undefined);
 
   // Le créateur vient du rapport pons s'il existe ; sinon c'est l'expéditeur
   // de la transaction qui a créé le marché v4 — une transaction a toujours un
@@ -126,7 +150,84 @@ export async function gatherContext(
   context.tokenBeacon = facts?.tokenBeacon ?? null;
   context.funding = funding;
   if (context.funding === undefined) delete context.funding;
+  const use = await hookUse;
+  if (use !== undefined) context.hookUse = use;
   return context;
+}
+
+/**
+ * The main pool and the other pools as the collection read them, without a
+ * request: what the market questions can still answer when their own
+ * lookups ran out of time.
+ */
+export function fromReport(
+  token: string,
+  report: TokenReport,
+): Pick<SpecialistContext, 'mainPool' | 'otherPools' | 'market' | 'hook'> {
+  const listed = report.market.data;
+  const main = mainPool(listed);
+  if (!main) return {};
+  const out: Pick<SpecialistContext, 'mainPool' | 'otherPools' | 'market' | 'hook'> = {
+    mainPool: poolRules(main),
+    otherPools: meaningfulPools(listed).map(poolRules),
+  };
+  if (main.version !== 'v4') {
+    out.market = null;
+    out.hook = null;
+  } else if (main.v4) {
+    out.market = { id: main.id, ...main.v4, token: token.toLowerCase() };
+    out.hook = main.v4.hook !== NATIVE ? readHook(main.v4.hook) : null;
+  }
+  return out;
+}
+
+function poolRules(pool: ListedPool): PoolRules {
+  return {
+    id: pool.id,
+    version: pool.version,
+    liquidityUsd: pool.liquidityUsd,
+    hook: pool.version === 'v4' ? (pool.v4 ? pool.v4.hook : undefined) : null,
+  };
+}
+
+/**
+ * The main pool as a v4 market: from what the collection read of it, else
+ * from the markets found for the token, else from its own `Initialize`.
+ * `null` when none of them could be read.
+ */
+async function mainMarket(
+  rpc: RpcClient,
+  token: string,
+  main: ListedPool,
+  discovery: Promise<MarketDiscovery> | undefined,
+): Promise<IndexedMarket | null> {
+  const own = token.toLowerCase();
+  if (main.v4) return { id: main.id, ...main.v4, token: own };
+  const found = await (discovery ?? Promise.resolve(undefined)).catch(() => undefined);
+  const hit = found?.found.find((m) => m.id === main.id);
+  if (hit) return { ...hit, token: own };
+  try {
+    const latest = found?.latest ?? Number(await rpc.call<string>('eth_blockNumber', []));
+    const { markets } = await findMarketsById(
+      rpc,
+      [{ id: main.id, createdAt: main.createdAt ?? null }],
+      latest,
+    );
+    const m = markets[0];
+    return m ? { ...m, token: own } : null;
+  } catch (error) {
+    log.warn('pool principal illisible', { token, error: String(error) });
+    return null;
+  }
+}
+
+/** Markets on a hook, from the indexer; `null` when it did not answer, `undefined` with none configured. */
+async function hookUseOf(hook: string): Promise<HookUse | null | undefined> {
+  const ix = indexer();
+  if (!ix?.hook) return undefined;
+  const answer = await ix.hook(hook).catch(() => undefined);
+  if (!answer || answer.indexedTo <= 0) return null;
+  return { markets: answer.markets, pairs: answer.pairs, indexedTo: answer.indexedTo };
 }
 
 /** Whether a funder classified as a service is in fact a wallet delegating under EIP-7702. */

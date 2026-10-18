@@ -8,7 +8,7 @@ import { makeReport } from './helpers';
 const gatherContext = vi.hoisted(() => vi.fn());
 const readTokenMetas = vi.hoisted(() => vi.fn());
 const liveIndex = vi.hoisted(() => vi.fn());
-vi.mock('../../src/lib/specialists/context', () => ({ gatherContext }));
+vi.mock('../../src/lib/specialists/context', () => ({ gatherContext, fromReport: () => ({}) }));
 vi.mock('../../src/lib/specialists/live-index', () => ({ liveIndex }));
 vi.mock('../../src/lib/chain/facts', () => ({ readTokenMetas }));
 
