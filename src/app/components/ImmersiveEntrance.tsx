@@ -113,16 +113,21 @@ const clamp = (n: number) => Math.max(0, Math.min(1, n));
 const range = (p: number, from: number, to: number) => clamp((p - from) / (to - from));
 const smooth = (n: number) => n * n * (3 - 2 * n);
 
+/** Keys that scroll the page: pressing one means the reader takes over. */
+const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ']);
+let stopScroll: (() => void) | null = null;
+
 /**
  * Scrolls the page to an in-page target over a fixed time. Each step recomputes
  * where the target is and the last one lands exactly on it, however slow the
  * frames are: the browser's own smooth scroll can start late or stop short
- * under load. A timer backs up each animation frame, so the scroll completes
- * on time even when the renderer stops producing frames for a while. Any input
- * from the reader hands the scroll back to them.
+ * under load. A timer backs up each animation frame, and the arrival is checked
+ * once more after landing. Only a real intent to scroll (wheel, touch, a
+ * scrolling key) hands the page back to the reader; a click elsewhere does
+ * not, and a new link scroll simply replaces the running one.
  */
 function scrollToTarget(target: HTMLElement, done: () => void) {
-  const inputs = ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const;
+  stopScroll?.();
   const from = window.scrollY;
   const goal = () => {
     const margin = parseFloat(getComputedStyle(target).scrollMarginTop) || 0;
@@ -138,11 +143,21 @@ function scrollToTarget(target: HTMLElement, done: () => void) {
     frame = requestAnimationFrame(step);
     backup = window.setTimeout(() => step(performance.now()), 100);
   }
-  function finish() {
+  function stop() {
     cancelAnimationFrame(frame);
     window.clearTimeout(backup);
-    for (const type of inputs) window.removeEventListener(type, finish, true);
+    window.removeEventListener('wheel', stop, true);
+    window.removeEventListener('touchstart', stop, true);
+    window.removeEventListener('keydown', onKey, true);
+    if (stopScroll === stop) stopScroll = null;
     done();
+  }
+  function onKey(event: KeyboardEvent) {
+    if (SCROLL_KEYS.has(event.key)) stop();
+  }
+  function land() {
+    const to = goal();
+    if (Math.abs(window.scrollY - to) > 1) window.scrollTo({ top: to, behavior: 'instant' });
   }
   function step(now: number) {
     cancelAnimationFrame(frame);
@@ -151,11 +166,21 @@ function scrollToTarget(target: HTMLElement, done: () => void) {
     const t = Math.min(1, (now - start) / duration);
     const to = goal();
     window.scrollTo({ top: t < 1 ? from + (to - from) * ease(t) : to, behavior: 'instant' });
-    if (t < 1) next();
-    else finish();
+    if (t < 1) return next();
+    // Verify the arrival once layout has settled, then let go.
+    frame = requestAnimationFrame(() => {
+      land();
+      stop();
+    });
+    backup = window.setTimeout(() => {
+      land();
+      stop();
+    }, 150);
   }
-  for (const type of inputs)
-    window.addEventListener(type, finish, { capture: true, passive: true });
+  window.addEventListener('wheel', stop, { capture: true, passive: true });
+  window.addEventListener('touchstart', stop, { capture: true, passive: true });
+  window.addEventListener('keydown', onKey, true);
+  stopScroll = stop;
   next();
 }
 
@@ -262,6 +287,9 @@ export function ImmersiveEntrance({
       write(stage, '--caption-opacity', (1 - smooth(range(p, 0.48, 0.6))).toFixed(4));
 
       setFlag('gate', p > inside + 0.05 ? 'passed' : 'ahead');
+      // Layers that cannot be seen are not drawn at all: the cloud bank and
+      // its endless wind cost a full-screen composite on every frame.
+      setFlag('mist', fog > 0.001 ? 'on' : 'off');
       setFlag('entered', String(p > 0.6));
     }
     let scrolled = 0;
@@ -347,8 +375,10 @@ export function ImmersiveEntrance({
         if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
           target.scrollIntoView({ behavior: 'instant', block: 'start' });
         } else {
-          following.current = true;
+          // Started first: replacing a running scroll releases the scene
+          // before this one takes it.
           scrollToTarget(target, () => (following.current = false));
+          following.current = true;
         }
         window.history.replaceState(null, '', anchor.hash);
       }}

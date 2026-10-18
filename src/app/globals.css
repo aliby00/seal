@@ -816,8 +816,17 @@
 .ambient-clouds {
   inset: 20% -20% -25%;
   mask-image: radial-gradient(ellipse at 50% 65%, #000 10%, transparent 65%);
-  mix-blend-mode: screen;
-  opacity: 0.4;
+  opacity: 0.3;
+}
+/* Out of sight, out of the frame: hidden layers are neither drawn nor
+   animated, so the page stays light once the reader is past them. */
+.immersive-root[data-mist='off'] .valley-mist,
+.immersive-root[data-gate='passed'] .ambient-clouds {
+  visibility: hidden;
+}
+.immersive-root[data-mist='off'] .cloud-current::before,
+.immersive-root[data-gate='passed'] .ambient-clouds::before {
+  animation-play-state: paused;
 }
 .cloud-current::before,
 .ambient-clouds::before {
@@ -2009,7 +2018,9 @@
   width: calc(var(--gate-h) * 100 / 120);
   transform: translateX(-50%);
   overflow: visible;
-  filter: drop-shadow(0 0 6px rgba(242, 128, 28, 0.35));
+  /* No filter here: the gate is scaled up to ~30× as the camera passes
+     through, and a drop-shadow re-rasterised at that scale kept the raster
+     threads busy for seconds. The halo behind it carries the glow. */
 }
 .gate-halo {
   position: absolute;
@@ -2021,7 +2032,7 @@
   background: radial-gradient(
     ellipse at 50% 55%,
     rgba(246, 241, 230, 0.4),
-    rgba(242, 128, 28, 0.12) 38%,
+    rgba(242, 128, 28, 0.16) 38%,
     transparent 70%
   );
 }
