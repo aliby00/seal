@@ -55,6 +55,11 @@ export type Finding = {
   followUps?: SpecialistId[];
   /** The funding question only: the classification and path, for the report and the summary. */
   funding?: FundingDisplay;
+  /**
+   * The question does not apply to this token (a v4 trading-rules question on
+   * a Uniswap v2 pair): said apart from what could not be measured.
+   */
+  notApplicable?: true;
 };
 
 /** One address on the way up from the creator to whoever funded it. */

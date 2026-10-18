@@ -274,7 +274,7 @@ describe('tokens sans marché v4', () => {
     });
     const f = CATALOG['sell-path'].run({ token, report: quiet, market: null, hook: null });
     expect(f.signal).toBe('unknown');
-    expect(f.facts[0]).toMatch(/DexScreener \(0x1111…1111\)/);
+    expect(f.facts[0]).toMatch(/Uniswap v2\/v3 pair \(0x1111…1111\)/);
     expect(f.limits[0]).toMatch(/no sell went through/);
   });
 

@@ -9,6 +9,8 @@ import type { Sourced } from './completeness';
  *  - `launchpad`: a launchpad, its router or factory, or the contract the
  *    launch transaction called;
  *  - `locker`: a launchpad's lock contract, holding locked liquidity;
+ *  - `vesting`: a vesting lock (TokenTable): its tokens unlock on a
+ *    schedule, and cannot be sold before;
  *  - `burn`: the zero and dead addresses.
  */
 export type SetAsideRole =
@@ -19,6 +21,8 @@ export type SetAsideRole =
   | 'locker'
   /** A market's trading rules (Uniswap v4 hook), or a contract plugged into them. */
   | 'hook'
+  /** A vesting lock: what it holds unlocks on a schedule, and cannot be sold before. */
+  | 'vesting'
   | 'burn';
 
 export type Holder = {
@@ -40,6 +44,8 @@ export type Holder = {
    * tokens to. A transfer, not a proof of who controls the address.
    */
   fromCreator?: { share: number; via: string | null };
+  /** What the address is, when the chain says more than wallet or contract (roles.ts). */
+  name?: string;
 };
 
 /** What the creator's own transfers of the token say about today's holders. */
@@ -68,7 +74,13 @@ export type CreatorLinks = {
 export const CREATOR_RECIPIENTS_LISTED = 10;
 
 /** One address set aside, with its part of the whole supply (null when the supply is unknown). */
-export type SetAsideHolding = { address: string; role: SetAsideRole; share: number | null };
+export type SetAsideHolding = {
+  address: string;
+  role: SetAsideRole;
+  share: number | null;
+  /** What the address is, when named (roles.ts): "Virtuals’ team lock (TokenTable)". */
+  name?: string;
+};
 
 export type HolderDistributionData = {
   token: string;

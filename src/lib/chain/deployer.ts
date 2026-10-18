@@ -324,7 +324,11 @@ export function withRecordVenues(
   const v4Markets = [...new Set([...venues.v4Markets, ...(record.market ? [record.market] : [])])];
   const curves = [...new Set([...(venues.curves ?? []), ...(record.curve ? [record.curve] : [])])];
   const curveTrades = [
-    ...new Set([...(venues.curveTrades ?? []), ...(record.launchpad.curveTrades ?? [])]),
+    ...new Set([
+      ...(venues.curveTrades ?? []),
+      // Every contract of the launchpad: the record may come from one that has no curve.
+      ...LAUNCHPADS.filter((l) => l.id === record.launchpad.id).flatMap((l) => l.curveTrades ?? []),
+    ]),
   ];
   const saleRecipients = [
     ...new Set([
@@ -377,8 +381,14 @@ export function readOrigin(
     : record || to !== lower(token)
       ? 'launcher'
       : 'first-minter';
+  // The contract the launch was sent to, when it is one of the launchpad's
+  // own (Virtuals: the record naming the creator is its tax manager's, the
+  // launch itself goes to its launchpad 0xd4cc…).
+  const sentTo = record
+    ? LAUNCHPADS.find((l) => l.id === record.launchpad.id && l.address === to)
+    : undefined;
   const launchContract = record
-    ? record.launchpad.address
+    ? (sentTo?.address ?? record.launchpad.address)
     : role === 'launcher' && to && !ENTRY_POINTS.includes(to)
       ? to
       : undefined;

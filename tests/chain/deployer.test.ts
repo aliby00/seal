@@ -153,7 +153,9 @@ describe('readOrigin', () => {
       role: 'launcher',
       launchContract: LAUNCHPAD,
       blockNumber: 100,
-      registry: { address: REGISTRY },
+      // Virtuals' tax manager is now a known launch record: the launch names its launchpad.
+      launchpad: { id: 'virtuals', address: REGISTRY },
+      creatorFrom: 'launch-record',
     });
     expect(origin.venues.pools).toEqual([PAIR]);
   });

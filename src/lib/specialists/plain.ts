@@ -30,6 +30,13 @@ export function shortAnswer(answer: SpecialistAnswer): string {
   const first = answer.facts[0];
   const all = answer.facts.join(' ');
   const signal = answer.signal;
+  // Not applicable is said as such, with why, never as "not measured".
+  if (answer.notApplicable) {
+    const why = answer.limits[0]?.replace(/^not applicable: /, '') ?? '';
+    return why
+      ? `Not applicable: ${why.replace(/ \(Uniswap/, ' (a Uniswap')}`
+      : 'Not applicable to this token';
+  }
   switch (answer.specialist) {
     case 'wallet-age': {
       const sent = num(all, /has sent (\d+) transaction/);
@@ -54,7 +61,7 @@ export function shortAnswer(answer: SpecialistAnswer): string {
       break;
     }
     case 'holder-spread': {
-      const top1 = num(all, /largest holder(?: \([^)]*\))? has ([\d.]+)%/);
+      const top1 = num(all, /largest holder(?: \(.*?\))? has ([\d.]+)%/);
       const top10 = num(all, /top 10 have ([\d.]+)%/);
       if (top1 && top10) return `Largest holder ${top1}% · top 10 ${top10}% (pools left out)`;
       break;

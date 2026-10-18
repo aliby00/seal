@@ -43,6 +43,7 @@ type Fail = Partial<
     | 'recheckContracts'
     | 'readPoolsShare'
     | 'linkCreatorToHolders'
+    | 'readAddressRoles'
     | 'fetchPairs'
     | 'findMarketsById'
     | 'getLogsBatched'
@@ -297,6 +298,17 @@ vi.mock('../../src/lib/holders/links', async (importOriginal) => {
         recipients: [],
         sentShare: 0.01,
       };
+    },
+  };
+});
+
+vi.mock('../../src/lib/chain/roles', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../../src/lib/chain/roles')>();
+  return {
+    ...real,
+    readAddressRoles: async () => {
+      if (state.fail.readAddressRoles) throw boom();
+      return [];
     },
   };
 });
@@ -561,6 +573,13 @@ const CASES: Case[] = [
     scenario: 'pons',
     covers: 'holder-links',
     setup: failing('linkCreatorToHolders'),
+    expected: 'holders',
+  },
+  {
+    name: 'what the largest holders and the launch’s recipients are',
+    scenario: 'pons',
+    covers: 'address-roles',
+    setup: failing('readAddressRoles'),
     expected: 'holders',
   },
   // The launch replay.

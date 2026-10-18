@@ -250,11 +250,16 @@ describe('the main pool and every other pool (item 1)', () => {
     const context = contextOf(report);
     expect(context.market).toBeNull();
     const sell = CATALOG['sell-path'].run(context);
+    // A V2/V3 pair has no trading-rules contract: said as such, and the
+    // v4-only questions do not apply (SIRIUS, 18/10/2026).
     expect(sell.facts[0]).toMatch(
-      /^No Uniswap v4 trading rules \(hook\) sit in front of trades in its main pool/,
+      /^Its main market is a Uniswap v[23] pair \(.+\): it has no trading-rules contract/,
     );
     expect(sell.facts.join(' ')).not.toMatch(/runs trading rules/);
-    expect(CATALOG['code-reuse'].run(context).signal).toBe('unknown');
+    const reuse = CATALOG['code-reuse'].run(context);
+    expect(reuse.signal).toBe('unknown');
+    expect(reuse.notApplicable).toBe(true);
+    expect(reuse.limits[0]).toMatch(/^not applicable: this market has no trading-rules contract/);
     // OWN's $12 v4 pool is dust, not a pool that weighs.
     expect(context.otherPools?.some((p) => p.version === 'v4')).toBe(false);
   });

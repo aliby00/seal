@@ -345,8 +345,14 @@ function Buyers({ buyers, bundle }: { buyers: Buyer[]; bundle: string | null }) 
 export function LaunchReplay({
   launch,
   index = '03',
+  hasFlow = false,
+  names,
 }: {
+  /** What the chain says each address is, by lowercase address. */
+  names?: Record<string, string>;
   launch: LaunchReplayData;
+  /** The report draws where the supply went: a launch without buyers points to it. */
+  hasFlow?: boolean;
   /** Section number in the report. */
   index?: string;
 }) {
@@ -356,6 +362,9 @@ export function LaunchReplay({
   const rows = all ? launch.moves : launch.moves.slice(0, 8);
   const story = buildStory(launch);
   const [chartWidth, setChartNode] = useWidth(900);
+  // A launch that only handed its supply out has no buyer to draw: an empty
+  // chart said nothing (SIRIUS). The supply flow above draws it instead.
+  const noBuys = !launch.moves.some((m) => m.kind === 'buy' || m.kind === 'sell');
 
   return (
     <section className="launch-replay" aria-labelledby="launch-title">
@@ -368,50 +377,65 @@ export function LaunchReplay({
           Read from the token’s own transfers, from the moment it was created.
         </p>
       </div>
-      <Story story={story} />
-      <div className="launch-stage">
-        {!story.frontLoaded && (
-          <div className="launch-stage-top">
-            <span className="story-key">
-              <i className="story-key-bought" aria-hidden="true" /> Bought
-              <i className="story-key-held" aria-hidden="true" /> Still held today
-              {story.creatorSales.length > 0 && (
-                <>
-                  <i className="story-key-sale" aria-hidden="true" /> Creator sold
-                </>
-              )}
-            </span>
-            <button
-              type="button"
-              className="launch-replay-button"
-              onClick={() => setRun((n) => n + 1)}
-            >
-              Replay <span aria-hidden="true">↻</span>
-            </button>
-          </div>
-        )}
-        {story.frontLoaded ? (
-          <Compare story={story} />
-        ) : (
-          <div className="launch-chart-box" ref={setChartNode}>
-            <Curve
-              story={story}
-              window={Math.max(1, launch.windowSeconds)}
-              run={run}
-              width={chartWidth}
-            />
-          </div>
-        )}
-        {story.partial && (
-          <p className="story-note">
-            Drawn from the {launch.moves.length} largest moves and every move of the creator, out of{' '}
-            {launch.movesInWindow.toLocaleString('en-US')} in the window
-            {story.counted === 'all'
-              ? '; the figures above count all of them.'
-              : '; the figures above count only the moves drawn.'}
-          </p>
-        )}
-      </div>
+      {noBuys ? (
+        <p className="launch-no-buys">
+          Nobody bought or sold in these first {firstSpan}: the supply was only handed out.{' '}
+          {hasFlow ? (
+            <a className="text-link" href="#supply-flow">
+              See where it went.
+            </a>
+          ) : (
+            'Every move is listed below.'
+          )}
+        </p>
+      ) : (
+        <Story story={story} />
+      )}
+      {!noBuys && (
+        <div className="launch-stage">
+          {!story.frontLoaded && (
+            <div className="launch-stage-top">
+              <span className="story-key">
+                <i className="story-key-bought" aria-hidden="true" /> Bought
+                <i className="story-key-held" aria-hidden="true" /> Still held today
+                {story.creatorSales.length > 0 && (
+                  <>
+                    <i className="story-key-sale" aria-hidden="true" /> Creator sold
+                  </>
+                )}
+              </span>
+              <button
+                type="button"
+                className="launch-replay-button"
+                onClick={() => setRun((n) => n + 1)}
+              >
+                Replay <span aria-hidden="true">↻</span>
+              </button>
+            </div>
+          )}
+          {story.frontLoaded ? (
+            <Compare story={story} />
+          ) : (
+            <div className="launch-chart-box" ref={setChartNode}>
+              <Curve
+                story={story}
+                window={Math.max(1, launch.windowSeconds)}
+                run={run}
+                width={chartWidth}
+              />
+            </div>
+          )}
+          {story.partial && (
+            <p className="story-note">
+              Drawn from the {launch.moves.length} largest moves and every move of the creator, out
+              of {launch.movesInWindow.toLocaleString('en-US')} in the window
+              {story.counted === 'all'
+                ? '; the figures above count all of them.'
+                : '; the figures above count only the moves drawn.'}
+            </p>
+          )}
+        </div>
+      )}
       {story.buyers.length > 0 && (
         <div className="first-buyers-block">
           <h4>The first buyers</h4>
@@ -442,8 +466,21 @@ export function LaunchReplay({
                     <td>{when(move.seconds)}</td>
                     <td>
                       <span className="launch-kind">{KIND_WORD[move.kind]}</span>
-                      {move.counterpartyIsCreator && (
+                      {move.counterpartyIsCreator ? (
                         <span className="launch-flag">from the creator</span>
+                      ) : (
+                        move.kind === 'allocation' && (
+                          <small className="launch-from">
+                            from{' '}
+                            <a
+                              href={`${EXPLORER}/address/${move.counterparty}`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {names?.[move.counterparty.toLowerCase()] ?? short(move.counterparty)}
+                            </a>
+                          </small>
+                        )
                       )}
                     </td>
                     <td>
@@ -456,6 +493,8 @@ export function LaunchReplay({
                       </a>
                       {move.actorIsCreator ? (
                         <span className="launch-flag">creator</span>
+                      ) : names?.[move.actor.toLowerCase()] ? (
+                        <span className="launch-role">{names[move.actor.toLowerCase()]}</span>
                       ) : (
                         move.actorKind !== 'wallet' && (
                           <span className="launch-role">{move.actorKind}</span>
