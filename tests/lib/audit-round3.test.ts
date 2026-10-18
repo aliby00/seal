@@ -872,7 +872,7 @@ describe('AML: a sale routed through a router, and fees collected (item 3)', () 
       'The creator sold into the pool on the launch checked.',
     );
     expect(glance.items.find((i) => i.id === 'liquidity')?.title).toBe(
-      'The launch liquidity was never withdrawn on the 1 launch checked. The creator did collect trading fees from the market’s liquidity position on it.',
+      'The creator never removed liquidity on the 1 launch checked. The creator did collect trading fees from the market’s liquidity position on it.',
     );
     // "has not been seen selling", as served for AML, is cut.
     const said =

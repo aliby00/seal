@@ -197,6 +197,8 @@ export type IndexerClient = {
 };
 
 export const INDEXER_TIMEOUT_MS = 2_000;
+/** The second ask, after the indexer did not answer the first. */
+export const INDEXER_RETRY_TIMEOUT_MS = 1_000;
 /** Une analyse lit le même créateur deux fois (historique, puis financement) : une seule requête. */
 const MEMO_MS = 30_000;
 
@@ -222,12 +224,23 @@ export function createIndexerClient(
   const now = options.now ?? Date.now;
   const memo = new Map<string, { at: number; value: Promise<IndexerAnswer<unknown>> }>();
 
+  /**
+   * One read, asked once more with a shorter wait when the indexer did not
+   * answer: a single slow or dropped request left a whole report partial
+   * (ECOGPT, DELTA on staging, 18/10/2026), and answered on the next run.
+   */
   async function read<T>(path: string): Promise<IndexerAnswer<T>> {
+    const first = await readOnce<T>(path, timeoutMs);
+    if (!first.failed) return first;
+    return readOnce<T>(path, Math.min(timeoutMs, INDEXER_RETRY_TIMEOUT_MS));
+  }
+
+  async function readOnce<T>(path: string, waitMs: number): Promise<IndexerAnswer<T>> {
     const started = now();
     try {
       const response = await doFetch(`${url}${path}`, {
         headers: { authorization: `Bearer ${token}`, accept: 'application/json' },
-        signal: AbortSignal.timeout(timeoutMs),
+        signal: AbortSignal.timeout(waitMs),
         cache: 'no-store',
       });
       // 404: the indexer knows nothing of this address — an answer, not a failure.

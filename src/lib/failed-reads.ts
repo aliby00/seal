@@ -36,7 +36,7 @@ export function readOfNote(family: SourceFamily, note: string, creatorUnavailabl
   if (creatorUnavailable) return 'creator';
   if (note === UNREAD.ownSales) return 'creator-sales';
   if (note === UNREAD.walletCount) return 'creator-wallet';
-  if (note === UNREAD.removals) return 'liquidity';
+  if (note === UNREAD.removals || note === UNREAD.removalSenders) return 'liquidity';
   return 'creator-launches';
 }
 
@@ -109,6 +109,13 @@ export const UNREAD = {
   walletCount: 'how many transactions the creator’s wallet has sent could not be read this time',
   /** Who sent the analysed token's liquidity removals, and what they returned. */
   removals: 'who removed this token’s liquidity, and to whom it went, could not be read this time',
+  /**
+   * The removals were read, and the most recent detailed, but not every
+   * one's sender in time (a market busy with hundreds of removals): whether
+   * the creator was among them is unknown.
+   */
+  removalSenders:
+    'whether the creator removed any of this token’s liquidity could not be read this time: not every removal’s sender was read in time',
 } as const;
 
 /** The read a question fell back from when the indexer's count of a hook's markets did not answer. */

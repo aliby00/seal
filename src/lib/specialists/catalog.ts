@@ -880,17 +880,38 @@ const liquidityMove: Specialist = {
       (t) => t.address.toLowerCase() === token.toLowerCase(),
     );
     let signal: Signal = 'unknown';
-
+    // Two different things, said apart: liquidity the creator (or the launch
+    // position) took out, and other providers taking back their own
+    // positions. Said together as "no removal" next to a list of removals,
+    // the text called them a contradiction (MUT8, HYPURRT, WAFER, OWN, moon).
+    const deployer = report?.creator.data.origin?.source === 'deployer';
+    const whose = deployer ? 'sent by the creator' : 'from the launch position';
     if (self?.liquidityPulled === true) {
-      facts.push('Liquidity has already been removed from this token’s pool.');
+      facts.push(
+        deployer
+          ? 'The creator removed liquidity from this token’s pool: a removal transaction it sent.'
+          : 'Liquidity has already been removed from this token’s launch position.',
+      );
       signal = 'concern';
     } else if (self?.liquidityPulled === false) {
       facts.push(
-        `No liquidity removal was observed on this token’s pool in the first ${OTHER_LAUNCH_SALES_DAYS} days after its launch.`,
+        `No liquidity removal ${whose} was observed on this token’s pool in the first ${OTHER_LAUNCH_SALES_DAYS} days after its launch.`,
       );
       signal = 'quiet';
     } else {
-      limits.push('liquidity removals on this token were not determined');
+      limits.push(`liquidity removals ${whose} on this token were not determined`);
+    }
+    const creator = report?.creator.data.creator.toLowerCase();
+    const byOthers = (self?.liquidityRemovals ?? []).filter(
+      (r) => r.sender.toLowerCase() !== creator,
+    );
+    if (byOthers.length > 0) {
+      const ownBack = byOthers.every((r) =>
+        r.returned.every((x) => x.address.toLowerCase() === r.sender.toLowerCase()),
+      );
+      facts.push(
+        `Separately, other liquidity providers removed liquidity they had added themselves: ${plural(byOthers.length, 'removal')} among the most recent read, sent by ${[...new Set(byOthers.map((r) => r.sender))].join(', ')}${ownBack ? ', the tokens going back to the address that removed them' : ''}. These are their own positions, not the creator’s or the launch liquidity: they do not contradict what is said of the creator’s liquidity.`,
+      );
     }
     // Fees taken out of the market's position are tokens the creator
     // withdrew from it, without removing the liquidity itself.

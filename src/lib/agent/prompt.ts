@@ -196,7 +196,7 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
   }
   if (liquidityChecked.length > 0) {
     lines.push(
-      `Liquidity removals: of ${liquidityChecked.length} launches checked, ` +
+      `Liquidity removals ${deployer ? 'sent by the creator' : 'from the launch position'}: of ${liquidityChecked.length} launches checked, ` +
         `${liquidityChecked.filter((t) => t.liquidityPulled === true).length} (same window).`,
     );
   }
@@ -223,7 +223,7 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
         (deployer
           ? ''
           : `${token.outcome}, progress ${(token.graduationProgress * 100).toFixed(2)}%, `) +
-        `creator sale: ${yesNo(token.creatorDumped)}, liquidity removal: ${yesNo(token.liquidityPulled)}`,
+        `creator sale: ${yesNo(token.creatorDumped)}, liquidity removal ${deployer ? 'by the creator' : 'from the launch position'}: ${yesNo(token.liquidityPulled)}`,
     );
   }
   lines.push('');
@@ -418,22 +418,43 @@ function renderRemovals(report: TokenReport, funder?: string): string[] {
     (t) => String(t.address).toLowerCase() === report.token.toLowerCase(),
   );
   const removals = token?.liquidityRemovals ?? [];
+  if (removals.length === 0) return [];
   const creator = report.creator.data.creator;
+  const deployer = report.creator.data.origin?.source === 'deployer';
   const pc = (x: number) => `${(x * 100).toFixed(2)}%`;
-  return removals.map((r) => {
-    const by = partyOf(r.sender, creator, funder);
+  const parties = removals.map((r) => partyOf(r.sender, creator, funder));
+  const creators = parties.filter((p) => p === 'creator').length;
+  const launchWords = deployer ? 'sent by the creator' : 'from the launch position';
+  const launchRead =
+    token?.liquidityPulled === true || creators > 0
+      ? 'yes, listed below'
+      : token?.liquidityPulled === false
+        ? 'none observed'
+        : 'not determined';
+  const header = [
+    `Liquidity removals on this token’s markets, the ${removals.length} most recent read. Two separate questions, answer both apart:`,
+    `- Removals of the creator’s or the launch liquidity (${launchWords}): ${launchRead}.`,
+    `- Removals by other liquidity providers, taking back positions they had added themselves (the tokens going back to them): ${removals.length - creators}.`,
+    'These are not contradictory: a third party taking back its own position is not the creator removing the launch liquidity, and "no removal of the creator’s liquidity" stays true next to them. Never call them a contradiction or a divergence.',
+  ];
+  const lines = removals.map((r, i) => {
+    const by = parties[i] ?? 'other';
     const back = r.returned.map((x) => {
       const to = partyOf(x.address, creator, funder);
-      return `${pc(x.share)} of the supply to ${to === 'other' ? x.address : PARTY_WORD[to]}${x.heldNow === null ? '' : `, which holds ${pc(x.heldNow)} of the supply today`}`;
+      const self = x.address.toLowerCase() === r.sender.toLowerCase();
+      return `${pc(x.share)} of the supply to ${self && by === 'other' ? 'that same address' : to === 'other' ? x.address : PARTY_WORD[to]}${x.heldNow === null ? '' : `, which holds ${pc(x.heldNow)} of the supply today`}`;
     });
+    const label =
+      by === 'creator' ? 'the creator’s removal' : 'another liquidity provider’s own position';
     return (
-      `Liquidity removal on this token (transaction ${r.transaction}): sent by ${PARTY_WORD[by]}${by === 'other' ? ` (${r.sender})` : ''}. ` +
+      `Liquidity removal on this token (${label}; transaction ${r.transaction}): sent by ${PARTY_WORD[by]}${by === 'other' ? ` (${r.sender})` : ''}. ` +
       (back.length > 0
         ? `In it the market returned ${back.join('; ')}. `
-        : 'No token of this one came back out of its markets in that transaction. ') +
+        : 'No token of this one came back out of its markets to an address in that transaction. ') +
       'Say who removed it and where the tokens went; never write that who removed it is unknown or not stated.'
     );
   });
+  return [...header, ...lines];
 }
 
 const MOVE_WORD: Record<LaunchMove['kind'], string> = {
@@ -502,6 +523,33 @@ export function renderLaunch(launch: LaunchReplay, options: { funder?: string } 
 const ROUND_TRIPS_SHOWN = 8;
 
 /**
+ * What the round-trip count leaves out, said next to it: an address that
+ * bought and sold back within one single transaction never held the token
+ * (an arbitrage through it), and one that put its tokens back into a pool as
+ * liquidity did not sell them (RH: 25 counted, 27 on chain).
+ */
+export function roundTripsExcludedWords(
+  excluded: { sameTransaction: number; liquidity: number } | undefined,
+): string {
+  if (!excluded) return '';
+  const total = excluded.sameTransaction + excluded.liquidity;
+  if (total === 0) return '';
+  const why = [
+    ...(excluded.sameTransaction > 0
+      ? [
+          `${excluded.sameTransaction === total ? '' : `${excluded.sameTransaction} `}bought and sold back within one single transaction, never holding the token`,
+        ]
+      : []),
+    ...(excluded.liquidity > 0
+      ? [
+          `${excluded.liquidity === total ? '' : `${excluded.liquidity} `}put the tokens back into a pool as liquidity rather than selling`,
+        ]
+      : []),
+  ];
+  return ` (${total} more excluded: ${why.join('; ')})`;
+}
+
+/**
  * Round trips over every move of the window, counted like the other totals
  * (TOPBLAST: "five wallets" bought at +15 s and sold back at +225 s, seven
  * on chain; ELON: "five wallets", seven; RH: "three of the addresses that
@@ -512,8 +560,11 @@ function windowRoundTrips(
   bundle: NonNullable<LaunchReplay['data']['summary']>['bundle'],
   funder?: string,
 ): string[] {
+  const excludedWords = roundTripsExcludedWords(trips.excluded);
   if (trips.wallets === 0) {
-    return ['- Round trips: no address bought and then sold back within the window.'];
+    return [
+      `- Round trips: no address bought and then sold back within the window${excludedWords}.`,
+    ];
   }
   // The creator's trip comes first in the list, when it made one.
   const creator = trips.creator ? trips.listed[0]?.address : undefined;
@@ -538,7 +589,7 @@ function windowRoundTrips(
     .slice(0, 3);
   const listedAll = trips.listed.length >= trips.wallets;
   const lines = [
-    `- Round trips over every move of the window: ${trips.wallets} address${trips.wallets === 1 ? '' : 'es'} bought and then sold back within it${trips.creator ? ', the creator among them' : ''}${trips.delays ? `, ${trips.delays.min} to ${trips.delays.max} s after their first buy` : ''}. Quote ${trips.wallets} as the count; never count the trips listed below instead.`,
+    `- Round trips over every move of the window: ${trips.wallets} address${trips.wallets === 1 ? '' : 'es'} bought and then sold back within it${trips.creator ? ', the creator among them' : ''}${trips.delays ? `, ${trips.delays.min} to ${trips.delays.max} s after their first buy` : ''}${excludedWords}. Quote ${trips.wallets} as the count; never count the trips listed below instead.`,
     ...groups.map(
       ([second, g]) =>
         `- Of them, ${g.n}${listedAll ? '' : ' (at least)'} bought at +${second} s and sold back between +${g.soldMin} s and +${g.soldMax} s.`,

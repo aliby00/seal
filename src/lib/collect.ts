@@ -329,6 +329,8 @@ export type CollectOptions = {
  */
 export const HISTORY_DEADLINE_MS = 26_000;
 export const CHECK_OTHERS_WITHIN_MS = 14_000;
+/** Time kept after the last batch of removal senders, before the history's deadline. */
+const SENDERS_MARGIN_MS = 4_000;
 
 /** A pons creator's launches elsewhere; `undefined` when they could not be read. */
 async function otherLaunchpads(
@@ -654,6 +656,12 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
                     latestBlock: latest,
                     checkOthersBy:
                       startedAt + (options.checkOthersWithinMs ?? CHECK_OTHERS_WITHIN_MS),
+                    // The removals' details and the rest of the history still
+                    // fit before its deadline.
+                    sendersBy:
+                      startedAt +
+                      (options.historyDeadlineMs ?? HISTORY_DEADLINE_MS) -
+                      SENDERS_MARGIN_MS,
                     ...(listedByIndexer ? { indexed: listedByIndexer } : {}),
                     ...(listedVenues ? { venues: listedVenues } : {}),
                     now,

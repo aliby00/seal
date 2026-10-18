@@ -234,6 +234,7 @@ describe('who removed the liquidity, and to whom it went (item 2, MOON)', () => 
       {
         transaction: MOON_TX,
         by: 'creator',
+        whose: 'creator',
         sender: MOON_CREATOR,
         returned: [{ address: MOON_CREATOR, share: 0.480742, to: 'creator', heldNow: 0.480741 }],
       },
@@ -250,7 +251,7 @@ describe('who removed the liquidity, and to whom it went (item 2, MOON)', () => 
   it('the prompt gives the remover and the share returned', () => {
     const text = renderReport(moonReport());
     expect(text).toMatch(
-      /Liquidity removal on this token \(transaction 0xf58e531e[0-9a-f]+\): sent by the creator\./,
+      /Liquidity removal on this token \(the creator’s removal; transaction 0xf58e531e[0-9a-f]+\): sent by the creator\./,
     );
     expect(text).toMatch(
       /returned 48\.07% of the supply to the creator, which holds 48\.07% of the supply today/,

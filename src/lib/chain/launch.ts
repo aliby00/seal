@@ -102,6 +102,12 @@ export function draftMoves(
   logs: readonly RawLog[],
   pools: ReadonlySet<string>,
   markets: ReadonlySet<string> = pools,
+  /**
+   * Filled with the addresses folded away while taking tokens out of a pool
+   * and putting them back into one in the same transaction: a round trip
+   * that never held the token (RH: 0xb0550000…, tx 0x6bf057cb…).
+   */
+  relayed?: RelayedTrip[],
 ): DraftMove[] {
   const byTx = new Map<string, Transfer[]>();
   for (const log of logs) {
@@ -138,6 +144,17 @@ export function draftMoves(
       seen.add(feeding);
       return origin(feeding, seen);
     };
+
+    if (relayed) {
+      const seen = new Set<string>();
+      for (const t of transfers) {
+        const a = t.to;
+        if (seen.has(a) || pools.has(a) || !pools.has(t.from) || !passThrough(a)) continue;
+        if (!transfers.some((u) => u.from === a && pools.has(u.to))) continue;
+        seen.add(a);
+        relayed.push({ address: a, block: t.block, transaction: t.tx });
+      }
+    }
 
     const merged = new Map<string, DraftMove>();
     for (const t of transfers) {
@@ -301,6 +318,9 @@ function secondsAt(block: number, known: readonly [number, number][]): number {
 
 type TimedMove = DraftMove & { seconds: number };
 
+/** An address that bought and sold back inside one transaction, never holding the token. */
+export type RelayedTrip = { address: string; block: number; transaction: string };
+
 /** What the totals rest on, before any balance is read. */
 type LaunchTally = {
   creatorAtLaunch: number;
@@ -327,6 +347,8 @@ type LaunchTally = {
   creatorSaleConfirmed: boolean;
   /** Every address that bought, then sold back in the window: its first buy and that sale. */
   roundTrips: { address: string; boughtAt: number; soldAt: number }[];
+  /** Addresses left out of the round trips, and why: counted, so the report can say so. */
+  roundTripsExcluded?: { sameTransaction: string[]; liquidity: string[] };
   supply: bigint;
 };
 
@@ -334,6 +356,15 @@ type LaunchTally = {
  * Who bought and then sold back within the window, over every move: each
  * address's first buy, and its first sale back at or after it. The creator
  * first, then by first buy.
+ *
+ * Two cases are not round trips here, on purpose, and are counted apart by
+ * `excludedRoundTrips` so the report states them:
+ *  - a contract taking tokens out of a pool and putting them back into one in
+ *    the same transaction (an arbitrage, RH: 0xb0550000…, tx 0x6bf057cb…, 0 s):
+ *    it never held the token, `draftMoves` folds it away as a relay;
+ *  - an address whose tokens went back into a pool as liquidity rather than
+ *    as a sale (RH: 0xb351f101…, 3 s later, a v4 pool created and funded): the
+ *    receipt shows a liquidity change, not a trade, so it did not sell back.
  */
 export function roundTripsOf(
   moves: readonly TimedMove[],
@@ -371,6 +402,38 @@ export function roundTripsOf(
 }
 
 /**
+ * The round trips left out, and why: addresses relayed within one
+ * transaction, and buyers whose tokens went back into a pool as liquidity.
+ * Neither is counted among `roundTripsOf`; both are said next to the count.
+ */
+export function excludedRoundTrips(
+  moves: readonly TimedMove[],
+  pools: ReadonlySet<string>,
+  trips: readonly { address: string }[],
+  relayed: readonly { address: string }[] = [],
+): { sameTransaction: string[]; liquidity: string[] } {
+  const counted = new Set(trips.map((t) => t.address));
+  const market = (a: string) => pools.has(a) || BURN.has(a);
+  const firstBuy = new Map<string, number>();
+  for (const m of moves) {
+    if (m.kind !== 'buy' || market(m.actor)) continue;
+    const at = firstBuy.get(m.actor);
+    if (at === undefined || m.seconds < at) firstBuy.set(m.actor, m.seconds);
+  }
+  const liquidity = new Set<string>();
+  for (const m of moves) {
+    if (m.kind !== 'provide' || market(m.actor) || counted.has(m.actor)) continue;
+    const bought = firstBuy.get(m.actor);
+    if (bought !== undefined && m.seconds >= bought) liquidity.add(m.actor);
+  }
+  const sameTransaction = new Set<string>();
+  for (const r of relayed) {
+    if (!counted.has(r.address) && !liquidity.has(r.address)) sameTransaction.add(r.address);
+  }
+  return { sameTransaction: [...sameTransaction], liquidity: [...liquidity] };
+}
+
+/**
  * The launch's totals over every move read in the window. Buys are purchases
  * out of a pool or a curve by anyone but the creator; a move turned into a
  * liquidity change by its receipt is not one.
@@ -385,6 +448,8 @@ export function tallyLaunch(
     /** Who sent each transaction whose receipt was read. */
     senders?: ReadonlyMap<string, string | null>;
     natures?: ReadonlyMap<string, TxNature>;
+    /** Addresses that bought and sold back within one transaction, in the window. */
+    relayed?: readonly RelayedTrip[];
   },
 ): LaunchTally {
   const { creator, from, pools, supply } = context;
@@ -444,6 +509,7 @@ export function tallyLaunch(
     creatorTransaction ??= m.transaction;
   }
 
+  const trips = roundTripsOf(moves, pools, creator);
   return {
     creator,
     creatorTx:
@@ -451,7 +517,8 @@ export function tallyLaunch(
         ? { transaction: creatorTransaction, bought: viaCreator }
         : null,
     creatorSaleConfirmed: creatorSales.some((m) => natures.get(m.transaction) === 'swap'),
-    roundTrips: roundTripsOf(moves, pools, creator),
+    roundTrips: trips,
+    roundTripsExcluded: excludedRoundTrips(moves, pools, trips, context.relayed),
     creatorAtLaunch: shareOf(creatorAtLaunch, supply),
     creatorBought: shareOf(sum(creatorBuys), supply),
     creatorSold: shareOf(sum(creatorSales), supply),
@@ -491,6 +558,14 @@ function roundTripSummary(tally: LaunchTally): NonNullable<LaunchSummary['roundT
     delays: delays.length > 0 ? { min: Math.min(...delays), max: Math.max(...delays) } : null,
     fromBundle: bundled ? trips.filter((t) => bundled.has(t.address)).length : null,
     listed: trips.slice(0, ROUND_TRIPS_LISTED),
+    ...(tally.roundTripsExcluded
+      ? {
+          excluded: {
+            sameTransaction: tally.roundTripsExcluded.sameTransaction.length,
+            liquidity: tally.roundTripsExcluded.liquidity.length,
+          },
+        }
+      : {}),
   };
 }
 
@@ -623,7 +698,8 @@ export async function readLaunchReplay(
     ...(options.hooks ?? []).map((h) => h.toLowerCase()),
     ...[...launchInfrastructure()].filter(([, role]) => role === 'hook').map(([a]) => a),
   ]);
-  const drafts = draftMoves(logs, pools, markets).filter(
+  const relayed: RelayedTrip[] = [];
+  const drafts = draftMoves(logs, pools, markets, relayed).filter(
     (m) =>
       !(
         pools.has(m.actor) &&
@@ -692,7 +768,15 @@ export async function readLaunchReplay(
 
   const totals = tallyLaunch(
     everyMove.map((m) => ({ ...m, seconds: at(m.block) })),
-    { creator, from, pools, supply, senders, natures },
+    {
+      creator,
+      from,
+      pools,
+      supply,
+      senders,
+      natures,
+      relayed: relayed.filter((r) => secondsAt(r.block, edgeTimes) - launchTime <= windowSeconds),
+    },
   );
 
   // Who each actor is, and what it holds today: the moves drawn first, then
