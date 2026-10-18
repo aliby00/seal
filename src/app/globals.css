@@ -665,6 +665,8 @@
   --mist-shift: 16%;
   --mist-scale: 0.7;
   --mist-spread: 0%;
+  --caption-opacity: 1;
+  --gauge: 0;
   position: relative;
   isolation: isolate;
   background: #090c0b;
@@ -729,7 +731,7 @@
   margin-left: 24px;
 }
 .scroll-journey {
-  height: 420svh;
+  height: 380svh;
   position: relative;
 }
 .journey-stage {
@@ -766,6 +768,11 @@
   height: 100%;
   inset: 0;
   pointer-events: none;
+  /* Its own layer: the animated water never repaints the photograph. */
+  will-change: transform;
+}
+.immersive-root[data-gate='passed'] .valley-water {
+  visibility: hidden;
 }
 .water-flow {
   fill: none;
@@ -800,6 +807,12 @@
 .cloud-current {
   inset: -15%;
 }
+@media (orientation: portrait) {
+  /* Wider bank on tall screens, so the cloud keeps its scale. */
+  .cloud-current {
+    inset: -15% -80%;
+  }
+}
 .ambient-clouds {
   inset: 20% -20% -25%;
   mask-image: radial-gradient(ellipse at 50% 65%, #000 10%, transparent 65%);
@@ -812,7 +825,10 @@
   position: absolute;
   inset: 0;
   width: 200%;
-  background: url('/images/seal-cloud-volume.svg') 0 50% / 100% 100% repeat-x;
+  /* One seamless tile per container width, drifting exactly one tile per
+     loop: the wind never jumps and no mirror axis shows. The tile repeats
+     both ways at its own aspect ratio, so portrait screens never stretch it. */
+  background: url('/images/seal-cloud-volume.webp') 0 0 / 50% auto repeat;
   will-change: transform;
   animation: cloud-wind 24s linear infinite;
 }
@@ -848,14 +864,20 @@
   transform: translateX(var(--mist-spread)) scale(1.15);
 }
 .entrance-copy {
+  /* Anchored to the gate, not to the top: the call to action always sits a
+     breath above the gate, whatever the screen height. */
   position: absolute;
-  top: 14%;
+  bottom: calc(100% - var(--gate-top) + var(--copy-gap));
   left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   width: 100%;
   padding: 0 24px;
   text-align: center;
   opacity: var(--copy-opacity);
-  transform: translateY(var(--copy-shift));
+  transform: translate3d(0, var(--copy-shift), 0);
+  will-change: transform, opacity;
 }
 .entrance-copy[inert] {
   visibility: hidden;
@@ -869,11 +891,11 @@
 }
 .entrance-copy h1 {
   font:
-    400 clamp(42px, 5.4vw, 78px)/1.06 Arial,
+    400 clamp(40px, min(5.6vw, 8.6svh), 104px)/1.04 Arial,
     Helvetica,
     sans-serif;
   letter-spacing: -0.065em;
-  margin: 22px auto 21px;
+  margin: clamp(14px, 2.4svh, 24px) auto clamp(14px, 2.4svh, 22px);
 }
 .entrance-copy h1 em {
   font:
@@ -882,9 +904,11 @@
   letter-spacing: -0.055em;
 }
 .entrance-description {
-  font-size: 14px;
-  line-height: 1.7;
-  color: #e1e6df;
+  max-width: 34em;
+  font-size: clamp(14px, 1.9svh, 17px);
+  line-height: 1.6;
+  color: #dfe5e8;
+  text-shadow: 0 1px 12px rgb(5 8 11 / 0.6);
 }
 .entrance-cta {
   display: inline-flex;
@@ -912,11 +936,7 @@
   left: 5.5%;
   right: 5.5%;
   bottom: 35px;
-  font:
-    10px/1.8 'Courier New',
-    monospace;
-  letter-spacing: 0.08em;
-  opacity: var(--copy-opacity);
+  opacity: var(--caption-opacity);
 }
 .journey-caption a {
   display: flex;
@@ -1077,9 +1097,6 @@
   .nav-enter span {
     margin-left: 10px;
   }
-  .entrance-copy {
-    top: 18%;
-  }
   .analysis-world {
     padding-left: 26px;
     padding-right: 26px;
@@ -1112,29 +1129,21 @@
     padding: 9px 13px;
   }
   .scroll-journey {
-    height: 360svh;
+    height: 340svh;
   }
   .entrance-copy {
-    top: 19%;
-    padding: 0 16px;
+    padding: 0 20px;
   }
   .entrance-copy h1 {
-    font-size: 43px;
-    line-height: 1.08;
+    font-size: clamp(36px, min(11.4vw, 6.2svh), 46px);
+    line-height: 1.06;
   }
   .entrance-description {
-    font-size: 12px;
+    font-size: 14px;
+    line-height: 1.55;
+    text-wrap: balance;
   }
-  .entrance-cta {
-    margin-top: 20px;
-  }
-  .journey-caption {
-    left: 22px;
-    right: 22px;
-    bottom: 25px;
-    font-size: 9px;
-  }
-  .journey-caption > span:last-child {
+  .entrance-description br {
     display: none;
   }
   .analysis-world {
@@ -1208,6 +1217,7 @@
   .journey-caption {
     opacity: 1;
     transform: none;
+    will-change: auto;
   }
   .analysis-world {
     margin-top: 0;
@@ -1930,18 +1940,26 @@
 /* Le rideau descend à mesure que l'on avance vers SEAL. */
 .curtain-progress {
   display: inline-flex;
-  align-items: flex-start;
-  gap: 3px;
-  height: 18px;
+  align-items: center;
+  gap: 4px;
+  height: 14px;
 }
+/* Each strip lights up in turn, like the curtain of the gate: dim until the
+   journey reaches it, then full orange. */
 .curtain-progress > span {
-  width: 3px;
+  position: relative;
+  width: 2px;
   height: 100%;
   border-radius: 2px;
+  background: rgb(255 255 255 / 0.22);
+}
+.curtain-progress > span::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
   background: var(--seal-curtain);
-  transform-origin: 50% 0;
-  transform: scaleY(clamp(0.28, calc(var(--journey, 0) * 18 - var(--i) * 0.9), 1));
-  transition: transform 0.2s ease-out;
+  opacity: clamp(0, calc(var(--gauge, 0) * 14 - var(--i)), 1);
 }
 @media (max-width: 640px) {
   .world-nav nav a:not(.nav-enter) {
@@ -1950,16 +1968,10 @@
   .brand-word {
     height: 13px;
   }
-  .curtain-progress {
-    display: none;
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   .loading-arch .strip {
     animation: none;
-  }
-  .curtain-progress > span {
-    transition: none;
   }
 }
 
@@ -1968,8 +1980,11 @@
   --gate-open: 0;
   --gate-scale: 1;
   --gate-opacity: 1;
-  --gate-y: 67%;
-  --gate-h: 19svh;
+  /* Where the gate stands in the valley, shared by the scene and the copy. */
+  --gate-y: 67svh;
+  --gate-h: clamp(108px, 16svh, 236px);
+  --gate-top: calc(var(--gate-y) - var(--gate-h) * 0.55);
+  --copy-gap: clamp(28px, 5.5svh, 64px);
 }
 .mountain-scene {
   transform-origin: 50% var(--gate-y);
@@ -1977,10 +1992,11 @@
 .gate-anchor {
   position: absolute;
   inset: 0;
-  transform: scale(calc(var(--camera-scale) * var(--gate-scale)));
+  transform: scale(var(--gate-scale));
   transform-origin: 50% var(--gate-y);
   opacity: var(--gate-opacity);
   pointer-events: none;
+  will-change: transform, opacity;
 }
 .immersive-root[data-gate='passed'] .gate-anchor {
   visibility: hidden;
@@ -1988,7 +2004,7 @@
 .valley-gate {
   position: absolute;
   left: 50%;
-  top: calc(var(--gate-y) - var(--gate-h) * 0.55);
+  top: var(--gate-top);
   height: var(--gate-h);
   width: calc(var(--gate-h) * 100 / 120);
   transform: translateX(-50%);
@@ -2030,10 +2046,35 @@
   transform: translateX(calc(var(--gate-open) * var(--side) * 32px))
     skewX(calc(var(--gate-open) * var(--side) * -6deg));
 }
+/* Short laptop screens: the gate stands lower and smaller so the copy keeps
+   clear of the navigation. */
+@media (max-height: 820px) and (min-width: 641px) {
+  .immersive-root {
+    --gate-y: 71svh;
+    --gate-h: clamp(88px, 14svh, 236px);
+  }
+}
+/* Phones held sideways: only the title, the action and the gate. */
+@media (max-height: 500px) {
+  .immersive-root {
+    --gate-y: 80svh;
+    --gate-h: 76px;
+    --copy-gap: 22px;
+  }
+  .immersive-root .entrance-copy .scene-eyebrow,
+  .immersive-root .entrance-description,
+  .immersive-root .journey-caption {
+    display: none;
+  }
+  .entrance-copy h1 {
+    font-size: 30px;
+  }
+}
 @media (max-width: 640px) {
   .immersive-root {
-    --gate-h: 17svh;
-    --gate-y: 66%;
+    --gate-h: clamp(96px, 15svh, 150px);
+    --gate-y: 69svh;
+    --copy-gap: clamp(24px, 4.5svh, 44px);
   }
 }
 @media (prefers-reduced-motion: reduce) {
