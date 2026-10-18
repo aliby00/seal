@@ -149,7 +149,7 @@ describe('funding-trace by kind of funder', () => {
     expect(f.facts[0]).toBe(
       `The wallet that funded the creator (${WALLET}, 33 transactions) also funded 16 other token creators, linked through 2 funding steps. Together they launched 41 tokens.`,
     );
-    expect(f.facts[1]).toBe('Their launches by launchpad: pons: 38, flap.sh: 3.');
+    expect(f.facts[1]).toBe('Their launches: 38 on pons; 3 on flap.sh.');
     expect(f.limits[0]).toBe(
       'the funding chain could not be followed further: the first funding of 0xabcd…0001 has not been read yet',
     );

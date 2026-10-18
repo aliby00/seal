@@ -34,6 +34,12 @@ export type Launchpad = {
   id: string;
   /** How the launchpad is called on the report. */
   name: string;
+  /**
+   * How it is said in a sentence, when the label would mislead: "launchpad
+   * 0x7ed5… (used by pons)" made the model write "a different launchpad
+   * (pons)". Defaults to the name.
+   */
+  prose?: string;
   /** The contract that emits the launch event. */
   address: Address;
   /** The event, as verified by decoding a real log. */
@@ -104,6 +110,9 @@ export const CURVE_SELL_TOPIC =
 export const CURVE_TRADE_TOPIC =
   '0xaca20dddb264298fd1f9f05d1dc1e0847e30f73956ee42aaf896b91eb73628b6';
 
+/** The 0x7ed5 launchpad, said so that it is not taken for pons itself. */
+const SEVEN_ED5_PROSE = 'the 0x7ed5 launchpad, which the pons site also uses';
+
 export const LAUNCHPADS: readonly Launchpad[] = [
   // pons: five factory generations, all with the same `TokenLaunched`.
   pons('0xf4fc0cd27fc8ecf17e55ee4c3f7201897df3eb75', 39_000_000),
@@ -137,6 +146,7 @@ export const LAUNCHPADS: readonly Launchpad[] = [
   {
     id: 'curve-7ed5',
     name: 'launchpad 0x7ed5… (used by pons)',
+    prose: SEVEN_ED5_PROSE,
     address: '0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e',
     event:
       'TokenLaunched(address indexed token, address indexed curve, address indexed creator, address, uint256, uint256)',
@@ -154,6 +164,7 @@ export const LAUNCHPADS: readonly Launchpad[] = [
     // contract in between (0xeec4…: the factory names 0x274a…, a contract).
     id: 'curve-7ed5',
     name: 'launchpad 0x7ed5… (used by pons)',
+    prose: SEVEN_ED5_PROSE,
     address: '0xe33e9e479df8802cb0866d5d05258bec4cf62948',
     event:
       'Launched(address indexed token, address indexed curve, address indexed creator, address, uint256, uint256)',
@@ -236,6 +247,12 @@ export const LAUNCHPADS: readonly Launchpad[] = [
 
 export const launchpadById = (id: string): Launchpad | undefined =>
   LAUNCHPADS.find((l) => l.id === id);
+
+/** A launchpad's name as said in a sentence, from its id or its label. */
+export function launchpadProse(idOrName: string): string {
+  const pad = LAUNCHPADS.find((l) => l.id === idOrName || l.name === idOrName);
+  return pad?.prose ?? pad?.name ?? idOrName;
+}
 
 const lower = (value: string) => value.toLowerCase();
 

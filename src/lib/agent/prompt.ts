@@ -1,5 +1,6 @@
 import type { LaunchMove, LaunchReplay, TokenReport } from '../contracts';
 import { OTHER_LAUNCH_SALES_DAYS } from '../contracts/creator';
+import { launchpadProse } from '../chain/launchpads';
 import { roleWord, whereSetAside } from '../set-aside';
 import type { SpecialistAnswer } from '../specialists/brief';
 
@@ -61,7 +62,7 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
     }[c.origin.role];
     lines.push(
       c.origin.launchpad
-        ? `Origine : lancement ${c.origin.launchpad.name}. ${c.origin.creatorFrom === 'launch-record' ? 'Créateur nommé par l’événement de lancement' : 'Créateur : l’expéditeur de la transaction de lancement'} : cette adresse ${role}.`
+        ? `Origine : lancement sur ${launchpadProse(c.origin.launchpad.id)}. ${c.origin.creatorFrom === 'launch-record' ? 'Créateur nommé par l’événement de lancement' : 'Créateur : l’expéditeur de la transaction de lancement'} : cette adresse ${role}.`
         : `Origine : aucun launchpad connu. Créateur retrouvé par la transaction du premier mint : cette adresse ${role}.`,
     );
     if (c.origin.transactionCount !== null) {
@@ -69,12 +70,12 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
     }
     lines.push(
       c.origin.launchesListed
-        ? `Lancements de cette adresse (${c.origin.launchpadsRead?.join(', ') || 'même contrat de lancement'}) : ${c.counts.launched}.`
+        ? `Lancements de cette adresse (${c.origin.launchpadsRead?.map(launchpadProse).join(', ') || 'même contrat de lancement'}) : ${c.counts.launched}.`
         : 'Les autres lancements de cette adresse sur ce launchpad ne peuvent pas être listés depuis la chaîne : ne les compte pas.',
     );
     if (c.origin.launchpadsNotRead?.length) {
       lines.push(
-        `Non listés : ${c.origin.launchpadsNotRead.join(', ')}. N’affirme pas qu’il n’y en a pas, et n’écris jamais que c’est le premier token du créateur.`,
+        `Non listés : ${c.origin.launchpadsNotRead.map(launchpadProse).join(', ')}. N’affirme pas qu’il n’y en a pas, et n’écris jamais que c’est le premier token du créateur.`,
       );
     }
     lines.push(

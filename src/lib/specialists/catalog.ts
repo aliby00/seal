@@ -1,4 +1,4 @@
-import { launchpadById } from '../chain/launchpads';
+import { launchpadProse } from '../chain/launchpads';
 import { NATIVE } from '../chain/pools';
 import { MAX_BEHAVIOR_TOKENS } from '../chain';
 import { OTHER_LAUNCH_SALES_DAYS } from '../contracts/creator';
@@ -319,9 +319,9 @@ const fundingTrace: Specialist = {
     );
     if (walked && launches !== null && launches > 0) {
       const pads = Object.entries(walked.launchpads)
-        .map(([pad, n]) => `${launchpadById(pad)?.name ?? pad}: ${n}`)
-        .join(', ');
-      if (pads) facts.push(`Their launches by launchpad: ${pads}.`);
+        .map(([pad, n]) => `${n} on ${launchpadProse(pad)}`)
+        .join('; ');
+      if (pads) facts.push(`Their launches: ${pads}.`);
     } else if (!walked) {
       limits.push('the tokens those creators launched were not counted');
     }

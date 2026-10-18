@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { draftMoves, readLaunchReplay, separateLiquidity } from '../../src/lib/chain/launch';
 import { fetchDeployerHistory } from '../../src/lib/chain/deployer';
+import { launchpadById, launchpadProse } from '../../src/lib/chain/launchpads';
 import { classifyFunder as appClassifyFunder } from '../../src/lib/chain/funder-kind';
 import { firstIncoming, sentBy } from '../../src/lib/chain/funding';
 import type { RawLog } from '../../src/lib/chain/logs';
@@ -11,7 +12,7 @@ import type { SpecialistContext } from '../../src/lib/specialists/types';
 import { classifyFunder as indexerClassifyFunder } from '../../indexer/src/funder-kind';
 import type { RpcClient } from '../../src/lib/chain/rpc';
 import type { LaunchReplayData } from '../../src/lib/contracts/launch';
-import { buildStory } from '../../src/lib/launch-story';
+import { addressesWord, buildStory } from '../../src/lib/launch-story';
 import type { BlockscoutHolder } from '../../src/lib/holders';
 import { computeDistribution } from '../../src/lib/holders';
 import { readPoolsShare, recheckContracts } from '../../src/lib/holders/chain';
@@ -824,5 +825,79 @@ describe('wording: market figures and launchpad names (bug 10)', () => {
     expect(usdShort(7_279_812)).toBe('$7.3M');
     expect(usdShort(253_700)).toBe('$253.7k');
     expect(usdShort(337)).toBe('$337');
+  });
+});
+
+describe('wording: the 0x7ed5 launchpad is not "a different launchpad (pons)" (bug 10)', () => {
+  it('gives the model and the facts an unambiguous name, the UI keeps its label', () => {
+    expect(launchpadProse('curve-7ed5')).toBe(
+      'the 0x7ed5 launchpad, which the pons site also uses',
+    );
+    expect(launchpadById('curve-7ed5')?.name).toBe('launchpad 0x7ed5… (used by pons)');
+    const f = CATALOG['funding-trace'].run({
+      token: '0x7c0495053f47ec52eb4b678c4ad8f572df745bfe',
+      funding: {
+        funder: '0xf0fc311800000000000000000000000000000001',
+        funderKind: 'wallet',
+        funderTxCount: 33,
+        otherCreatorsFunded: 25,
+        network: {
+          creators: 25,
+          launches: 25,
+          launchpads: { 'curve-7ed5': 25 },
+          depth: 1,
+          incomplete: false,
+          capped: false,
+          path: [],
+        },
+      },
+    } as SpecialistContext);
+    expect(f.facts[1]).toBe(
+      'Their launches: 25 on the 0x7ed5 launchpad, which the pons site also uses.',
+    );
+  });
+});
+
+describe('wording: a buy sold back at once is said as such (bug 10)', () => {
+  it('LETRONNA: bought 2.9 % then sold the same 95 s later', () => {
+    const f = glanceFacts({});
+    f.creator = { ...f.creator, measured: true, checked: 1, salesChecked: 1, soldIntoPool: 1 };
+    const launch: LaunchReplayData = {
+      token: '0x5add78705175c2591e4303163b5d9af712b69aea',
+      launchBlock: 91_198_338,
+      launchedAt: '2026-10-17T20:09:30.000Z',
+      windowSeconds: 600,
+      supply: '1000000000000000000000000000',
+      moves: [],
+      movesInWindow: 7,
+      summary: {
+        moves: 7,
+        earlySeconds: 60,
+        creatorAtLaunch: 0,
+        creatorBought: 0.028553,
+        creatorSold: 0.028553,
+        creatorFirstBuyAt: 3,
+        creatorLastSaleAt: 98,
+        early: { wallets: 2, share: 0.0628, within: 5, heldNow: 0, unread: 0, contracts: 0 },
+        bundle: null,
+        receiptsRead: 4,
+        receiptsWanted: 4,
+        balancesRead: 4,
+        balancesWanted: 4,
+      },
+    };
+    const sales = buildGlance({ facts: f, launch })!.items.find((i) => i.id === 'sales');
+    expect(sales?.title).toBe(
+      'The creator bought 2.9% of the supply, then sold back the same amount 95 s later.',
+    );
+  });
+});
+
+describe('wording: contracts are not "wallets" (bug 10)', () => {
+  it('DELTA: one transaction served 16 addresses; says contracts or addresses by what they are', () => {
+    expect(addressesWord(16, 16)).toBe('contracts');
+    expect(addressesWord(16, 3)).toBe('addresses');
+    expect(addressesWord(16, null)).toBe('addresses');
+    expect(addressesWord(16, 0)).toBe('wallets');
   });
 });
