@@ -193,9 +193,10 @@ export function offlineExplanation(report: TokenReport, specialists?: Specialist
   if (funding && funding.signal !== 'unknown' && funding.facts.length > 0) {
     parts.push(`Funding: ${funding.facts.join(' ')}`);
   }
-  if (report.completeness !== 'full')
-    parts.push(
-      'Not all sources responded. This is a partial view, and some observations cannot be verified here.',
-    );
+  // A failed read is already said at the top. Otherwise "not full" only means
+  // a read covered part of the data by design (a page limit), stated above:
+  // never "not all sources responded" when every source did.
+  if (report.completeness !== 'full' && failedReads.length === 0)
+    parts.push('Some reads cover only part of the data; their limits are stated above.');
   return parts.join('\n\n');
 }
