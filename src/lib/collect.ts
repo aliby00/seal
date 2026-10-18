@@ -431,16 +431,18 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
   // and a launchpad's curve (99.9 % of a flap.sh token), the pairs listed
   // since, the launchpad's own contracts and its lock contract all read as
   // the largest holders.
+  // The later entries win: a launch contract that is also the curve (the
+  // flap.sh portal) is named for the curve.
   const setAside: { address: string; role: SetAsideRole }[] = [
+    ...(origin?.launchContract
+      ? [{ address: origin.launchContract, role: 'launchpad' as const }]
+      : []),
     ...(launch?.pool && launch.pool !== '0x'
       ? [{ address: launch.pool, role: 'pool' as const }]
       : []),
     ...(origin?.venues.pools ?? []).map((address) => ({ address, role: 'pool' as const })),
     ...(listedVenues?.pools ?? []).map((address) => ({ address, role: 'pool' as const })),
     ...(origin?.venues.curves ?? []).map((address) => ({ address, role: 'curve' as const })),
-    ...(origin?.launchContract
-      ? [{ address: origin.launchContract, role: 'launchpad' as const }]
-      : []),
   ];
   function readHolders(): Promise<HolderDistribution> {
     if (!options.blockscoutApiKey && latest > 0) {

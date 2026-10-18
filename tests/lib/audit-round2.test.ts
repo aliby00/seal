@@ -761,15 +761,16 @@ describe('market: a listed liquidity the chain contradicts is not liquidity (bug
       async callBatch(requests: { params: [{ data: string }] }[]) {
         return requests.map((r) => ({
           ok: true,
-          value: `0x${(r.params[0].data === '0x18160ddd' ? balances.supply! : balances.pm!).toString(16)}`,
+          value: `0x${(r.params[0].data === '0x18160ddd' ? balances.supply! : r.params[0].data === '0x313ce567' ? 18n : balances.pm!).toString(16)}`,
         }));
       },
     } as unknown as RpcClient;
-    const poolsShare = await readPoolsShare(rpc, MOON, [POOL_MANAGER]);
-    expect(poolsShare).toBeCloseTo(0.00002, 6);
-    const market = checkLiquidity(toMarketState(MOON, pairs), poolsShare);
+    const pools = await readPoolsShare(rpc, MOON, [POOL_MANAGER]);
+    expect(pools?.share).toBeCloseTo(0.00002, 6);
+    expect(pools?.tokens).toBeCloseTo(20_000, 3);
+    const market = checkLiquidity(toMarketState(MOON, pairs), pools);
     expect(market.data.quiet).toEqual({ hours: 1 });
-    expect(market.data.liquidityCheck).toEqual({ poolsShare, current: false });
+    expect(market.data.liquidityCheck).toEqual({ poolsShare: pools?.share, current: false });
     const facts = toFacts({
       token: MOON,
       collectedAt: '2026-10-17T23:24:09.128Z',
@@ -811,6 +812,15 @@ describe('market: a listed liquidity the chain contradicts is not liquidity (bug
     expect(item?.title).toBe(
       'Its pools hold <0.1% of the supply today: the $61.9k of liquidity DexScreener lists is not current. No trade in the last hour.',
     );
+  });
+
+  it('a pool holding what its listing says stays current, even under 1 % of the supply', () => {
+    // A market cap far above the liquidity leaves little of the supply in the pool.
+    const market = checkLiquidity(toMarketState(MOON, pairs), {
+      share: 0.004,
+      tokens: 475_000_000,
+    });
+    expect(market.data.liquidityCheck?.current).toBe(true);
   });
 
   it('a pair traded in the last five minutes is not quiet', () => {

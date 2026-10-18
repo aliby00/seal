@@ -38,6 +38,8 @@ export type MarketStateData = {
   pair: string | null;
   priceUsd: number | null;
   liquidityUsd: number | null;
+  /** The token's own side of the listed pair, in whole tokens; absent when not given. */
+  liquidityBase?: number;
   /** ETH immobilisé dans le pool — c'est ce que compte la graduation. */
   pairedEth: number | null;
   graduation: {

@@ -99,6 +99,7 @@ export function toMarketState(
     pair: pair.pairAddress ?? null,
     priceUsd: num(pair.priceUsd),
     liquidityUsd: num(pair.liquidity?.usd),
+    ...(num(pair.liquidity?.base) !== null ? { liquidityBase: num(pair.liquidity?.base)! } : {}),
     // `liquidity.quote` is in the pair's quote token, which need not be ETH.
     pairedEth: grad?.pairedEth ?? null,
     graduation,
@@ -170,16 +171,30 @@ export function quietFor(source: DexScreenerPair['txns']): { hours: number } | n
   return null;
 }
 
-/** Under this part of the supply in its pools, a token's listed liquidity is not current. */
+/** Under this part of the supply in its pools, a token's listed liquidity may not be current. */
 export const STALE_POOLS_SHARE = 0.01;
+/**
+ * …and it is not when the pools hold under this part of the tokens the
+ * listed pair says it has. A token whose market cap dwarfs its liquidity can
+ * have under 1 % of its supply in a pool and still be traded there: only a
+ * pool emptier than its listing says is a listing out of date.
+ */
+export const STALE_BASE_RATIO = 0.1;
 
 /**
  * The listed liquidity checked against what the token's pools hold today. A
  * removal is on chain at once; DexScreener's figure can lag it by hours.
  */
-export function checkLiquidity(market: MarketState, poolsShare: number | null): MarketState {
-  if (poolsShare === null || market.data.liquidityUsd === null) return market;
-  const current = poolsShare >= STALE_POOLS_SHARE;
+export function checkLiquidity(
+  market: MarketState,
+  pools: { share: number; tokens: number } | null,
+): MarketState {
+  if (pools === null || market.data.liquidityUsd === null) return market;
+  const base = market.data.liquidityBase ?? null;
+  const current = !(
+    pools.share < STALE_POOLS_SHARE &&
+    (base === null || pools.tokens < base * STALE_BASE_RATIO)
+  );
   const pct = (x: number) => `${(x * 100).toFixed(x < 0.001 ? 4 : 2)}%`;
   return {
     ...market,
@@ -191,10 +206,10 @@ export function checkLiquidity(market: MarketState, poolsShare: number | null): 
           {
             name: 'robinhood-rpc',
             fetchedAt: market.sources[0]?.fetchedAt ?? new Date().toISOString(),
-            note: `the token’s pools hold ${pct(poolsShare)} of its supply on chain today: the liquidity DexScreener lists is not current`,
+            note: `the token’s pools hold ${pct(pools.share)} of its supply on chain today${base !== null ? `, where the listed pair counts ${Math.round(base).toLocaleString('en-US')} tokens` : ''}: the liquidity DexScreener lists is not current`,
           },
         ],
-    data: { ...market.data, liquidityCheck: { poolsShare, current } },
+    data: { ...market.data, liquidityCheck: { poolsShare: pools.share, current } },
   };
 }
 
