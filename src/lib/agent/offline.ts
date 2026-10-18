@@ -134,7 +134,13 @@ export function offlineExplanation(report: TokenReport, specialists?: Specialist
     const m = market.data;
     const bits: string[] = [];
     if (m.priceUsd !== null) bits.push(`price ${m.priceUsd} USD`);
-    if (m.liquidityUsd !== null) bits.push(`liquidity ${m.liquidityUsd.toFixed(2)} USD`);
+    if (m.liquidityUsd !== null && m.liquidityCheck?.current === false) {
+      bits.push(
+        `a listed liquidity of ${m.liquidityUsd.toFixed(2)} USD that is not current: the token’s pools hold ${pct(m.liquidityCheck.poolsShare)} of its supply on chain`,
+      );
+    } else if (m.liquidityUsd !== null) bits.push(`liquidity ${m.liquidityUsd.toFixed(2)} USD`);
+    if (m.quiet)
+      bits.push(`no trade in the last ${m.quiet.hours === 1 ? 'hour' : `${m.quiet.hours} hours`}`);
     if (m.graduation)
       bits.push(
         `graduation at ${pct(m.graduation.progress)} of the ${m.graduation.thresholdEth} ETH threshold`,

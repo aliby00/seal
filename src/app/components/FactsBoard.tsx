@@ -551,7 +551,7 @@ function MarketCard({ market }: { market: ReportFacts['market'] }) {
             </div>
             <div>
               <dt>Liquidity</dt>
-              <dd>{usd(market.liquidityUsd)}</dd>
+              <dd>{market.staleLiquidity ? 'not current' : usd(market.liquidityUsd)}</dd>
             </div>
             <div>
               <dt>Volume 24h</dt>
@@ -562,6 +562,19 @@ function MarketCard({ market }: { market: ReportFacts['market'] }) {
               <dd>{usd(market.fdvUsd)}</dd>
             </div>
           </dl>
+          {market.staleLiquidity && (
+            <p className="fact-note">
+              DexScreener lists {usd(market.staleLiquidity.listedUsd)} of liquidity, but the token’s
+              pools hold {pct(market.staleLiquidity.poolsShare)} of its supply on chain today: that
+              figure is not current.
+            </p>
+          )}
+          {market.quietHours != null && (
+            <p className="fact-line">
+              No trade in the last {market.quietHours === 1 ? 'hour' : `${market.quietHours} hours`}
+              .
+            </p>
+          )}
           {trades > 0 && (
             <Split
               label={`${market.buys24h ?? 0} buys and ${market.sells24h ?? 0} sells in 24 hours`}

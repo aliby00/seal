@@ -113,6 +113,7 @@ export function toMarketState(
     txns: pair.txns ? { h1: txns(pair.txns, 'h1'), h24: txns(pair.txns, 'h24') } : null,
     fdvUsd: num(pair.fdv ?? pair.marketCap),
     pairCreatedAt: pair.pairCreatedAt ? new Date(pair.pairCreatedAt).toISOString() : null,
+    ...(pair.txns ? { quiet: quietFor(pair.txns) } : {}),
   };
 
   // Le prix et la liquidité sont le minimum vital ; sans eux la vue est partielle.
@@ -147,6 +148,54 @@ export async function fetchPairs(
     throw new UpstreamError('dexscreener', 'unexpected response: expected an array');
   }
   return body as DexScreenerPair[];
+}
+
+/**
+ * No trade in the last N hours, from the pair's counts per window: the
+ * longest window with no trade at all. `null` when the last five minutes
+ * had one, or no window is quiet.
+ */
+export function quietFor(source: DexScreenerPair['txns']): { hours: number } | null {
+  const trades = (window: string) => {
+    const t = source?.[window];
+    return t ? (t.buys ?? 0) + (t.sells ?? 0) : null;
+  };
+  for (const [window, hours] of [
+    ['h24', 24],
+    ['h6', 6],
+    ['h1', 1],
+  ] as const) {
+    if (trades(window) === 0) return { hours };
+  }
+  return null;
+}
+
+/** Under this part of the supply in its pools, a token's listed liquidity is not current. */
+export const STALE_POOLS_SHARE = 0.01;
+
+/**
+ * The listed liquidity checked against what the token's pools hold today. A
+ * removal is on chain at once; DexScreener's figure can lag it by hours.
+ */
+export function checkLiquidity(market: MarketState, poolsShare: number | null): MarketState {
+  if (poolsShare === null || market.data.liquidityUsd === null) return market;
+  const current = poolsShare >= STALE_POOLS_SHARE;
+  const pct = (x: number) => `${(x * 100).toFixed(x < 0.001 ? 4 : 2)}%`;
+  return {
+    ...market,
+    completeness: current ? market.completeness : 'partial',
+    sources: current
+      ? market.sources
+      : [
+          ...market.sources,
+          {
+            name: 'robinhood-rpc',
+            fetchedAt: market.sources[0]?.fetchedAt ?? new Date().toISOString(),
+            note: `the token’s pools hold ${pct(poolsShare)} of its supply on chain today: the liquidity DexScreener lists is not current`,
+          },
+        ],
+    data: { ...market.data, liquidityCheck: { poolsShare, current } },
+  };
 }
 
 /** Récupère l'état du marché. Ne lève que si la source est franchement cassée. */

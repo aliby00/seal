@@ -178,3 +178,35 @@ export async function recheckContracts(
     ),
   };
 }
+
+const TOTAL_SUPPLY = '0x18160ddd';
+const BALANCE_OF = '0x70a08231';
+
+/**
+ * The part of the supply the token's pools hold today, read on chain in one
+ * batch: the total supply and each pool's balance. `null` when any of them
+ * could not be read.
+ */
+export async function readPoolsShare(
+  rpc: RpcClient,
+  token: string,
+  pools: readonly string[],
+): Promise<number | null> {
+  const unique = [...new Set(pools.map((p) => p.toLowerCase()))].filter((p) => p !== '0x');
+  if (unique.length === 0) return null;
+  const outcomes = await rpc.callBatch<string>([
+    { method: 'eth_call', params: [{ to: token, data: TOTAL_SUPPLY }, 'latest'] },
+    ...unique.map((pool) => ({
+      method: 'eth_call',
+      params: [{ to: token, data: `${BALANCE_OF}${pool.slice(2).padStart(64, '0')}` }, 'latest'],
+    })),
+  ]);
+  const values = outcomes.map((o) =>
+    o?.ok && typeof o.value === 'string' && /^0x[0-9a-f]+$/i.test(o.value) ? BigInt(o.value) : null,
+  );
+  if (values.some((v) => v === null)) return null;
+  const [supply, ...balances] = values as bigint[];
+  if (!supply || supply <= 0n) return null;
+  const held = balances.reduce((sum, b) => sum + b, 0n);
+  return Number((held * 1_000_000n) / supply) / 1_000_000;
+}

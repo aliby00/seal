@@ -48,8 +48,14 @@ export function withPoolActivity(
   market: MarketState,
   stats: IndexerToken | undefined,
   fetchedAt: string,
+  now: () => Date = () => new Date(),
 ): MarketState {
   if (!stats || market.data.pair !== null) return market;
+  // How long since the pool's last trade, in whole hours: "no trade in the last 3 hours".
+  const last = stats.stats.sinceLaunch.lastTradeAt
+    ? Date.parse(stats.stats.sinceLaunch.lastTradeAt)
+    : NaN;
+  const idleHours = Number.isFinite(last) ? Math.floor((now().getTime() - last) / 3_600_000) : null;
   const covered = since(stats.coveredFromAt);
   const window =
     stats.sinceLaunchComplete || !covered
@@ -84,6 +90,7 @@ export function withPoolActivity(
         sinceLaunch: { ...windowOf(stats.stats.sinceLaunch), complete: stats.sinceLaunchComplete },
         creatorTraded: stats.creatorTraded.traded,
       },
+      ...(idleHours !== null ? { quiet: idleHours >= 1 ? { hours: idleHours } : null } : {}),
     },
   };
 }

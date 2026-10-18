@@ -14,9 +14,12 @@ import type { LaunchReplayData } from '../../src/lib/contracts/launch';
 import { buildStory } from '../../src/lib/launch-story';
 import type { BlockscoutHolder } from '../../src/lib/holders';
 import { computeDistribution } from '../../src/lib/holders';
-import { recheckContracts } from '../../src/lib/holders/chain';
+import { readPoolsShare, recheckContracts } from '../../src/lib/holders/chain';
+import { checkLiquidity, quietFor, toMarketState } from '../../src/lib/market';
+import type { TokenReport } from '../../src/lib/contracts';
+import { toFacts } from '../../src/lib/facts';
 import type { ReportFacts } from '../../src/lib/facts';
-import { buildGlance } from '../../src/lib/glance';
+import { buildGlance, usdShort } from '../../src/lib/glance';
 
 /**
  * Regressions from the second audit of displayed facts, re-derived from the
@@ -720,5 +723,106 @@ describe('record: the span is said of the launches it rests on (bug 9)', () => {
     expect(buildGlance({ facts: f, timeline })!.items.find((i) => i.id === 'record')?.title).toBe(
       'This creator launched 80 tokens; the 40 read in detail came in 24 days.',
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Listed liquidity checked against the chain (bug 8), and market wording (bug 10)
+
+describe('market: a listed liquidity the chain contradicts is not liquidity (bug 8)', () => {
+  const MOON = '0xa472318678664cc67ffdf111fe48beb36e69f95f';
+  // DexScreener's answer for MOON on 17/10/2026, 23:24 UTC (audit ds_ file).
+  const pairs = [
+    {
+      pairAddress: '0x87236799e460f88e89f6d1b03d6c7faa07fdb0f6f1a131f23a4183530b188956',
+      baseToken: { address: MOON },
+      priceUsd: '0.0000853',
+      liquidity: { usd: 61890.98, base: 475384426, quote: 8.8277 },
+      txns: {
+        m5: { buys: 0, sells: 0 },
+        h1: { buys: 0, sells: 0 },
+        h6: { buys: 601, sells: 391 },
+        h24: { buys: 601, sells: 391 },
+      },
+      volume: { h24: 337400.56, h6: 337400.56, h1: 0, m5: 0 },
+      fdv: 85309,
+    },
+  ];
+
+  it('MOON: pools holding 0.002 % of the supply make the $61.9k listed not current', async () => {
+    // The creator removed 100 % of the liquidity 25 minutes after launch
+    // (ModifyLiquidity, block 91,212,119): the PoolManager holds 0.002 %.
+    const balances: Record<string, bigint> = { supply: 10n ** 27n, pm: 2n * 10n ** 22n };
+    const rpc = {
+      async call() {
+        throw new Error('not used');
+      },
+      async callBatch(requests: { params: [{ data: string }] }[]) {
+        return requests.map((r) => ({
+          ok: true,
+          value: `0x${(r.params[0].data === '0x18160ddd' ? balances.supply! : balances.pm!).toString(16)}`,
+        }));
+      },
+    } as unknown as RpcClient;
+    const poolsShare = await readPoolsShare(rpc, MOON, [POOL_MANAGER]);
+    expect(poolsShare).toBeCloseTo(0.00002, 6);
+    const market = checkLiquidity(toMarketState(MOON, pairs), poolsShare);
+    expect(market.data.quiet).toEqual({ hours: 1 });
+    expect(market.data.liquidityCheck).toEqual({ poolsShare, current: false });
+    const facts = toFacts({
+      token: MOON,
+      collectedAt: '2026-10-17T23:24:09.128Z',
+      creator: {
+        completeness: 'unavailable',
+        sources: [],
+        data: {
+          creator: '0x',
+          tokens: [],
+          counts: {
+            launched: 0,
+            graduated: 0,
+            abandoned: 0,
+            undetermined: 0,
+            liquidityPulled: 0,
+            creatorDumped: 0,
+          },
+          scannedRange: { fromBlock: 0, toBlock: 0 },
+        },
+      },
+      holders: {
+        completeness: 'unavailable',
+        sources: [],
+        data: {
+          token: MOON,
+          countedSupply: '0',
+          holderCount: null,
+          top: [],
+          concentration: { top1: 0, top10: 0 },
+          distinctTraders: null,
+        },
+      },
+      market,
+      completeness: 'partial',
+    } as TokenReport);
+    expect(facts.market.liquidityUsd).toBeNull();
+    const item = buildGlance({ facts })!.items.find((i) => i.id === 'market');
+    expect(item).toMatchObject({ tone: 'attention' });
+    expect(item?.title).toBe(
+      'Its pools hold <0.1% of the supply today: the $61.9k of liquidity DexScreener lists is not current. No trade in the last hour.',
+    );
+  });
+
+  it('a pair traded in the last five minutes is not quiet', () => {
+    expect(
+      quietFor({ m5: { buys: 1 }, h1: { buys: 3 }, h6: { buys: 5 }, h24: { buys: 9 } }),
+    ).toBeNull();
+  });
+});
+
+describe('wording: market figures and launchpad names (bug 10)', () => {
+  it('says $7.3M, not $7279.8k', () => {
+    expect(usdShort(7_279_812)).toBe('$7.3M');
+    expect(usdShort(253_700)).toBe('$253.7k');
+    expect(usdShort(337)).toBe('$337');
   });
 });

@@ -52,6 +52,19 @@ export type MarketStateData = {
   pairCreatedAt: string | null;
   /** Present only when the indexer counted the launch pool's trades. */
   activity?: PoolActivity;
+  /**
+   * How long since the last trade, at least: no trade in the last `hours`,
+   * from the pair's trade counts per window (or the indexer's last trade).
+   * `null` when a trade came in the last five minutes; absent when unknown.
+   */
+  quiet?: { hours: number } | null;
+  /**
+   * The listed liquidity checked against the chain: the part of the supply
+   * the token's pools hold today. Under 1 %, the figure DexScreener gives is
+   * not current (MOON: 100 % of the liquidity removed 25 minutes after
+   * launch, $61.9k still listed), and it is not shown as liquidity.
+   */
+  liquidityCheck?: { poolsShare: number; current: boolean };
 };
 
 export type MarketState = Sourced<MarketStateData>;

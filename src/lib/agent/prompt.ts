@@ -198,7 +198,19 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
   }
   const m = report.market.data;
   lines.push(`Prix : ${m.priceUsd === null ? 'inconnu' : `${m.priceUsd} USD`}`);
-  lines.push(`Liquidité : ${m.liquidityUsd === null ? 'inconnue' : `${m.liquidityUsd} USD`}`);
+  if (m.liquidityCheck && !m.liquidityCheck.current && m.liquidityUsd !== null) {
+    // A removal is on chain at once; the listed figure can lag it by hours.
+    lines.push(
+      `Liquidité : DexScreener annonce ${m.liquidityUsd} USD, MAIS les pools du token ne détiennent que ${(m.liquidityCheck.poolsShare * 100).toFixed(4)} % de son offre sur la chaîne aujourd’hui : ce chiffre n’est pas à jour. Ne le présente jamais comme de la liquidité, ni comme rassurant.`,
+    );
+  } else {
+    lines.push(`Liquidité : ${m.liquidityUsd === null ? 'inconnue' : `${m.liquidityUsd} USD`}`);
+  }
+  if (m.quiet) {
+    lines.push(
+      `Aucun échange depuis au moins ${m.quiet.hours} h : ne dis pas que les échanges sont actifs sans le préciser.`,
+    );
+  }
   if (m.graduation) {
     lines.push(
       `Graduation : ${(m.graduation.progress * 100).toFixed(2)} % du seuil de ${m.graduation.thresholdEth} ETH` +

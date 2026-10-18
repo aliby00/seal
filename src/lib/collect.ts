@@ -29,8 +29,20 @@ import type {
 import { IncompleteDataError, NotFoundError, RateLimitError, SealError } from './errors';
 import { createBudget, type RequestBudget } from './http';
 import { fetchHolderDistribution } from './holders';
-import { fetchHoldersFromChain, findFirstMint, recheckContracts } from './holders/chain';
-import { fetchPairs, toMarketState, venuesOf, type DexScreenerPair } from './market';
+import {
+  fetchHoldersFromChain,
+  findFirstMint,
+  readPoolsShare,
+  recheckContracts,
+} from './holders/chain';
+import {
+  checkLiquidity,
+  fetchPairs,
+  toMarketState,
+  venuesOf,
+  type DexScreenerPair,
+} from './market';
+import { POOL_MANAGER } from './chain/pools';
 import { log } from './logger';
 import { TtlCache } from './cache';
 import { indexer } from './indexer/client';
@@ -69,6 +81,8 @@ export const RPC_BUDGET = 40;
 /** Blockscout pages, or RPC requests when holders are rebuilt from transfers. */
 export const HOLDERS_BUDGET = 20;
 export const MARKET_BUDGET = 4;
+/** One batch of balances: what the token's pools hold today. */
+const POOLS_BUDGET = 2;
 /** One batch of codes: the largest holders Blockscout calls contracts, re-read. */
 const RECHECK_BUDGET = 2;
 /**
@@ -514,7 +528,27 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
         })
       : Promise.resolve(undefined);
 
-  const [holders, marketRead, launchReplay] = await Promise.all([
+  // What the token's pools hold today, against what DexScreener lists: a
+  // removal is on chain at once, the listed liquidity can lag it by hours.
+  const poolsShare =
+    latest > 0
+      ? settled(
+          readPoolsShare(
+            createRpcClient(options.rpcUrl, createBudget(POOLS_BUDGET)),
+            address,
+            // Every market the token trades on: its pairs, its curve, the v4 PoolManager.
+            [
+              ...setAside
+                .filter((s) => s.role === 'pool' || s.role === 'curve')
+                .map((s) => s.address),
+              POOL_MANAGER,
+            ],
+          ),
+          () => null,
+        )
+      : Promise.resolve(null);
+
+  const [holders, marketRead, launchReplay, pooledNow] = await Promise.all([
     settled<HolderDistribution>(
       readHolders(),
       (error) =>
@@ -547,10 +581,14 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
         }) as MarketState,
     ),
     replay,
+    poolsShare,
   ]);
 
   // No listed pair: the launch pool's own trades, counted by the indexer.
-  const market = withPoolActivity(marketRead, await indexedToken, collectedAt);
+  const market = checkLiquidity(
+    withPoolActivity(marketRead, await indexedToken, collectedAt, now),
+    pooledNow,
+  );
 
   const completeness = combineCompleteness([
     chain.completeness,

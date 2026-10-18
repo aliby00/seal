@@ -91,6 +91,14 @@ export type ReportFacts = {
     fdvUsd: number | null;
     graduation: { progress: number; thresholdEth: number; graduated: boolean } | null;
     /**
+     * The liquidity DexScreener lists while the token's pools hold under 1 %
+     * of its supply on chain: not current, so `liquidityUsd` is null and this
+     * says what was listed. Absent when the listed figure matches the chain.
+     */
+    staleLiquidity?: { listedUsd: number; poolsShare: number };
+    /** No trade in the last this many hours; null when trades are recent; absent when unknown. */
+    quietHours?: number | null;
+    /**
      * Trades counted by the SEAL indexer from the launch pool's own swaps, when
      * no listed pair gives them. No price: counts, and volume in ETH.
      */
@@ -146,6 +154,8 @@ function graduationOf(
 export function toFacts(report: TokenReport): ReportFacts {
   const { creator, holders, market } = report;
   const tokens = creator.data.tokens;
+  // A listed liquidity the chain contradicts is not shown as liquidity.
+  const stale = market.data.liquidityCheck?.current === false;
   const own = tokens.find((t) => String(t.address).toLowerCase() === report.token.toLowerCase());
   const checked = tokens.filter((t) => t.creatorDumped !== null || t.liquidityPulled !== null);
   const note = (sources: { note?: string }[]) => sources.find((s) => s.note)?.note;
@@ -200,7 +210,18 @@ export function toFacts(report: TokenReport): ReportFacts {
       measured: market.completeness !== 'unavailable',
       note: note(market.sources),
       priceUsd: market.data.priceUsd,
-      liquidityUsd: market.data.liquidityUsd,
+      liquidityUsd: stale ? null : market.data.liquidityUsd,
+      ...(stale && market.data.liquidityUsd !== null && market.data.liquidityCheck
+        ? {
+            staleLiquidity: {
+              listedUsd: market.data.liquidityUsd,
+              poolsShare: market.data.liquidityCheck.poolsShare,
+            },
+          }
+        : {}),
+      ...(market.data.quiet !== undefined
+        ? { quietHours: market.data.quiet === null ? null : market.data.quiet.hours }
+        : {}),
       volume24hUsd: market.data.volumeUsd?.h24 ?? null,
       buys24h: market.data.txns?.h24.buys ?? null,
       sells24h: market.data.txns?.h24.sells ?? null,

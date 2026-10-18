@@ -318,18 +318,42 @@ function launchBuysItem(launch: LaunchReplayData | undefined): GlanceItem | null
   };
 }
 
+/** "$337", "$61.9k", "$7.3M": a figure a reader takes in at once. */
+export function usdShort(value: number): string {
+  if (value >= 999_950) return `$${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1000) return `$${(value / 1000).toFixed(1)}k`;
+  return `$${value.toFixed(0)}`;
+}
+
+/** "the last hour", "the last 3 hours", or nothing when a trade is recent or unknown. */
+function quietWords(hours: number | null | undefined): string {
+  if (hours === null || hours === undefined) return '';
+  return hours === 1 ? 'the last hour' : `the last ${hours} hours`;
+}
+
 function marketItem(market: ReportFacts['market']): GlanceItem | null {
+  // A liquidity the chain contradicts comes first: shown as liquidity, it
+  // read as reassuring while the pools held almost nothing.
+  if (market.measured && market.staleLiquidity) {
+    const quiet = quietWords(market.quietHours);
+    return {
+      id: 'market',
+      tone: 'attention',
+      figure: pct(market.staleLiquidity.poolsShare),
+      title: `Its pools hold ${pct(market.staleLiquidity.poolsShare)} of the supply today: the ${usdShort(market.staleLiquidity.listedUsd)} of liquidity DexScreener lists is not current.${quiet ? ` No trade in ${quiet}.` : ''}`,
+      detail: 'Pool balances read on chain, against the listed trading pair.',
+      href: '#fact-market',
+    };
+  }
   if (market.measured && market.volume24hUsd !== null) {
     const trades = (market.buys24h ?? 0) + (market.sells24h ?? 0);
-    const usd =
-      market.volume24hUsd >= 1000
-        ? `$${(market.volume24hUsd / 1000).toFixed(1)}k`
-        : `$${market.volume24hUsd.toFixed(0)}`;
+    const usd = usdShort(market.volume24hUsd);
+    const quiet = trades > 0 ? quietWords(market.quietHours) : '';
     return {
       id: 'market',
       tone: 'neutral',
       figure: usd,
-      title: `${usd} traded in the last 24 hours${trades > 0 ? `, over ${plural(trades, 'trade')}` : ''}.`,
+      title: `${usd} traded in the last 24 hours${trades > 0 ? `, over ${plural(trades, 'trade')}` : ''}${quiet ? `, none in ${quiet}` : ''}.`,
       detail: 'From the token’s listed trading pair.',
       href: '#fact-market',
     };
