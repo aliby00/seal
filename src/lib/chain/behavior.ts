@@ -71,8 +71,12 @@ export async function detectCreatorSales(
   creator: Address,
   tokens: readonly BehaviorTarget[],
   window: BehaviorWindow,
-  /** Filled with the creator's transfers read, for a caller that counts their recipients. */
-  read?: { logs: RawLog[]; truncated: boolean },
+  /**
+   * Filled with the creator's transfers read, for a caller that counts their
+   * recipients; `through`, the transactions in which a recipient only passed
+   * the token on to a market that traded (a router of a sale).
+   */
+  read?: { logs: RawLog[]; truncated: boolean; through?: Set<string> },
   /** The analysed token: its routed transactions are read first. */
   focus?: string,
 ): Promise<Map<string, boolean>> {
@@ -115,14 +119,18 @@ export async function detectCreatorSales(
   const pools = new Set([...poolOf.values(), POOL_MANAGER.toLowerCase()]);
   const marketsOf = (token: string): ReadonlySet<string> =>
     new Set([poolOf.get(token) ?? '', POOL_MANAGER.toLowerCase()].filter(Boolean));
+  const passing = { through: new Set<string>(), unread: new Set<string>() };
   const [natures, routed] = await Promise.all([
     intoPool.size > 0
       ? readTxNatures(rpc, [...intoPool.values()].flat(), pools).catch(
           () => new Map<string, never>(),
         )
       : Promise.resolve(new Map<string, never>()),
-    findRoutedSales(rpc, creator, elsewhere, marketsOf, SWAP_TOPICS, focus),
+    findRoutedSales(rpc, creator, elsewhere, marketsOf, SWAP_TOPICS, focus, passing),
   ]);
+  if (read) read.through = passing.through;
+  // A transfer whose receipt was asked and not read could have been a sale.
+  for (const token of passing.unread) if (!routed.has(token)) result.delete(token);
   for (const [token, hashes] of intoPool) {
     const read = hashes.map((h) => natures.get(h));
     if (read.includes('swap')) result.set(token, true);
@@ -282,7 +290,8 @@ export function creatorSendsOf(
     .sort((a, b) => (b[1] > a[1] ? 1 : b[1] < a[1] ? -1 : 0))
     .slice(0, CREATOR_SENDS_LISTED)
     .map(([address, value]) => ({ address, value: value.toString() }));
-  return { recipients, distinct: sent.size, burned: burned.toString() };
+  const total = [...sent.values()].reduce((n, v) => n + v, 0n);
+  return { recipients, distinct: sent.size, burned: burned.toString(), total: total.toString() };
 }
 
 /** Distinct addresses `creator` sent the token to, outside the markets and burn addresses. */

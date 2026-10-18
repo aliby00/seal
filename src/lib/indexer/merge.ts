@@ -89,6 +89,7 @@ export function withPoolActivity(
         d7: windowOf(stats.stats.d7),
         sinceLaunch: { ...windowOf(stats.stats.sinceLaunch), complete: stats.sinceLaunchComplete },
         creatorTraded: stats.creatorTraded.traded,
+        creatorTrades: { buys: stats.creatorTraded.buys, sells: stats.creatorTraded.sells },
       },
       ...(idleHours !== null ? { quiet: idleHours >= 1 ? { hours: idleHours } : null } : {}),
     },

@@ -46,6 +46,12 @@ export type LaunchedToken = {
    * read; absent when the market's liquidity events were not read.
    */
   feesCollected?: boolean | null;
+  /**
+   * What the market's trading rules (hooks) paid out to the creator over the
+   * token's life, after its launch block: its fees, as a share of the supply.
+   * The analysed token only; absent when none was seen or not read.
+   */
+  feesTaken?: { share: number; transfers: number; hooks: string[] };
   /** What the creator sent of this token outside its markets (the analysed token only). */
   creatorSends?: CreatorSends | null;
 };
@@ -62,6 +68,8 @@ export type CreatorSends = {
   distinct: number;
   /** Sent to the zero or the 0x…dead address. */
   burned: string;
+  /** Everything sent to the recipients, burn excluded. Absent from histories cached before. */
+  total?: string;
 };
 
 /** Recipients of the creator kept by amount. */

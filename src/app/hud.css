@@ -1682,6 +1682,15 @@ tr[data-kind='withdraw'] .launch-kind::before {
   font-size: 15px;
   line-height: 1.45;
 }
+.glance-partial {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 2px solid var(--hud-amber);
+  border-radius: 8px;
+  background: rgb(255 200 87 / 0.08);
+  font-size: 13.5px;
+  color: var(--hud-text);
+}
 .glance-unseen {
   margin: 0;
   font-size: 13.5px;

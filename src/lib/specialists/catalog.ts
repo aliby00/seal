@@ -11,6 +11,8 @@ import {
   quoteName,
 } from './names';
 import { SERVICE_TX_COUNT, type FunderKind } from '../chain/funder-kind';
+import { mostHoldersFromCreator } from '../contracts/holders';
+import { readFailed } from '../failed-reads';
 import type {
   Finding,
   FundingDisplay,
@@ -169,8 +171,14 @@ const walletAge: Specialist = {
     const launched =
       creator && creator.completeness !== 'unavailable' ? creator.data.counts.launched : undefined;
     const facts = [`The creator wallet has sent ${creatorNonce} transaction(s) in total.`];
+    // A count from a listing that failed is a minimum, said as one.
+    const unread = readFailed(report?.failedReads, 'creator-launches');
     if (launched !== undefined)
-      facts.push(`It launched ${launched} token(s) in the scanned range.`);
+      facts.push(
+        unread
+          ? `It launched at least ${launched} token(s); some of its launches could not be read this time.`
+          : `It launched ${launched} token(s) in the scanned range.`,
+      );
     if (creatorNonce <= FRESH_WALLET_NONCE) {
       facts.push('This launch is among the very first actions of that wallet.');
       return finding('wallet-age', 'concern', facts, [], ['funding-trace']);
@@ -181,6 +189,8 @@ const walletAge: Specialist = {
 
 const plural = (n: number, word: string) =>
   `${n.toLocaleString('en-US')} ${word}${n === 1 ? '' : 's'}`;
+/** "1 address", "10100 addresses": the count as the data gives it. */
+const addresses = (n: number) => `${n} ${n === 1 ? 'address' : 'addresses'}`;
 
 /** A Blockscout contract name is chosen by its deployer: quoted as data, like a token name. */
 const contractName = (name: string | null | undefined): string =>
@@ -443,20 +453,30 @@ const holderSpread: Specialist = {
       (t) => String(t.address).toLowerCase() === token.toLowerCase(),
     );
     const fromCreator = own?.creatorRecipients ?? null;
-    const airdropped =
-      fromCreator !== null &&
-      count !== null &&
-      count > 0 &&
-      fromCreator > 0 &&
-      fromCreator >= count / 2;
+    const airdropped = mostHoldersFromCreator(fromCreator, count);
+    const links = holders.data.creatorLinks;
     if (airdropped) {
       facts.push(
-        `The creator sent this token directly to ${fromCreator} addresses: most of the holders received it from the creator rather than buying it.`,
+        `The creator sent this token directly to ${addresses(fromCreator ?? 0)}: most of the holders received it from the creator rather than buying it.`,
+      );
+    } else if (fromCreator !== null && fromCreator > 0) {
+      // Every recipient, or their count and total: "the only transfer" must
+      // not be readable into a list that leaves one out (WAFER).
+      const listed = links?.recipients ?? [];
+      const total =
+        links?.sentShare !== undefined
+          ? `, ${pctBounded(links.sentShare)} of the supply in all`
+          : '';
+      const named =
+        listed.length > 0
+          ? `: ${listed.map((r) => `${r.address} (${pctBounded(r.share)}${r.listed ? ', still a holder' : ''})`).join(', ')}${fromCreator > listed.length ? `, and ${fromCreator - listed.length} more` : ''}`
+          : '';
+      facts.push(
+        `Outside its markets and burn addresses, the creator sent this token directly to ${addresses(fromCreator)}${total}${named}.`,
       );
     }
     // Who among today's holders received from the creator: said, not left
     // to be guessed (AGEM, moon, DELTA: the largest holder did).
-    const links = holders.data.creatorLinks;
     if (links) {
       const linked = holders.data.top.filter((h) => h.fromCreator);
       for (const h of linked.slice(0, 3)) {
@@ -509,7 +529,26 @@ const creatorHistory: Specialist = {
       creator.completeness === 'partial'
         ? [creator.sources.find((s) => s.note)?.note ?? 'partial history']
         : [];
+    // A listing that failed this time leaves the other launches unknown:
+    // never "no other launch" (AI: said of a creator with 80).
+    const unread = readFailed(report?.failedReads, 'creator-launches');
+    if (unread) {
+      const why = report?.failedReads?.find((f) => f.read === 'creator-launches')?.note;
+      limits.splice(0, limits.length, ...(why ? [why] : []));
+      limits.push('some of the creator’s launches could not be read this time: there may be more');
+    }
     if (others.length === 0) {
+      if (unread) {
+        return finding(
+          'creator-history',
+          'unknown',
+          [],
+          [
+            'whether the creator launched other tokens could not be read this time',
+            ...limits.slice(0, 1),
+          ],
+        );
+      }
       return finding(
         'creator-history',
         'quiet',
@@ -688,7 +727,15 @@ const liquidityMove: Specialist = {
     }
     // Fees taken out of the market's position are tokens the creator
     // withdrew from it, without removing the liquidity itself.
-    if (self?.feesCollected === true) {
+    const taken = self?.feesTaken;
+    if (taken && taken.transfers > 0) {
+      // Summed over every transfer the market's trading rules made to the
+      // creator, whenever it came (MEME: 28 transfers, 0.52 %).
+      facts.push(
+        `The creator received ${pctBounded(taken.share)} of the supply from the market’s trading rules (hook) ${taken.hooks.join(', ')}, in ${plural(taken.transfers, 'transfer')}: trading fees taken out of the market without removing its liquidity.`,
+      );
+      if (signal === 'quiet' || signal === 'unknown') signal = 'observation';
+    } else if (self?.feesCollected === true) {
       facts.push(
         'The creator collected trading fees from this token’s liquidity position, taking tokens out of the market without removing its liquidity.',
       );
@@ -716,7 +763,17 @@ const ruleChange: Specialist = {
   run({ market, hookCode, report }: SpecialistContext): Finding {
     if (!market) return unknown('rule-change', noV4Market(report));
     if (market.hook === NATIVE) {
-      return finding('rule-change', 'quiet', ['There are no trading rules (hook) to rewrite.']);
+      // Only the absence of a hook is checked: the token's own contract may
+      // still be upgradeable or carry an owner's powers (MEME's text read
+      // "nothing can be rewritten later" into this).
+      return finding(
+        'rule-change',
+        'quiet',
+        ['This market has no trading rules (hook), so there is no hook to rewrite.'],
+        [
+          'Only the market’s trading rules are checked: whether the token’s own contract can be changed is not checked here.',
+        ],
+      );
     }
     if (!hookCode || hookCode.codeSize === null) {
       return unknown('rule-change', 'the code of the trading rules (hook) could not be read');

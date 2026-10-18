@@ -209,6 +209,14 @@
         ...label,
       },
       header(titleOf(data), common),
+      glance.partial && glance.partial.length > 0
+        ? h(
+            'p',
+            { class: 'partial', role: 'status' },
+            h('strong', {}, 'Partial report:'),
+            ` some reads failed this time (${glance.partial.join(', ')}). What they would have shown is not known. Try again in a minute.`,
+          )
+        : null,
       lead
         ? h(
             'section',

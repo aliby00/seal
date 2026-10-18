@@ -182,6 +182,21 @@ describe('configuration', () => {
   });
 });
 
+describe('a partial report (fourth audit)', () => {
+  // AI, 18/10/2026: served and cached with "no other launch" while the indexer had not answered.
+  it('is never cached when a read failed, even without a source note saying so', async () => {
+    collect.mockResolvedValue({
+      ...report,
+      creator: { ...report.creator, sources: [{ name: 'robinhood-rpc' }] },
+      failedReads: [{ read: 'creator-launches', note: 'the SEAL indexer did not answer' }],
+    });
+    explain.mockResolvedValue({ text: 'ok', cost: { costUsd: 0.01 }, violations: [] });
+    await POST(post({ token: TOKEN }));
+    await POST(post({ token: TOKEN }));
+    expect(collect).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('specialists and timeline', () => {
   it('serves the ten answers and the token name beside the explanation', async () => {
     collect.mockResolvedValue(report);
