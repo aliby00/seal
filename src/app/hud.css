@@ -250,6 +250,7 @@
   padding: 8px 4px;
   font: 500 13px/1 var(--font-body);
   letter-spacing: 0.01em;
+  word-spacing: 0.12em;
   color: var(--hud-text);
 }
 .journey-caption .caption-cue:hover {
