@@ -39,7 +39,12 @@ export function shortAnswer(answer: SpecialistAnswer): string {
     }
     case 'funding-trace': {
       const f = answer.funding;
-      if (f?.kind === 'service') return 'Funded from an exchange, bridge or router';
+      if (f?.kind === 'service') {
+        const busy = (f.path[0]?.txCount ?? 0) >= 50_000;
+        return busy
+          ? 'Funded from a high-volume service (an exchange, bridge or router)'
+          : 'Funded from a contract, which links it to no one';
+      }
       if (f?.kind === 'tool') return 'Funded through a batch-sending tool';
       if (f && f.linkedCreators > 0) {
         const launched = f.launches ? `, who launched ${count(String(f.launches))} tokens` : '';
@@ -49,9 +54,9 @@ export function shortAnswer(answer: SpecialistAnswer): string {
       break;
     }
     case 'holder-spread': {
-      const top1 = num(all, /largest holder has ([\d.]+)%/);
+      const top1 = num(all, /largest holder(?: \([^)]*\))? has ([\d.]+)%/);
       const top10 = num(all, /top 10 have ([\d.]+)%/);
-      if (top1 && top10) return `Largest wallet ${top1}% · top 10 ${top10}% (pool left out)`;
+      if (top1 && top10) return `Largest holder ${top1}% · top 10 ${top10}% (pools left out)`;
       break;
     }
     case 'creator-history': {

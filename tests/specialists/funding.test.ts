@@ -31,12 +31,12 @@ describe('funding-trace by kind of funder', () => {
     });
     expect(f.signal).toBe('quiet');
     expect(f.facts).toEqual([
-      'The creator wallet was first funded from a high-volume service (unnamed, 2,266,426 transactions), such as an exchange, bridge or router. That says nothing about who is behind the wallet.',
+      'The creator wallet was first funded from a high-volume service (2,266,426 transactions), such as an exchange, bridge or router. That says nothing about who is behind the wallet.',
     ]);
     expect(f.funding).toMatchObject({ kind: 'service', linkedCreators: 0 });
   });
 
-  it('quotes a service’s contract name as data', () => {
+  it('quotes a contract’s name as data, and never calls a low count high-volume', () => {
     const f = run({
       funder: '0xb92fe925dc43a0ecde6c8b1a2709c170ec4fff4f',
       funderKind: 'service',
@@ -44,7 +44,8 @@ describe('funding-trace by kind of funder', () => {
       funderTxCount: 12_000,
       otherCreatorsFunded: 0,
     });
-    expect(f.facts[0]).toContain('("RelayRouterV3", 12,000 transactions)');
+    expect(f.facts[0]).toContain('a contract named "RelayRouterV3"');
+    expect(f.facts[0]).not.toContain('high-volume');
   });
 
   it('follows the sender behind a batch-sending tool', () => {
@@ -148,7 +149,7 @@ describe('funding-trace by kind of funder', () => {
     expect(f.facts[0]).toBe(
       `The wallet that funded the creator (${WALLET}, 33 transactions) also funded 16 other token creators, linked through 2 funding steps. Together they launched 41 tokens.`,
     );
-    expect(f.facts[1]).toBe('Their launches by launchpad: pons: 38, flap.sh: 3.');
+    expect(f.facts[1]).toBe('Their launches: 38 on pons; 3 on flap.sh.');
     expect(f.limits[0]).toBe(
       'the funding chain could not be followed further: the first funding of 0xabcd…0001 has not been read yet',
     );
@@ -210,7 +211,7 @@ describe('the funding answer as served', () => {
       },
     });
     expect(renderSpecialists(answers).join('\n')).toMatch(
-      /financeur : service à fort volume .* ne relie ce créateur à personne/,
+      /financeur : un contrat, ou un service à fort volume .* ne relie ce créateur à personne/,
     );
     const text = offlineExplanation(makeReport(token), answers);
     expect(text).toMatch(/Funding: The creator wallet was first funded from a high-volume service/);

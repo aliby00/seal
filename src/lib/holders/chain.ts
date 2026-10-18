@@ -1,12 +1,12 @@
 import type { Address } from 'viem';
 import { TRANSFER_TOPIC } from '../chain/behavior';
-import { POOL_MANAGER } from '../chain/pools';
+import { isContractCode } from '../chain/code';
 import { getLogsBatched } from '../chain/logs';
 import type { RpcClient } from '../chain/rpc';
-import type { HolderDistribution } from '../contracts';
+import type { HolderDistribution, HolderDistributionData, SetAsideRole } from '../contracts';
 import { IncompleteDataError } from '../errors';
 import type { BlockscoutHolder } from './blockscout';
-import { computeDistribution } from './index';
+import { computeDistribution, type FetchHoldersOptions } from './index';
 
 /**
  * Holder distribution rebuilt from the token's own `Transfer` events, for when
@@ -77,6 +77,8 @@ export async function fetchHoldersFromChain(
     fromBlock: number;
     toBlock: number;
     poolAddress?: string;
+    /** Pools, curves and launch contracts: set aside, not holders. */
+    setAside?: readonly { address: string; role: SetAsideRole }[];
     now?: () => Date;
   },
 ): Promise<HolderDistribution> {
@@ -111,16 +113,22 @@ export async function fetchHoldersFromChain(
     address: {
       hash: address,
       // Only the classified ones are known; the long tail counts as wallets.
-      is_contract: i < top.length ? (codes[i]?.ok ? codes[i].value !== '0x' : false) : false,
+      // A wallet delegating under EIP-7702 has code and is still a wallet.
+      is_contract: i < top.length ? (codes[i]?.ok ? isContractCode(codes[i].value) : false) : false,
     },
     value: balance.toString(),
   }));
 
-  const pool = options.poolAddress;
-  const data = computeDistribution(token, raw, { poolAddress: pool });
-  const holderCount = held.filter(
-    ([address]) => address !== pool?.toLowerCase() && address !== POOL_MANAGER,
-  ).length;
+  const distribution: FetchHoldersOptions = {
+    ...(options.poolAddress ? { poolAddress: options.poolAddress } : {}),
+    ...(options.setAside ? { setAside: options.setAside } : {}),
+  };
+  // Every balance is here: their sum is the supply, the set-aside part is measured against it.
+  const data = computeDistribution(token, raw, distribution, {
+    holders: held.length,
+    supply: null,
+    complete: true,
+  });
 
   return {
     completeness: 'full',
@@ -131,6 +139,83 @@ export async function fetchHoldersFromChain(
         note: `computed from ${logs.length} on-chain transfers since launch`,
       },
     ],
-    data: { ...data, holderCount },
+    data,
+  };
+}
+
+/** Contracts re-read by their code, at most: Blockscout's flag is kept beyond. */
+export const RECHECKED_CONTRACTS = 25;
+
+/**
+ * Blockscout flags a wallet delegating under EIP-7702 as a contract: it has
+ * code. The largest holders it calls contracts are re-read by their code, in
+ * one batch, and a delegation turns back into a wallet. A code that could not
+ * be read keeps Blockscout's word.
+ */
+export async function recheckContracts(
+  rpc: RpcClient,
+  data: HolderDistributionData,
+  cap = RECHECKED_CONTRACTS,
+): Promise<HolderDistributionData> {
+  const flagged = [...new Set(data.top.filter((h) => h.kind === 'contract').map((h) => h.address))]
+    .slice(0, cap)
+    .map((a) => a.toLowerCase());
+  if (flagged.length === 0) return data;
+  const codes = await rpc
+    .callBatch<string>(flagged.map((a) => ({ method: 'eth_getCode', params: [a, 'latest'] })))
+    .catch(() => []);
+  const wallets = new Set(
+    flagged.filter((_, i) => {
+      const code = codes[i];
+      return code?.ok && !isContractCode(code.value);
+    }),
+  );
+  if (wallets.size === 0) return data;
+  return {
+    ...data,
+    top: data.top.map((h) =>
+      h.kind === 'contract' && wallets.has(h.address.toLowerCase()) ? { ...h, kind: 'wallet' } : h,
+    ),
+  };
+}
+
+const TOTAL_SUPPLY = '0x18160ddd';
+const BALANCE_OF = '0x70a08231';
+const DECIMALS = '0x313ce567';
+
+/** What the token's pools hold today: part of the supply, and in whole tokens. */
+export type PoolsHolding = { share: number; tokens: number };
+
+/**
+ * The part of the supply the token's pools hold today, read on chain in one
+ * batch: the total supply, the decimals and each pool's balance. `null` when
+ * any of them could not be read.
+ */
+export async function readPoolsShare(
+  rpc: RpcClient,
+  token: string,
+  pools: readonly string[],
+): Promise<PoolsHolding | null> {
+  const unique = [...new Set(pools.map((p) => p.toLowerCase()))].filter((p) => p !== '0x');
+  if (unique.length === 0) return null;
+  const outcomes = await rpc.callBatch<string>([
+    { method: 'eth_call', params: [{ to: token, data: TOTAL_SUPPLY }, 'latest'] },
+    { method: 'eth_call', params: [{ to: token, data: DECIMALS }, 'latest'] },
+    ...unique.map((pool) => ({
+      method: 'eth_call',
+      params: [{ to: token, data: `${BALANCE_OF}${pool.slice(2).padStart(64, '0')}` }, 'latest'],
+    })),
+  ]);
+  const values = outcomes.map((o) =>
+    o?.ok && typeof o.value === 'string' && /^0x[0-9a-f]+$/i.test(o.value) ? BigInt(o.value) : null,
+  );
+  if (values.some((v) => v === null)) return null;
+  const [supply, decimals, ...balances] = values as bigint[];
+  if (!supply || supply <= 0n || decimals === undefined || decimals > 36n) return null;
+  const held = balances.reduce((sum, b) => sum + b, 0n);
+  const unit = 10n ** decimals;
+  return {
+    share: Number((held * 1_000_000n) / supply) / 1_000_000,
+    tokens: Number(held / unit) + Number(held % unit) / Number(unit),
   };
 }

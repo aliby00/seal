@@ -1,13 +1,35 @@
 import type { Sourced } from './completeness';
 
+/**
+ * Why an address is set aside rather than counted as a holder: it holds
+ * tokens for trading or for the launch mechanism, not for anyone.
+ *  - `pool`: a V2 pair or V3 pool (the launch pool, a pair listed since);
+ *  - `pool-manager`: the Uniswap v4 PoolManager, holding every v4 market;
+ *  - `curve`: a launchpad's bonding curve;
+ *  - `launchpad`: a launchpad, its router or factory, or the contract the
+ *    launch transaction called;
+ *  - `locker`: a launchpad's lock contract, holding locked liquidity;
+ *  - `burn`: the zero and dead addresses.
+ */
+export type SetAsideRole = 'pool' | 'pool-manager' | 'curve' | 'launchpad' | 'locker' | 'burn';
+
 export type Holder = {
   address: string;
   balance: string;
   /** Part de l'offre en circulation, de 0 à 1. */
   share: number;
-  /** Le pool et les adresses de burn ne sont pas des détenteurs comme les autres. */
+  /**
+   * Le pool et les adresses de burn ne sont pas des détenteurs comme les
+   * autres. `pool` covers every address set aside for trading or for the
+   * launch mechanism; `role` says which.
+   */
   kind: 'wallet' | 'pool' | 'burn' | 'contract';
+  /** Present on set-aside addresses. */
+  role?: SetAsideRole;
 };
+
+/** One address set aside, with its part of the whole supply (null when the supply is unknown). */
+export type SetAsideHolding = { address: string; role: SetAsideRole; share: number | null };
 
 export type HolderDistributionData = {
   token: string;
@@ -34,6 +56,8 @@ export type HolderDistributionData = {
    * que 70 % du reliquat hors pool.
    */
   pooledShare?: number | null;
+  /** The addresses set aside (pools, curves, launch contracts, burn), largest first. */
+  setAside?: SetAsideHolding[];
   /** Nombre d'adresses distinctes ayant échangé sur la période observée. */
   distinctTraders: number | null;
 };

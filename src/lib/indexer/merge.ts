@@ -1,3 +1,4 @@
+import { WRAPPED_NATIVE } from '../chain/funding';
 import type { IndexedListing, ListedLaunch } from '../chain/deployer';
 import { LAUNCHPADS, launchpadById } from '../chain/launchpads';
 import type { CreatorHistory, LaunchedToken, MarketState, PoolActivityWindow } from '../contracts';
@@ -47,8 +48,14 @@ export function withPoolActivity(
   market: MarketState,
   stats: IndexerToken | undefined,
   fetchedAt: string,
+  now: () => Date = () => new Date(),
 ): MarketState {
   if (!stats || market.data.pair !== null) return market;
+  // How long since the pool's last trade, in whole hours: "no trade in the last 3 hours".
+  const last = stats.stats.sinceLaunch.lastTradeAt
+    ? Date.parse(stats.stats.sinceLaunch.lastTradeAt)
+    : NaN;
+  const idleHours = Number.isFinite(last) ? Math.floor((now().getTime() - last) / 3_600_000) : null;
   const covered = since(stats.coveredFromAt);
   const window =
     stats.sinceLaunchComplete || !covered
@@ -83,6 +90,7 @@ export function withPoolActivity(
         sinceLaunch: { ...windowOf(stats.stats.sinceLaunch), complete: stats.sinceLaunchComplete },
         creatorTraded: stats.creatorTraded.traded,
       },
+      ...(idleHours !== null ? { quiet: idleHours >= 1 ? { hours: idleHours } : null } : {}),
     },
   };
 }
@@ -165,6 +173,9 @@ export function fundingFacts(indexed: IndexerCreator | undefined): FundingFacts 
   if (indexed.fundingState === 'none') return null;
   if (indexed.fundingState !== 'found' || !indexed.funding) return undefined;
   const f = indexed.funding;
+  // An unwrap of the creator's own WETH, stored before the indexer skipped
+  // them, is not a funding: asked again rather than shown.
+  if (f.kind === 'internal' && WRAPPED_NATIVE.includes(f.funder.toLowerCase())) return undefined;
   // An indexer that does not profile funders says nothing of their kind:
   // unknown, and never read as a wallet.
   const funderKind = f.funderKind ?? 'unknown';

@@ -1,9 +1,17 @@
-import { launchpadById } from '../chain/launchpads';
+import { launchpadProse } from '../chain/launchpads';
 import { NATIVE } from '../chain/pools';
 import { MAX_BEHAVIOR_TOKENS } from '../chain';
+import { OTHER_LAUNCH_SALES_DAYS } from '../contracts/creator';
 import { volumePerTrade } from '../market';
-import { addressesSoftware, imitatedName, normalizeName, quoteName } from './names';
-import type { FunderKind } from '../chain/funder-kind';
+import { whereSetAside } from '../set-aside';
+import {
+  addressesSoftware,
+  describeService,
+  imitatedName,
+  normalizeName,
+  quoteName,
+} from './names';
+import { SERVICE_TX_COUNT, type FunderKind } from '../chain/funder-kind';
 import type {
   Finding,
   FundingDisplay,
@@ -23,6 +31,9 @@ import type {
  */
 
 const pct = (x: number): string => `${(x * 100).toFixed(1)}%`;
+/** A share near the ends: "<0.1%" and ">99.9%" rather than "0.0%" and "100.0%". */
+const pctBounded = (x: number): string =>
+  x > 0 && x < 0.001 ? '<0.1%' : x > 0.999 && x < 1 ? '>99.9%' : pct(x);
 
 function finding(
   specialist: SpecialistId,
@@ -257,11 +268,17 @@ const fundingTrace: Specialist = {
     });
 
     if (kind === 'service') {
-      const what = `${contractName(name)}${txCount !== null ? `, ${plural(txCount, 'transaction')}` : ''}`;
+      // "High-volume" only when the count says so: a contract with 0
+      // transactions sent is a contract, and a contract links nobody.
+      const what = describeService(name, txCount);
+      const busy = txCount !== null && txCount >= SERVICE_TX_COUNT;
+      const tail = busy
+        ? ', such as an exchange, bridge or router. That says nothing about who is behind the wallet.'
+        : '. A contract is not a person: it links this creator to no one, and says nothing about who is behind the wallet.';
       facts.push(
         viaTool
-          ? `That sender is a high-volume service (${what}), such as an exchange, bridge or router. That says nothing about who is behind the wallet.`
-          : `The creator wallet was first funded from a high-volume service (${what}), such as an exchange, bridge or router. That says nothing about who is behind the wallet.`,
+          ? `That sender is ${what}${tail}`
+          : `The creator wallet was first funded from ${what}${tail}`,
       );
       return fundingFinding('quiet', facts, limits, display(0, null, 0));
     }
@@ -305,9 +322,9 @@ const fundingTrace: Specialist = {
     );
     if (walked && launches !== null && launches > 0) {
       const pads = Object.entries(walked.launchpads)
-        .map(([pad, n]) => `${launchpadById(pad)?.name ?? pad}: ${n}`)
-        .join(', ');
-      if (pads) facts.push(`Their launches by launchpad: ${pads}.`);
+        .map(([pad, n]) => `${n} on ${launchpadProse(pad)}`)
+        .join('; ');
+      if (pads) facts.push(`Their launches: ${pads}.`);
     } else if (!walked) {
       limits.push('the tokens those creators launched were not counted');
     }
@@ -389,23 +406,62 @@ const holderSpread: Specialist = {
   id: 'holder-spread',
   title: 'Holder Spread',
   question: 'How much of the supply sits in a few wallets?',
-  run({ report }: SpecialistContext): Finding {
+  run({ report, token }: SpecialistContext): Finding {
     const holders = report?.holders;
     if (!holders || holders.completeness === 'unavailable') {
       return unknown('holder-spread', holders?.sources[0]?.note ?? 'holder data not collected');
     }
     const { top1, top10 } = holders.data.concentration;
     const count = holders.data.holderCount;
+    const pooled = holders.data.pooledShare ?? null;
+    const largest = holders.data.top.find((h) => h.kind === 'wallet' || h.kind === 'contract');
+    const creator = report?.creator.data.creator.toLowerCase();
+    // What the largest holder is, said: a contract is not "a wallet".
+    const what = !largest
+      ? ''
+      : creator && largest.address.toLowerCase() === creator
+        ? ' (the creator)'
+        : largest.kind === 'contract'
+          ? ' (a contract)'
+          : ' (a wallet)';
     const facts = [
-      `The largest holder has ${pct(top1)} of counted supply; the top 10 have ${pct(top10)}.`,
+      // How much circulates at all comes first: 70 % of 1 % is not 70 % of the token.
+      ...(pooled !== null && pooled > 0
+        ? [
+            `${pctBounded(pooled)} of the whole supply sits in ${whereSetAside(holders.data.setAside)} and is left out: only ${pctBounded(1 - pooled)} is held outside ${/(curve|contract)$/.test(whereSetAside(holders.data.setAside)) ? 'it' : 'them'}.`,
+          ]
+        : []),
+      ...(largest
+        ? [
+            `The largest holder${what} has ${pct(top1)} of the supply held outside pools; the top 10 have ${pct(top10)}.`,
+          ]
+        : ['No address holds any of the supply outside pools and launch contracts.']),
       ...(count !== null ? [`${count} holder addresses in total.`] : []),
     ];
+    // Thousands of holders who were sent the token by its creator are an
+    // airdrop, not thousands of buyers: said, and never read as a spread.
+    const own = report?.creator.data.tokens.find(
+      (t) => String(t.address).toLowerCase() === token.toLowerCase(),
+    );
+    const fromCreator = own?.creatorRecipients ?? null;
+    const airdropped =
+      fromCreator !== null &&
+      count !== null &&
+      count > 0 &&
+      fromCreator > 0 &&
+      fromCreator >= count / 2;
+    if (airdropped) {
+      facts.push(
+        `The creator sent this token directly to ${fromCreator} addresses: most of the holders received it from the creator rather than buying it.`,
+      );
+    }
     const limits = [
-      'Pool and burn addresses are excluded; shares are over the holders actually fetched.',
+      'Pools, launch curves, launch contracts and burn addresses are excluded; shares are over the holders actually fetched.',
     ];
     if (top1 >= TOP1_CONCERN || top10 >= TOP10_CONCERN) {
       return finding('holder-spread', 'concern', facts, limits, ['creator-history']);
     }
+    if (airdropped) return finding('holder-spread', 'observation', facts, limits);
     if (top10 < TOP10_SPREAD && count !== null && count >= SPREAD_MIN_HOLDERS) {
       return finding('holder-spread', 'reassurance', facts, limits);
     }
@@ -444,7 +500,7 @@ const creatorHistory: Specialist = {
     const dumped = others.filter((t) => t.creatorDumped === true).length;
     const graduated = others.filter((t) => t.outcome === 'graduated').length;
     const facts = [
-      `The creator launched ${others.length} other token(s): ${graduated} graduated, ${pulled} saw liquidity removed, ${dumped} saw the creator sell into the pool (sales and removals checked on the ${MAX_BEHAVIOR_TOKENS} most recent, in the ~11 days after each launch).`,
+      `The creator launched ${others.length} other token(s): ${graduated} graduated, ${pulled} saw liquidity removed, ${dumped} saw the creator sell into the pool (sales and removals checked on the ${MAX_BEHAVIOR_TOKENS} most recent, in the first ${OTHER_LAUNCH_SALES_DAYS} days after each launch).`,
     ];
     if (pulled + dumped > 0) return finding('creator-history', 'concern', facts, limits);
     if (graduated > 0) return finding('creator-history', 'reassurance', facts, limits);
@@ -594,7 +650,7 @@ const liquidityMove: Specialist = {
       signal = 'concern';
     } else if (self?.liquidityPulled === false) {
       facts.push(
-        'No liquidity removal was observed on this token’s pool in the ~11 days after its launch.',
+        `No liquidity removal was observed on this token’s pool in the first ${OTHER_LAUNCH_SALES_DAYS} days after its launch.`,
       );
       signal = 'quiet';
     } else {

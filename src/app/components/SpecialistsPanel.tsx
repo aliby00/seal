@@ -4,13 +4,14 @@ import { useEffect, useRef, type CSSProperties } from 'react';
 import type { FunderKind } from '@/lib/chain/funder-kind';
 import type { SpecialistAnswer } from '@/lib/specialists/brief';
 import type { FundingPathStep } from '@/lib/specialists/types';
+import { describeService } from '@/lib/specialists/names';
 import { PLAIN_LABEL, shortAnswer } from '@/lib/specialists/plain';
 import { SIGNAL_LABEL } from './signal-labels';
 import { SignalIcon } from './signals';
 
 const KIND_LABEL: Record<FunderKind, string> = {
   wallet: 'wallet',
-  service: 'high-volume service',
+  service: 'service or contract',
   tool: 'batch-sending tool',
   unknown: 'not identified',
 };
@@ -28,11 +29,17 @@ function FundingPath({ path }: { path: FundingPathStep[] }) {
             <span className="funding-path-step">{i === 0 ? 'Creator funded by' : 'Funded by'}</span>{' '}
             <code title={step.address}>{shortAddress(step.address)}</code>{' '}
             <span className="funding-path-kind">
-              {KIND_LABEL[step.kind]}
-              {step.name ? ` (${step.name})` : ''}
-              {step.txCount !== null
-                ? `, ${step.txCount.toLocaleString('en-US')} transactions`
-                : ''}
+              {step.kind === 'service' ? (
+                describeService(step.name, step.txCount)
+              ) : (
+                <>
+                  {KIND_LABEL[step.kind]}
+                  {step.name ? ` (${step.name})` : ''}
+                  {step.txCount !== null
+                    ? `, ${step.txCount.toLocaleString('en-US')} transactions`
+                    : ''}
+                </>
+              )}
             </span>
             {step.via && (
               <span className="funding-path-via">

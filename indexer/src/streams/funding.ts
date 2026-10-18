@@ -86,14 +86,39 @@ export function addressUrl(
 
 class TransientError extends Error {}
 
-/** Le premier versement entrant de valeur, parmi une liste triée par bloc. */
+/**
+ * WETH on Robinhood Chain (`symbol()` = WETH, src/lib/chain/pools.ts). ETH it
+ * sends in an internal transfer is an unwrap: never a first funding.
+ */
+export const WRAPPED_NATIVE: readonly string[] = ['0x0bd7d308f8e1639fab988df18a8011f41eacad73'];
+
+/** Hashes of the transactions `creator` sent, from its normal transaction list. */
+export function sentBy(creator: string, list: readonly EtherscanTx[]): Set<string> {
+  return new Set(
+    list
+      .filter((tx) => (tx.from ?? '').toLowerCase() === creator)
+      .map((tx) => (tx.hash ?? tx.transactionHash ?? '').toLowerCase())
+      .filter((hash) => hash !== ''),
+  );
+}
+
+/**
+ * Le premier versement entrant de valeur, parmi une liste triée par bloc.
+ * Value received inside a transaction the creator sent itself (an unwrap, a
+ * sale paid in ETH) is skipped: it needed gas to send it, so it was funded
+ * before. So is ETH sent by WETH: the creator unwrapping its own.
+ */
 export function firstIncoming(
   creator: string,
   list: readonly EtherscanTx[],
+  ownTransactions: ReadonlySet<string> = new Set(),
 ): { from: string; txHash: string; block: number } | null {
   for (const tx of list) {
     if (tx.isError === '1') continue;
     if ((tx.to ?? '').toLowerCase() !== creator) continue;
+    if (tx.from && WRAPPED_NATIVE.includes(tx.from.toLowerCase())) continue;
+    const hash = (tx.hash ?? tx.transactionHash ?? '').toLowerCase();
+    if (hash && ownTransactions.has(hash)) continue;
     let value: bigint;
     try {
       value = BigInt(tx.value ?? '0');
@@ -103,7 +128,7 @@ export function firstIncoming(
     if (value <= 0n || !tx.from) continue;
     return {
       from: tx.from.toLowerCase(),
-      txHash: (tx.hash ?? tx.transactionHash ?? '').toLowerCase(),
+      txHash: hash,
       block: Number(tx.blockNumber ?? 0),
     };
   }
@@ -163,8 +188,13 @@ export function fundingStream(deps: {
     return callsToday + CALLS_PER_CREATOR <= dailyCalls;
   }
   const pick = deps.db.raw.prepare(
+    // A funding stored as an internal transfer from WETH predates the rule
+    // that an unwrap is never a funding: it is read again.
     `SELECT creator FROM launches l
-     WHERE NOT EXISTS (SELECT 1 FROM funding f WHERE f.creator = l.creator)
+     WHERE NOT EXISTS (
+       SELECT 1 FROM funding f WHERE f.creator = l.creator
+         AND NOT (f.kind = 'internal' AND f.funder IN (${WRAPPED_NATIVE.map((a) => `'${a}'`).join(', ')}))
+     )
      ORDER BY block DESC LIMIT 200`,
   );
   // Funders (and senders behind tools) never profiled, or profiled too long
@@ -228,8 +258,13 @@ export function fundingStream(deps: {
   }
 
   async function resolve(creator: string): Promise<FundingInsert> {
-    const normal = firstIncoming(creator, await list('txlist', creator));
-    const internal = firstIncoming(creator, await list('txlistinternal', creator));
+    const sent = await list('txlist', creator);
+    const normal = firstIncoming(creator, sent);
+    const internal = firstIncoming(
+      creator,
+      await list('txlistinternal', creator),
+      sentBy(creator, sent),
+    );
     const first =
       normal && internal
         ? normal.block <= internal.block
@@ -257,6 +292,16 @@ export function fundingStream(deps: {
     const counters = await get(addressUrl(address, deps.apiKey, true, deps.base), 'counters');
     const parsed = parseProfile(address, body, counters);
     if (!parsed || parsed.txCount === null) throw new Error('blockscout: unreadable profile');
+    // Blockscout flags a wallet delegating under EIP-7702 as a contract, and
+    // a contract is a service: its code says whether it is a delegation.
+    if (parsed.isContract && deps.rpc) {
+      const code = await deps.rpc
+        .call<string>('eth_getCode', [address, 'latest'])
+        .catch(() => null);
+      if (typeof code === 'string' && code.toLowerCase().startsWith('0xef0100')) {
+        return { ...parsed, isContract: false };
+      }
+    }
     return parsed;
   }
 

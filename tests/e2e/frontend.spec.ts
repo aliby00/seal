@@ -135,7 +135,7 @@ test('report draws the measured facts, says what is missing, and gives no score'
   await submit(page);
   const board = page.getByRole('region', { name: 'Measured facts' });
   await expect(board).toBeVisible();
-  await expect(board.locator('.fact-big')).toContainText('76 tokens launched');
+  await expect(board.locator('.fact-big')).toContainText('76 launches found');
   await expect(
     board.getByRole('img', { name: /Largest holder 31%, Holders 2 to 10 47%, Everyone else 22%/ }),
   ).toBeVisible();
@@ -171,7 +171,7 @@ test('report opens with the token, then gives ten plain checks, without a tally'
   // Each check has a plain name and a one-line answer.
   await expect(panel.getByText('Supply held by a few')).toBeVisible();
   await expect(
-    panel.getByText('Largest wallet 31.0% · top 10 78.0% (pool left out)'),
+    panel.getByText('Largest holder 31.0% · top 10 78.0% (pools left out)'),
   ).toBeVisible();
   // What could not be measured is gathered in one line, not spread among the answers.
   const unmeasured = panel.locator('.check-unmeasured');
