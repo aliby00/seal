@@ -135,6 +135,13 @@ export type LaunchSummary = {
     fromBundle: number | null;
     /** The trips, the creator's first, then by first buy: at most ROUND_TRIPS_LISTED. */
     listed: { address: string; boughtAt: number; soldAt: number }[];
+    /**
+     * Addresses left out of `wallets`, and why (RH: 25 counted, 27 seen on
+     * chain): bought and sold back within one single transaction, never
+     * holding the token; or bought, then put the tokens back into a pool as
+     * liquidity rather than selling. Absent from older replays.
+     */
+    excluded?: { sameTransaction: number; liquidity: number };
   };
   /** Receipts read to tell trades from liquidity changes, of those wanted. */
   receiptsRead: number;

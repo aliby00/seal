@@ -270,8 +270,10 @@ describe('renderReport : ventes et retraits du créateur', () => {
       },
     });
     expect(rendered).toContain('Creator sales into the market: of 2 launches checked, 2');
-    expect(rendered).toContain('Liquidity removals: of 2 launches checked, 1');
-    expect(rendered).toMatch(/creator sale: yes, liquidity removal: yes/);
+    expect(rendered).toContain(
+      'Liquidity removals from the launch position: of 2 launches checked, 1',
+    );
+    expect(rendered).toMatch(/creator sale: yes, liquidity removal from the launch position: yes/);
     expect(rendered).toMatch(/creator sale: not checked/);
   });
 });
