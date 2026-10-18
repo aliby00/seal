@@ -5,6 +5,7 @@ import { addressesWord, buildStory } from './launch-story';
 import { feePayerWords, whereSetAside } from './set-aside';
 import type { SpecialistAnswer } from './specialists/brief';
 import { READ_WORDS, readFailed } from './failed-reads';
+import { checkedWords, joinClauses } from './checked-sample';
 
 /**
  * The report's opening: what a reader should know in ten seconds, in plain
@@ -189,11 +190,18 @@ function salesItem(
         : checked === 1
           ? 'The creator sold into the pool on the launch checked.'
           : `The creator sold into the pool on ${sold} of ${checked} launches checked${thisOne}.`;
+  // Which launches were checked: the most recent of each launchpad, said so
+  // (AI: "0 of 10" were its ten latest Doppler launches, not its pons ones).
+  const by = (creator.checkedBy ?? []).filter((r) => r.listed > 0);
+  const which =
+    by.length > 0 && checked > 1
+      ? ` On its other launches: ${joinClauses(checkedWords(by, 'sales'))}.`
+      : '';
   return {
     id: 'sales',
     tone: sold > 0 ? 'attention' : 'reassuring',
     figure: `${sold}/${checked}`,
-    title,
+    title: `${title}${which}`,
     detail,
     href: '#fact-creator',
   };
@@ -306,6 +314,11 @@ function liquidityItem(creator: ReportFacts['creator']): GlanceItem | null {
     others > 0
       ? ` Separately, other liquidity providers took back positions of their own ${others === 1 ? 'once' : `${others} times`} on this token: not the creator’s liquidity.`
       : '';
+  const by = (creator.checkedBy ?? []).filter((r) => r.listed > 0 && r.liquidityChecked > 0);
+  const which =
+    deployer && by.length > 0 && checked > 1
+      ? ` Removals checked on its other launches: ${joinClauses(checkedWords(by, 'liquidity'))}.`
+      : '';
   return {
     id: 'liquidity',
     tone: pulled > 0 ? 'attention' : fees > 0 || feesSized ? 'neutral' : 'reassuring',
@@ -317,7 +330,7 @@ function liquidityItem(creator: ReportFacts['creator']): GlanceItem | null {
       : pulled === 0
         ? `The launch liquidity was never withdrawn on the ${plural(checked, 'launch')} checked.${feesWords}`
         : `The launch liquidity was withdrawn on ${pulled} of ${plural(checked, 'launch')} checked.${feesWords}`,
-    detail: `${deployer ? 'Removal transactions sent by the creator.' : 'Withdrawals from each launch’s own liquidity position.'}${othersWords}`,
+    detail: `${deployer ? 'Removal transactions sent by the creator.' : 'Withdrawals from each launch’s own liquidity position.'}${which}${othersWords}`,
     href: '#fact-creator',
   };
 }

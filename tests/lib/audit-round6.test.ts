@@ -327,8 +327,9 @@ describe('a long creator history within the route’s time (item 5)', () => {
       checkOthersBy: 10,
       clock: () => 0,
     });
-    // The ten most recent launches, this one among them.
-    expect(receipts).toHaveLength(9);
+    // The ten most recent other launches (all through the same launch
+    // contract), and this one.
+    expect(receipts).toHaveLength(10);
     expect(history.sources.map((s) => s.note)).not.toContain(UNREAD.otherChecks);
   });
 

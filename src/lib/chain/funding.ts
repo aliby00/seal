@@ -33,6 +33,7 @@ type EtherscanTx = {
   to?: string;
   value?: string;
   isError?: string;
+  input?: string;
 };
 
 type EtherscanAnswer = { status?: string; message?: string; result?: EtherscanTx[] | string };
@@ -277,4 +278,59 @@ export async function classifyFunding(
     effective,
     effectiveKind: kind,
   };
+}
+
+/** A transaction an address sent: its hash, block, and whether it called a contract. */
+export type SentTransaction = { hash: string; block: number; call: boolean };
+
+/** Transactions listed in one read; an address that sent more is not listed whole. */
+export const SENT_LISTED = 1_000;
+
+export function sentListUrl(address: string, apiKey: string, base = BLOCKSCOUT_BASE): string {
+  const url = new URL(`${base}/${CHAIN_ID}/api`);
+  url.searchParams.set('module', 'account');
+  url.searchParams.set('action', 'txlist');
+  url.searchParams.set('address', address);
+  url.searchParams.set('filter_by', 'from');
+  url.searchParams.set('sort', 'asc');
+  url.searchParams.set('page', '1');
+  url.searchParams.set('offset', String(SENT_LISTED));
+  url.searchParams.set('apikey', apiKey);
+  return url.toString();
+}
+
+/**
+ * Every transaction `wallet` sent, from Blockscout; `null` when it could not
+ * be read or holds more than one page. Whether the list is whole is the
+ * caller's to check, against the wallet's nonce: Blockscout may lag the head.
+ */
+export async function listSentTransactions(
+  wallet: string,
+  apiKey: string,
+  base = BLOCKSCOUT_BASE,
+): Promise<SentTransaction[] | null> {
+  try {
+    const body = await requestJson<EtherscanAnswer>(sentListUrl(wallet, apiKey, base), {
+      source: 'blockscout',
+      timeoutMs: 6_000,
+      retries: 1,
+    });
+    const list = Array.isArray(body.result)
+      ? body.result
+      : /no transactions found/i.test(body.message ?? '')
+        ? []
+        : null;
+    if (!list || list.length >= SENT_LISTED) return null;
+    const target = wallet.toLowerCase();
+    return list
+      .filter((tx) => (tx.from ?? '').toLowerCase() === target)
+      .map((tx) => ({
+        hash: (tx.hash ?? tx.transactionHash ?? '').toLowerCase(),
+        block: Number(tx.blockNumber ?? 0),
+        call: (tx.input ?? '0x1') !== '0x',
+      }))
+      .filter((tx) => tx.hash !== '');
+  } catch {
+    return null;
+  }
 }

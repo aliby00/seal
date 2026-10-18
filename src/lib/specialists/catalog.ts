@@ -1,6 +1,7 @@
 import { launchpadProse } from '../chain/launchpads';
 import { NATIVE } from '../chain/pools';
 import { OTHER_LAUNCH_SALES_DAYS } from '../contracts/creator';
+import { checkedByLaunchpad, checkedWords, joinClauses } from '../checked-sample';
 import { poolLabel, usdShort, volumePerTrade } from '../market';
 import { decodeHookPermissions, describeHookPermissions } from '../chain/hooks';
 import { feePayerWords, whereSetAside } from '../set-aside';
@@ -690,12 +691,17 @@ const creatorHistory: Specialist = {
     // this one, which ASTEROID's answer counted as "other" (10 of 10).
     const salesChecked = others.filter((t) => t.creatorDumped !== null).length;
     const liquidityChecked = others.filter((t) => t.liquidityPulled !== null).length;
+    // Which launches those are, launchpad by launchpad (AI: the ten checked
+    // were its latest Doppler launches, its pons ones, with sales, unread).
+    const by = checkedByLaunchpad(creator.data, token);
+    const which = (signal: 'sales' | 'liquidity') =>
+      by.length > 0 ? `: ${joinClauses(checkedWords(by, signal))}` : '';
     const facts = [
       `The creator launched ${others.length} other token(s): ${graduated} graduated; ` +
-        `the creator sold into the pool on ${dumped} of the ${salesChecked} checked for sales, ` +
+        `the creator sold into the pool on ${dumped} of the ${salesChecked} checked for sales${which('sales')}; ` +
         (liquidityChecked > 0
-          ? `and liquidity was removed on ${pulled} of the ${liquidityChecked} checked for removals`
-          : 'and liquidity removals could not be checked on them') +
+          ? `liquidity was removed on ${pulled} of the ${liquidityChecked} checked for removals${which('liquidity')}`
+          : 'liquidity removals could not be checked on them') +
         ` (each in the first ${OTHER_LAUNCH_SALES_DAYS} days after its launch; this token not counted).`,
     ];
     if (pulled + dumped > 0) return finding('creator-history', 'concern', facts, limits);

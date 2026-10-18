@@ -663,8 +663,10 @@ describe('no silent catch on the collection’s path', () => {
     'src/lib/chain/index.ts': 1,
     // Removal senders (unread → unknown, and said for this token), the sales
     // windows (truncated → said), the launch times (null), the natures
-    // (unread → the sale unknown, and said).
-    'src/lib/chain/deployer.ts': 5,
+    // (unread → the sale unknown, and said), the creator's own transactions,
+    // their receipts and its v3 positions' ranges (unread → no proof, the
+    // senders read as before).
+    'src/lib/chain/deployer.ts': 8,
   };
   for (const [file, allowed] of Object.entries(ALLOWED)) {
     it(`${file}: ${allowed} at most`, () => {

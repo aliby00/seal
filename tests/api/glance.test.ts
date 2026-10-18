@@ -119,7 +119,9 @@ describe('GET /api/glance', () => {
     expect(body.symbol).toBe('ALP');
     expect(body.collectedAt).toBe('2026-10-01T00:00:00.000Z');
     expect(body.glance.items[0]).toMatchObject({ id: 'sales', tone: 'attention' });
-    expect(body.glance.headline).toBe('The creator sold into the pool on 2 of 3 launches checked.');
+    expect(body.glance.headline).toBe(
+      'The creator sold into the pool on 2 of 3 launches checked. On its other launches: 2 of its 3 launches on pons.',
+    );
     expect(body.glance.unseen).toContain('who holds it');
     expect(body.url).toBe(`http://localhost/?token=${getAddress(TOKEN)}#analysis`);
     expect(body.cached).toBe(false);
