@@ -409,7 +409,7 @@ function CreatorCard({
 export function graduationLine(creator: ReportFacts['creator']): string {
   return creator.graduation === 'not-applicable'
     ? 'Graduation does not apply: this token had no launch curve to leave.'
-    : `Graduation is read for pons launches only: not measured${creator.launchpad ? ` on ${creator.launchpad}` : ' here'}.`;
+    : `Graduation is read for pons and Virtuals launches only: not measured${creator.launchpad ? ` on ${creator.launchpad}` : ' here'}.`;
 }
 
 function HoldersCard({

@@ -6,7 +6,7 @@ import { feePayerWords, whereSetAside } from './set-aside';
 import type { SpecialistAnswer } from './specialists/brief';
 import { READ_WORDS, readFailed } from './failed-reads';
 import { checkedWords, joinClauses } from './checked-sample';
-import { flowPct, flowSentence } from './supply-flow';
+import { flowHeadline } from './supply-flow';
 
 /**
  * The report's opening: what a reader should know in ten seconds, in plain
@@ -20,14 +20,19 @@ export type GlanceTone = 'attention' | 'reassuring' | 'neutral';
 export type GlanceItem = {
   id: 'flow' | 'sales' | 'record' | 'liquidity' | 'supply' | 'launch-buys' | 'market' | 'network';
   tone: GlanceTone;
-  /** The number the line is about, set large. */
-  figure: string;
+  /**
+   * The number the line is about, set large. Absent when no number carries
+   * the line ("no other launch found" is not a "1"): the sentence stands alone.
+   */
+  figure?: string;
   /** One sentence, readable on its own. */
   title: string;
   /** Where the figure comes from, in a few words. */
   detail: string;
   /** The section that shows it in full. */
   href: string;
+  /** A read that failed: said, after the findings, never as the first line. */
+  unread?: true;
 };
 
 export type Glance = {
@@ -136,8 +141,8 @@ function salesItem(
     return {
       id: 'sales',
       tone: 'neutral',
-      figure: '?',
       title: 'Whether the creator sold this token could not be read this time.',
+      unread: true,
       detail: 'The read of the creator’s transfers did not complete; try again in a minute.',
       href: '#fact-creator',
     };
@@ -222,7 +227,7 @@ function recordItem(
     return {
       id: 'record',
       tone: 'neutral',
-      figure: creator.launched > 1 ? `${creator.launched}+` : '?',
+      ...(creator.launched > 1 ? { figure: `${creator.launched}+` } : { unread: true as const }),
       title:
         creator.launched > 1
           ? `This creator launched at least ${plural(creator.launched, 'token')}; some of the places their launches are listed could not be read this time.`
@@ -239,7 +244,6 @@ function recordItem(
     return {
       id: 'record',
       tone: 'neutral',
-      figure: '1',
       title: `No other launch by this creator was found on the launchpads SEAL can list${unlisted}.`,
       detail: 'Their launch record on chain, this token included.',
       href: '#fact-creator',
@@ -253,7 +257,7 @@ function recordItem(
       ? ` ${span.words}`
       : `; the ${span.dated} read in detail came ${span.words}`
     : '';
-  // Graduation is read on pons only: elsewhere, saying none graduated would
+  // Graduation is read on pons and Virtuals only: elsewhere, saying none graduated would
   // state what was never looked at.
   const graduated =
     creator.detailed === 0 || (creator.graduation ?? 'measured') !== 'measured'
@@ -418,8 +422,9 @@ function supplyItem(facts: ReportFacts, launch: LaunchReplayData | undefined): G
           ? 'One contract'
           : 'One wallet';
   const locks = (facts.holders.setAside ?? []).filter((s) => s.role === 'vesting');
+  // The lock is the summary's first line when the flow is drawn: not said twice.
   const lockWords =
-    locks.length > 0
+    locks.length > 0 && !facts.supplyFlow
       ? ` ${pct(locks.reduce((n, l) => n + (l.share ?? 0), 0))} of the supply sits in ${locks.length === 1 ? (locks[0]!.name ?? 'a vesting lock') : `${locks.length} vesting locks`}, left out: it cannot be sold before it unlocks.`
       : '';
   return {
@@ -438,23 +443,23 @@ function supplyItem(facts: ReportFacts, launch: LaunchReplayData | undefined): G
 const capitalized = (words: string) => words.charAt(0).toUpperCase() + words.slice(1);
 
 /**
- * Where the supply went at launch, by role, in one line: the first thing to
+ * Where the supply went at launch, in one short sentence: the first thing to
  * know about a launch that handed its supply out (SIRIUS: "Launched on
- * Virtuals. At launch, 50% of the supply went to Virtuals’ launch curve, and
- * 50% to Virtuals’ reserve wallet, which passed it all on…").
+ * Virtuals: 28.6% locked for the creator until 2028, 18% held by Virtuals’
+ * ACF wallet"). The drawing below carries the detail.
  */
 function flowItem(facts: ReportFacts): GlanceItem | null {
   const flow = facts.supplyFlow;
   if (!flow) return null;
-  const market = new Set(['pool', 'curve', 'launchpad']);
-  const handed = flow.roots.filter((r) => !market.has(r.kind)).reduce((n, r) => n + r.received, 0);
+  const { figure, sentence, share, creatorKept } = flowHeadline(flow, facts.creator.address);
+  // Nothing worth a first line: the other findings lead.
+  if (share < 0.01) return null;
   return {
     id: 'flow',
-    tone: 'neutral',
-    figure: flowPct(handed),
-    title: flowSentence(flow, facts.creator.address),
-    detail:
-      'Where the supply went in the launch’s first minutes, and what each address holds today.',
+    tone: creatorKept && share >= 0.05 ? 'attention' : 'neutral',
+    figure,
+    title: sentence,
+    detail: 'Where the supply went at launch, drawn below with what each address holds today.',
     href: '#supply-flow',
   };
 }
@@ -655,7 +660,14 @@ export function buildGlance({ facts, timeline, launch, specialists }: GlanceInpu
     ...(flow ? [flow] : []),
     ...candidates
       .map((item, i) => ({ item, i }))
-      .sort((a, b) => ORDER[a.item.tone] - ORDER[b.item.tone] || a.i - b.i)
+      .sort(
+        (a, b) =>
+          Number(Boolean(a.item.unread)) - Number(Boolean(b.item.unread)) ||
+          ORDER[a.item.tone] - ORDER[b.item.tone] ||
+          // A line with a measured figure before one without, within a tone.
+          Number(!a.item.figure) - Number(!b.item.figure) ||
+          a.i - b.i,
+      )
       .slice(0, MAX_ITEMS - (flow ? 1 : 0))
       .map(({ item }) => item),
   ];

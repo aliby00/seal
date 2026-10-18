@@ -129,7 +129,9 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
       );
     }
     lines.push(
-      'Graduation is read on pons only: what became of these launches (graduated, abandoned) is not measured here. Do not present it as known.',
+      c.origin.graduationRead
+        ? `Graduation, read from the Virtuals launchpad’s own Graduated event: ${c.tokens.filter((t) => t.outcome === 'graduated').length} of the ${c.tokens.length} launches read in detail graduated to an open market.`
+        : 'Graduation is read on pons and Virtuals only: what became of these launches (graduated, abandoned) is not measured here. Do not present it as known.',
     );
   } else {
     if (c.origin?.transactionCount !== null && c.origin?.transactionCount !== undefined) {

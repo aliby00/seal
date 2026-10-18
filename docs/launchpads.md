@@ -201,6 +201,25 @@ Rien n'est réclamé (`calculateAmountClaimable` = 0). Le gestionnaire du verrou
 échéanciers et retirer le dépôt (`isCancelable`, `isWithdrawable`) : le verrou
 tient à Virtuals, pas au seul code.
 
+**La graduation** se lit à l'événement du launchpad lui-même :
+`Graduated(address indexed token, address agentToken)` (`0x381d54fa…7e07e`).
+SIRIUS a gradué au bloc 70 428 026 (23/09/2026, tx `0x1b082665…`). Dans
+cette transaction, la paire de courbe rend ce qu'elle tient (15,1 %) au
+launchpad, qui en envoie 10,47 % à la paire Uniswap v2 (via le contrat du
+token) et 4,45 % au portefeuille `graduationExcessBurnWallet()` de la
+configuration, `0xaea2…2aa9` : les tokens adossés à la liquidité VIRTUAL
+fictive de la courbe (`_openTradingOnUniswap` de `BondingV5.sol`). Malgré son
+nom, ce portefeuille n'a rien brûlé pour SIRIUS : il a passé ces 4,45 % en 14
+parts égales de 0,318 % à un contrat de réclamation Merkle `0x6da0…c744`
+(`merkleRoot()`, `claim(address,uint256,bytes32,bytes32[])`,
+`cumulativeClaimed`), d'où 24 adresses ont réclamé. Le reste de la courbe,
+environ 35,1 %, a été acheté sur la courbe avant la graduation. SEAL lit la
+graduation de chaque lancement Virtuals du créateur (une requête sur le
+launchpad, filtrée par les tokens), et pour le token analysé la transaction
+de graduation : le flux de l'offre montre alors la branche de la courbe
+entière (acheté sur la courbe, versé à la paire, versé au portefeuille
+d'excédent).
+
 **ACF n'est pas ACP.** ACF (Automated Capital Formation) est le module de
 lancement qui réserve 50 % : 25 % vendus par Virtuals via des pools successifs
 de 2 M$ à 160 M$ de FDV, le produit allant aux fondateurs, et 25 % d'équipe
@@ -251,8 +270,8 @@ même lancement sont fusionnés. Les ventes sur la courbe se reconnaissent au
   après le lancement (paires DexScreener, identifiant v4 de l'événement) sont
   inclus.
 - **Rejeu du lancement** : la courbe et les paires comptent comme « pool ».
-- **Graduation** : lue sur pons seulement ; ailleurs « non mesurée », ou « ne
-  s'applique pas » sans courbe.
+- **Graduation** : lue sur pons et sur Virtuals (événement `Graduated`) ;
+  ailleurs « non mesurée », ou « ne s'applique pas » sans courbe.
 - **Indexeur** : colonne `launchpad`, un curseur par contrat, `/v1/coverage`.
 - **Rôles** (`src/lib/chain/roles.ts`) : les plus gros détenteurs et les
   destinataires du lancement sont nommés par ce qu'ils répondent — verrou

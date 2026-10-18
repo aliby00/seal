@@ -16,7 +16,8 @@ import type {
 import { toFacts } from '../../src/lib/facts';
 import { buildGlance } from '../../src/lib/glance';
 import { withRoles } from '../../src/lib/holders/roles';
-import { buildSupplyFlow, flowSentence, lockWords } from '../../src/lib/supply-flow';
+import { graduationMoves, readVirtualsGraduations } from '../../src/lib/chain/virtuals';
+import { buildSupplyFlow, flowHeadline, flowSentence, lockWords } from '../../src/lib/supply-flow';
 import { CATALOG } from '../../src/lib/specialists/catalog';
 import { shortAnswer } from '../../src/lib/specialists/plain';
 import type { SpecialistAnswer } from '../../src/lib/specialists/brief';
@@ -26,6 +27,7 @@ import launchFixture from './fixtures/sirius/launch.json';
 import receiptFixture from './fixtures/sirius/receipt.json';
 import rolesFixture from './fixtures/sirius/roles.json';
 import rpcFixture from './fixtures/sirius/rpc.json';
+import graduationFixture from './fixtures/sirius/graduation.json';
 
 /**
  * SIRIUS (0x72e9…6c88), launched on Virtuals on 28/08/2026, read on chain on
@@ -96,13 +98,39 @@ function holdersData(): HolderDistributionData {
   };
 }
 
+/** SIRIUS's graduation as the chain recorded it. */
+function siriusGraduation() {
+  const g = graduationFixture;
+  return {
+    block: Number(g.graduated.blockNumber),
+    transaction: g.graduated.transactionHash,
+    at: new Date(Number(g.timestamp) * 1000).toISOString(),
+    ...graduationMoves(SIRIUS, g.logs as RawLog[], SUPPLY, [V2_PAIR]),
+  };
+}
+
 export function siriusReport(): TokenReport {
   return makeReport(SIRIUS, (r) => {
     r.creator.data.creator = CREATOR;
+    r.creator.data.tokens = [
+      {
+        address: SIRIUS,
+        pool: V2_PAIR,
+        launchedAtBlock: 48_392_950,
+        launchedAt: '2026-08-28T15:06:36.000Z',
+        outcome: 'graduated',
+        graduationProgress: 1,
+        liquidityPulled: false,
+        creatorDumped: false,
+        launchpad: 'Virtuals',
+      } as never,
+    ];
+    r.creator.data.counts = { ...r.creator.data.counts, graduated: 1 };
     r.creator.data.origin = {
       ...readOrigin(SIRIUS, mint, receiptFixture.transaction, receiptFixture.receipt as never),
       source: 'deployer',
       launchesListed: true,
+      graduationRead: true,
       transactionCount: 11,
     } as never;
     r.holders.data = withRoles(holdersData(), roles, SUPPLY);
@@ -123,7 +151,8 @@ export function siriusReport(): TokenReport {
       } as never,
     ];
     r.launch = { completeness: 'full', sources: [], data: launch };
-    r.roles = roles;
+    r.roles = [...roles, knownName(VIRTUALS.excessWallet, {})!];
+    r.graduated = siriusGraduation();
   });
 }
 
@@ -327,16 +356,81 @@ describe('SIRIUS’s report', () => {
     expect(sentence).not.toMatch(/a contract/);
   });
 
+  it('shows the curve’s outcome: what was bought there, what graduation moved', () => {
+    const graduation = siriusGraduation();
+    // In the graduation transaction: 10.47 % to the v2 pair, 4.45 % to the excess wallet.
+    expect(graduation).toMatchObject({
+      block: 70_428_026,
+      at: '2026-09-23T10:05:12.000Z',
+      market: { address: V2_PAIR, share: 0.104687 },
+      excess: { address: VIRTUALS.excessWallet, share: 0.044534 },
+    });
+    const names = [...roles, knownName(VIRTUALS.excessWallet, {})!];
+    const flow = buildSupplyFlow(launch, names, 'Virtuals', undefined, graduation)!;
+    const curve = flow.roots[0]!;
+    expect(curve.children.map((c) => [c.kind, c.name, c.received])).toEqual([
+      ['buyers', 'buyers on the curve', 0.5 - 0.104687 - 0.044534],
+      ['pool', 'its Uniswap v2 pair', 0.104687],
+      ['distributor', 'Virtuals’ graduation-excess wallet', 0.044534],
+    ]);
+    expect(flowSentence(flow, CREATOR)).toMatch(
+      /50% of the supply went to Virtuals’ launch curve: 35\.1% bought there, then at graduation on Sep 23, 2026 10\.5% to its Uniswap v2 pair and 4\.5% to Virtuals’ graduation-excess wallet/,
+    );
+  });
+
+  it('says it in one short line, with the figure that matters', () => {
+    const flow = toFacts(siriusReport()).supplyFlow!;
+    const { figure, sentence } = flowHeadline(flow, CREATOR);
+    expect(sentence).toBe(
+      'Launched on Virtuals: 28.6% locked for the creator until 2028, 18% held by Virtuals’ ACF wallet.',
+    );
+    expect(sentence.split(/\s+/).length).toBeLessThanOrEqual(20);
+    expect(figure).toBe('28.6%');
+  });
+
+  it('reads graduation from the launchpad’s own event', async () => {
+    const g = graduationFixture;
+    const rpc = {
+      callBatch: async (requests: RpcRequest[]) =>
+        requests.map((r) => {
+          const f = r.params[0] as { address: string; topics: (string | string[])[] };
+          return {
+            ok: true,
+            value:
+              f.address === VIRTUALS.bonding &&
+              (f.topics[1] as string[]).includes(g.graduated.topics[1]!)
+                ? [g.graduated]
+                : [],
+          };
+        }),
+    } as unknown as RpcClient;
+    const found = await readVirtualsGraduations(
+      rpc,
+      [{ token: SIRIUS, blockNumber: 48_392_950 }],
+      91_946_637,
+    );
+    expect(found.get(SIRIUS)?.transactionHash).toBe(g.graduated.transactionHash);
+    const facts = toFacts(siriusReport());
+    expect(facts.creator.graduation).toBe('measured');
+  });
+
   it('opens the glance with it, and never calls the lock "one contract"', () => {
     const report = siriusReport();
     const facts = toFacts(report);
     const glance = buildGlance({ facts, launch })!;
     expect(glance.items[0]!.id).toBe('flow');
     expect(glance.items[0]!.href).toBe('#supply-flow');
-    expect(glance.headline).toMatch(/^Launched on Virtuals/);
+    expect(glance.items[0]!.figure).toBe('28.6%');
+    expect(glance.headline).toMatch(
+      /^Launched on Virtuals: 28\.6% locked for the creator until 2028/,
+    );
+    // A single launch has no number to set large.
+    const record = glance.items.find((i) => i.id === 'record');
+    expect(record?.figure).toBeUndefined();
     const supply = glance.items.find((i) => i.id === 'supply');
     expect(supply?.title).toMatch(/^Virtuals’ capital-formation wallet \(ACF\) holds/);
-    expect(supply?.title).toMatch(/sits in Virtuals’ team lock \(TokenTable\), left out/);
+    // The lock is the first line already: not said twice.
+    expect(supply?.title).not.toMatch(/team lock/);
     expect(glance.items.map((i) => i.title).join(' ')).not.toMatch(/One contract/);
   });
 

@@ -1,6 +1,6 @@
 {
   "token": "0x72e936815982a577386e8fcde94f5c9335836c88",
-  "explanation": "This account is produced without the reasoning agent: it lists the observed facts without cross-examining or interpreting them.\n\nLaunch: Launched on Virtuals. At launch, 50% of the supply went to Virtuals’ launch curve (now empty: bought there, or moved to its trading pool at graduation), and 50% to Virtuals’ reserve wallet, which passed it all on within 2 minutes: 25% to Virtuals’ capital-formation wallet (ACF), which still holds 18%, and 25% to Virtuals’ team lock (TokenTable), where 28.6% is locked for the creator (3.6% of it added after the launch), unlocking from Nov 29, 2026 to Jan 25, 2028. Nobody bought in the first minutes: the supply was only handed out.\n\nCreator: this token was launched through Virtuals, whose launch record names 0xc47ff45c87ee89a999b95ed6d4f408674d9bed9f. The wallet has sent 11 transactions. Through the same launch contract, this address launched 1 token. Graduation is read on pons launches only, so what became of these launches is not measured here.\n\nHolders: the largest, Virtuals’ capital-formation wallet (ACF), holds 33.7 % of the supply held outside pools, locks and burn addresses; the top 10 hold 70.0 % combined. 28.6 % of the supply sits in Virtuals’ team lock (TokenTable): locked, it is left out of these shares.\n\nMarket: price 0.0001747 USD, liquidity 45746.01 USD.\n\nOver 24 hours: 2808.12 USD in volume across 10 trades, averaging 280.81 USD per trade.",
+  "explanation": "This account is produced without the reasoning agent: it lists the observed facts without cross-examining or interpreting them.\n\nLaunch: Launched on Virtuals. At launch, 50% of the supply went to Virtuals’ launch curve: 35.1% bought there, then at graduation on Sep 23, 2026 10.5% to its Uniswap v2 pair and 4.5% to Virtuals’ graduation-excess wallet, and 50% to Virtuals’ reserve wallet, which passed it all on within 2 minutes: 25% to Virtuals’ capital-formation wallet (ACF), which still holds 18%, and 25% to Virtuals’ team lock (TokenTable), where 28.6% is locked for the creator (3.6% of it added after the launch), unlocking from Nov 29, 2026 to Jan 25, 2028. Nobody bought in the first minutes: the supply was only handed out.\n\nCreator: this token was launched through Virtuals, whose launch record names 0xc47ff45c87ee89a999b95ed6d4f408674d9bed9f. The wallet has sent 11 transactions. Through the same launch contract, this address launched 1 token. Of 1 launch checked, the creator sold into the market on 0 within the first 11 days after each launch. Of 1 with a market that could be read, liquidity was removed on 0 in the first 11 days after each launch. It graduated from its launch curve to an open market.\n\nHolders: the largest, Virtuals’ capital-formation wallet (ACF), holds 33.7 % of the supply held outside pools, locks and burn addresses; the top 10 hold 70.0 % combined. 28.6 % of the supply sits in Virtuals’ team lock (TokenTable): locked, it is left out of these shares.\n\nMarket: price 0.0001747 USD, liquidity 45746.01 USD.\n\nOver 24 hours: 2808.12 USD in volume across 10 trades, averaging 280.81 USD per trade.",
   "completeness": "full",
   "sources": [],
   "costUsd": 0,
@@ -22,7 +22,41 @@
           "received": 0.5,
           "heldNow": 0,
           "at": 0,
-          "children": []
+          "children": [
+            {
+              "address": "",
+              "kind": "buyers",
+              "name": "buyers on the curve",
+              "received": 0.350779,
+              "heldNow": null,
+              "at": 0,
+              "tradable": true,
+              "children": []
+            },
+            {
+              "address": "0x828571e17c68de8badf1b9b24890c71726c8dba5",
+              "kind": "pool",
+              "name": "its Uniswap v2 pair",
+              "received": 0.104687,
+              "heldNow": 0.130926,
+              "at": 0,
+              "tradable": null,
+              "children": [],
+              "via": "graduation"
+            },
+            {
+              "address": "0xaea27856b6284ae071e0685ed594c5b80aea2aa9",
+              "kind": "distributor",
+              "name": "Virtuals’ graduation-excess wallet",
+              "detail": "At graduation, Virtuals’ launchpad sends it the curve’s tokens priced against the curve’s virtual liquidity. Its name in Virtuals’ configuration says burn; for SIRIUS it passed them to a Merkle claim contract instead, in 14 equal parts.",
+              "received": 0.044534,
+              "heldNow": null,
+              "at": 0,
+              "tradable": true,
+              "children": [],
+              "via": "graduation"
+            }
+          ]
         },
         {
           "address": "0x81f7ca6af86d1ca6335e44a2c28bc88807491415",
@@ -89,7 +123,8 @@
           ]
         }
       ],
-      "buys": 0
+      "buys": 0,
+      "graduatedAt": "2026-09-23T10:05:12.000Z"
     },
     "roles": [
       {
@@ -182,22 +217,31 @@
         "detail": "A Uniswap V3-style pool trading this token against USDG: what it holds is liquidity, not anyone’s position.",
         "tradable": false,
         "evidence": "token0()/token1() name this token, fee() answers"
+      },
+      {
+        "address": "0xaea27856b6284ae071e0685ed594c5b80aea2aa9",
+        "kind": "distributor",
+        "name": "Virtuals’ graduation-excess wallet",
+        "detail": "At graduation, Virtuals’ launchpad sends it the curve’s tokens priced against the curve’s virtual liquidity. Its name in Virtuals’ configuration says burn; for SIRIUS it passed them to a Merkle claim contract instead, in 14 equal parts.",
+        "tradable": true,
+        "launchpad": "Virtuals",
+        "evidence": "graduationExcessBurnWallet() of Virtuals’ launch configuration 0x3e331fdd9fe54d5047b1b7339fd5c91977d53e2f"
       }
     ],
     "creator": {
       "measured": true,
       "address": "0xc47ff45c87ee89a999b95ed6d4f408674d9bed9f",
       "launched": 1,
-      "detailed": 0,
-      "graduated": 0,
+      "detailed": 1,
+      "graduated": 1,
       "abandoned": 0,
       "undetermined": 0,
       "active": 0,
-      "checked": 0,
+      "checked": 1,
       "soldIntoPool": 0,
       "liquidityPulled": 0,
-      "salesChecked": 0,
-      "liquidityChecked": 0,
+      "salesChecked": 1,
+      "liquidityChecked": 1,
       "source": "deployer",
       "role": "launcher",
       "launchContract": "0xd4ccbfa37e2f35611b3042e4096ad7a3459bd007",
@@ -206,7 +250,7 @@
       "launchpad": "Virtuals",
       "creatorFrom": "launch-record",
       "notListed": [],
-      "graduation": "not-measured"
+      "graduation": "measured"
     },
     "holders": {
       "measured": true,

@@ -133,6 +133,21 @@ export const OTHER_LAUNCH_SALES_DAYS = 11;
  * How the creator was found. A pons launch names its creator in its launch
  * record; any other token is traced back to the transaction that minted it.
  */
+/**
+ * A launch's graduation, read from its launchpad's own event (Virtuals'
+ * `Graduated`): when, and where the curve's tokens went, as shares of the
+ * supply.
+ */
+export type LaunchGraduation = {
+  block: number;
+  transaction: string;
+  at: string | null;
+  /** What seeded the open market, and which pool. */
+  market: { address: string; share: number } | null;
+  /** What the launchpad sent its excess wallet. */
+  excess: { address: string; share: number } | null;
+};
+
 export type CreatorOrigin = {
   source: 'pons' | 'deployer';
   /**
@@ -163,6 +178,11 @@ export type CreatorOrigin = {
   launchpadsNotRead?: string[];
   /** Transactions sent by the address, when it is a wallet (null for a contract). */
   transactionCount: number | null;
+  /**
+   * Graduation was read for this launchpad's launches (Virtuals' `Graduated`):
+   * each launch's outcome says whether it graduated. Absent when not read.
+   */
+  graduationRead?: boolean;
 };
 
 export type CreatorHistoryData = {

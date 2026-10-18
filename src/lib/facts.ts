@@ -233,6 +233,8 @@ function graduationOf(
 ): ReportFacts['creator']['graduation'] {
   // A history without an origin is a pons read from before origins existed.
   if (!origin || origin.source === 'pons') return 'measured';
+  // Read from the launchpad's own event (Virtuals' `Graduated`).
+  if (origin.graduationRead) return 'measured';
   const launchpad = origin.launchpad ? launchpadById(origin.launchpad.id) : undefined;
   if (launchpad) return launchpad.graduates ? 'not-measured' : 'not-applicable';
   // A contract deployed on its own has no launch curve to leave.
@@ -287,6 +289,7 @@ export function toFacts(report: TokenReport, options: { funder?: string } = {}):
         report.roles ?? [],
         creator.data.origin?.launchpad?.name ?? null,
         heldFromHolders(report),
+        report.graduated ?? null,
       )
     : null;
 

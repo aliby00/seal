@@ -225,7 +225,7 @@
             h(
               'div',
               { class: 'lead-body' },
-              h('strong', { class: 'figure' }, lead.figure),
+              lead.figure ? h('strong', { class: 'figure' }, lead.figure) : null,
               h('p', { class: 'headline' }, lead.title),
             ),
             options.compact ? null : h('p', { class: 'detail' }, lead.detail),
@@ -240,7 +240,7 @@
                 'li',
                 { 'data-tone': item.tone },
                 tone(item),
-                h('strong', { class: 'figure' }, item.figure),
+                item.figure ? h('strong', { class: 'figure' }, item.figure) : null,
                 h('span', { class: 'text' }, item.title),
               ),
             ),
