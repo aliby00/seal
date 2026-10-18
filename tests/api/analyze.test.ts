@@ -240,6 +240,25 @@ describe('questions out of time (fifth audit)', () => {
   });
 });
 
+describe('a question answered from less than it asked (sixth audit)', () => {
+  // AML, 18/10/2026: the indexer's count of Doppler's hook did not answer,
+  // and "14 other markets" of a 50-minute window was served as clean.
+  it('makes the report partial and keeps it out of the cache', async () => {
+    collect.mockResolvedValue(structuredClone(report));
+    explain.mockResolvedValue({ text: 'ok', cost: { costUsd: 0.01 }, violations: [] });
+    const note =
+      'the chain-wide count of markets on this token’s trading rules (hook) could not be read this time; only the markets of about the last 50 minutes were compared';
+    briefSpecialists.mockResolvedValue({
+      ...answered,
+      partial: [{ read: 'questions', note }],
+    });
+    await POST(post({ token: TOKEN }));
+    expect(explain.mock.calls.at(-1)?.[0].failedReads).toEqual([{ read: 'questions', note }]);
+    await POST(post({ token: TOKEN }));
+    expect(collect).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('specialists and timeline', () => {
   it('serves the ten answers and the token name beside the explanation', async () => {
     collect.mockResolvedValue(report);

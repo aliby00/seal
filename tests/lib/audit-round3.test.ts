@@ -290,11 +290,17 @@ describe('the model may not call a record clean, nor a creator new (items 6, 7)'
     expect(findClaims('This is the creator’s first token.', report)).toHaveLength(1);
   });
 
-  it('a section left with nothing to say is not served', () => {
+  // Sixth audit: a section left with nothing to say is left out, not the whole text.
+  it('a section left with nothing to say is left out, and no text when none is left', () => {
     const report = reportFor(MIKE, { creatorDumped: true });
     const text =
       'What is reassuring\n\nThe creator’s record looks clean.\n\nWhat deserves attention\n\nA.\n\nWhere the signals diverge\n\nB.';
-    expect(withoutClaims(text, report).text).toBeNull();
+    expect(withoutClaims(text, report).text).toBe(
+      'What deserves attention\n\nA.\n\nWhere the signals diverge\n\nB.',
+    );
+    expect(
+      withoutClaims('What is reassuring\n\nThe creator’s record looks clean.', report).text,
+    ).toBeNull();
   });
 
   it('"clean" is not cut when no sale is measured', () => {
@@ -316,9 +322,9 @@ describe('the model may not call a record clean, nor a creator new (items 6, 7)'
       };
     });
     const prompt = renderReport(report);
-    expect(prompt).toContain('Transactions envoyées par ce wallet : 1088.');
-    expect(prompt).toContain('le créateur A VENDU CE TOKEN');
-    expect(prompt).toMatch(/N’écris jamais que le créateur n’a lancé que ce token/);
+    expect(prompt).toContain('Transactions sent by this wallet: 1088.');
+    expect(prompt).toContain('the creator sold this token into its market');
+    expect(prompt).toMatch(/Never write that the creator launched only this token/);
     expect(SYSTEM_PROMPT).toMatch(/never call its record or behavior clean/);
     expect(SYSTEM_PROMPT).toMatch(/no other launch found on the launchpads SEAL can list/);
     expect(toFacts(report).creator.transactionCount).toBe(1088);
@@ -488,9 +494,11 @@ describe('creator-to-holder links (item 4)', () => {
     expect(supply?.tone).toBe('attention');
     const prompt = renderReport(report);
     expect(prompt).toContain(
-      '- 0xD0f7d8c6e9f6D80c297bEbe4F7fD1B9C8125C32F (détenteur actuel, 10.68 % de la part hors pools) a reçu 10.00 % de l’offre totale directement du créateur.',
+      '- 0xD0f7d8c6e9f6D80c297bEbe4F7fD1B9C8125C32F (holder today, 10.68% of the share outside pools) received 10.00% of the total supply directly from the creator.',
     );
-    expect(prompt).toContain('n’écris jamais qu’aucun lien n’existe');
+    expect(prompt).toContain(
+      'never write that there is no link between the creator and the holders',
+    );
     // And the model may not claim the contrary.
     const said =
       'What deserves attention\n\nNothing links the creator to the largest holder; there is no link between them.\n\nWhat is reassuring\n\nA.';
@@ -611,7 +619,7 @@ describe('MUT8: the creator’s launch transaction delivered 71.4 % to three con
     expect(item?.title).toBe(
       'The creator’s own launch transaction delivered 71% of the supply to 3 contracts other than the creator’s wallet, none of them a pool; who controls them is not shown.',
     );
-    expect(renderReport(report)).toContain('la transaction envoyée par le CRÉATEUR');
+    expect(renderReport(report)).toContain('the transaction sent by the creator');
     // "It took no supply in the launch block", as served for MUT8, is cut.
     const said =
       'What is reassuring\n\nThe creator wallet shows no sales, and it took no supply in the launch block. The rules have no upgrade slot.';

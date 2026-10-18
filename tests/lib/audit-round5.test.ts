@@ -310,7 +310,7 @@ describe('timeouts are failed reads (item 2)', () => {
     expect(readFailed(facts.failed, 'questions')).toBe(true);
     const glance = buildGlance({ facts, specialists: answers })!;
     expect(partialNotice(glance.partial!)).toMatch(/some of the ten questions/);
-    expect(renderReport(report)).toMatch(/certaines des dix questions/);
+    expect(renderReport(report)).toMatch(/some of the ten questions/);
     const body = {
       token: fixture.ai.token,
       explanation: 'x',
@@ -414,7 +414,7 @@ describe('ASTEROID (item 4)', () => {
     ).toEqual(['count']);
     // The prompt says both numbers, and which one goes with "other".
     expect(renderReport(report)).toMatch(
-      /écris EXACTEMENT 7 sur 9 ; 8 sur 10 est le total CE token compris/,
+      /the count is 7 of 9; 8 of 10 is the total with this token included/,
     );
   });
 });
@@ -451,10 +451,8 @@ describe('MUT8 (item 5)', () => {
     const { text } = withoutClaims(fixture.mut8.explanation, report);
     expect(text).not.toMatch(/delivered into pools/);
     const prompt = renderLaunch(report.launch!).join('\n');
-    expect(prompt).toMatch(
-      /taille de leur code : 45 octets, soit des proxys minimaux, clones EIP-1167/,
-    );
-    expect(prompt).toMatch(/Ce ne sont NI des pools/);
+    expect(prompt).toMatch(/their code size: 45 bytes, that is minimal proxies, EIP-1167 clones/);
+    expect(prompt).toMatch(/They are not pools, not burn addresses and not the creator/);
     const glance = buildGlance({ facts: toFacts(report), launch: report.launch!.data })!;
     expect(glance.items.find((i) => i.id === 'launch-buys')?.title).toMatch(
       /to 3 contracts other than the creator’s wallet, none of them a pool;/,
@@ -542,7 +540,7 @@ describe('hook sharing and timing (item 7)', () => {
       ]),
     });
     expect(windowed.facts[0]).toMatch(
-      /^Among the markets created in blocks 91540000 to 91540000, 0 other market\(s\) use/,
+      /^Among the markets created in about the last 50 minutes \(blocks 91540000 to 91540000\) only, 0 other markets use .*not of the whole chain\.$/,
     );
     expect(windowed.limits.join(' ')).toMatch(/this market was created before them/);
     expect(shortAnswer({ ...windowed, title: '', question: '' } as SpecialistAnswer)).toBe(
@@ -555,7 +553,7 @@ describe('hook sharing and timing (item 7)', () => {
     const funder = fixture.kel.funding.funding!.path[0]!.address;
     const lines = renderLaunch({ completeness: 'full', sources: [], data: launch }, { funder });
     expect(lines.join('\n')).toContain(
-      `- Aller-retour : ${funder} (le PREMIER FINANCEUR du wallet du créateur) a acheté à +11 s et revendu à +83 s, soit 72 s plus tard.`,
+      `- Round trip: ${funder} (the first funder of the creator’s wallet) bought at +11 s and sold back at +83 s, 72 s later.`,
     );
   });
 });

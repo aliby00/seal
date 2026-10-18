@@ -211,7 +211,7 @@ describe('the funding answer as served', () => {
       },
     });
     expect(renderSpecialists(answers).join('\n')).toMatch(
-      /financeur : un contrat, ou un service à fort volume .* ne relie ce créateur à personne/,
+      /funder: a contract, or a high-volume service .* it links this creator to nobody/,
     );
     const text = offlineExplanation(makeReport(token), answers);
     expect(text).toMatch(/Funding: The creator wallet was first funded from a high-volume service/);

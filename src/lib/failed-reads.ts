@@ -25,6 +25,40 @@ export function sourcesFailed(sources: readonly { note?: string }[]): boolean {
   return sources.some((s) => noteFailed(s.note));
 }
 
+/** The family of reads a source note belongs to. */
+export type SourceFamily = 'creator' | 'holders' | 'market';
+
+/** Which read a failed note of `family` is about. */
+export function readOfNote(family: SourceFamily, note: string, creatorUnavailable = false): ReadId {
+  if (family === 'holders') return 'holders';
+  if (family === 'market') return 'market';
+  if (creatorUnavailable) return 'creator';
+  return note === UNREAD.ownSales ? 'creator-sales' : 'creator-launches';
+}
+
+/**
+ * One failed read per source note that says its read failed, in every family:
+ * the same test as `sourcesFailed`, so a source the cache refuses as failed
+ * is always named in the report's failed reads too (Wheel Smith: "its sales
+ * by its creator could not be read this time", and no partial notice).
+ */
+export function failedReadsOfSources(families: {
+  creator: { completeness: string; sources: readonly { note?: string }[] };
+  holders: { sources: readonly { note?: string }[] };
+  market: { sources: readonly { note?: string }[] };
+}): FailedRead[] {
+  const out: FailedRead[] = [];
+  const unavailable = families.creator.completeness === 'unavailable';
+  for (const family of ['creator', 'holders', 'market'] as const) {
+    for (const source of families[family].sources) {
+      if (!noteFailed(source.note)) continue;
+      const note = source.note ?? '';
+      out.push({ read: readOfNote(family, note, family === 'creator' && unavailable), note });
+    }
+  }
+  return out;
+}
+
 /** What each read is about, for a reader: "some reads failed: …". */
 export const READ_WORDS: Record<ReadId, string> = {
   creator: 'who created it and what they did before',
@@ -34,17 +68,6 @@ export const READ_WORDS: Record<ReadId, string> = {
   holders: 'who holds it',
   market: 'its trading',
   questions: 'some of the ten questions',
-};
-
-/** The same reads, said to the model (in the prompt's language). */
-export const READ_WORDS_FR: Record<ReadId, string> = {
-  creator: 'le créateur et son historique',
-  'creator-launches': 'les autres lancements du créateur',
-  'creator-sales': 'les ventes du créateur sur ce token',
-  'launch-replay': 'les premières minutes après le lancement',
-  holders: 'la liste des détenteurs',
-  market: 'les échanges du token',
-  questions: 'certaines des dix questions',
 };
 
 /** One entry per read, the first note kept. */
@@ -59,13 +82,23 @@ export function readFailed(reads: readonly { read: ReadId }[] | undefined, read:
   return (reads ?? []).some((r) => r.read === read);
 }
 
+/** Added to a failed read of the creator's sales when a sale was confirmed anyway. */
+export const SALE_SEEN = '; a sale by the creator was still confirmed, by a trade in its market';
+
 /** Source notes written when a read of the creator could not be completed. */
 export const UNREAD = {
   /** The creator's transfers of this token, which tell its sales. */
   ownSales: 'this token’s sales by its creator could not be read this time',
+  /** The other launches' sales and liquidity, left unchecked when the listing ran late. */
+  otherChecks:
+    'the creator’s other launches were listed, but their sales and liquidity could not be read this time',
   /** The indexer, which lists the launchpads the node cannot. */
   indexer: 'the SEAL indexer did not answer: the launches it lists could not be read this time',
 } as const;
+
+/** The read a question fell back from when the indexer's count of a hook's markets did not answer. */
+export const HOOK_COUNT_UNREAD_NOTE =
+  'the chain-wide count of markets on this token’s trading rules (hook) could not be read this time; only the markets of about the last 50 minutes were compared';
 
 /** The limit a question gives when its lookups ran out of time. */
 export const QUESTION_TIMED_OUT = 'the on-chain lookups for this question did not finish in time';

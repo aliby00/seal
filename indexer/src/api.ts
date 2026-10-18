@@ -37,6 +37,8 @@ export type ApiResponse = { status: number; body: unknown; headers: Record<strin
 
 /** Les listes renvoyées sont bornées : un créateur-robot peut avoir lancé des milliers de tokens. */
 const MAX_ROWS = 1_000;
+/** Distinct pairs counted on one hook; beyond, the answer says "at least". */
+const HOOK_PAIRS_CAP = 1_000;
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 
@@ -94,9 +96,19 @@ export function createApi(deps: ApiDeps) {
   // Every market on these trading rules, over the whole history read: the
   // count a recent window gave contradicted itself (0xe5e7…, the hook of
   // MUT8, HYPURRT, WAFER and COVENANT, "used by 1 market" on each).
+  //
+  // Read from the (hook, block) index alone: counting the distinct pairs of
+  // every row read the table for each one, about 0.7 s for the 210,175
+  // markets of Doppler's hook 0x4e34… with a warm cache, past the app's 2 s
+  // timeout with a cold one — and its report fell back to a 50-minute
+  // window ("14 other markets"). The pairs are counted up to a cap.
   const onHook = db.raw.prepare(
-    `SELECT COUNT(*) AS markets, COUNT(DISTINCT currency0 || currency1) AS pairs,
-            MIN(block) AS first, MAX(block) AS last FROM markets WHERE hook = ?`,
+    `SELECT COUNT(*) AS markets, MIN(block) AS first, MAX(block) AS last FROM markets WHERE hook = ?`,
+  );
+  const pairsOnHook = db.raw.prepare(
+    `SELECT COUNT(*) AS pairs FROM (
+       SELECT DISTINCT currency0, currency1 FROM markets WHERE hook = ? LIMIT ${HOOK_PAIRS_CAP + 1}
+     )`,
   );
 
   const launchesTo = () => {
@@ -337,15 +349,17 @@ export function createApi(deps: ApiDeps) {
     const indexedTo = db.cursor(MARKETS) ?? 0;
     const row = onHook.get(address) as {
       markets: number;
-      pairs: number;
       first: number | null;
       last: number | null;
     };
+    const { pairs } = pairsOnHook.get(address) as { pairs: number };
     return json(200, {
       hook: address,
       indexedTo,
       markets: row.markets,
-      pairs: row.pairs,
+      // At least this many when `pairsCapped`.
+      pairs: Math.min(pairs, HOOK_PAIRS_CAP),
+      ...(pairs > HOOK_PAIRS_CAP ? { pairsCapped: true } : {}),
       firstBlock: row.first,
       lastBlock: row.last,
     });

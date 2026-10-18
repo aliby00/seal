@@ -172,6 +172,10 @@ function otherPoolLines(context: SpecialistContext, mainHook: string | null): st
 const otherHooks = (context: SpecialistContext): PoolRules[] =>
   (context.otherPools ?? []).filter((p) => hooked(p) || p.hook === undefined);
 
+/** The limit given when the indexer's chain-wide count of a hook's markets could not be read. */
+export const HOOK_COUNT_UNREAD =
+  'the chain-wide count of markets on these trading rules could not be read from the SEAL indexer this time, so this is a partial read of a recent window';
+
 const codeReuse: Specialist = {
   id: 'code-reuse',
   title: 'Code Reuse',
@@ -234,29 +238,31 @@ const codeReuse: Specialist = {
     const siblings = index.onHook(market.hook).filter((m) => m.id !== market.id);
     const range = index.all();
     const from = range[0]?.blockNumber;
-    const window = `the markets created in blocks ${from} to ${range.at(-1)?.blockNumber}`;
+    const window = `the markets created in about the last 50 minutes (blocks ${from} to ${range.at(-1)?.blockNumber})`;
     const inWindow = from !== undefined && market.blockNumber >= from;
-    const windowLimit = `only ${window} were compared (about the last 50 minutes)${inWindow ? '' : ', and this market was created before them'}: earlier markets on the same trading rules are not counted`;
+    const windowLimit = `only ${window} were compared${inWindow ? '' : ', and this market was created before them'}: earlier markets on the same trading rules are not counted`;
+    // The indexer was asked and did not answer: this window is all there is,
+    // and the report says the count is partial (AML: "14 other markets", for
+    // a hook 210,175 markets run on).
+    const limitsFirst = hookUse === null ? [HOOK_COUNT_UNREAD] : [];
+    const counted = (n: number) =>
+      `Among ${window} only, ${n} other market${n === 1 ? '' : 's'} use${n === 1 ? 's' : ''} the trading rules (hook) ${market.hook}: a count of that recent window, not of the whole chain.`;
     if (siblings.length + 1 < REUSE_NOTABLE) {
       return finding(
         'code-reuse',
         'quiet',
-        [
-          `Among ${window}, ${siblings.length} other market(s) use the trading rules (hook) ${market.hook}.`,
-          ...others,
-        ],
-        [windowLimit],
+        [counted(siblings.length), ...others],
+        [...limitsFirst, windowLimit],
       );
     }
-    const facts = [
-      `Among ${window}, ${siblings.length} other markets use the trading rules (hook) ${market.hook}.`,
-    ];
+    const facts = [counted(siblings.length)];
     const tokens = new Set(siblings.map((s) => s.token));
     facts.push(`Those markets list ${tokens.size} distinct other token(s).`);
     facts.push(...others);
     const judged = siblings.filter((s) => s.outcome === 'harmed' || s.outcome === 'unharmed');
     const harmed = judged.filter((s) => s.outcome === 'harmed').length;
     const limits = [
+      ...limitsFirst,
       'Shared trading rules can be a launchpad’s standard ones; reuse alone does not say what they do.',
       windowLimit,
     ];

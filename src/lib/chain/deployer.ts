@@ -679,6 +679,14 @@ export type DeployerHistoryOptions = {
   /** Markets the token trades on that its launch transaction did not create (DexScreener pairs, v4 markets). */
   venues?: { pools?: readonly string[]; v4Markets?: readonly string[] };
   now?: () => Date;
+  /**
+   * When the listing is done after this time (epoch ms), only the analysed
+   * token's sales and liquidity are checked: the other launches' would not
+   * fit in the request (AI: 80 launches, its first request cut at 30 s).
+   */
+  checkOthersBy?: number;
+  /** The clock `checkOthersBy` is read on. For tests. */
+  clock?: () => number;
 };
 
 /**
@@ -703,6 +711,52 @@ export async function fetchDeployerHistory(
         i === 0 ? registry.topic0 : i === registry.creatorIndex ? topicFor(creator) : null,
       )
     : [];
+
+  // Each checked launch's markets come from its own launch transaction. The
+  // analysed token also trades where its launch did not put it: the pairs and
+  // markets found since.
+  const extra = options.venues;
+  const own: TradingVenues = extra
+    ? (() => {
+        const pools = [...new Set([...origin.venues.pools, ...(extra.pools ?? []).map(lower)])];
+        const v4Markets = [
+          ...new Set([...origin.venues.v4Markets, ...(extra.v4Markets ?? []).map(lower)]),
+        ];
+        return {
+          ...origin.venues,
+          pools,
+          v4Markets,
+          saleRecipients: [
+            ...new Set([
+              ...origin.venues.saleRecipients,
+              ...pools,
+              ...(v4Markets.length > 0 ? [lower(POOL_MANAGER)] : []),
+            ]),
+          ],
+        };
+      })()
+    : origin.venues;
+  // The analysed token's own sales are read over its whole life, up to a
+  // cap; the other launches' over their first ~11 days. One token is one
+  // address: a busy one is split rather than given up. Its markets are known
+  // before the listing, so its sales are read alongside it (AI: 80 launches
+  // listed, then this token's 96 days read after them, past the route's 30 s).
+  const ownWindow = {
+    fromBlock: origin.blockNumber,
+    toBlock: Math.min(latest, origin.blockNumber + OWN_SALES_MAX_BLOCKS - 1),
+  };
+  const none = { logs: [] as RawLog[], truncated: false };
+  const ownSalesRead: Promise<{ logs: RawLog[]; truncated: boolean }> =
+    own.saleRecipients.length > 0
+      ? getLogsBatched(
+          rpc,
+          {
+            addresses: [{ address: origin.token, ...ownWindow }],
+            topics: [TRANSFER_TOPIC, topicFor(creator)],
+          },
+          { fromBlock: 0, toBlock: latest },
+        ).catch(() => ({ logs: [], truncated: true }))
+      : Promise.resolve(none);
 
   const covered = options.indexed?.covered ?? new Set<string>();
   const [nodeListing, listed, account] = await Promise.all([
@@ -777,34 +831,16 @@ export async function fetchDeployerHistory(
     const own = all.find((l) => l.token === origin.token);
     if (own) detailed.unshift(own);
   }
+  // A listing that took too long leaves no time for the other launches'
+  // checks: they are left unchecked, and said so, rather than lose the request.
+  const late =
+    options.checkOthersBy !== undefined && (options.clock ?? Date.now)() > options.checkOthersBy;
   const checked = detailed.filter(
-    (l, i) => i >= detailed.length - MAX_CHECKED_DEPLOYER_LAUNCHES || l.token === origin.token,
+    (l, i) =>
+      l.token === origin.token || (!late && i >= detailed.length - MAX_CHECKED_DEPLOYER_LAUNCHES),
   );
+  const othersUnchecked = late && detailed.some((l) => l.token !== origin.token);
 
-  // Each checked launch's markets come from its own launch transaction. The
-  // analysed token also trades where its launch did not put it: the pairs and
-  // markets found since.
-  const extra = options.venues;
-  const own: TradingVenues = extra
-    ? (() => {
-        const pools = [...new Set([...origin.venues.pools, ...(extra.pools ?? []).map(lower)])];
-        const v4Markets = [
-          ...new Set([...origin.venues.v4Markets, ...(extra.v4Markets ?? []).map(lower)]),
-        ];
-        return {
-          ...origin.venues,
-          pools,
-          v4Markets,
-          saleRecipients: [
-            ...new Set([
-              ...origin.venues.saleRecipients,
-              ...pools,
-              ...(v4Markets.length > 0 ? [lower(POOL_MANAGER)] : []),
-            ]),
-          ],
-        };
-      })()
-    : origin.venues;
   const heuristic = origin.launchpad ? undefined : origin.launchContract;
   const others = checked.filter((l) => l.token !== origin.token);
   const receipts = await rpc.callBatch<ChainReceipt | null>(
@@ -846,27 +882,10 @@ export async function fetchDeployerHistory(
     for (const id of venues.get(l.token)?.v4Markets ?? []) tokenOfMarket.set(id, l.token);
   }
 
-  // The analysed token's own sales are read over its whole life, up to a
-  // cap; the other launches' over their first ~11 days. One token is one
-  // address: a busy one is split rather than given up.
-  const ownWindow = {
-    fromBlock: origin.blockNumber,
-    toBlock: Math.min(latest, origin.blockNumber + OWN_SALES_MAX_BLOCKS - 1),
-  };
   const ownTarget = salesTargets.find((l) => l.token === origin.token);
   const otherTargets = salesTargets.filter((l) => l.token !== origin.token);
-  const none = { logs: [] as RawLog[], truncated: false };
   const [ownSales, otherSales, liquidityLogs, timestamps] = await Promise.all([
-    ownTarget
-      ? getLogsBatched(
-          rpc,
-          {
-            addresses: [{ address: ownTarget.token, ...ownWindow }],
-            topics: [TRANSFER_TOPIC, topicFor(creator)],
-          },
-          { fromBlock: 0, toBlock: latest },
-        ).catch(() => ({ logs: [], truncated: true }))
-      : Promise.resolve(none),
+    ownSalesRead,
     otherTargets.length
       ? getLogsBatched(
           rpc,
@@ -1080,6 +1099,9 @@ export async function fetchDeployerHistory(
     sources: [
       { name: 'robinhood-rpc', fetchedAt, note },
       ...(ownUnread ? [{ name: 'robinhood-rpc' as const, fetchedAt, note: UNREAD.ownSales }] : []),
+      ...(othersUnchecked
+        ? [{ name: 'robinhood-rpc' as const, fetchedAt, note: UNREAD.otherChecks }]
+        : []),
     ],
     data: {
       creator,

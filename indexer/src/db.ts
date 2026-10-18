@@ -72,7 +72,9 @@ CREATE TABLE IF NOT EXISTS markets (
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS markets_c0 ON markets (currency0);
 CREATE INDEX IF NOT EXISTS markets_c1 ON markets (currency1);
-CREATE INDEX IF NOT EXISTS markets_hook ON markets (hook);
+-- (hook, block) : compter les marchés d'un hook, et leurs premier et dernier
+-- blocs, sans lire la table — 0x4e34… (Doppler) en a plus de 200 000.
+CREATE INDEX IF NOT EXISTS markets_hook_block ON markets (hook, block);
 CREATE TABLE IF NOT EXISTS funding (
   creator TEXT PRIMARY KEY,
   -- 'found' : un premier versement entrant a été trouvé ;
@@ -179,6 +181,8 @@ function migrate(db: DatabaseSync): void {
   if (!funders.includes('code_checked')) {
     db.exec('ALTER TABLE funders ADD COLUMN code_checked INTEGER NOT NULL DEFAULT 0');
   }
+  // Replaced by markets_hook_block, which covers the hook's count on its own.
+  db.exec('DROP INDEX IF EXISTS markets_hook');
 }
 
 export function openDb(path: string, now: () => number = Date.now) {
