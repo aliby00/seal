@@ -1,5 +1,6 @@
 import type { TokenReport } from '../contracts';
 import { readFailed } from '../failed-reads';
+import { roundTripsExcludedWords } from '../launch-story';
 
 /**
  * Claims the model's text may not make, checked against the facts it was
@@ -59,7 +60,8 @@ export type ClaimKind =
   | 'immutable'
   | 'count'
   | 'into-pools'
-  | 'remover-unknown';
+  | 'remover-unknown'
+  | 'misplaced-limit';
 
 export type Claim = { kind: ClaimKind; sentence: string };
 
@@ -172,7 +174,7 @@ const REMOVER_UNKNOWN: RegExp[] = [
   /\b(?:removed|pulled|withdrawn)\s+by\s+(?:an?\s+)?(?:unknown|unidentified|unnamed)\b/i,
 ];
 
-const PATTERNS: Record<Exclude<ClaimKind, 'unread' | 'count'>, RegExp[]> = {
+const PATTERNS: Record<Exclude<ClaimKind, 'unread' | 'count' | 'misplaced-limit'>, RegExp[]> = {
   'remover-unknown': REMOVER_UNKNOWN,
   'into-pools': INTO_POOLS,
   'only-token': ONLY_TOKEN,
@@ -299,7 +301,7 @@ export function findClaims(text: string, report: TokenReport): Claim[] {
     for (const sentence of sentences(paragraph)) {
       let hit: ClaimKind | undefined;
       for (const kind of kinds) {
-        if (kind === 'unread' || kind === 'count') continue;
+        if (kind === 'unread' || kind === 'count' || kind === 'misplaced-limit') continue;
         const about = ABOUT[kind];
         if (about && !about.test(sentence)) continue;
         if (PATTERNS[kind].some((p) => p.test(sentence))) {
@@ -532,12 +534,17 @@ export function withoutClaims(
   text: string,
   report: TokenReport,
 ): { text: string | null; dropped: Claim[] } {
-  const corrected = correctOtherCounts(withoutEmphasis(text), report);
-  const dropped = findClaims(corrected, report);
+  const corrected = correctHeldShare(
+    withRoundTripExclusions(correctOtherCounts(withoutEmphasis(text), report), report),
+    report,
+  );
+  const dropped = [...findClaims(corrected, report), ...misplacedLimits(corrected)];
   const banned = new Set(dropped.map((c) => c.sentence));
   const original = corrected.split(/\n{2,}/);
-  const paragraphs = original.map((paragraph) =>
-    HEADING.test(paragraph.trim()) ? paragraph : coherent(sentences(paragraph), banned).join(' '),
+  const paragraphs = withSectionOpeners(
+    original.map((paragraph) =>
+      HEADING.test(paragraph.trim()) ? paragraph : coherent(sentences(paragraph), banned).join(' '),
+    ),
   );
   // Nothing cut: the text is served as written.
   if (
@@ -567,4 +574,115 @@ export function withoutClaims(
   }
   if (said === 0) return { text: null, dropped };
   return { text: out.join('\n\n'), dropped };
+}
+
+/**
+ * A read's limit said as a sentence of its own: "The holder read covered
+ * only 3 pages, so it is partial." opened Wheel Smith's "What is
+ * reassuring" (staging, 18/10/2026). A limit is no reassurance.
+ */
+const LIMIT_SENTENCE =
+  /^(?:(?:The|This|Its)\s+(?:[\w’'-]+\s+){0,3}?(?:read|reads|data|report|record|history)\b[^.]*\b(?:partial|incomplete|only\s+\d+|not\s+(?:all\s+)?(?:read|covered|checked|measured|collected))\b|Only\s+\d+\s+pages?\b|SEAL\s+(?:could|did)\s+not\b|[\w’' -]{0,60}\bcould\s+not\s+be\s+read\b)/i;
+/** A sentence that also says something reassuring keeps its place. */
+const CONTRAST = /\b(?:but|yet|though|although|while|still)\b/i;
+
+const isHeading = (paragraph: string) => HEADING.test(paragraph.trim());
+const REASSURING = /^(?:\d+[.)]\s*)?What is reassuring\b/i;
+
+/** The limits said as sentences of their own in "What is reassuring": cut. */
+export function misplacedLimits(text: string): Claim[] {
+  const out: Claim[] = [];
+  let reassuring = false;
+  for (const paragraph of text.split(/\n{2,}/)) {
+    if (isHeading(paragraph)) {
+      reassuring = REASSURING.test(paragraph.trim());
+      continue;
+    }
+    if (!reassuring) continue;
+    for (const sentence of sentences(paragraph)) {
+      if (LIMIT_SENTENCE.test(sentence) && !CONTRAST.test(sentence)) {
+        out.push({ kind: 'misplaced-limit', sentence });
+      }
+    }
+  }
+  return out;
+}
+
+/** A contrast that opens a section, with nothing before it in the section to contrast with. */
+const ORPHAN_OPENER =
+  /^(?:Yet|But|However|Still|Even\s+so|That\s+said|Nevertheless|Nonetheless|On\s+the\s+other\s+hand|By\s+contrast|In\s+contrast),?\s+/i;
+/** What only makes sense against something said before: cut with its opener. */
+const POINTS_BACK =
+  /\b(?:the\s+other\s+way|otherwise|the\s+opposite|instead|differently|contrary)\b/i;
+
+/**
+ * Each section's first sentence without an orphan "Yet", "But" or
+ * "However": "Yet the early record points the other way." opened
+ * ASTEROID's "Where the signals diverge". A sentence that only points back
+ * ("the other way") goes; another loses its opener.
+ */
+export function withSectionOpeners(paragraphs: readonly string[]): string[] {
+  return paragraphs.map((p, i) => {
+    if (isHeading(p) || p.trim() === '') return p;
+    const previous = paragraphs[i - 1];
+    if (i > 0 && previous !== undefined && !isHeading(previous)) return p;
+    let body = p.trim();
+    while (ORPHAN_OPENER.test(body)) {
+      // The first sentence, whatever starts the next one ("17 early buyers…").
+      const first = /^[^]*?[.!?](?=\s|$)/.exec(body)?.[0] ?? body;
+      const rest = first.replace(ORPHAN_OPENER, '');
+      if (POINTS_BACK.test(rest)) {
+        body = body.slice(first.length).trim();
+        continue;
+      }
+      body = `${rest.charAt(0).toUpperCase()}${rest.slice(1)}${body.slice(first.length)}`;
+      break;
+    }
+    return body;
+  });
+}
+
+/**
+ * What early buyers hold today is a share of the supply: "early buyers still
+ * hold 11.44% of what they bought" (HYPURRT, 11.44 % of the supply, 15.5 %
+ * of what they bought) is set right in place.
+ */
+export function correctHeldShare(text: string, report: TokenReport): string {
+  const early = report.launch?.data.summary?.early;
+  if (!early || early.heldNow === null || early.heldNow <= 0) return text;
+  const held = percents(early.heldNow).join('|');
+  const ofBought = early.share > 0 ? percents(early.heldNow / early.share) : [];
+  const wrong = new RegExp(
+    `\\b(${held})(\\s?%)\\s+of\\s+(?:what\\s+they\\s+(?:had\\s+)?bought|their\\s+(?:own\\s+)?(?:purchases?|buys?))`,
+    'gi',
+  );
+  return text.replace(wrong, (match: string, value: string, sign: string) =>
+    ofBought.includes(value.replace('.', '\\.')) ? match : `${value}${sign} of the supply`,
+  );
+}
+
+/** "25 addresses bought and sold back within the first 10 minutes". */
+const ROUND_TRIP_COUNT = (n: number) =>
+  new RegExp(
+    `\\b${n}\\s+(?:[\\w-]+\\s+){0,2}?(?:addresses|wallets|buyers|traders)\\b[^.;:]*?\\b(?:sold|selling|sell)\\s+(?:(?:them|it|everything|all)\\s+)?back(?:\\s+(?:within|in)\\s+(?:the\\s+(?:first\\s+)?(?:\\d+\\s+minutes|window)|that\\s+window|\\d+\\s+minutes|minutes|seconds))?`,
+    'i',
+  );
+
+/**
+ * The round-trip count with what it leaves out, as the data says it (RH: 25
+ * counted, 3 more excluded, and the text gave the 25 alone). Added in place
+ * after the count, when the sentence does not already say it.
+ */
+export function withRoundTripExclusions(text: string, report: TokenReport): string {
+  const trips = report.launch?.data.summary?.roundTrips;
+  const words = roundTripsExcludedWords(trips?.excluded);
+  if (!trips || trips.wallets === 0 || words === '') return text;
+  const count = new RegExp(ROUND_TRIP_COUNT(trips.wallets).source, 'gi');
+  return text.replace(count, (match: string, offset: number, whole: string) => {
+    // What follows the count, to the end of its sentence, may already say it.
+    const rest = /^[^]*?(?:[.!?](?=\s|$)|$)/.exec(whole.slice(offset + match.length))?.[0] ?? '';
+    return /\bexclud|left\s+out|within\s+one\s+single\s+transaction|as\s+liquidity/i.test(rest)
+      ? match
+      : `${match}${words}`;
+  });
 }

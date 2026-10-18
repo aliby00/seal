@@ -17,6 +17,7 @@ import {
   type RpcClient,
   type TokenOrigin,
 } from './chain';
+import { listSentTransactions } from './chain/funding';
 import { combineCompleteness, type Completeness, type CreatorOrigin } from './contracts';
 import type {
   CreatorHistory,
@@ -664,6 +665,14 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
                       SENDERS_MARGIN_MS,
                     ...(listedByIndexer ? { indexed: listedByIndexer } : {}),
                     ...(listedVenues ? { venues: listedVenues } : {}),
+                    // The creator's own transactions settle its removals
+                    // without reading every removal's sender.
+                    ...(options.blockscoutApiKey
+                      ? {
+                          creatorSent: (wallet: string) =>
+                            listSentTransactions(wallet, options.blockscoutApiKey as string),
+                        }
+                      : {}),
                     now,
                   }),
                 ),

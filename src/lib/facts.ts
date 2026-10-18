@@ -1,4 +1,5 @@
 import { launchpadById } from './chain/launchpads';
+import { checkedByLaunchpad, type CheckedLaunchpad } from './checked-sample';
 import type { CreatorLinks, FailedRead, FeePayer, SetAsideRole, TokenReport } from './contracts';
 
 /**
@@ -52,6 +53,12 @@ export type ReportFacts = {
     /** Launches where each signal was actually measured (the other may not be). */
     salesChecked: number;
     liquidityChecked: number;
+    /**
+     * The other launches checked, launchpad by launchpad: how many each has,
+     * how many (the most recent) were checked, and what was seen. Absent when
+     * the creator has no other launch, and from older reports.
+     */
+    checkedBy?: CheckedLaunchpad[];
     /** How the creator was found: their pons launch record, or the token's first mint. */
     source: 'pons' | 'deployer' | null;
     /** What the address did: created the contract, launched it through a contract, or sent its first mint. */
@@ -222,6 +229,8 @@ export function toFacts(report: TokenReport, options: { funder?: string } = {}):
   const stale = market.data.liquidityCheck?.current === false;
   const own = tokens.find((t) => String(t.address).toLowerCase() === report.token.toLowerCase());
   const checked = tokens.filter((t) => t.creatorDumped !== null || t.liquidityPulled !== null);
+  const checkedBy =
+    creator.completeness === 'unavailable' ? [] : checkedByLaunchpad(creator.data, report.token);
   const note = (sources: { note?: string }[]) => sources.find((s) => s.note)?.note;
 
   return {
@@ -254,6 +263,7 @@ export function toFacts(report: TokenReport, options: { funder?: string } = {}):
         : {}),
       salesChecked: tokens.filter((t) => t.creatorDumped !== null).length,
       liquidityChecked: tokens.filter((t) => t.liquidityPulled !== null).length,
+      ...(checkedBy.length > 0 ? { checkedBy } : {}),
       source: creator.data.origin?.source ?? null,
       role: creator.data.origin?.role ?? null,
       launchContract: creator.data.origin?.launchContract ?? null,

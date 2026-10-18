@@ -181,6 +181,12 @@ export type CreatorHistoryData = {
     creatorDumped: number;
   };
   /**
+   * The creator's other launches on each launchpad, and how many of them had
+   * their sales and liquidity checked (the most recent of each). Absent from
+   * histories made before, and from pons reads.
+   */
+  checkedSample?: CheckedSample[];
+  /**
    * Fenêtre de blocs réellement scannée. Si elle ne remonte pas à la genèse,
    * `completeness` vaut `partial` et l'agent doit le mentionner.
    */
@@ -188,3 +194,13 @@ export type CreatorHistoryData = {
 };
 
 export type CreatorHistory = Sourced<CreatorHistoryData>;
+
+/** One launchpad's share of the checks: its launches listed, and the most recent checked. */
+export type CheckedSample = {
+  /** The launchpad's name, as on each launch (`LaunchedToken.launchpad`). */
+  launchpad: string;
+  /** The creator's other launches listed there (the analysed token not counted). */
+  listed: number;
+  /** How many of them, the most recent, had their sales and liquidity checked. */
+  checked: number;
+};

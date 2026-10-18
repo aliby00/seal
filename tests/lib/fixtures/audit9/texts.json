@@ -1,0 +1,729 @@
+{
+  "note": "texts and launch summaries staging served on 18/10/2026 (seal-staging, /api/analyze)",
+  "rh": {
+    "token": "0x99f2e3420c1071bff35b8aef98a1339ea823ce24",
+    "text": "What is reassuring\n\nThe creator's history was read in full. The creator's wallet was first funded by a high-volume service, which says nothing about who is behind it. Selling worked in the last 24 hours: 370 sells against 369 buys.\n\nWhat deserves attention\n\nOnly 87.57% of the supply circulates outside pools, and the holder read is partial (3 pages). Three addresses received tokens from the creator outside markets, 1.53% of supply in all, and one of them is among the largest holders today. A single transaction at +433 s delivered 87.50% of supply to 100 addresses. 25 addresses bought and sold back within the first 10 minutes, 20 of them from that +433 s purchase.\n\nWhere the signals diverge\n\nToday's holders look widely spread: the largest holds 1.68% and the top 10 hold 12.61% of the circulating share. Yet the 100 addresses that received the supply in one transaction hold 0.00% now (2 not read), so the current holders are mostly different addresses. The creator shows no sales, but it did transfer tokens to three addresses, and a transfer links addresses without showing who controls them. Trading is active, but the average trade is about 10 USD and distinct traders were not collected, so the data cannot show whether many people trade or a few repeat. Who sent the +433 s transaction is not stated in the data.",
+    "launch": {
+      "token": "0x99f2e3420c1071bff35b8aef98a1339ea823ce24",
+      "launchBlock": 69748307,
+      "launchedAt": "2026-09-22T15:05:14.000Z",
+      "windowSeconds": 600,
+      "supply": "1000000000000000000000000000",
+      "moves": [
+        {
+          "kind": "mint",
+          "seconds": 0,
+          "block": 0,
+          "actor": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "counterparty": "0x0000000000000000000000000000000000000000",
+          "actorKind": "pool",
+          "share": 0.999999,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0.112661,
+          "transaction": "0xe591fed8d4c305e3677362615a78132039db678dbc367b72537c2de2cc95ca70"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0x3506ac0b39ad6b49498cec2e0cbac7c7a3b0518a",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.011841,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0x924d8e842ce6f17864f25be51fd40fff0adac807",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.005431,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0xed3f0b7f239b332aa2fd3900b9ab44a5d08b085f",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.005906,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0x86a39e5ca6e547e8a4e0eb03d82926f4893429f4",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.012659,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0x3254213a2d57bb31891a96f9805768735d88469d",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.012579,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0x9d1409f42ef9c20df680e3aeb1d5dbb4e852b97a",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.005278,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0x30e96e3b19563790b550617d8a83a31d47776ae4",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.005444,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0xb29db3d720db59eedfcdcf9611302500417d9e13",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.006086,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0x448b8a3df6603699d4a42512f67e8a399ab6038b",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.005819,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0xf18f8df5a8aac533cf2e299b687a783aae151fbd",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.012665,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0x7e12b3e57b6eab5f5a8d956294d73725ce632fc2",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.011279,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0x5c5e688d9dc84d7ce9ca80acfa947939859615a4",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.00731,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0xa1c65e9b325cdea0fe493744ce95a58d41bf43b3",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.006383,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0x183522155b47e067c755d3bbe658bd71c4d7a3f5",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.011951,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0x5f0c1962e97a5fe6c674b43a3c93f79db751e124",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.009636,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0x06a0b9c1845e44d8308714e3859a56afb5e0c174",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.009168,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0xb5cca6971b35e585565e6b711d253be0a7012583",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.008839,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0xc9ec06eab16095501b9c8949920055a61b591a43",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.007076,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0xdfe0a41aa7835dabefa627f62de87ce4ee56752d",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.010834,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0xb24abc7cd474b609da512d48c7b0058194bc486b",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.006889,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0x3b7a460258233a07ac7940b62643aed66d7ce11e",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.010207,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0x5eb26e94ab4a4a49eab55b152d09002ca913f8b4",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.012231,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0xa4553e6706064ba354720611676588c1b8d7a4fb",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.00722,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0x88f929adc9a3c16a3041732e3fe72e1547779f74",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.007305,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0x6b1aee56df1c13bf3be94746719341607aa887f2",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.012654,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0xa2ca8872cc1f87043659c6996029c6c5e05fb3dc",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.007756,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0xcfd7eb86ee67c1385b805ce31fb36c81d751e3be",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.012263,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0x02beabdb8a02662119bfffa60515681305e2c28f",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.010918,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0xb6ba13a71b6e2c91a79e3657e7872bcfaf5d096a",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.008287,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0x1f284faea960363d5730e960a9a4bc2003bcdea2",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.011216,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0x945b5b1c7a4ea36f1a93d48b8eef5ee17c8022bf",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.006389,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0x08892fea78ffbdd307cdeac9d2080f8f0521eb84",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.005955,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0x35e8c9123cc117520b180b713c873c7cf700aff2",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.007013,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0x5d0fba2739f57982c60e5a86015dd576fcb8533d",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.012409,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "buy",
+          "seconds": 433,
+          "block": 4308,
+          "actor": "0x4c70f9d9065d2a821d7e29207991b22b425ab660",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.012486,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba"
+        },
+        {
+          "kind": "sell",
+          "seconds": 492,
+          "block": 4920,
+          "actor": "0x86a39e5ca6e547e8a4e0eb03d82926f4893429f4",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.012659,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0xdac0d3fb9da284dce541626eb7779ed5dc75ddbc8d31e27259c0fd12cf6f6fe2"
+        },
+        {
+          "kind": "sell",
+          "seconds": 498,
+          "block": 4978,
+          "actor": "0x3254213a2d57bb31891a96f9805768735d88469d",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.012579,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0x452ce67f062c40979061acb4eff6935457baf56b357c2c8fd8f55d445977d883"
+        },
+        {
+          "kind": "sell",
+          "seconds": 531,
+          "block": 5307,
+          "actor": "0xf18f8df5a8aac533cf2e299b687a783aae151fbd",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.012665,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0,
+          "transaction": "0x2eec24e7e23215e2f3807bdfca1e2e910b1c5492f8aa8305c3b16ca3ccce7320"
+        },
+        {
+          "kind": "buy",
+          "seconds": 531,
+          "block": 5307,
+          "actor": "0x0740c5633c66fee8b09714da691a77d9df2dd464",
+          "counterparty": "0xa7b6a6a6ba5c7bfe5235cae718dd7a9138599f6f",
+          "actorKind": "wallet",
+          "share": 0.012427,
+          "actorIsCreator": false,
+          "counterpartyIsCreator": false,
+          "heldNow": 0.008576,
+          "transaction": "0x2eec24e7e23215e2f3807bdfca1e2e910b1c5492f8aa8305c3b16ca3ccce7320"
+        }
+      ],
+      "movesInWindow": 216,
+      "summary": {
+        "moves": 216,
+        "earlySeconds": 60,
+        "creatorAtLaunch": 0,
+        "creatorBought": 0,
+        "creatorSold": 0,
+        "creatorFirstBuyAt": null,
+        "creatorLastSaleAt": null,
+        "creatorSaleConfirmed": false,
+        "creatorTx": null,
+        "early": {
+          "wallets": 0,
+          "share": 0,
+          "within": 0,
+          "heldNow": null,
+          "unread": 0,
+          "contracts": 0
+        },
+        "bundle": {
+          "transaction": "0xafa97b6eaaf34fc1bfc88ad41eadc5417729f454932e836838cbe1cc5ba292ba",
+          "wallets": 100,
+          "share": 0.875,
+          "seconds": 433,
+          "heldNow": 0,
+          "unread": 2,
+          "contracts": null
+        },
+        "roundTrips": {
+          "wallets": 25,
+          "creator": false,
+          "delays": {
+            "min": 3.1,
+            "max": 163.3
+          },
+          "fromBundle": 20,
+          "listed": [
+            {
+              "address": "0x3506ac0b39ad6b49498cec2e0cbac7c7a3b0518a",
+              "boughtAt": 433,
+              "soldAt": 472.6
+            },
+            {
+              "address": "0x924d8e842ce6f17864f25be51fd40fff0adac807",
+              "boughtAt": 433,
+              "soldAt": 479.8
+            },
+            {
+              "address": "0xed3f0b7f239b332aa2fd3900b9ab44a5d08b085f",
+              "boughtAt": 433,
+              "soldAt": 486.5
+            },
+            {
+              "address": "0x86a39e5ca6e547e8a4e0eb03d82926f4893429f4",
+              "boughtAt": 433,
+              "soldAt": 492
+            },
+            {
+              "address": "0x3254213a2d57bb31891a96f9805768735d88469d",
+              "boughtAt": 433,
+              "soldAt": 498
+            },
+            {
+              "address": "0x9d1409f42ef9c20df680e3aeb1d5dbb4e852b97a",
+              "boughtAt": 433,
+              "soldAt": 505.5
+            },
+            {
+              "address": "0x30e96e3b19563790b550617d8a83a31d47776ae4",
+              "boughtAt": 433,
+              "soldAt": 511.4
+            },
+            {
+              "address": "0xb29db3d720db59eedfcdcf9611302500417d9e13",
+              "boughtAt": 433,
+              "soldAt": 518.2
+            },
+            {
+              "address": "0x448b8a3df6603699d4a42512f67e8a399ab6038b",
+              "boughtAt": 433,
+              "soldAt": 524.9
+            },
+            {
+              "address": "0xf18f8df5a8aac533cf2e299b687a783aae151fbd",
+              "boughtAt": 433,
+              "soldAt": 531
+            },
+            {
+              "address": "0x7e12b3e57b6eab5f5a8d956294d73725ce632fc2",
+              "boughtAt": 433,
+              "soldAt": 537.9
+            },
+            {
+              "address": "0x5c5e688d9dc84d7ce9ca80acfa947939859615a4",
+              "boughtAt": 433,
+              "soldAt": 544
+            },
+            {
+              "address": "0xa1c65e9b325cdea0fe493744ce95a58d41bf43b3",
+              "boughtAt": 433,
+              "soldAt": 550.7
+            },
+            {
+              "address": "0x183522155b47e067c755d3bbe658bd71c4d7a3f5",
+              "boughtAt": 433,
+              "soldAt": 557.2
+            },
+            {
+              "address": "0x5f0c1962e97a5fe6c674b43a3c93f79db751e124",
+              "boughtAt": 433,
+              "soldAt": 564
+            },
+            {
+              "address": "0x06a0b9c1845e44d8308714e3859a56afb5e0c174",
+              "boughtAt": 433,
+              "soldAt": 569.8
+            },
+            {
+              "address": "0xb5cca6971b35e585565e6b711d253be0a7012583",
+              "boughtAt": 433,
+              "soldAt": 575.9
+            },
+            {
+              "address": "0xc9ec06eab16095501b9c8949920055a61b591a43",
+              "boughtAt": 433,
+              "soldAt": 583.7
+            },
+            {
+              "address": "0xdfe0a41aa7835dabefa627f62de87ce4ee56752d",
+              "boughtAt": 433,
+              "soldAt": 590.6
+            },
+            {
+              "address": "0xb24abc7cd474b609da512d48c7b0058194bc486b",
+              "boughtAt": 433,
+              "soldAt": 596.3
+            },
+            {
+              "address": "0x9e9036f206f140206aca64b6880f3f2e309cfae5",
+              "boughtAt": 441.5,
+              "soldAt": 444.6
+            },
+            {
+              "address": "0x25e0eb406c5831c4a38a5bd98e87db7563ab77b8",
+              "boughtAt": 446.6,
+              "soldAt": 493.4
+            },
+            {
+              "address": "0xb9577f4543392519f7dd9f94a77b60946e09457b",
+              "boughtAt": 448.7,
+              "soldAt": 465.9
+            },
+            {
+              "address": "0x9e7866c88c4cbc65cdf59af7884e4545bb4f3347",
+              "boughtAt": 485.6,
+              "soldAt": 572.5
+            },
+            {
+              "address": "0x3823aecc8335e72f54dc6dd2df40ade5e355a29d",
+              "boughtAt": 501.4,
+              "soldAt": 544.1
+            }
+          ],
+          "excluded": {
+            "sameTransaction": 1,
+            "liquidity": 2
+          }
+        },
+        "receiptsRead": 60,
+        "receiptsWanted": 96,
+        "balancesRead": 100,
+        "balancesWanted": 102
+      }
+    }
+  },
+  "hypurrt": {
+    "token": "0xff6a3387cf21ef2ed2e94da324bce290ca9abc3b",
+    "text": "What is reassuring\n\nNo sale and no liquidity removal by the creator was observed, and the creator's transfers reached none of the holders read. The creator's 3.99% launch-block purchase was sent to a burn address. Outside pools, locks and burn addresses, no wallet holds more than 4.10%. The creator's wallet was first funded by a routing contract, which links it to nobody.\n\nWhat deserves attention\n\nIn the first 10 minutes, 106 early buyers bought 73.80% of the supply in total, and 190 addresses bought and sold back within that window. The trading rules (hook) can alter any trade, including taking a cut of a sell or stopping it, and what they actually do is not readable. The same hook serves 10320 markets, which may just be a launchpad standard. Three other liquidity providers took back their own positions, which is separate from the creator's liquidity.\n\nWhere the signals diverge\n\nToday's holder list looks spread out, yet the launch window shows heavy buying and quick resale: early buyers still hold 11.44% of what they bought, 11 of those addresses could not be read. Holders look dispersed partly because many early buyers have left. The creator's record shows no sale, but only one launch was found on the launchpads SEAL can list, so there is little history to judge. The report is partial: only 3 pages of holders were read, distinct traders were not collected, and only the standard upgrade slot was checked on the hook, so later rule changes are not ruled out.",
+    "early": {
+      "wallets": 106,
+      "share": 0.738003,
+      "within": 59.4,
+      "heldNow": 0.114397,
+      "unread": 11,
+      "contracts": null
+    }
+  },
+  "wheelSmith": {
+    "token": "0xeb579e280648b6f48a840086a9e6631500a20684",
+    "text": "What is reassuring\n\nThe holder read covered only 3 pages, so it is partial. Sells are going through: 1714 sells against 2037 buys in 24 hours. The creator's first funder is a high-volume service, which says nothing about who is behind the wallet.\n\nWhat deserves attention\n\nThe creator sold this token into its market, and it sold back 3.23% within the first 10 minutes. Whether it removed liquidity could not be read this time, so the report is partial on that point. A third of the supply sits in pools and launch contracts, so only 67% circulates. In the first 10 minutes, 38 addresses bought and then sold back. The 9 early buyers bought 25.28% of the supply and hold 0.49% today.\n\nWhere the signals diverge\n\nThe current picture looks broad: 1550 holder addresses, modest top holdings, and 464,640 USD of 24-hour volume. The launch window looks different, with many quick round trips and creator sales. Today's holder spread says little about who traded in those first minutes. The volume read also did not collect distinct traders, so how many separate people produce today's trading cannot be concluded. The trading rules (hook) can alter trade amounts, though what they do is not readable. No standard upgrade slot is set on them, but the token's own contract was not checked. No other launch was found on the launchpads SEAL can list, which leaves the creator's wider record unknown."
+  },
+  "asteroid": {
+    "token": "0xfd82d8db539b6ace0d50815845133767e24f1e18",
+    "text": "What is reassuring\n\nLiquidity is about 199,000 USD, and no liquidity removal by the creator was observed on this token in its first 11 days. Outside pools and contracts, the largest holder has 4.43% and there are 2966 holder addresses. The hook code has no standard upgrade slot set, though only that one pattern was checked.\n\nWhat deserves attention\n\nThe creator sold this token over its 96 days so far, and sold on 7 of 9 other launches in their first 11 days. It also took 6.91% of supply as trading fees in 52 transfers. It sent tokens to 6 addresses outside markets, and one contract passed 3.94% on to 105 addresses. The first funder of the creator's wallet bought at +17 s and sold back at +115 s. Only 79.09% of supply circulates outside pools and contracts.\n\nWhere the signals diverge\n\nYet the early record points the other way. 17 early buyers bought 17.94% of supply and now hold 0.00%, and 18 addresses bought and sold back within the window. Several creator recipients, including the funder, also appear among the early buyers. A transfer links addresses but does not show who controls them. The holder read covers 3 pages only, graduation was not determined, and distinct traders in the 24-hour volume were not collected, so the data cannot say who drives today's trading."
+  }
+}

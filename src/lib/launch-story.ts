@@ -70,6 +70,14 @@ export type LaunchStory = {
    * other addresses than the creator's; `null` when none, or not read.
    */
   creatorTx: { share: number; addresses: number; contracts: number | null } | null;
+  /**
+   * Addresses that bought and sold back within the window, over every move,
+   * and those left out of the count, with why. `null` when not counted.
+   */
+  roundTrips: {
+    wallets: number;
+    excluded: { sameTransaction: number; liquidity: number } | null;
+  } | null;
   /** True when the window had more moves than were read. */
   partial: boolean;
   /**
@@ -210,6 +218,12 @@ export function buildStory(launch: LaunchReplayData): LaunchStory {
         }
       : null,
     counted: summary ? 'all' : 'shown',
+    roundTrips: summary?.roundTrips
+      ? {
+          wallets: summary.roundTrips.wallets,
+          excluded: summary.roundTrips.excluded ?? null,
+        }
+      : null,
     buyers,
     curve,
     creatorSales: sales.map((m) => ({ seconds: m.seconds, share: m.share })),
@@ -228,4 +242,31 @@ export function addressesWord(count: number, contracts: number | null): string {
   if (contracts === 0) return one ? 'wallet' : 'wallets';
   if (contracts !== null && contracts === count) return one ? 'contract' : 'contracts';
   return one ? 'address' : 'addresses';
+}
+
+/**
+ * What the round-trip count leaves out, said next to it: an address that
+ * bought and sold back within one single transaction never held the token
+ * (an arbitrage through it), and one that put its tokens back into a pool as
+ * liquidity did not sell them (RH: 25 counted, 27 on chain).
+ */
+export function roundTripsExcludedWords(
+  excluded: { sameTransaction: number; liquidity: number } | undefined,
+): string {
+  if (!excluded) return '';
+  const total = excluded.sameTransaction + excluded.liquidity;
+  if (total === 0) return '';
+  const why = [
+    ...(excluded.sameTransaction > 0
+      ? [
+          `${excluded.sameTransaction === total ? '' : `${excluded.sameTransaction} `}bought and sold back within one single transaction, never holding the token`,
+        ]
+      : []),
+    ...(excluded.liquidity > 0
+      ? [
+          `${excluded.liquidity === total ? '' : `${excluded.liquidity} `}put the tokens back into a pool as liquidity rather than selling`,
+        ]
+      : []),
+  ];
+  return ` (${total} more excluded: ${why.join('; ')})`;
 }
