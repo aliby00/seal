@@ -135,7 +135,7 @@ test('report draws the measured facts, says what is missing, and gives no score'
   await submit(page);
   const board = page.getByRole('region', { name: 'Measured facts' });
   await expect(board).toBeVisible();
-  await expect(board.locator('.fact-big')).toContainText('76 tokens launched');
+  await expect(board.locator('.fact-big')).toContainText('76 launches found');
   await expect(
     board.getByRole('img', { name: /Largest holder 31%, Holders 2 to 10 47%, Everyone else 22%/ }),
   ).toBeVisible();

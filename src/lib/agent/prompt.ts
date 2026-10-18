@@ -74,7 +74,7 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
     );
     if (c.origin.launchpadsNotRead?.length) {
       lines.push(
-        `Non listés : ${c.origin.launchpadsNotRead.join(', ')}. N’affirme pas qu’il n’y en a pas.`,
+        `Non listés : ${c.origin.launchpadsNotRead.join(', ')}. N’affirme pas qu’il n’y en a pas, et n’écris jamais que c’est le premier token du créateur.`,
       );
     }
     lines.push(

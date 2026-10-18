@@ -336,9 +336,14 @@ function CreatorCard({
       ) : (
         <>
           <p className="fact-big">
-            {creator.launchesListed === false && <span>at least </span>}
             {creator.launched}
-            <span> token{creator.launched === 1 ? '' : 's'} launched</span>
+            <span>
+              {' '}
+              launch{creator.launched === 1 ? '' : 'es'} found
+              {creator.launchesListed === false || (creator.notListed?.length ?? 0) > 0
+                ? ', where launches can be listed'
+                : ''}
+            </span>
           </p>
           {creator.address && (
             <p className="fact-mono">

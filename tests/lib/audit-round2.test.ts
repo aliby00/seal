@@ -655,3 +655,70 @@ describe('holders: an airdrop is not a spread of buyers (bug 10)', () => {
     expect(f.facts.join(' ')).toMatch(/sent this token directly to 10100 addresses/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// The creator's record (bugs 7 and 9)
+
+describe('record: never "first token" while some launches cannot be listed (bug 7)', () => {
+  it('AGEM-like: one launch found, Doppler and direct deploys not listed', () => {
+    const f = glanceFacts({});
+    f.creator = {
+      ...f.creator,
+      measured: true,
+      launched: 1,
+      detailed: 1,
+      launchesListed: true,
+      notListed: ['Doppler', 'contracts deployed directly'],
+    };
+    const record = buildGlance({ facts: f })!.items.find((i) => i.id === 'record');
+    expect(record?.title).toBe(
+      'No other launch by this creator was found on the launchpads SEAL can list (Doppler and direct deploys are not listed).',
+    );
+    expect(record?.title).not.toMatch(/first token|at least/);
+  });
+
+  it('ECOGPT: a flap.sh creator whose launches cannot be listed is not "at least 1 token"', () => {
+    const f = glanceFacts({});
+    f.creator = {
+      ...f.creator,
+      measured: true,
+      launched: 1,
+      detailed: 1,
+      launchesListed: false,
+      launchpad: 'flap.sh',
+      notListed: ['Doppler', 'contracts deployed directly'],
+    };
+    expect(buildGlance({ facts: f })!.items.find((i) => i.id === 'record')?.title).toBe(
+      'No other launch by this creator was found on the launchpads SEAL can list (flap.sh, Doppler and direct deploys are not listed).',
+    );
+  });
+});
+
+describe('record: the span is said of the launches it rests on (bug 9)', () => {
+  it('80 launches, 40 read in detail over 24 days: not "80 tokens in 24 days"', () => {
+    const f = glanceFacts({});
+    f.creator = {
+      ...f.creator,
+      measured: true,
+      launched: 80,
+      detailed: 40,
+      launchesListed: true,
+      notListed: [],
+      graduation: 'not-measured',
+    };
+    const start = Date.UTC(2026, 8, 20);
+    const timeline = Array.from({ length: 40 }, (_, i) => ({
+      address: `0x${String(i).padStart(40, '0')}`,
+      launchedAt: new Date(start + (i * 24 * 86_400_000) / 39).toISOString(),
+      block: i,
+      outcome: 'undetermined' as const,
+      progress: 0,
+      sold: null,
+      pulled: null,
+      current: false,
+    }));
+    expect(buildGlance({ facts: f, timeline })!.items.find((i) => i.id === 'record')?.title).toBe(
+      'This creator launched 80 tokens; the 40 read in detail came in 24 days.',
+    );
+  });
+});

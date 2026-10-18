@@ -54,14 +54,43 @@ function pct(value: number): string {
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
-/** "in 3 days", "in one day", or nothing when the dates are not known. */
-function spanOf(timeline: TimelineLaunch[] | undefined): { days: number; words: string } | null {
+/**
+ * "in 3 days", "within a day", or nothing when the dates are not known.
+ * `dated` is how many launches the span rests on: only those read in detail
+ * carry a date, so a creator with more launches is not given their span.
+ */
+function spanOf(
+  timeline: TimelineLaunch[] | undefined,
+): { days: number; words: string; dated: number } | null {
   const dates = (timeline ?? [])
     .map((l) => (l.launchedAt ? Date.parse(l.launchedAt) : NaN))
     .filter((t) => Number.isFinite(t));
   if (dates.length < 2) return null;
   const days = Math.max(1, Math.ceil((Math.max(...dates) - Math.min(...dates)) / DAY_MS));
-  return { days, words: days === 1 ? 'within a day' : `in ${days} days` };
+  return { days, words: days === 1 ? 'within a day' : `in ${days} days`, dated: dates.length };
+}
+
+/** "Doppler and direct deploys", for a sentence. */
+function joinAnd(items: readonly string[]): string {
+  return items.length <= 1
+    ? (items[0] ?? '')
+    : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
+
+/**
+ * Where the creator's launches could not be listed, as a parenthesis: the
+ * token's own launchpad when its event does not name creators, the
+ * launchpads that cannot be read, and contracts deployed directly.
+ */
+function unlistedWords(creator: ReportFacts['creator']): string {
+  const items = [
+    ...(creator.launchesListed === false && creator.launchpad ? [creator.launchpad] : []),
+    ...(creator.notListed ?? []),
+  ].map((n) => (n === 'contracts deployed directly' ? 'direct deploys' : n));
+  const unique = [...new Set(items)];
+  if (unique.length === 0) return '';
+  const verb = unique.length > 1 || unique[0] === 'direct deploys' ? 'are' : 'is';
+  return ` (${joinAnd(unique)} ${verb} not listed)`;
 }
 
 /** "over its whole life so far (78 days)", "up to day 140", or nothing when unknown. */
@@ -134,18 +163,28 @@ function recordItem(
   timeline: TimelineLaunch[] | undefined,
 ): GlanceItem | null {
   if (!creator.measured || creator.launched === 0) return null;
-  const atLeast = creator.launchesListed === false ? 'at least ' : '';
-  if (creator.launched === 1 && creator.launchesListed !== false) {
+  const unlisted = unlistedWords(creator);
+  // "First token" would claim that nowhere holds an earlier launch: SEAL
+  // never reads every place that could (Doppler's Airlock does not name its
+  // creators; a contract deployed directly is in no launchpad's record).
+  if (creator.launched === 1) {
     return {
       id: 'record',
       tone: 'neutral',
-      figure: '1st',
-      title: 'This is the creator’s first token: there is no past launch to compare with.',
-      detail: 'From the launches recorded for this wallet.',
+      figure: '1',
+      title: `No other launch by this creator was found on the launchpads SEAL can list${unlisted}.`,
+      detail: 'Their launch record on chain, this token included.',
       href: '#fact-creator',
     };
   }
   const span = spanOf(timeline);
+  // The span rests on the launches with a date; with more launches than
+  // that, it is said of those only.
+  const spanWords = span
+    ? span.dated >= creator.launched
+      ? ` ${span.words}`
+      : `; the ${span.dated} read in detail came ${span.words}`
+    : '';
   // Graduation is read on pons only: elsewhere, saying none graduated would
   // state what was never looked at.
   const graduated =
@@ -157,12 +196,13 @@ function recordItem(
           : ` None of the ${creator.detailed} read in detail graduated.`
         : ` ${creator.graduated} of the ${creator.detailed} read in detail graduated.`;
   // Many launches in a few days is a pattern worth seeing; one a month is not.
-  const rapid = span !== null && creator.launched >= 3 && span.days <= 7;
+  const rapid = span !== null && span.dated >= 3 && span.days <= 7;
+  const where = unlisted ? ` on the launchpads SEAL can list${unlisted}` : '';
   return {
     id: 'record',
     tone: rapid ? 'attention' : creator.graduated > 0 ? 'reassuring' : 'neutral',
     figure: `${creator.launched}`,
-    title: `This creator launched ${atLeast}${plural(creator.launched, 'token')}${span ? ` ${span.words}` : ''}.${graduated}`,
+    title: `This creator launched ${plural(creator.launched, 'token')}${where}${spanWords}.${graduated}`,
     detail: 'Their launch record on chain, this token included.',
     href: '#fact-creator',
   };
