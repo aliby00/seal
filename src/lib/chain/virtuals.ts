@@ -101,9 +101,18 @@ export async function readVirtualsGraduation(
   supply: bigint,
   markets: readonly string[],
 ): Promise<LaunchGraduation> {
-  const [receipt, block] = await rpc.callBatch<unknown>([
+  const [receipt, block, balance] = await rpc.callBatch<unknown>([
     { method: 'eth_getTransactionReceipt', params: [log.transactionHash] },
     { method: 'eth_getBlockByNumber', params: [log.blockNumber, false] },
+    // What the excess wallet holds today: it passes its tokens on (SIRIUS: to
+    // a Merkle claim contract), so what it received says nothing of now.
+    {
+      method: 'eth_call',
+      params: [
+        { to: token, data: `0x70a08231${VIRTUALS.excessWallet.slice(2).padStart(64, '0')}` },
+        'latest',
+      ],
+    },
   ]);
   const logs = receipt?.ok ? (receipt.value as { logs?: RawLog[] } | null)?.logs : undefined;
   if (!Array.isArray(logs)) {
@@ -111,10 +120,15 @@ export async function readVirtualsGraduation(
   }
   const stamp = block?.ok ? (block.value as { timestamp?: string } | null)?.timestamp : undefined;
   const timestamp = stamp !== undefined ? Number(stamp) : NaN;
+  const moves = graduationMoves(token, logs, supply, markets);
+  const held = balance?.ok && typeof balance.value === 'string' ? balance.value : null;
+  if (moves.excess && held && /^0x[0-9a-f]*$/i.test(held) && supply > 0n) {
+    moves.excess.heldNow = share6(BigInt(held === '0x' ? '0x0' : held), supply);
+  }
   return {
     block: Number(log.blockNumber),
     transaction: log.transactionHash,
     at: Number.isFinite(timestamp) ? new Date(timestamp * 1000).toISOString() : null,
-    ...graduationMoves(token, logs, supply, markets),
+    ...moves,
   };
 }
