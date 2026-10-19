@@ -192,7 +192,6 @@ describe('GNRG: the creator’s history rate-limited (item 1)', () => {
       explanation: 'x',
       completeness: report.completeness,
       sources: [],
-      costUsd: 0,
       collectedAt: report.collectedAt,
       offline: false,
       facts,

@@ -129,7 +129,11 @@ async function analyze(request: Request, started: number): Promise<Response> {
   const hit = await analysisCache.get(cacheKey);
   if (hit) {
     log.info('analyse servie depuis le cache', { token, ms: Date.now() - started });
-    return NextResponse.json({ ...hit, costUsd: 0, cached: true } satisfies AnalyzeResponse);
+    // The cost is ours to track, never part of what a reader is served: an
+    // entry written before it left the response loses it here.
+    const served: AnalyzeResponse & { costUsd?: number } = { ...hit };
+    delete served.costUsd;
+    return NextResponse.json({ ...served, cached: true } satisfies AnalyzeResponse);
   }
 
   try {
@@ -194,7 +198,6 @@ async function analyze(request: Request, started: number): Promise<Response> {
       sources: [...report.creator.sources, ...report.holders.sources, ...report.market.sources].map(
         ({ name, note }) => ({ name, ...(note ? { note } : {}) }),
       ),
-      costUsd: explanation.cost.costUsd,
       collectedAt: report.collectedAt,
       offline: explanation.offline,
       facts: chartable(report, funderOf(brief?.answers)),
@@ -205,7 +208,11 @@ async function analyze(request: Request, started: number): Promise<Response> {
 
     // A report a failed read left partial is worth asking again, never repeating.
     if ((report.failedReads?.length ?? 0) === 0) await analysisCache.set(cacheKey, body);
-    log.info('analyse servie', { token, ms: Date.now() - started, costUsd: body.costUsd });
+    log.info('analyse servie', {
+      token,
+      ms: Date.now() - started,
+      costUsd: explanation.cost.costUsd,
+    });
     return NextResponse.json(body);
   } catch (error) {
     if (error instanceof SealError) {

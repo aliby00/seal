@@ -321,7 +321,6 @@ describe('timeouts are failed reads (item 2)', () => {
       explanation: 'x',
       completeness: 'full',
       sources: [],
-      costUsd: 0,
       collectedAt: report.collectedAt,
       offline: false,
       specialists: answers,
