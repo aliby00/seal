@@ -225,7 +225,7 @@ export async function fetchHolderDistribution(
     };
   }
 
-  const maxPages = options.maxPages ?? 3;
+  const maxPages = options.maxPages ?? 8;
   // The count and the supply are a bonus: their failure leaves the list as is.
   const totalsRequest = requestJson<BlockscoutToken>(
     tokenUrl(token, options.apiKey, options.baseUrl),
