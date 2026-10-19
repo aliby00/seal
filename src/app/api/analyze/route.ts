@@ -152,6 +152,7 @@ async function analyze(request: Request, started: number): Promise<Response> {
     // The ten questions are answered before the text is written, so the text
     // can draw on them. Their time is what is left once the model's own
     // allowance is set aside, so the whole request stays under maxDuration.
+    const collectedMs = Date.now() - started;
     const left = REQUEST_BUDGET_MS - (Date.now() - started) - MODEL_ALLOWANCE_MS;
     const brief = await specialists(
       token,
@@ -170,6 +171,7 @@ async function analyze(request: Request, started: number): Promise<Response> {
     }
     // Whatever the model has left is cut at the budget's end, so the response
     // leaves before the platform kills the function and loses a paid answer.
+    const answeredMs = Date.now() - started;
     const modelMs = REQUEST_BUDGET_MS - (Date.now() - started);
     const explanation = await explain(report, {
       specialists: brief?.answers,
@@ -211,6 +213,12 @@ async function analyze(request: Request, started: number): Promise<Response> {
     log.info('analyse servie', {
       token,
       ms: Date.now() - started,
+      // Where the time went: the reads, then the ten questions, then the text.
+      phases: {
+        collect: collectedMs,
+        questions: answeredMs - collectedMs,
+        model: Date.now() - started - answeredMs,
+      },
       costUsd: explanation.cost.costUsd,
     });
     return NextResponse.json(body);
