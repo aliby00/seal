@@ -16,7 +16,11 @@ import type {
 import { toFacts } from '../../src/lib/facts';
 import { buildGlance } from '../../src/lib/glance';
 import { withRoles } from '../../src/lib/holders/roles';
-import { graduationMoves, readVirtualsGraduations } from '../../src/lib/chain/virtuals';
+import {
+  graduationMoves,
+  readVirtualsGraduation,
+  readVirtualsGraduations,
+} from '../../src/lib/chain/virtuals';
 import { buildSupplyFlow, flowHeadline, flowSentence, lockWords } from '../../src/lib/supply-flow';
 import { CATALOG } from '../../src/lib/specialists/catalog';
 import { shortAnswer } from '../../src/lib/specialists/plain';
@@ -487,5 +491,51 @@ describe('Virtuals graduation in the market section', () => {
     const text = renderReport(report);
     expect(text).toMatch(/Graduation: graduated to an open market on 2026-09-23/);
     expect(text).not.toMatch(/Graduation: not determined/);
+  });
+});
+
+describe('the graduation-excess wallet today', () => {
+  // It passed SIRIUS's excess on to a Merkle claim contract: what it received
+  // at graduation is not what it holds, so its balance is read, not assumed.
+  it('reads what the excess wallet holds now, and the flow says it holds none', async () => {
+    const g = graduationFixture;
+    const rpc = {
+      callBatch: async (requests: RpcRequest[]) =>
+        requests.map((r) =>
+          r.method === 'eth_getTransactionReceipt'
+            ? { ok: true, value: { logs: g.logs } }
+            : r.method === 'eth_getBlockByNumber'
+              ? { ok: true, value: { timestamp: g.timestamp } }
+              : { ok: true, value: '0x0' },
+        ),
+    } as unknown as RpcClient;
+    const read = await readVirtualsGraduation(rpc, SIRIUS, g.graduated as RawLog, SUPPLY, [
+      V2_PAIR,
+    ]);
+    expect(read.excess).toMatchObject({ address: VIRTUALS.excessWallet, heldNow: 0 });
+    const report = siriusReport();
+    report.graduated = read;
+    const excess = toFacts(report)
+      .supplyFlow!.roots.flatMap((r) => r.children)
+      .find((c) => c.address === VIRTUALS.excessWallet)!;
+    expect(excess.heldNow).toBe(0);
+  });
+
+  it('leaves the balance unread when the call fails', async () => {
+    const g = graduationFixture;
+    const rpc = {
+      callBatch: async (requests: RpcRequest[]) =>
+        requests.map((r) =>
+          r.method === 'eth_getTransactionReceipt'
+            ? { ok: true, value: { logs: g.logs } }
+            : r.method === 'eth_getBlockByNumber'
+              ? { ok: true, value: { timestamp: g.timestamp } }
+              : { ok: false, error: new Error('down') },
+        ),
+    } as unknown as RpcClient;
+    const read = await readVirtualsGraduation(rpc, SIRIUS, g.graduated as RawLog, SUPPLY, [
+      V2_PAIR,
+    ]);
+    expect(read.excess).not.toHaveProperty('heldNow');
   });
 });

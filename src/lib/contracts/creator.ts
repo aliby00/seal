@@ -144,8 +144,11 @@ export type LaunchGraduation = {
   at: string | null;
   /** What seeded the open market, and which pool. */
   market: { address: string; share: number } | null;
-  /** What the launchpad sent its excess wallet. */
-  excess: { address: string; share: number } | null;
+  /**
+   * What the launchpad sent its excess wallet, and what that wallet holds of
+   * the token today (absent when its balance could not be read).
+   */
+  excess: { address: string; share: number; heldNow?: number } | null;
 };
 
 export type CreatorOrigin = {

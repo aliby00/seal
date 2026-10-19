@@ -200,6 +200,8 @@ export function buildSupplyFlow(
             'distributor',
           ),
         );
+        const excess = curve.children[curve.children.length - 1]!;
+        if (graduation.excess.heldNow !== undefined) excess.heldNow = graduation.excess.heldNow;
       }
       if (curve.heldNow === null) curve.heldNow = 0;
     }
