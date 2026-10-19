@@ -195,7 +195,6 @@ describe('GET /api/glance', () => {
       explanation: 'x',
       completeness: 'partial',
       sources: [],
-      costUsd: 0.01,
       collectedAt: '2026-10-02T00:00:00.000Z',
       offline: false,
       name: 'From Analysis',

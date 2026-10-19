@@ -13,13 +13,12 @@ export type CachedAnalysis = {
   explanation: string;
   completeness: string;
   sources: { name: string; note?: string }[];
-  costUsd: number;
   collectedAt: string;
   /** Vrai si la restitution vient du mode hors-ligne, sans appel au modèle. */
   offline: boolean;
   /** The measured numbers, for the report's charts. Absent from older responses. */
   facts?: ReportFacts;
-  /** True when served from the shared cache: this request spent nothing (costUsd 0). */
+  /** True when served from the shared cache: this request spent nothing. */
   cached?: boolean;
   /** The token's name and symbol as read on chain; absent or null when unreadable. */
   name?: string | null;
