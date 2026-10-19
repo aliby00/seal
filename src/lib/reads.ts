@@ -89,17 +89,22 @@ export function reasonOf(error: unknown): string {
  */
 export class ReadLedger {
   private readonly failures: FailedRead[] = [];
+  /** How long each read took, in ms, for the collection's log line. */
+  readonly timings: Partial<Record<OptionalRead, number>> = {};
 
   async read<T>(
     name: OptionalRead,
     fn: () => Promise<T | typeof NOT_APPLICABLE>,
   ): Promise<ReadOutcome<T>> {
+    const started = Date.now();
     try {
       const value = await fn();
       return value === NOT_APPLICABLE ? { status: 'not-applicable' } : { status: 'ok', value };
     } catch (error) {
       this.fail(name, error);
       return { status: 'failed', error };
+    } finally {
+      this.timings[name] = (this.timings[name] ?? 0) + Date.now() - started;
     }
   }
 

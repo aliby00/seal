@@ -441,6 +441,11 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
   // Each optional read goes through the ledger: it answered, it does not
   // apply, or it failed — and a failure always lands in the failed reads.
   const ledger = new ReadLedger();
+  // When each stage ended, in ms since the start: where a slow analysis spent its time.
+  const stages: Record<string, number> = {};
+  const stage = (name: string) => {
+    stages[name] = Date.now() - startedAt;
+  };
   const failures = { push: (...f: FailedRead[]) => ledger.push(...f) };
   const budget: RequestBudget = createBudget(options.maxRequests ?? RPC_BUDGET);
   const rpc = createRpcClient(options.rpcUrl, budget);
@@ -565,6 +570,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
   // Launchpads the indexer has read to the head are not asked of the node.
   const listedByIndexer = latest > 0 ? indexedListing(indexed, coverage, latest) : undefined;
   const pairs = await pairsRead;
+  stage('pairs');
   const listedVenues = 'pairs' in pairs ? venuesOf(address, pairs.pairs) : undefined;
   // Every listed pool, and the trading rules (hook) of each v4 one: the
   // checks of a market's rules read the main pool and weigh the others.
@@ -933,6 +939,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
       ) as CreatorHistory;
     },
   );
+  stage('creator-history');
   const chain = withIndexedLaunches(chainRead, indexed, collectedAt);
 
   const graduation = launch
@@ -954,6 +961,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
   const own = (t: LaunchedToken) => t.address.toLowerCase() === address.toLowerCase();
   const { holders, launchReplay, pooledNow, setAside, launchFrom } = await (early ??
     readRest(chain.data.creator, chain.data.tokens.find(own)?.launchedAtBlock));
+  stage('holders-replay');
   const marketRead = await settled<MarketState>(
     (async () => {
       if ('error' in pairs) throw pairs.error;
@@ -975,6 +983,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
       }) as MarketState;
     },
   );
+  stage('market');
 
   // A creator sale the launch replay saw confirmed by a trade is a sale in
   // the history too: the replay and the history must not disagree (AML).
@@ -1162,6 +1171,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
   const allRoles = [...roles, ...graduationNames];
 
   const fees = await feesRead;
+  stage('fees');
   const pools = await poolsRead;
   const creator: CreatorHistory =
     fees && fees.transfers > 0
@@ -1187,6 +1197,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
 
   // No listed pair: the launch pool's own trades, counted by the indexer.
   const tokenAnswer = await indexedToken;
+  stage('indexer-token');
   const market = checkLiquidity(
     withPoolActivity(
       pools && pools.length > 0 && marketRead.data.pair !== null
@@ -1246,6 +1257,9 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     completeness,
     requests: { rpc: budget.spent, holders: holdersBudget.spent, market: marketBudget.spent },
     creatorHistoryCached: historyFromCache,
+    ms: Date.now() - startedAt,
+    stages,
+    reads: ledger.timings,
   });
 
   return {
