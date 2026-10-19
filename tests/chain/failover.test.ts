@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  byHealth,
   createRpcClient,
   DEFAULT_RPC_URL,
   logsRpcUrls,
   parseRpcUrls,
   resetThrottle,
   rpcUrls,
+  SET_ASIDE_MS,
+  SLOW_NODE_MS,
 } from '../../src/lib/chain/rpc';
 import { createBudget, BudgetExhaustedError } from '../../src/lib/http';
 
@@ -76,14 +79,42 @@ describe('a failing node hands the request to the next one', () => {
     },
   );
 
-  it('starts every request from the first node again', async () => {
+  it('sets a failing node aside for a minute, then starts from it again', async () => {
     const behaviour: Record<string, Behaviour> = { [A]: 'http-500' };
     const calls = nodes(behaviour);
     const rpc = createRpcClient([A, B], undefined, [B]);
     await rpc.call('eth_blockNumber', []);
     behaviour[A] = 'ok';
+    // Within the minute the next request goes straight to B.
+    await expect(rpc.call('eth_blockNumber', [])).resolves.toBe(B);
+    const now = Date.now();
+    vi.spyOn(Date, 'now').mockReturnValue(now + SET_ASIDE_MS + 1);
     await expect(rpc.call('eth_blockNumber', [])).resolves.toBe(A);
-    expect(calls).toEqual([A, B, A]);
+    expect(calls).toEqual([A, B, B, A]);
+    vi.restoreAllMocks();
+  });
+
+  it('sets aside a node that answers, but slowly', async () => {
+    const calls: string[] = [];
+    let clock = 1_000_000;
+    vi.spyOn(Date, 'now').mockImplementation(() => clock);
+    vi.stubGlobal('fetch', async (input: string | URL | Request) => {
+      const url = String(input);
+      calls.push(url);
+      // A keyed provider throttling us: right, but 7 s late.
+      if (url === A) clock += 7_000;
+      return new Response(JSON.stringify({ id: 1, result: url }));
+    });
+    const rpc = createRpcClient([A, B], undefined, [B]);
+    await expect(rpc.call('eth_blockNumber', [])).resolves.toBe(A);
+    await expect(rpc.call('eth_blockNumber', [])).resolves.toBe(B);
+    expect(calls).toEqual([A, B]);
+    expect(SLOW_NODE_MS).toBeLessThan(7_000);
+    vi.restoreAllMocks();
+  });
+
+  it('never sets aside the only node there is', () => {
+    expect(byHealth([DEFAULT_RPC_URL])).toEqual([DEFAULT_RPC_URL]);
   });
 
   it('fails over for log queries and batches too', async () => {
