@@ -171,7 +171,6 @@ describe('keepAnalysis', () => {
     explanation: 'ok',
     completeness: 'full',
     sources: [{ name: 'robinhood-rpc' }],
-    costUsd: 0.01,
     collectedAt: '',
     offline: false,
   };

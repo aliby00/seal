@@ -638,7 +638,6 @@ describe('the failure harness', () => {
             explanation: '',
             completeness: report.completeness,
             sources: [],
-            costUsd: 0,
             collectedAt: report.collectedAt,
             offline: false,
             facts,

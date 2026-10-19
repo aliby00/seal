@@ -115,7 +115,8 @@ describe('POST /api/analyze', () => {
     expect(res.status).toBe(200);
     expect(body.explanation).toContain('signaux');
     expect(body.completeness).toBe('partial');
-    expect(body.costUsd).toBe(0.019);
+    // The cost is logged and counted, never served to the reader.
+    expect(body).not.toHaveProperty('costUsd');
   });
 
   it('remonte les limites de chaque source', async () => {
@@ -190,9 +191,10 @@ describe('configuration', () => {
     await POST(post({ token: TOKEN }));
     // Same token, other casing (the checksummed form): same cache entry.
     const res = await POST(post({ token: getAddress(TOKEN) }));
-    const body = (await res.json()) as { costUsd: number; cached?: boolean; explanation: string };
+    const body = (await res.json()) as { cached?: boolean; explanation: string };
     expect(res.status).toBe(200);
-    expect(body).toMatchObject({ costUsd: 0, cached: true, explanation: 'ok' });
+    expect(body).toMatchObject({ cached: true, explanation: 'ok' });
+    expect(body).not.toHaveProperty('costUsd');
     expect(collect).toHaveBeenCalledTimes(1);
     expect(explain).toHaveBeenCalledTimes(1);
   });

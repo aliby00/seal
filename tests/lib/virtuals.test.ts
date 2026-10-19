@@ -176,7 +176,6 @@ export function siriusAnalysis() {
     explanation: offlineExplanation(report),
     completeness: 'full',
     sources: [],
-    costUsd: 0,
     collectedAt: '2026-10-18T12:00:00.000Z',
     offline: true,
     name: 'SIRIUS',

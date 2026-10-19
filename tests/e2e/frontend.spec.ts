@@ -18,7 +18,6 @@ const report = {
     { name: 'dexscreener' },
   ],
   offline: false,
-  costUsd: 0.019,
   collectedAt: '2026-09-27T00:20:04.965Z',
   name: 'Alpha Token',
   symbol: 'ALP',
@@ -402,7 +401,7 @@ test('loading describes sources; report keeps limits before prose and sources gl
   await page.locator('.sources summary').focus();
   await page.keyboard.press('Enter');
   await expect(page.getByText('Sources apply to the report as a whole.')).toBeVisible();
-  await expect(page.getByText('Request cost: $0.0190')).toBeVisible();
+  await expect(page.getByText(/Request cost|no model call/)).toHaveCount(0);
   await accessible(page);
   await page.screenshot({ path: `/tmp/seal-report-${testInfo.project.name}.png`, fullPage: true });
 });
@@ -425,7 +424,6 @@ for (const completeness of ['full', 'unavailable']) {
     expect(text.indexOf('Offline mode')).toBeLessThan(text.indexOf('Raw facts.'));
     await expect(page.locator('.divergent')).toHaveCount(0);
     await expect(page.locator('.explanation p')).toHaveCount(3);
-    await expect(page.getByText('No cost: no model call.')).toBeVisible();
     // With measured facts the short version stands in for the banner, except when nothing is usable.
     if (completeness === 'full') await expect(page.locator('.glance')).toBeVisible();
     else await expect(page.getByText('No usable sources.', { exact: true })).toBeVisible();

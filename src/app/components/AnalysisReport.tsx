@@ -120,13 +120,6 @@ export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
             })}
           </time>
         </p>
-        <p>
-          {result.cached
-            ? 'Served again from a reading made minutes ago: no new cost.'
-            : result.offline
-              ? 'No cost: no model call.'
-              : `Request cost: $${result.costUsd.toFixed(4)}`}
-        </p>
       </footer>
     </article>
   );
