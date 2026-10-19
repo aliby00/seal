@@ -477,3 +477,15 @@ describe('SIRIUS’s report', () => {
     );
   });
 });
+
+describe('Virtuals graduation in the market section', () => {
+  // DexScreener has no ETH threshold for a Virtuals curve: the launchpad's own
+  // event is what says it graduated, and the model must not call it unknown.
+  it('says the token graduated, from the launchpad’s event, not "not determined"', () => {
+    const report = siriusReport();
+    expect(report.market.data.graduation).toBeNull();
+    const text = renderReport(report);
+    expect(text).toMatch(/Graduation: graduated to an open market on 2026-09-23/);
+    expect(text).not.toMatch(/Graduation: not determined/);
+  });
+});

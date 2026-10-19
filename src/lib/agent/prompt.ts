@@ -395,6 +395,13 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
       `Graduation: ${(m.graduation.progress * 100).toFixed(2)}% of the ${m.graduation.thresholdEth} ETH threshold` +
         (m.graduation.graduated ? ', threshold reached' : ''),
     );
+  } else if (report.graduated) {
+    // The launchpad's own event settles it; its curve has no ETH threshold to
+    // measure against, so "not determined" would contradict the event.
+    const g = report.graduated;
+    lines.push(
+      `Graduation: graduated to an open market${g.at ? ` on ${g.at.slice(0, 10)}` : ''} (block ${g.block}), read from the launchpad’s own Graduated event. Its threshold is not in ETH: say it graduated, never that graduation is undetermined.`,
+    );
   } else {
     lines.push('Graduation: not determined');
   }
