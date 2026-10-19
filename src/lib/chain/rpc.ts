@@ -172,8 +172,13 @@ export function logQueries(payload: unknown): number {
  */
 export const SLOW_NODE_MS = 3_000;
 export const SET_ASIDE_MS = 60_000;
-/** A node that is not the last one gets this long before the next is tried. */
+/** A node that is not the last one gets this long before it is given up. */
 export const HANDOVER_TIMEOUT_MS = 6_000;
+/**
+ * Past this, the same request also goes to the next node. Both nodes answer
+ * log queries in about 0.2 s when well; the keyed one sometimes takes 8 s.
+ */
+export const HEDGE_MS = 1_500;
 
 /** Nodes set aside, until when. Shared by the clients of this process. */
 const setAside = new Map<string, number>();
@@ -274,38 +279,81 @@ export function createRpcClient(
   }
 
   /**
-   * Sends to each node in turn; every request starts again from the first
-   * healthy one. A node that was slow, down or busy is set aside for a minute
-   * so the requests after it do not wait on it too.
+   * Sends to the first healthy node. One that has not answered within
+   * HEDGE_MS gets company: the same request goes to the next node too, and
+   * the first good answer wins. A node that was slow, down or busy is set
+   * aside for a minute so the requests after it do not wait on it either.
    */
-  async function post(payload: unknown): Promise<unknown> {
+  function post(payload: unknown): Promise<unknown> {
     const cost = logQueries(payload);
     const targets = byHealth(cost > 0 ? logTargets : plainTargets);
-    for (let i = 0; i < targets.length; i += 1) {
-      const target = targets[i] as string;
-      const last = i === targets.length - 1;
-      const bench = () => {
-        if (targets.length > 1) setAside.set(target, Date.now() + SET_ASIDE_MS);
-      };
-      try {
-        const { status, body, ms } = await attempt(target, payload, cost, last);
-        if (ms > SLOW_NODE_MS) bench();
-        // A keyed node refusing the request (bad key, plan limit) answers
-        // 400/401 with a JSON error: the next node may well accept it.
-        if (!last && (status >= 400 || busyNodeError(body))) {
-          if (status === 429 || status >= 500 || busyNodeError(body)) bench();
-          continue;
-        }
-        return body;
-      } catch (error) {
-        // Any node-side failure — down, slow, rate-limited, refusing the key,
-        // garbled answer — hands over. A spent analysis budget does not: it
-        // would be just as spent on the next node.
-        if (last || !(error instanceof SealError)) throw error;
-        bench();
-      }
+    if (targets.length === 0) {
+      return Promise.reject(new UpstreamError('robinhood-rpc', 'no node configured'));
     }
-    throw new UpstreamError('robinhood-rpc', 'no node configured');
+    const bench = (target: string) => {
+      if (targets.length > 1) setAside.set(target, Date.now() + SET_ASIDE_MS);
+    };
+    return new Promise((resolve, reject) => {
+      let next = 0;
+      let pending = 0;
+      let settled = false;
+      let hedge: ReturnType<typeof setTimeout> | undefined;
+      const finish = (outcome: () => void) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(hedge);
+        outcome();
+      };
+      const launch = (): boolean => {
+        if (settled || next >= targets.length) return false;
+        const target = targets[next] as string;
+        const last = next === targets.length - 1;
+        next += 1;
+        pending += 1;
+        clearTimeout(hedge);
+        if (!last) {
+          hedge = setTimeout(() => {
+            if (settled) return;
+            bench(target);
+            launch();
+          }, HEDGE_MS);
+        }
+        const handOver = (error: unknown) => {
+          pending -= 1;
+          if (settled) return;
+          // Nobody left to try and nothing still on its way: this is the answer.
+          if (!launch() && pending === 0) finish(() => reject(error));
+        };
+        attempt(target, payload, cost, last).then(
+          ({ status, body, ms }) => {
+            if (ms > SLOW_NODE_MS) bench(target);
+            // A keyed node refusing the request (bad key, plan limit) answers
+            // 400/401 with a JSON error: the next node may well accept it.
+            if (!last && (status >= 400 || busyNodeError(body))) {
+              if (status === 429 || status >= 500 || busyNodeError(body)) bench(target);
+              handOver(new UpstreamError('robinhood-rpc', `node answered ${status}`, status));
+              return;
+            }
+            pending -= 1;
+            finish(() => resolve(body));
+          },
+          (error: unknown) => {
+            // Any node-side failure — down, slow, rate-limited, refusing the
+            // key, garbled answer — hands over. A spent analysis budget does
+            // not: it would be just as spent on the next node.
+            if (!(error instanceof SealError)) {
+              pending -= 1;
+              finish(() => reject(error));
+              return;
+            }
+            if (!last) bench(target);
+            handOver(error);
+          },
+        );
+        return true;
+      };
+      launch();
+    });
   }
 
   return {

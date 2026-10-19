@@ -6,6 +6,7 @@ import {
   logsRpcUrls,
   parseRpcUrls,
   resetThrottle,
+  HEDGE_MS,
   rpcUrls,
   SET_ASIDE_MS,
   SLOW_NODE_MS,
@@ -138,4 +139,36 @@ describe('a failing node hands the request to the next one', () => {
     const rpc = createRpcClient([A, B], budget, [B]);
     await expect(rpc.call('eth_blockNumber', [])).rejects.toBeInstanceOf(BudgetExhaustedError);
   });
+});
+
+describe('a node that does not answer in time', () => {
+  // The keyed logs node answered some eth_getLogs in 8 s while the public
+  // node took 0.15 s (19/10/2026): the second one is asked too, and wins.
+  it('sends the same request to the next node and keeps the first answer', async () => {
+    const calls: string[] = [];
+    vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      calls.push(url);
+      if (url === A) {
+        await new Promise<void>((resolve, reject) => {
+          const t = setTimeout(resolve, 5_000);
+          init?.signal?.addEventListener('abort', () => {
+            clearTimeout(t);
+            reject(new DOMException('aborted', 'AbortError'));
+          });
+        });
+      }
+      return new Response(JSON.stringify({ id: 1, result: url }));
+    });
+    const rpc = createRpcClient([A, B], undefined, [B]);
+    const started = Date.now();
+    await expect(rpc.call('eth_blockNumber', [])).resolves.toBe(B);
+    const took = Date.now() - started;
+    expect(took).toBeGreaterThanOrEqual(HEDGE_MS - 50);
+    expect(took).toBeLessThan(HEDGE_MS + 1_000);
+    expect(calls).toEqual([A, B]);
+    // Set aside: the next request goes to B at once.
+    await expect(rpc.call('eth_blockNumber', [])).resolves.toBe(B);
+    expect(calls).toEqual([A, B, B]);
+  }, 10_000);
 });
