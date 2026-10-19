@@ -164,9 +164,30 @@ export function logQueries(payload: unknown): number {
   return entries.filter((e) => (e as { method?: string } | null)?.method === 'eth_getLogs').length;
 }
 
-/** Forget the pacing state. For tests. */
+/**
+ * A node slower than this on one request is set aside for a while. A keyed
+ * provider throttling us answered log queries in 6 to 9 s against 0.15 s on
+ * the public node (19/10/2026): tried first on every query, it alone pushed
+ * analyses past their time limit.
+ */
+export const SLOW_NODE_MS = 3_000;
+export const SET_ASIDE_MS = 60_000;
+/** A node that is not the last one gets this long before the next is tried. */
+export const HANDOVER_TIMEOUT_MS = 6_000;
+
+/** Nodes set aside, until when. Shared by the clients of this process. */
+const setAside = new Map<string, number>();
+
+/** The nodes in their order, those set aside moved behind the others. */
+export function byHealth(targets: readonly string[], now = Date.now()): string[] {
+  const aside = (t: string) => (setAside.get(t) ?? 0) > now;
+  return [...targets.filter((t) => !aside(t)), ...targets.filter(aside)];
+}
+
+/** Forget the pacing state and the nodes set aside. For tests. */
 export function resetThrottle(): void {
   buckets.clear();
+  setAside.clear();
 }
 
 /** After a 429 the node needs seconds, not the generic 0.2 s backoff. */
@@ -228,11 +249,14 @@ export function createRpcClient(
 
   async function attempt(target: string, payload: unknown, cost: number, last: boolean) {
     if (cost > 0) await throttle(target, cost);
+    // Timed from here: waiting on our own pacing is not the node being slow.
+    const sent = Date.now();
     const response = await request(target, {
       source: 'robinhood-rpc',
       // Retrying a failing node delays the next one: only the last node,
       // with nobody left to hand over to, insists.
       retries: last ? 3 : 0,
+      ...(last ? {} : { timeoutMs: HANDOVER_TIMEOUT_MS }),
       minRateLimitWaitMs: RPC_RATE_LIMIT_WAIT_MS,
       budget,
       init: {
@@ -242,29 +266,43 @@ export function createRpcClient(
       },
     });
     try {
-      return { status: response.status, body: (await response.json()) as unknown };
+      const body = (await response.json()) as unknown;
+      return { status: response.status, body, ms: Date.now() - sent };
     } catch (error) {
       throw new UpstreamError('robinhood-rpc', 'unreadable JSON response', response.status, error);
     }
   }
 
-  /** Sends to each node in turn; every request starts again from the first. */
+  /**
+   * Sends to each node in turn; every request starts again from the first
+   * healthy one. A node that was slow, down or busy is set aside for a minute
+   * so the requests after it do not wait on it too.
+   */
   async function post(payload: unknown): Promise<unknown> {
     const cost = logQueries(payload);
-    const targets = cost > 0 ? logTargets : plainTargets;
+    const targets = byHealth(cost > 0 ? logTargets : plainTargets);
     for (let i = 0; i < targets.length; i += 1) {
+      const target = targets[i] as string;
       const last = i === targets.length - 1;
+      const bench = () => {
+        if (targets.length > 1) setAside.set(target, Date.now() + SET_ASIDE_MS);
+      };
       try {
-        const { status, body } = await attempt(targets[i] as string, payload, cost, last);
+        const { status, body, ms } = await attempt(target, payload, cost, last);
+        if (ms > SLOW_NODE_MS) bench();
         // A keyed node refusing the request (bad key, plan limit) answers
         // 400/401 with a JSON error: the next node may well accept it.
-        if (!last && (status >= 400 || busyNodeError(body))) continue;
+        if (!last && (status >= 400 || busyNodeError(body))) {
+          if (status === 429 || status >= 500 || busyNodeError(body)) bench();
+          continue;
+        }
         return body;
       } catch (error) {
         // Any node-side failure — down, slow, rate-limited, refusing the key,
         // garbled answer — hands over. A spent analysis budget does not: it
         // would be just as spent on the next node.
         if (last || !(error instanceof SealError)) throw error;
+        bench();
       }
     }
     throw new UpstreamError('robinhood-rpc', 'no node configured');
