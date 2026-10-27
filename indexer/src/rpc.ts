@@ -106,6 +106,14 @@ export type RpcOptions = {
   /** Tentatives avant d'abandonner une requête (la boucle appelante réessaiera plus tard). */
   attempts?: number;
   timeoutMs?: number;
+  /**
+   * Where to go when `url` is out of service: a keyed provider whose monthly
+   * quota is spent answers 429 to everything for days (Alchemy, 27/10/2026),
+   * and the indexer stopped for lack of a second node.
+   */
+  fallback?: { url: string; rate: number };
+  /** Called when the client moves to the fallback node or back. */
+  onSwitch?: (to: 'fallback' | 'primary', reason: string) => void;
 };
 
 const BATCH_SIZE = 20;
@@ -118,6 +126,12 @@ const MAX_WAIT_MS = 60_000;
  * 512 Ko reçue coûte donc un jeton de plus, et le débit reste sous ~2 Mo/s.
  */
 const BYTES_PER_TOKEN = 512 * 1024;
+/** How long the fallback node serves before the primary is tried again. */
+export const FALLBACK_MS = 60 * 60 * 1000;
+/** 429s in a row from the primary before it is set aside, quota message or not. */
+const SWITCH_AFTER_429 = 3;
+/** A 429 that will not pass in seconds: the plan's quota is spent. */
+const QUOTA_SPENT = /capacity|quota|exceeded your|upgrade/i;
 
 const hex = (n: number): string => `0x${n.toString(16)}`;
 
@@ -127,9 +141,15 @@ export function createRpc(options: RpcOptions): Rpc {
   const sleep = options.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
   const attempts = options.attempts ?? 6;
   const timeoutMs = options.timeoutMs ?? 30_000;
-  const rate = options.rate;
+  // Le nœud de repli tant que `fallbackUntil` n'est pas passé.
+  let fallbackUntil = 0;
+  let primary429 = 0;
+  const onFallback = () => options.fallback !== undefined && now() < fallbackUntil;
+  const target = () => (onFallback() ? options.fallback!.url : options.url);
+  const rateNow = () => (onFallback() ? options.fallback!.rate : options.rate);
   // Une petite rafale seulement : le nœud coupe après ~20 requêtes groupées.
-  const burst = Math.max(2, Math.min(8, rate * 2));
+  const burstOf = (rate: number) => Math.max(2, Math.min(8, rate * 2));
+  let burst = burstOf(options.rate);
   let tokens = burst;
   let updatedAt = now();
   // Partagé par toutes les boucles : un 429 vaut pour toute l'IP.
@@ -149,6 +169,8 @@ export function createRpc(options: RpcOptions): Rpc {
           await sleep(pausedUntil - t);
           continue;
         }
+        const rate = rateNow();
+        burst = burstOf(rate);
         tokens = Math.min(burst, tokens + ((t - updatedAt) / 1000) * rate);
         updatedAt = t;
         const need = Math.min(cost, burst);
@@ -161,6 +183,26 @@ export function createRpc(options: RpcOptions): Rpc {
     });
     queue = turn.catch(() => undefined);
     return turn;
+  }
+
+  /** Sets the primary aside for an hour; the fallback starts with a fresh allowance. */
+  function toFallback(reason: string): void {
+    if (!options.fallback || onFallback()) return;
+    fallbackUntil = now() + FALLBACK_MS;
+    primary429 = 0;
+    pausedUntil = 0;
+    penalty = RATE_LIMIT_WAIT_MS;
+    tokens = Math.min(tokens, burstOf(options.fallback.rate));
+    options.onSwitch?.('fallback', reason);
+  }
+
+  /** The primary refused with a 429: set it aside if it will not pass soon. */
+  function primaryRefused(text: string): boolean {
+    if (!options.fallback || onFallback()) return false;
+    primary429 += 1;
+    if (QUOTA_SPENT.test(text)) toFallback(text.slice(0, 160));
+    else if (primary429 >= SWITCH_AFTER_429) toFallback(`${primary429} rate limits in a row`);
+    return onFallback();
   }
 
   function onRateLimited(): void {
@@ -177,13 +219,24 @@ export function createRpc(options: RpcOptions): Rpc {
       requests += 1;
       let failure: RpcError;
       try {
-        const response = await doFetch(options.url, {
+        // Read before the request: the answer decides for the next one.
+        const usingFallback = onFallback();
+        if (!usingFallback && fallbackUntil !== 0 && options.fallback) {
+          fallbackUntil = 0;
+          options.onSwitch?.('primary', 'the hour on the fallback node is over');
+        }
+        const response = await doFetch(target(), {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify(payload),
           signal: AbortSignal.timeout(timeoutMs),
         });
         if (response.status === 429) {
+          // A spent quota moves to the fallback at once, without waiting out a penalty.
+          if (!usingFallback && primaryRefused(await response.text().catch(() => ''))) {
+            attempt -= 1;
+            continue;
+          }
           onRateLimited();
           failure = new RpcError('429 Too Many Requests', true);
         } else if (response.status >= 500) {
@@ -200,10 +253,15 @@ export function createRpc(options: RpcOptions): Rpc {
           }
           const code = (body as { error?: { code?: number } } | null)?.error?.code;
           if (!Array.isArray(body) && (code === 429 || code === -32005)) {
+            if (!usingFallback && primaryRefused(text)) {
+              attempt -= 1;
+              continue;
+            }
             onRateLimited();
             failure = new RpcError('node busy', true);
           } else {
             penalty = RATE_LIMIT_WAIT_MS;
+            if (!usingFallback) primary429 = 0;
             return body;
           }
         }

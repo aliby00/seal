@@ -5,6 +5,8 @@
  * en boucle avec un message clair qu'un service qui répond sans authentification.
  */
 export const DEFAULT_RPC_URL = 'https://rpc.mainnet.chain.robinhood.com';
+/** What the public node takes without cutting the IP off: ~4 log queries/s. */
+export const PUBLIC_RPC_RATE = 4;
 
 /** ~0,1 s par bloc, mesuré le 17/10/2026 (9,7 à 9,9 blocs/s sur 30 jours). */
 export const BLOCKS_PER_DAY = 864_000;
@@ -39,7 +41,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   }
   return {
     rpcUrl: env.RPC_URL?.trim() || DEFAULT_RPC_URL,
-    rpcRate: positive('RPC_RATE', env.RPC_RATE, 4),
+    rpcRate: positive('RPC_RATE', env.RPC_RATE, PUBLIC_RPC_RATE),
     blockscoutApiKey: env.BLOCKSCOUT_API_KEY?.trim() || undefined,
     token,
     port: positive('PORT', env.PORT, 8795),
