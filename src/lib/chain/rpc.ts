@@ -252,7 +252,13 @@ export function createRpcClient(
   const plainTargets = Array.isArray(url) ? withFallbacks(url) : rpcUrls(url);
   const logTargets = Array.isArray(logsUrl) ? withFallbacks(logsUrl) : withFallbacks([logsUrl]);
 
-  async function attempt(target: string, payload: unknown, cost: number, last: boolean) {
+  async function attempt(
+    target: string,
+    payload: unknown,
+    cost: number,
+    last: boolean,
+    spends: boolean,
+  ) {
     if (cost > 0) await throttle(target, cost);
     // Timed from here: waiting on our own pacing is not the node being slow.
     const sent = Date.now();
@@ -263,7 +269,9 @@ export function createRpcClient(
       retries: last ? 3 : 0,
       ...(last ? {} : { timeoutMs: HANDOVER_TIMEOUT_MS }),
       minRateLimitWaitMs: RPC_RATE_LIMIT_WAIT_MS,
-      budget,
+      // A copy sent alongside a slow node is the same request, not another
+      // one: counted, it exhausted reads allowed 2 requests (19/10/2026).
+      ...(spends ? { budget } : {}),
       init: {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -304,7 +312,7 @@ export function createRpcClient(
         clearTimeout(hedge);
         outcome();
       };
-      const launch = (): boolean => {
+      const launch = (spends = true): boolean => {
         if (settled || next >= targets.length) return false;
         const target = targets[next] as string;
         const last = next === targets.length - 1;
@@ -315,7 +323,7 @@ export function createRpcClient(
           hedge = setTimeout(() => {
             if (settled) return;
             bench(target);
-            launch();
+            launch(false);
           }, HEDGE_MS);
         }
         const handOver = (error: unknown) => {
@@ -324,7 +332,7 @@ export function createRpcClient(
           // Nobody left to try and nothing still on its way: this is the answer.
           if (!launch() && pending === 0) finish(() => reject(error));
         };
-        attempt(target, payload, cost, last).then(
+        attempt(target, payload, cost, last, spends).then(
           ({ status, body, ms }) => {
             if (ms > SLOW_NODE_MS) bench(target);
             // A keyed node refusing the request (bad key, plan limit) answers

@@ -172,3 +172,27 @@ describe('a node that does not answer in time', () => {
     expect(calls).toEqual([A, B, B]);
   }, 10_000);
 });
+
+describe('a copy sent alongside a slow node', () => {
+  // pools-share is allowed 2 requests: the copy counted as a third request
+  // and the read failed with "request budget of 2 exhausted" (19/10/2026).
+  it('does not count against the analysis budget', async () => {
+    vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url === A) {
+        await new Promise<void>((resolve, reject) => {
+          const t = setTimeout(resolve, 5_000);
+          init?.signal?.addEventListener('abort', () => {
+            clearTimeout(t);
+            reject(new DOMException('aborted', 'AbortError'));
+          });
+        });
+      }
+      return new Response(JSON.stringify({ id: 1, result: url }));
+    });
+    const budget = createBudget(1);
+    const rpc = createRpcClient([A, B], budget, [B]);
+    await expect(rpc.call('eth_blockNumber', [])).resolves.toBe(B);
+    expect(budget.spent).toBe(1);
+  }, 10_000);
+});
