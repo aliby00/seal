@@ -14,7 +14,13 @@ import {
 import { createApi, sameToken } from '../src/api.ts';
 import { createClock } from '../src/clock.ts';
 import { openDb, type SwapInsert } from '../src/db.ts';
-import { classifyLogError, createRpc, TooBroadError, TooManySelectorsError } from '../src/rpc.ts';
+import {
+  classifyLogError,
+  createRpc,
+  FALLBACK_MS,
+  TooBroadError,
+  TooManySelectorsError,
+} from '../src/rpc.ts';
 import { newWindow, readChunk } from '../src/scan.ts';
 import { tokenStats } from '../src/stats.ts';
 import { firstIncoming, fundingStream } from '../src/streams/funding.ts';
@@ -139,6 +145,96 @@ describe('createRpc', () => {
       TooBroadError,
     );
     expect(calls).toBe(1);
+  });
+
+  // Alchemy, 27/10/2026: the monthly quota spent, every request answered 429
+  // for days, and the indexer, with no second node, stopped.
+  describe('a primary node out of service', () => {
+    const ok = (url: string) =>
+      new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: url }));
+    const quota = () =>
+      new Response(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          error: { code: 429, message: 'Monthly capacity limit exceeded.' },
+        }),
+        { status: 429 },
+      );
+
+    it('moves to the fallback at once on a spent quota, then tries the primary after an hour', async () => {
+      let clock = 0;
+      const calls: string[] = [];
+      const switches: string[] = [];
+      let primaryDown = true;
+      const rpc = createRpc({
+        url: 'http://keyed',
+        rate: 1000,
+        fallback: { url: 'http://public', rate: 1000 },
+        onSwitch: (to) => switches.push(to),
+        now: () => clock,
+        sleep: async (ms) => {
+          clock += ms;
+        },
+        fetch: (async (input: string | URL | Request) => {
+          const url = String(input);
+          calls.push(url);
+          return url === 'http://keyed' && primaryDown ? quota() : ok(url);
+        }) as typeof fetch,
+      });
+      await expect(rpc.call('eth_blockNumber', [])).resolves.toBe('http://public');
+      await expect(rpc.call('eth_blockNumber', [])).resolves.toBe('http://public');
+      expect(calls).toEqual(['http://keyed', 'http://public', 'http://public']);
+      // No penalty waited out: the switch is immediate.
+      expect(clock).toBeLessThan(1_000);
+      primaryDown = false;
+      clock += FALLBACK_MS + 1;
+      await expect(rpc.call('eth_blockNumber', [])).resolves.toBe('http://keyed');
+      expect(switches).toEqual(['fallback', 'primary']);
+    });
+
+    it('moves after 3 rate limits in a row, even without a quota message', async () => {
+      let clock = 0;
+      const calls: string[] = [];
+      const rpc = createRpc({
+        url: 'http://keyed',
+        rate: 1000,
+        fallback: { url: 'http://public', rate: 1000 },
+        now: () => clock,
+        sleep: async (ms) => {
+          clock += ms;
+        },
+        fetch: (async (input: string | URL | Request) => {
+          const url = String(input);
+          calls.push(url);
+          return url === 'http://keyed'
+            ? new Response('Too Many Requests', { status: 429 })
+            : ok(url);
+        }) as typeof fetch,
+      });
+      await expect(rpc.call('eth_blockNumber', [])).resolves.toBe('http://public');
+      expect(calls).toEqual(['http://keyed', 'http://keyed', 'http://keyed', 'http://public']);
+    });
+
+    it('without a fallback, keeps waiting on its only node as before', async () => {
+      let clock = 0;
+      let calls = 0;
+      const rpc = createRpc({
+        url: 'http://public',
+        rate: 1000,
+        attempts: 2,
+        now: () => clock,
+        sleep: async (ms) => {
+          clock += ms;
+        },
+        fetch: (async () => {
+          calls += 1;
+          return quota();
+        }) as typeof fetch,
+      });
+      await expect(rpc.call('eth_blockNumber', [])).rejects.toThrow(/429/);
+      expect(calls).toBe(2);
+    });
   });
 });
 

@@ -1,6 +1,6 @@
 import { createApi, serve } from './api.ts';
 import { createClock } from './clock.ts';
-import { loadConfig } from './config.ts';
+import { DEFAULT_RPC_URL, loadConfig, PUBLIC_RPC_RATE } from './config.ts';
 import { openDb } from './db.ts';
 import { logLine, runLoop, type Stream } from './loop.ts';
 import { createRpc } from './rpc.ts';
@@ -15,7 +15,15 @@ import { swapStream } from './streams/swaps.ts';
  */
 const config = loadConfig();
 const db = openDb(config.dbPath);
-const rpc = createRpc({ url: config.rpcUrl, rate: config.rpcRate });
+// A keyed node falls back on the public one when it is out of service.
+const rpc = createRpc({
+  url: config.rpcUrl,
+  rate: config.rpcRate,
+  ...(config.rpcUrl !== DEFAULT_RPC_URL
+    ? { fallback: { url: DEFAULT_RPC_URL, rate: PUBLIC_RPC_RATE } }
+    : {}),
+  onSwitch: (to, reason) => logLine('rpc-switch', { to, reason }),
+});
 const clock = createClock(rpc, db);
 const log = logLine;
 const stop = new AbortController();
