@@ -2156,3 +2156,20 @@ tr[data-kind='withdraw'] .launch-kind::before {
     transform: none;
   }
 }
+
+/* ── Reading: a section's colour comes from its own heading, in the colours
+   the signals use everywhere else, never from its position. The opening
+   paragraph, before any heading, reads as the lead, not as one more card. ── */
+.prose-block[data-kind='reassuring'] h3 {
+  color: var(--signal-reassurance);
+}
+.prose-block[data-kind='attention'] h3 {
+  color: var(--signal-concern);
+}
+.prose-block:not([data-kind]) {
+  padding-inline: 0;
+  border-color: transparent;
+  background: none;
+  font-size: 18px;
+  color: var(--hud-text);
+}
