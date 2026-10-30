@@ -8,7 +8,7 @@ import type { AnalyzeResponse } from './api/analyze/route';
 import { SourceStudy } from './components/SourceStudy';
 import { AnalysisReport } from './components/AnalysisReport';
 import { Arch } from './components/brand';
-import { ADDRESS, ADDRESS_HINT, EXAMPLE_TOKEN } from './components/analyze-request';
+import { ADDRESS, ADDRESS_HINT, ANALYZE_EVENT, EXAMPLE_TOKEN } from './components/analyze-request';
 import { requestError } from './requestErrors';
 
 type State =
@@ -162,16 +162,25 @@ export function AnalyzeForm() {
   }, [loading]);
 
   // A link such as /?token=0x…#analysis (the browser extension's "Full
-  // reading") opens with the address filled in and the analysis started. The
-  // start waits a tick so a remount in development does not send it twice.
+  // reading", or a shared reading) opens with the address filled in and the
+  // analysis started. The entrance field asks for an analysis the same way.
+  // The start waits a tick so a remount in development does not send it twice.
   useEffect(() => {
+    const start = (address: string) => {
+      setToken(address);
+      void analyze(address);
+    };
     const linked = new URLSearchParams(window.location.search).get('token')?.trim() ?? '';
-    if (!ADDRESS.test(linked)) return;
-    const timer = setTimeout(() => {
-      setToken(linked);
-      void analyze(linked);
-    }, 0);
-    return () => clearTimeout(timer);
+    const timer = ADDRESS.test(linked) ? setTimeout(() => start(linked), 0) : undefined;
+    const onRequest = (event: Event) => {
+      const address = (event as CustomEvent<string>).detail;
+      if (typeof address === 'string' && ADDRESS.test(address)) start(address);
+    };
+    window.addEventListener(ANALYZE_EVENT, onRequest);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener(ANALYZE_EVENT, onRequest);
+    };
     // Once, on arrival: later edits of the field are the reader's own.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

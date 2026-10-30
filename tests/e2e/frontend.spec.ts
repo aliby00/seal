@@ -311,6 +311,26 @@ test('a ?token= link fills the address and starts the analysis', async ({ page }
   expect(posted).toEqual([{ token }]);
 });
 
+test('the entrance field starts the analysis', async ({ page }) => {
+  const posted: unknown[] = [];
+  await page.route('**/api/analyze', (route) => {
+    posted.push(route.request().postDataJSON());
+    return route.fulfill({ json: report });
+  });
+  await page.goto('/');
+  const field = page.getByLabel('Token address to analyze');
+  await expect(field).toBeVisible();
+  await field.fill('0x123');
+  await page.getByRole('button', { name: 'Analyze', exact: true }).click();
+  await expect(page.locator('.entrance-error')).toContainText('40 hexadecimal characters');
+  expect(posted).toEqual([]);
+  await field.fill(token);
+  await page.getByRole('button', { name: 'Analyze', exact: true }).click();
+  await expect(page.getByRole('article')).toBeVisible();
+  expect(posted).toEqual([{ token }]);
+  await expect(page.getByLabel('Token address', { exact: true })).toHaveValue(token);
+});
+
 test('a running analysis can be cancelled', async ({ page }) => {
   await page.route('**/api/analyze', () => {});
   await page.goto('/');
@@ -514,7 +534,7 @@ test('mountain entrance advances with native scroll, reveals the app, and revers
   page,
 }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Every token has another story.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Paste a token. Read its story.' })).toBeVisible();
   await accessible(page);
   const distance = await page
     .locator('.scroll-journey')
@@ -559,7 +579,7 @@ test('mountain entrance advances with native scroll, reveals the app, and revers
         ),
     )
     .toBe(1);
-  await page.getByRole('link', { name: 'Enter SEAL' }).click();
+  await page.getByRole('link', { name: 'Scroll to explore' }).click();
   await expect(page.locator('.analysis-world')).toHaveCSS('opacity', '1');
 });
 
@@ -582,7 +602,7 @@ test('entry links and logo scroll in both directions without losing the address'
   page,
 }) => {
   await page.goto('/');
-  await page.getByRole('link', { name: 'Enter SEAL' }).click();
+  await page.getByRole('link', { name: 'Scroll to explore' }).click();
   await expect
     .poll(() =>
       page.evaluate(() =>
@@ -594,7 +614,7 @@ test('entry links and logo scroll in both directions without losing the address'
   await page.getByLabel('Token address', { exact: true }).fill(token);
   await page.getByRole('link', { name: 'SEAL', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(2);
-  await page.getByRole('link', { name: 'Enter SEAL' }).click();
+  await page.getByRole('link', { name: 'Scroll to explore' }).click();
   await expect
     .poll(() =>
       page.evaluate(() =>
