@@ -2540,6 +2540,43 @@ tr[data-kind='withdraw'] .launch-kind::before {
   }
 }
 
+/* ── Share: a reading has an address of its own. ── */
+.report-share {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.share-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid rgb(255 138 42 / 0.4);
+  border-radius: 999px;
+  background: rgb(255 138 42 / 0.08);
+  color: var(--hud-text);
+  font: 500 13px/1 var(--font-body);
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease;
+}
+.share-button svg {
+  color: var(--hud-accent-hot);
+}
+.share-button:hover {
+  border-color: var(--hud-accent);
+  background: rgb(255 138 42 / 0.16);
+  color: #fff;
+}
+.share-button:focus-visible {
+  outline: 2px solid var(--hud-accent);
+  outline-offset: 2px;
+}
+
 /* ── Reading: a section's colour comes from its own heading, in the colours
    the signals use everywhere else, never from its position. The opening
    paragraph, before any heading, reads as the lead, not as one more card. ── */

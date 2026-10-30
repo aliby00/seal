@@ -311,7 +311,9 @@ test('a ?token= link fills the address and starts the analysis', async ({ page }
   expect(posted).toEqual([{ token }]);
 });
 
-test('the entrance field starts the analysis', async ({ page }) => {
+test('the entrance field starts the analysis, and the reading gets a link to share', async ({
+  page,
+}) => {
   const posted: unknown[] = [];
   await page.route('**/api/analyze', (route) => {
     posted.push(route.request().postDataJSON());
@@ -329,6 +331,14 @@ test('the entrance field starts the analysis', async ({ page }) => {
   await expect(page.getByRole('article')).toBeVisible();
   expect(posted).toEqual([{ token }]);
   await expect(page.getByLabel('Token address', { exact: true })).toHaveValue(token);
+  expect(page.url().endsWith(`/?token=${token}#analysis`)).toBe(true);
+  const share = page.getByRole('group', { name: 'Share this reading' });
+  const post = new URL(
+    (await share.getByRole('link', { name: /Share on X/ }).getAttribute('href')) ?? '',
+  );
+  expect(post.origin + post.pathname).toBe('https://x.com/intent/post');
+  expect(post.searchParams.get('url')?.endsWith(`/?token=${token}#analysis`)).toBe(true);
+  await expect(share.getByRole('button', { name: 'Copy link' })).toBeVisible();
 });
 
 test('a running analysis can be cancelled', async ({ page }) => {

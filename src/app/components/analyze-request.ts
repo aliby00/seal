@@ -15,3 +15,8 @@ export const ANALYZE_EVENT = 'seal:analyze';
 export function requestAnalysis(address: string) {
   window.dispatchEvent(new CustomEvent<string>(ANALYZE_EVENT, { detail: address }));
 }
+
+/** The address a reading can be shared and reopened at. */
+export function readingUrl(token: string, origin: string = window.location.origin) {
+  return `${origin}/?token=${token}#analysis`;
+}

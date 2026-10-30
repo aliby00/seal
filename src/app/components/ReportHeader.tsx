@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { AnalyzeResponse } from '../api/analyze/route';
+import { readingUrl } from './analyze-request';
 
 const EXPLORER = 'https://robinhoodchain.blockscout.com';
 const DEXSCREENER = 'https://dexscreener.com/robinhood';
@@ -48,7 +49,7 @@ function CoverageMark({ coverage }: { coverage: Coverage }) {
 const short = (address: string) => `${address.slice(0, 8)}…${address.slice(-6)}`;
 
 export function ReportHeader({ result }: { result: AnalyzeResponse }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<'address' | 'link' | null>(null);
   const facts = result.facts;
   const sources: { name: string; coverage: Coverage }[] = facts
     ? [
@@ -59,13 +60,20 @@ export function ReportHeader({ result }: { result: AnalyzeResponse }) {
     : [];
   const title = result.name ?? (result.symbol ? result.symbol : 'Unnamed token');
 
-  async function copy() {
+  // Rendered only in the browser, once a reading has come back.
+  const link = readingUrl(result.token);
+  const post = `What the chain shows about ${title}${
+    result.symbol && result.name ? ` (${result.symbol})` : ''
+  }, read by SEAL. No score, just the evidence.`;
+  const shareOnX = `https://x.com/intent/post?${new URLSearchParams({ text: post, url: link })}`;
+
+  async function copy(what: 'address' | 'link') {
     try {
-      await navigator.clipboard.writeText(result.token);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
+      await navigator.clipboard.writeText(what === 'address' ? result.token : link);
+      setCopied(what);
+      setTimeout(() => setCopied(null), 1600);
     } catch {
-      setCopied(false);
+      setCopied(null);
     }
   }
 
@@ -79,8 +87,8 @@ export function ReportHeader({ result }: { result: AnalyzeResponse }) {
         </h2>
         <div className="report-address">
           <code title={result.token}>{short(result.token)}</code>
-          <button type="button" className="chip-button" onClick={() => void copy()}>
-            {copied ? 'Copied' : 'Copy address'}
+          <button type="button" className="chip-button" onClick={() => void copy('address')}>
+            {copied === 'address' ? 'Copied' : 'Copy address'}
           </button>
           <a
             className="chip-button"
@@ -99,8 +107,31 @@ export function ReportHeader({ result }: { result: AnalyzeResponse }) {
             DexScreener <span aria-hidden="true">↗</span>
           </a>
         </div>
+        <div className="report-share" role="group" aria-label="Share this reading">
+          <button type="button" className="share-button" onClick={() => void copy('link')}>
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+              <path
+                d="M6.5 9.5l3-3M7 4.5l1.2-1.2a2.8 2.8 0 014 4L11 8.5M9 11.5l-1.2 1.2a2.8 2.8 0 01-4-4L5 7.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+            {copied === 'link' ? 'Link copied' : 'Copy link'}
+          </button>
+          <a className="share-button" href={shareOnX} target="_blank" rel="noreferrer">
+            <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false">
+              <path
+                d="M9.3 6.9L14.2 1h-1.2L8.8 6.1 5.4 1H1.5l5.1 7.5L1.5 15h1.2l4.5-5.2 3.6 5.2h3.9L9.3 6.9zm-1.6 1.9l-.5-.7L3.1 1.9h1.8l3.3 4.8.5.7 4.3 6.3h-1.8L7.7 8.8z"
+                fill="currentColor"
+              />
+            </svg>
+            Share on X<span className="sr-only"> (opens in a new tab)</span>
+          </a>
+        </div>
         <span className="sr-only" aria-live="polite">
-          {copied ? 'Address copied' : ''}
+          {copied === 'address' ? 'Address copied' : copied === 'link' ? 'Link copied' : ''}
         </span>
       </div>
       {sources.length > 0 && (

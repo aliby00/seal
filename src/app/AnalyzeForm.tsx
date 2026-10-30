@@ -8,7 +8,13 @@ import type { AnalyzeResponse } from './api/analyze/route';
 import { SourceStudy } from './components/SourceStudy';
 import { AnalysisReport } from './components/AnalysisReport';
 import { Arch } from './components/brand';
-import { ADDRESS, ADDRESS_HINT, ANALYZE_EVENT, EXAMPLE_TOKEN } from './components/analyze-request';
+import {
+  ADDRESS,
+  ADDRESS_HINT,
+  ANALYZE_EVENT,
+  EXAMPLE_TOKEN,
+  readingUrl,
+} from './components/analyze-request';
 import { requestError } from './requestErrors';
 
 type State =
@@ -217,6 +223,8 @@ export function AnalyzeForm() {
       }
       const result = (await response.json()) as AnalyzeResponse;
       setState({ status: 'done', result });
+      // The address bar now holds a link that reopens this reading.
+      window.history.replaceState(null, '', readingUrl(address));
     } catch {
       if (cancelled.current) {
         setState({ status: 'idle' });
