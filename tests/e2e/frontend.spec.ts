@@ -311,6 +311,20 @@ test('a ?token= link fills the address and starts the analysis', async ({ page }
   expect(posted).toEqual([{ token }]);
 });
 
+test('a running analysis can be cancelled', async ({ page }) => {
+  await page.route('**/api/analyze', () => {});
+  await page.goto('/');
+  await submit(page);
+  const status = page.getByRole('status');
+  await expect(status).toContainText('usually 20 to 40 s');
+  await expect(status).toContainText('Supply held by a few');
+  await status.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByRole('status')).toHaveCount(0);
+  await expect(page.getByRole('main').getByRole('alert')).toHaveCount(0);
+  await expect(page.getByLabel('Token address', { exact: true })).toBeEnabled();
+  await expect(page.getByLabel('Token address', { exact: true })).toHaveValue(token);
+});
+
 test('a ?token= link that is not an address starts nothing', async ({ page }) => {
   let requests = 0;
   await page.route('**/api/analyze', (route) => {
@@ -486,7 +500,7 @@ test('slow response is explained, reduced motion is respected, timeout allows re
   await submit(page);
   await expect(page.getByRole('status')).toBeVisible();
   await expect(page.locator('.loading-dots')).toHaveCSS('animation-name', 'none');
-  await page.clock.runFor(31_000);
+  await page.clock.runFor(46_000);
   await expect(page.getByRole('status')).toContainText('longer than expected');
   await page.clock.fastForward(60_000);
   await expect(page.getByRole('main').getByRole('alert')).toContainText('too long');
