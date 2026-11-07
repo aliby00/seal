@@ -120,6 +120,8 @@ export const MARKET_BUDGET = 4;
 const POOLS_BUDGET = 2;
 /** One batch of codes: the largest holders Blockscout calls contracts, re-read. */
 const RECHECK_BUDGET = 2;
+/** The largest holders' balances, read again: one batch, and its retry. */
+const REFRESH_BUDGET = 2;
 /**
  * The launch replay: the log read and the supply, then block times, codes and
  * balances in batches of 20 — up to 42 blocks, 60 codes and 100 balances
@@ -325,6 +327,8 @@ export type CollectOptions = {
    * instead of the route's 504. It keeps going and is cached for the next ask.
    */
   historyDeadlineMs?: number;
+  /** After this long (ms from the start), the launch replay is a read that did not finish. */
+  replayDeadlineMs?: number;
   /** After this long (ms), a creator's other launches are listed but not checked. */
   checkOthersWithinMs?: number;
   /**
@@ -341,6 +345,8 @@ export type CollectOptions = {
  * links, the fees) still fits (AI: 80 launches, cut at 30.2 s on staging).
  */
 export const HISTORY_DEADLINE_MS = 26_000;
+/** The first minutes' replay is cut here (ms from the start): what follows it still fits in 30 s. */
+export const REPLAY_DEADLINE_MS = 24_000;
 export const CHECK_OTHERS_WITHIN_MS = 14_000;
 /** Time kept after the last batch of removal senders, before the history's deadline. */
 const SENDERS_MARGIN_MS = 4_000;
@@ -804,7 +810,10 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
                   );
                   // Blockscout's balances can lag: the largest are read again, never left stale.
                   // Not read again, Blockscout's figures stand, as they did before.
-                  return refreshBalances(rpc, checked).catch((error: unknown) => {
+                  return refreshBalances(
+                    createRpcClient(options.rpcUrl, createBudget(REFRESH_BUDGET)),
+                    checked,
+                  ).catch((error: unknown) => {
                     log.warn('soldes des détenteurs non relus', {
                       token: address,
                       error: String(error),
@@ -854,9 +863,31 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
         );
       }
     };
+    // A replay still reading at its deadline is a read that did not finish:
+    // the report goes out partial instead of the route's 504 (0x2e8c…: 31 s
+    // of replay, the analysis cut at 38 s on staging, 07/11/2026).
+    const replayLeft = startedAt + (options.replayDeadlineMs ?? REPLAY_DEADLINE_MS) - Date.now();
     const replay =
       launchFrom !== undefined && latest > 0
-        ? ledger.read('launch-replay', readReplay).then((outcome) => valueOr(outcome, undefined))
+        ? ledger
+            .read('launch-replay', () =>
+              Promise.race([
+                readReplay(),
+                new Promise<never>((_, reject) =>
+                  setTimeout(
+                    () =>
+                      reject(
+                        new IncompleteDataError(
+                          'robinhood-rpc',
+                          'the first minutes of trading took too long to read this time',
+                        ),
+                      ),
+                    Math.max(0, replayLeft),
+                  ),
+                ),
+              ]),
+            )
+            .then((outcome) => valueOr(outcome, undefined))
         : Promise.resolve(undefined);
 
     // What the token's pools hold today, against what DexScreener lists: a

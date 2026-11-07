@@ -62,7 +62,14 @@ function close(acc: Acc): WindowStats {
 export function tokenStats(
   db: Db,
   token: string,
-  options: { creator: string; tokenIsToken0: boolean; nowSec: number; top?: number },
+  options: {
+    creator: string;
+    tokenIsToken0: boolean;
+    nowSec: number;
+    top?: number;
+    /** Only swaps from this time on (seconds): "since launch" then means since then. */
+    fromSec?: number;
+  },
 ): TokenStats {
   const accs = { h1: empty(), h24: empty(), d7: empty(), sinceLaunch: empty() };
   const traders = new Map<string, { buys: number; sells: number; volume: bigint; net: bigint }>();
@@ -70,9 +77,9 @@ export function tokenStats(
   const rows = db.raw
     .prepare(
       `SELECT ts, side, amount0, amount1, COALESCE(origin, recipient) AS trader, recipient
-       FROM swaps WHERE token = ? ORDER BY ts`,
+       FROM swaps WHERE token = ? AND ts >= ? ORDER BY ts`,
     )
-    .iterate(token) as Iterable<{
+    .iterate(token, options.fromSec ?? 0) as Iterable<{
     ts: number;
     side: 'buy' | 'sell';
     amount0: string;

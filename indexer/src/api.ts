@@ -35,6 +35,10 @@ export type ApiDeps = {
 
 export type ApiResponse = { status: number; body: unknown; headers: Record<string, string> };
 
+/** Beyond this many swaps, a token's stats are read over its last seven days only. */
+export const FULL_SCAN_MAX = 20_000;
+const RECENT_SECONDS = 7 * 86_400;
+
 /** Les listes renvoyées sont bornées : un créateur-robot peut avoir lancé des milliers de tokens. */
 const MAX_ROWS = 1_000;
 /** Distinct pairs counted on one hook; beyond, the answer says "at least". */
@@ -88,6 +92,8 @@ export function createApi(deps: ApiDeps) {
   const directlyFunded = db.raw.prepare(
     `SELECT COUNT(*) AS n FROM funding WHERE funder = ? AND status = 'found'`,
   );
+  // Counted from the (token, ts) index alone: no row is read.
+  const swapCount = db.raw.prepare('SELECT COUNT(*) AS n FROM swaps WHERE token = ?');
   const marketsOf = db.raw.prepare(
     `SELECT id, currency0, currency1, fee, tick_spacing, hook, block, ts, tx_hash FROM markets
      WHERE currency0 = ? OR currency1 = ? ORDER BY block LIMIT ${MAX_ROWS}`,
@@ -249,12 +255,24 @@ export function createApi(deps: ApiDeps) {
       db.token0(launch.pool) ??
       (launch.token < launch.pair_token ? launch.token : launch.pair_token);
     const coveredFrom = db.cursor(BACK);
+    const now = nowSec();
+    // Every swap of a busy token read one by one took 10 s (FOBO: 112,728
+    // swaps, prod 07/11/2026), past the app's 2 s: its last seven days only,
+    // and the window says so.
+    const swaps = (swapCount.get(address) as { n: number }).n;
+    const fromSec = swaps > FULL_SCAN_MAX ? now - RECENT_SECONDS : undefined;
     const stats = tokenStats(db, address, {
       creator: launch.creator,
       tokenIsToken0: token0 === launch.token,
-      nowSec: nowSec(),
+      nowSec: now,
+      ...(fromSec !== undefined ? { fromSec } : {}),
     });
-    const coveredAt = coveredFrom !== undefined ? db.anchorAbove(coveredFrom) : undefined;
+    const coveredAt =
+      fromSec !== undefined
+        ? { ts: fromSec }
+        : coveredFrom !== undefined
+          ? db.anchorAbove(coveredFrom)
+          : undefined;
     return json(200, {
       token: address,
       indexedTo,
@@ -274,7 +292,8 @@ export function createApi(deps: ApiDeps) {
       // Swaps are read from this block on: older trades are not counted.
       coveredFrom: coveredFrom ?? null,
       coveredFromAt: coveredAt ? iso(coveredAt.ts) : null,
-      sinceLaunchComplete: coveredFrom !== undefined && launch.block >= coveredFrom,
+      sinceLaunchComplete:
+        fromSec === undefined && coveredFrom !== undefined && launch.block >= coveredFrom,
       tokenIsToken0: token0 === launch.token,
       stats: stats.windows,
       topTraders7d: stats.topTraders7d,

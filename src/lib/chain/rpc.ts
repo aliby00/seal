@@ -102,11 +102,16 @@ export function classifyLogError(message: string): LogQueryTooBroadError | undef
  * So: a burst of about 20 log queries, refilled at about 4 per second, every
  * entry of a batch counting as one.
  *
+ * Measured again on 07/11/2026: 10 `eth_getLogs` a second for ten seconds all
+ * went through, 20 a second lost 3 of 200, and 80 sent at once lost about
+ * half. Paced at 4, an analysis of about 100 calls spent 20 s waiting on its
+ * own throttle: 10 a second, from a burst of 30.
+ *
  * The bucket is shared by every client of the same URL in this process, so
  * concurrent analyses on one server instance pace each other too.
  */
-export const RPC_BURST = 20;
-export const RPC_CALLS_PER_SECOND = 4;
+export const RPC_BURST = 30;
+export const RPC_CALLS_PER_SECOND = 10;
 
 /**
  * A paid node allows more: `SEAL_RPC_RATE` raises its refill without a code
