@@ -4,6 +4,7 @@ import { getLogsBatched, type RawLog } from '../chain/logs';
 import type { RpcClient } from '../chain/rpc';
 import { IncompleteDataError } from '../errors';
 import type { CreatorSends } from '../contracts/creator';
+import type { LaunchMove } from '../contracts/launch';
 import {
   CREATOR_RECIPIENTS_LISTED,
   type CreatorLinks,
@@ -188,5 +189,61 @@ export function withLinks(
       return link ? { ...h, fromCreator: { share: link.share, via: link.via } } : h;
     }),
     creatorLinks: links,
+  };
+}
+
+/**
+ * What the launch replay saw the creator hand out, set on the holders list.
+ * The creator's transfers can miss a split sent in its launch transaction
+ * (0x137a…, prod 07/11/2026: five wallets received 67.2 % from the creator
+ * one second after the mint, while the links said none had): the replay read
+ * those transfers, so they are links too. `extend` adds them to the links
+ * read from the creator's transfers; without those, only the holders are marked.
+ */
+export function withLaunchLinks(
+  data: HolderDistributionData,
+  moves: readonly LaunchMove[],
+  extend = true,
+): HolderDistributionData {
+  const received = new Map<string, number>();
+  for (const m of moves) {
+    if (m.kind !== 'allocation' || !m.counterpartyIsCreator || m.actorIsCreator) continue;
+    if (m.actorKind !== 'wallet' && m.actorKind !== 'contract') continue;
+    const key = m.actor.toLowerCase();
+    received.set(key, (received.get(key) ?? 0) + m.share);
+  }
+  if (received.size === 0) return data;
+  const top = data.top.map((h) => {
+    const share = received.get(h.address.toLowerCase());
+    return share !== undefined && !h.fromCreator ? { ...h, fromCreator: { share, via: null } } : h;
+  });
+  const links = data.creatorLinks;
+  if (!links || !extend) return { ...data, top };
+  const known = new Set(links.holders.map((l) => l.address));
+  const held = new Set(top.map((h) => h.address.toLowerCase()));
+  const added = [...received.entries()].filter(([a]) => held.has(a) && !known.has(a));
+  const listed = new Set((links.recipients ?? []).map((r) => r.address));
+  const recipients = [
+    ...(links.recipients ?? []),
+    ...[...received.entries()]
+      .filter(([a]) => !listed.has(a))
+      .map(([address, share]) => ({ address, share, listed: held.has(address) })),
+  ].sort((a, b) => b.share - a.share);
+  const launched = [...received.values()].reduce((n, s) => n + s, 0);
+  return {
+    ...data,
+    top,
+    creatorLinks: {
+      ...links,
+      sentTo: Math.max(links.sentTo, received.size),
+      holders: [
+        ...links.holders,
+        ...added.map(([address, share]) => ({ address, share, via: null })),
+      ],
+      recipients: recipients.slice(0, CREATOR_RECIPIENTS_LISTED),
+      ...(links.sentShare !== undefined || launched > 0
+        ? { sentShare: Math.max(links.sentShare ?? 0, launched) }
+        : {}),
+    },
   };
 }

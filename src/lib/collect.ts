@@ -50,6 +50,7 @@ import {
   findFirstMint,
   readPoolsShare,
   recheckContracts,
+  refreshBalances,
 } from './holders/chain';
 import {
   checkLiquidity,
@@ -64,7 +65,7 @@ import {
 } from './market';
 import { findMarketsById, POOL_MANAGER, type V4Market } from './chain/pools';
 import { isContractCode } from './chain/code';
-import { linkCreatorToHolders, withLinks } from './holders/links';
+import { linkCreatorToHolders, withLaunchLinks, withLinks } from './holders/links';
 import { withRoles } from './holders/roles';
 import { knownNames, readAddressRoles } from './chain/roles';
 import { readVirtualsGraduation, readVirtualsGraduations } from './chain/virtuals';
@@ -119,6 +120,8 @@ export const MARKET_BUDGET = 4;
 const POOLS_BUDGET = 2;
 /** One batch of codes: the largest holders Blockscout calls contracts, re-read. */
 const RECHECK_BUDGET = 2;
+/** The largest holders' balances, read again: one batch, and its retry. */
+const REFRESH_BUDGET = 2;
 /**
  * The launch replay: the log read and the supply, then block times, codes and
  * balances in batches of 20 — up to 42 blocks, 60 codes and 100 balances
@@ -324,8 +327,18 @@ export type CollectOptions = {
    * instead of the route's 504. It keeps going and is cached for the next ask.
    */
   historyDeadlineMs?: number;
+  /** After this long (ms from the start), any optional read still running did not finish. */
+  readsDeadlineMs?: number;
+  /** After this long (ms from the start), the launch replay is a read that did not finish. */
+  replayDeadlineMs?: number;
   /** After this long (ms), a creator's other launches are listed but not checked. */
   checkOthersWithinMs?: number;
+  /**
+   * Filled as the collection goes: the stages reached and each read's time.
+   * The route logs it when it cuts a collection at 30 s, which never reaches
+   * its own log line (0x2559…, 0x2e8c…: 504 with nothing to say where).
+   */
+  progress?: { stages: Record<string, number>; reads?: Record<string, number> };
 };
 
 /**
@@ -334,6 +347,10 @@ export type CollectOptions = {
  * links, the fees) still fits (AI: 80 launches, cut at 30.2 s on staging).
  */
 export const HISTORY_DEADLINE_MS = 26_000;
+/** Every optional read still running here (ms from the start) is a read that did not finish. */
+export const READS_DEADLINE_MS = 28_000;
+/** The first minutes' replay is cut here (ms from the start): what follows it still fits in 30 s. */
+export const REPLAY_DEADLINE_MS = 24_000;
 export const CHECK_OTHERS_WITHIN_MS = 14_000;
 /** Time kept after the last batch of removal senders, before the history's deadline. */
 const SENDERS_MARGIN_MS = 4_000;
@@ -440,9 +457,10 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
   // Every read that failed this time: what it would have found is unknown.
   // Each optional read goes through the ledger: it answered, it does not
   // apply, or it failed — and a failure always lands in the failed reads.
-  const ledger = new ReadLedger();
+  const ledger = new ReadLedger(startedAt + (options.readsDeadlineMs ?? READS_DEADLINE_MS));
+  if (options.progress) options.progress.reads = ledger.timings;
   // When each stage ended, in ms since the start: where a slow analysis spent its time.
-  const stages: Record<string, number> = {};
+  const stages: Record<string, number> = options.progress?.stages ?? {};
   const stage = (name: string) => {
     stages[name] = Date.now() - startedAt;
   };
@@ -786,14 +804,27 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
               ...distribution,
               // Blockscout calls a wallet delegating under EIP-7702 a contract.
               data: valueOr(
-                await ledger.read('holder-codes', () =>
-                  recheckContracts(
-                    createRpcClient(options.rpcUrl, createBudget(RECHECK_BUDGET)),
+                await ledger.read('holder-codes', async () => {
+                  const rpc = createRpcClient(options.rpcUrl, createBudget(RECHECK_BUDGET));
+                  const checked = await recheckContracts(
+                    rpc,
                     distribution.data,
                     undefined,
                     (error) => ledger.fail('holder-codes', error),
-                  ),
-                ),
+                  );
+                  // Blockscout's balances can lag: the largest are read again, never left stale.
+                  // Not read again, Blockscout's figures stand, as they did before.
+                  return refreshBalances(
+                    createRpcClient(options.rpcUrl, createBudget(REFRESH_BUDGET)),
+                    checked,
+                  ).catch((error: unknown) => {
+                    log.warn('soldes des détenteurs non relus', {
+                      token: address,
+                      error: String(error),
+                    });
+                    return checked;
+                  });
+                }),
                 distribution.data,
               ),
             },
@@ -836,9 +867,31 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
         );
       }
     };
+    // A replay still reading at its deadline is a read that did not finish:
+    // the report goes out partial instead of the route's 504 (0x2e8c…: 31 s
+    // of replay, the analysis cut at 38 s on staging, 07/11/2026).
+    const replayLeft = startedAt + (options.replayDeadlineMs ?? REPLAY_DEADLINE_MS) - Date.now();
     const replay =
       launchFrom !== undefined && latest > 0
-        ? ledger.read('launch-replay', readReplay).then((outcome) => valueOr(outcome, undefined))
+        ? ledger
+            .read('launch-replay', () =>
+              Promise.race([
+                readReplay(),
+                new Promise<never>((_, reject) =>
+                  setTimeout(
+                    () =>
+                      reject(
+                        new IncompleteDataError(
+                          'robinhood-rpc',
+                          'the first minutes of trading took too long to read this time',
+                        ),
+                      ),
+                    Math.max(0, replayLeft),
+                  ),
+                ),
+              ]),
+            )
+            .then((outcome) => valueOr(outcome, undefined))
         : Promise.resolve(undefined);
 
     // What the token's pools hold today, against what DexScreener lists: a
@@ -1056,7 +1109,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
       new IncompleteDataError('robinhood-rpc', 'the creator’s transfers were not all read'),
     );
   }
-  const linkedHolders =
+  const linkedRead =
     sends && holders.completeness !== 'unavailable' && latest > 0
       ? valueOr(
           await ledger.read('holder-links', async () => {
@@ -1087,6 +1140,15 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
           holders,
         )
       : holders;
+
+  // What the replay saw the creator hand out at launch links holders too.
+  const linkedHolders =
+    launchReplay && linkedRead.completeness !== 'unavailable'
+      ? {
+          ...linkedRead,
+          data: withLaunchLinks(linkedRead.data, launchReplay.data.moves, Boolean(sends)),
+        }
+      : linkedRead;
 
   // What the largest holders and the launch's recipients are: a lock, a pool
   // no listing names, a launchpad's wallet (SIRIUS: its "largest holder, a

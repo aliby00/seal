@@ -102,11 +102,18 @@ export function classifyLogError(message: string): LogQueryTooBroadError | undef
  * So: a burst of about 20 log queries, refilled at about 4 per second, every
  * entry of a batch counting as one.
  *
+ * Measured again on 07/11/2026: 10 `eth_getLogs` a second for ten seconds all
+ * went through, 20 a second lost 3 of 200, and 80 sent at once lost about
+ * half. Paced at 10 from a burst of 30, four analyses in a row went through
+ * in 9 to 22 s, and the next five found the node refusing Vercel's address
+ * ("request limit reached"): the address is shared with the node's other
+ * callers. 6 a second, from a burst of 20, held 40 s with 5 refusals in 240.
+ *
  * The bucket is shared by every client of the same URL in this process, so
  * concurrent analyses on one server instance pace each other too.
  */
 export const RPC_BURST = 20;
-export const RPC_CALLS_PER_SECOND = 4;
+export const RPC_CALLS_PER_SECOND = 6;
 
 /**
  * A paid node allows more: `SEAL_RPC_RATE` raises its refill without a code
@@ -172,6 +179,8 @@ export function logQueries(payload: unknown): number {
  */
 export const SLOW_NODE_MS = 3_000;
 export const SET_ASIDE_MS = 60_000;
+/** A node that refused for its rate or quota: ten minutes (Alchemy, out of its monthly capacity). */
+export const REFUSED_ASIDE_MS = 10 * 60_000;
 /** A node that is not the last one gets this long before it is given up. */
 export const HANDOVER_TIMEOUT_MS = 6_000;
 /**
@@ -298,8 +307,8 @@ export function createRpcClient(
     if (targets.length === 0) {
       return Promise.reject(new UpstreamError('robinhood-rpc', 'no node configured'));
     }
-    const bench = (target: string) => {
-      if (targets.length > 1) setAside.set(target, Date.now() + SET_ASIDE_MS);
+    const bench = (target: string, ms = SET_ASIDE_MS) => {
+      if (targets.length > 1) setAside.set(target, Date.now() + ms);
     };
     return new Promise((resolve, reject) => {
       let next = 0;
@@ -338,7 +347,8 @@ export function createRpcClient(
             // A keyed node refusing the request (bad key, plan limit) answers
             // 400/401 with a JSON error: the next node may well accept it.
             if (!last && (status >= 400 || busyNodeError(body))) {
-              if (status === 429 || status >= 500 || busyNodeError(body)) bench(target);
+              if (status === 429 || busyNodeError(body)) bench(target, REFUSED_ASIDE_MS);
+              else if (status >= 500) bench(target);
               handOver(new UpstreamError('robinhood-rpc', `node answered ${status}`, status));
               return;
             }
@@ -354,7 +364,10 @@ export function createRpcClient(
               finish(() => reject(error));
               return;
             }
-            if (!last) bench(target);
+            // A node that refused for its rate stays aside longer: a keyed
+            // node past its monthly quota refuses every request for weeks.
+            if (!last)
+              bench(target, error instanceof RateLimitError ? REFUSED_ASIDE_MS : SET_ASIDE_MS);
             handOver(error);
           },
         );

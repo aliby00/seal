@@ -476,6 +476,22 @@ describe('tokenStats', () => {
     expect(stats.topTraders7d.find((t) => t.address === CREATOR)?.isCreator).toBe(true);
     expect(stats.creator).toEqual({ traded: true, buys: 1, sells: 0 });
   });
+
+  it('reads a busy token from a given time on only', () => {
+    const db = memoryDb();
+    const now = 10_000_000;
+    db.insertSwaps([
+      swap({ ts: now - 60, side: 'buy', origin: '0xa' }),
+      swap({ ts: now - 30 * 86_400, side: 'sell', origin: '0xc' }),
+    ]);
+    const stats = tokenStats(db, TOKEN, {
+      creator: CREATOR,
+      tokenIsToken0: true,
+      nowSec: now,
+      fromSec: now - 7 * 86_400,
+    });
+    expect(stats.windows.sinceLaunch).toMatchObject({ buys: 1, sells: 0, uniqueTraders: 1 });
+  });
 });
 
 describe('API', () => {
