@@ -104,14 +104,16 @@ export function classifyLogError(message: string): LogQueryTooBroadError | undef
  *
  * Measured again on 07/11/2026: 10 `eth_getLogs` a second for ten seconds all
  * went through, 20 a second lost 3 of 200, and 80 sent at once lost about
- * half. Paced at 4, an analysis of about 100 calls spent 20 s waiting on its
- * own throttle: 10 a second, from a burst of 30.
+ * half. Paced at 10 from a burst of 30, four analyses in a row went through
+ * in 9 to 22 s, and the next five found the node refusing Vercel's address
+ * ("request limit reached"): the address is shared with the node's other
+ * callers. 6 a second, from a burst of 20, held 40 s with 5 refusals in 240.
  *
  * The bucket is shared by every client of the same URL in this process, so
  * concurrent analyses on one server instance pace each other too.
  */
-export const RPC_BURST = 30;
-export const RPC_CALLS_PER_SECOND = 10;
+export const RPC_BURST = 20;
+export const RPC_CALLS_PER_SECOND = 6;
 
 /**
  * A paid node allows more: `SEAL_RPC_RATE` raises its refill without a code
