@@ -532,6 +532,32 @@ describe('API', () => {
     expect(get(`/v1/token/${TOKEN}`).status).toBe(200);
   });
 
+  it('lists the markets on both sides of a pair, oldest first, up to its cap', () => {
+    const { db, get } = api();
+    const other = '0x00000000000000000000000000000000000000ff';
+    const base = '0x0000000000000000000000000000000000000001';
+    const market = (n: number, currency0: string, currency1: string, block: number) => ({
+      id: `0x${n.toString(16).padStart(64, '0')}`,
+      currency0,
+      currency1,
+      fee: 3000,
+      tickSpacing: 60,
+      hook: '0x0000000000000000000000000000000000000000',
+      block,
+      txHash: `0x${n.toString(16).padStart(64, 'a')}`,
+      logIndex: 0,
+      ts: null,
+    });
+    const token = TOKEN.toLowerCase();
+    db.insertMarkets([
+      market(1, token, other, 30),
+      market(2, base, token, 20),
+      market(3, base, other, 10),
+    ]);
+    const body = get(`/v1/markets/${token}`).body as { markets: { block: number }[] };
+    expect(body.markets.map((m) => m.block)).toEqual([20, 30]);
+  });
+
   it('validates and lowercases addresses, and answers 404 for unknown ones', () => {
     const { get } = api();
     expect(get('/v1/token/not-an-address').status).toBe(400);

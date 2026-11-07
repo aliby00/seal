@@ -70,8 +70,11 @@ CREATE TABLE IF NOT EXISTS markets (
   ts INTEGER,
   PRIMARY KEY (tx_hash, log_index)
 ) WITHOUT ROWID;
-CREATE INDEX IF NOT EXISTS markets_c0 ON markets (currency0);
-CREATE INDEX IF NOT EXISTS markets_c1 ON markets (currency1);
+-- (currency, block) : les premiers marchés d'un token sans trier tous les
+-- autres — 0x2e8c… sert de devise à des milliers de marchés, lus et triés
+-- en 1,2 s (prod 07/11/2026).
+CREATE INDEX IF NOT EXISTS markets_c0_block ON markets (currency0, block);
+CREATE INDEX IF NOT EXISTS markets_c1_block ON markets (currency1, block);
 -- (hook, block) : compter les marchés d'un hook, et leurs premier et dernier
 -- blocs, sans lire la table — 0x4e34… (Doppler) en a plus de 200 000.
 CREATE INDEX IF NOT EXISTS markets_hook_block ON markets (hook, block);
@@ -183,6 +186,8 @@ function migrate(db: DatabaseSync): void {
   }
   // Replaced by markets_hook_block, which covers the hook's count on its own.
   db.exec('DROP INDEX IF EXISTS markets_hook');
+  db.exec('DROP INDEX IF EXISTS markets_c0');
+  db.exec('DROP INDEX IF EXISTS markets_c1');
 }
 
 export function openDb(path: string, now: () => number = Date.now) {
