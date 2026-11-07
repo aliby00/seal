@@ -542,6 +542,9 @@ function quietWords(hours: number | null | undefined): string {
   return hours === 1 ? 'the last hour' : `the last ${hours} hours`;
 }
 
+/** Below this, a listed market's liquidity is the first thing to know about it. */
+export const THIN_LIQUIDITY_USD = 1_000;
+
 function marketItem(market: ReportFacts['market']): GlanceItem | null {
   // A liquidity the chain contradicts comes first: shown as liquidity, it
   // read as reassuring while the pools held almost nothing.
@@ -553,6 +556,18 @@ function marketItem(market: ReportFacts['market']): GlanceItem | null {
       figure: pct(market.staleLiquidity.poolsShare),
       title: `Its pools hold ${pct(market.staleLiquidity.poolsShare)} of the supply today: the ${usdShort(market.staleLiquidity.listedUsd)} of liquidity DexScreener lists is not current.${quiet ? ` No trade in ${quiet}.` : ''}`,
       detail: 'Pool balances read on chain, against the listed trading pair.',
+      href: '#fact-market',
+    };
+  }
+  // A pool this thin is the market's first fact: one modest sale moves its
+  // price (FOBO, prod 07/11/2026: $159 of liquidity behind 23,181 holders).
+  if (market.measured && market.liquidityUsd !== null && market.liquidityUsd < THIN_LIQUIDITY_USD) {
+    return {
+      id: 'market',
+      tone: 'attention',
+      figure: usdShort(market.liquidityUsd),
+      title: `Its market holds only ${usdShort(market.liquidityUsd)} of liquidity: a sale of a few hundred dollars moves its price.`,
+      detail: 'Liquidity of the token’s listed trading pair.',
       href: '#fact-market',
     };
   }

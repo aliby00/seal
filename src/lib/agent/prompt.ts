@@ -1,5 +1,6 @@
 import type { LaunchMove, LaunchReplay, NamedAddress, TokenReport } from '../contracts';
-import { toFacts } from '../facts';
+import { toFacts, toTimeline } from '../facts';
+import { buildGlance } from '../glance';
 import { flowDate, flowPct, flowSentence, lockWords, type FlowNode } from '../supply-flow';
 import { OTHER_LAUNCH_SALES_DAYS } from '../contracts/creator';
 import { launchpadProse } from '../chain/launchpads';
@@ -52,7 +53,7 @@ Structure the response with these three explicit headings, separated from paragr
 3. Where the signals diverge — the most important section; do not gloss over it.
 
 Each section must stand on its own. Never open a section, or a sentence, with a reference to something it does not name ("the two reads", "both signals", "together", "this"): name what you mean. Never open a section with "Yet", "But", "However" or "Still": a contrast needs what it contrasts with, in the same section.
-"What is reassuring" holds only what reassures. A limit of the data (a partial read, pages not read, a read that failed) is no reassurance: say it under "Where the signals diverge", never as a sentence of its own in the first section.
+"What is reassuring" holds only what reassures. Supply handed by the creator to other addresses, a large share held by one address or by the creator, and a thin market never reassure. A limit of the data (a partial read, pages not read, a read that failed) is no reassurance: say it under "Where the signals diverge", never as a sentence of its own in the first section.
 What early buyers "still hold" is a share of the whole supply, as the data gives it: never write that it is a share "of what they bought".
 When you give a count of the creator's other launches checked, say which ones they are, as the data does per launchpad ("the 10 most recent of its 21 launches on pons"): never a bare "10 other launches checked".
 When you give the round-trip count, give the exclusions the data states next to it ("3 more excluded: …"). Draw no conclusion the facts do not state, and write "together" or "so" only after the sentences that state both parts.
@@ -87,6 +88,7 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
   }
   lines.push('');
 
+  lines.push(...renderAttention(report, specialists));
   lines.push(...renderSupplyFlow(report));
 
   lines.push('## Creator history');
@@ -732,6 +734,31 @@ const FUNDER_WORD: Record<NonNullable<SpecialistAnswer['funding']>['kind'], stri
  * its supply out (SIRIUS: half to Virtuals' curve, a quarter to its
  * capital-formation wallet, a quarter to the creator's TokenTable lock).
  */
+/**
+ * The facts SEAL's own rules mark as deserving attention, the same lines the
+ * report opens with. The model put some of them under "What is reassuring"
+ * (prod 07/11/2026: "the creator passed 67.2 % of the supply to five wallets
+ * within one second" as its first reassurance; FOBO's creator holding 95 %
+ * behind $159 of liquidity, opened on reassurances): the text and the
+ * summary above it now file them in the same place.
+ */
+export function renderAttention(report: TokenReport, specialists?: SpecialistAnswer[]): string[] {
+  const glance = buildGlance({
+    facts: toFacts(report),
+    timeline: toTimeline(report),
+    ...(report.launch ? { launch: report.launch.data } : {}),
+    ...(specialists ? { specialists } : {}),
+  });
+  const items = (glance?.items ?? []).filter((i) => i.tone === 'attention' && !i.unread);
+  if (items.length === 0) return [];
+  return [
+    '## Facts that deserve attention (SEAL’s own rules)',
+    ...items.map((i) => `- ${i.title}`),
+    'Each of these goes under "What deserves attention", the strongest first. Never present any of them, or a part of one, under "What is reassuring", and never call one of them reassuring, routine or normal.',
+    '',
+  ];
+}
+
 export function renderSupplyFlow(report: TokenReport): string[] {
   const flow = toFacts(report).supplyFlow;
   if (!flow) return [];
