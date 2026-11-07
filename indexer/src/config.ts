@@ -5,8 +5,12 @@
  * en boucle avec un message clair qu'un service qui répond sans authentification.
  */
 export const DEFAULT_RPC_URL = 'https://rpc.mainnet.chain.robinhood.com';
-/** What the public node takes without cutting the IP off: ~4 log queries/s. */
-export const PUBLIC_RPC_RATE = 4;
+/**
+ * What the public node takes without cutting the IP off: 10 log queries/s held
+ * for ten seconds without a refusal (07/11/2026). The indexer runs all day:
+ * it keeps a margin below that.
+ */
+export const PUBLIC_RPC_RATE = 8;
 
 /** ~0,1 s par bloc, mesuré le 17/10/2026 (9,7 à 9,9 blocs/s sur 30 jours). */
 export const BLOCKS_PER_DAY = 864_000;
