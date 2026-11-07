@@ -327,6 +327,8 @@ export type CollectOptions = {
    * instead of the route's 504. It keeps going and is cached for the next ask.
    */
   historyDeadlineMs?: number;
+  /** After this long (ms from the start), any optional read still running did not finish. */
+  readsDeadlineMs?: number;
   /** After this long (ms from the start), the launch replay is a read that did not finish. */
   replayDeadlineMs?: number;
   /** After this long (ms), a creator's other launches are listed but not checked. */
@@ -345,6 +347,8 @@ export type CollectOptions = {
  * links, the fees) still fits (AI: 80 launches, cut at 30.2 s on staging).
  */
 export const HISTORY_DEADLINE_MS = 26_000;
+/** Every optional read still running here (ms from the start) is a read that did not finish. */
+export const READS_DEADLINE_MS = 28_000;
 /** The first minutes' replay is cut here (ms from the start): what follows it still fits in 30 s. */
 export const REPLAY_DEADLINE_MS = 24_000;
 export const CHECK_OTHERS_WITHIN_MS = 14_000;
@@ -453,7 +457,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
   // Every read that failed this time: what it would have found is unknown.
   // Each optional read goes through the ledger: it answered, it does not
   // apply, or it failed — and a failure always lands in the failed reads.
-  const ledger = new ReadLedger();
+  const ledger = new ReadLedger(startedAt + (options.readsDeadlineMs ?? READS_DEADLINE_MS));
   if (options.progress) options.progress.reads = ledger.timings;
   // When each stage ended, in ms since the start: where a slow analysis spent its time.
   const stages: Record<string, number> = options.progress?.stages ?? {};

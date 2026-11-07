@@ -1,5 +1,5 @@
 import type { FailedRead, ReadId } from './contracts/report';
-import { SealError } from './errors';
+import { IncompleteDataError, SealError } from './errors';
 import { log } from './logger';
 
 /**
@@ -92,18 +92,46 @@ export class ReadLedger {
   /** How long each read took, in ms, for the collection's log line. */
   readonly timings: Partial<Record<OptionalRead, number>> = {};
 
+  /**
+   * `deadline` (epoch ms): a read still running then did not finish, and the
+   * collection goes on without it. The reads after the holders ran one after
+   * another past the route's 30 s (0x2e8c…: fees done at 33.6 s, staging
+   * 07/11/2026), and the whole report was lost to a 504.
+   */
+  constructor(private readonly deadline?: number) {}
+
   async read<T>(
     name: OptionalRead,
     fn: () => Promise<T | typeof NOT_APPLICABLE>,
   ): Promise<ReadOutcome<T>> {
     const started = Date.now();
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      const value = await fn();
+      const run = fn();
+      const value =
+        this.deadline === undefined
+          ? await run
+          : await Promise.race([
+              run,
+              new Promise<never>((_, reject) => {
+                timer = setTimeout(
+                  () =>
+                    reject(
+                      new IncompleteDataError(
+                        'robinhood-rpc',
+                        'it did not finish in time this time',
+                      ),
+                    ),
+                  Math.max(0, this.deadline! - Date.now()),
+                );
+              }),
+            ]);
       return value === NOT_APPLICABLE ? { status: 'not-applicable' } : { status: 'ok', value };
     } catch (error) {
       this.fail(name, error);
       return { status: 'failed', error };
     } finally {
+      clearTimeout(timer);
       this.timings[name] = (this.timings[name] ?? 0) + Date.now() - started;
     }
   }
