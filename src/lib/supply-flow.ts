@@ -381,6 +381,23 @@ export function flowHeadline(
         share: n.received,
         words: `${flowPct(n.received)} to the creator at launch`,
       });
+      // What the creator passed straight on to other addresses, outside any
+      // market: the first thing to know (0x137a…: 67.2 % to five wallets one
+      // second after the mint, said as "reassuring" by the text).
+      const out = n.children.filter((c) => c.kind === 'wallet' || c.kind === 'contract');
+      const passed = out.reduce((sum, c) => sum + c.received, 0);
+      if (out.length > 0 && passed >= 0.05) {
+        const held = out.every((c) => c.heldNow !== null)
+          ? out.reduce((sum, c) => sum + (c.heldNow ?? 0), 0)
+          : null;
+        const last = Math.max(...out.map((c) => c.at)) - n.at;
+        const when = last < 1 ? ' in the same second' : ` within ${Math.round(last)} s`;
+        clauses.push({
+          rank: 1,
+          share: passed,
+          words: `${flowPct(passed)} passed on by the creator to ${out.length === 1 ? 'one address' : `${out.length} addresses`}${when}${held !== null ? `, which hold ${flowPct(held)} today` : ''}`,
+        });
+      }
     }
   }
   // Without a lock or a known role, what went outside the market at launch.

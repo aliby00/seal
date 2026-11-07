@@ -1,6 +1,18 @@
+type Kind = 'reassuring' | 'attention' | 'divergent';
+
+/** The kind of a section is read from its own heading, never from where it sits. */
+function kindOf(heading: string): Kind {
+  if (/^(?:where the signals diverge|là où les signaux divergent)/i.test(heading))
+    return 'divergent';
+  if (/^(?:what is reassuring|ce qui (?:est rassurant|rassure))/i.test(heading))
+    return 'reassuring';
+  return 'attention';
+}
+
 /** Only explicit section headings carry emphasis. Never infer risk from prose. */
 export function Explanation({ text, offline }: { text: string; offline: boolean }) {
-  const sections: { heading?: string; divergent: boolean; paragraphs: string[] }[] = [];
+  const sections: { heading?: string; kind?: Kind; divergent: boolean; paragraphs: string[] }[] =
+    [];
   for (const block of text.split(/\n\s*\n/).filter((value) => value.trim())) {
     const [firstLine = '', ...rest] = block.split('\n');
     const heading = firstLine
@@ -14,10 +26,11 @@ export function Explanation({ text, offline }: { text: string; offline: boolean 
         heading,
       );
     if (knownHeading) {
+      const kind = kindOf(heading);
       sections.push({
         heading,
-        divergent:
-          !offline && /^(?:where the signals diverge|là où les signaux divergent)/i.test(heading),
+        kind,
+        divergent: !offline && kind === 'divergent',
         paragraphs: rest.length ? [rest.join('\n')] : [],
       });
     } else {
@@ -28,7 +41,11 @@ export function Explanation({ text, offline }: { text: string; offline: boolean 
   return (
     <div className="explanation">
       {sections.map((section, index) => (
-        <div key={index} className={section.divergent ? 'prose-block divergent' : 'prose-block'}>
+        <div
+          key={index}
+          className={section.divergent ? 'prose-block divergent' : 'prose-block'}
+          data-kind={section.kind}
+        >
           {section.heading && <h3>{section.heading}</h3>}
           {section.paragraphs.map((paragraph, paragraphIndex) => (
             // Emphasis markers are not rendered as emphasis: they would only show as asterisks.

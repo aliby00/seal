@@ -1,7 +1,7 @@
 import { isAddress } from 'viem';
 import { NextResponse } from 'next/server';
 import { explain } from '@/lib/agent/reason';
-import { collect } from '@/lib/collect';
+import { collect, type CollectOptions } from '@/lib/collect';
 import { toFacts, toTimeline, type ReportFacts, type TimelineLaunch } from '@/lib/facts';
 import { SealError } from '@/lib/errors';
 import { ANALYZE_LIMIT, guardedJson } from '@/lib/guard';
@@ -136,6 +136,8 @@ async function analyze(request: Request, started: number): Promise<Response> {
     return NextResponse.json({ ...served, cached: true } satisfies AnalyzeResponse);
   }
 
+  // Where the collection got to, logged if it is cut at 30 s.
+  const progress: NonNullable<CollectOptions['progress']> = { stages: {} };
   try {
     // What the questions can read without the report starts now, alongside it.
     const questions = startSpecialists(token, { rpcUrl: process.env.RPC_URL || undefined });
@@ -143,6 +145,7 @@ async function analyze(request: Request, started: number): Promise<Response> {
       collect(token, {
         rpcUrl: process.env.RPC_URL || undefined,
         blockscoutApiKey: process.env.BLOCKSCOUT_API_KEY || undefined,
+        progress,
       }),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error(COLLECT_TIMEOUT_MESSAGE)), COLLECT_TIMEOUT_MS),
@@ -231,7 +234,12 @@ async function analyze(request: Request, started: number): Promise<Response> {
     }
     // Reading the chain ran past its budget: a busy token, not a broken one.
     if (error instanceof Error && error.message === COLLECT_TIMEOUT_MESSAGE) {
-      log.warn('analyse trop longue', { token, ms: Date.now() - started });
+      log.warn('analyse trop longue', {
+        token,
+        ms: Date.now() - started,
+        stages: progress.stages,
+        reads: progress.reads,
+      });
       return errorResponse(
         504,
         'This token has a long history and took too long to read. Try again in a moment.',

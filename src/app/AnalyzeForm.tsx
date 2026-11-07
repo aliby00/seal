@@ -1,71 +1,143 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PLAIN_LABEL } from '@/lib/specialists/plain';
 import type { AnalyzeResponse } from './api/analyze/route';
 import { SourceStudy } from './components/SourceStudy';
 import { AnalysisReport } from './components/AnalysisReport';
 import { Arch } from './components/brand';
+import {
+  ADDRESS,
+  ADDRESS_HINT,
+  ANALYZE_EVENT,
+  EXAMPLE_TOKEN,
+  readingUrl,
+} from './components/analyze-request';
 import { requestError } from './requestErrors';
 
-/** A real pons launch whose creator history and holders can be read in full. */
-const EXAMPLE_TOKEN = '0x10e848f9d5073d670201b111f1ba3d1c5be6f18b';
-const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 type State =
   | { status: 'idle' }
-  | { status: 'loading' }
+  | { status: 'loading'; address: string }
   | { status: 'done'; result: AnalyzeResponse }
   | { status: 'error'; title?: string; message: string; retry: boolean };
 
-/** The steps light up on a typical schedule; the request itself is a single call. */
-const SCAN_STEPS: { label: string; from: number }[] = [
-  { label: 'Chain history', from: 0 },
-  { label: 'Holders', from: 3 },
-  { label: 'Market', from: 5 },
-  { label: 'Ten specialists', from: 7 },
-  { label: 'Reading', from: 12 },
+/** The long end of a usual analysis, in seconds: the scale of the wait bar. */
+const USUAL = 40;
+/** Past this, the wait is said to be longer than usual. */
+const SLOW = 45;
+
+/**
+ * What happens during the wait, in its usual order. The request is a single
+ * call: these are the typical times, never a step the server reported done.
+ */
+const PHASES: { from: number; title: string; body: string; checks?: readonly string[] }[] = [
+  {
+    from: 0,
+    title: 'Public data',
+    body: 'The creator’s wallet and past launches on Robinhood Chain, the holders via Blockscout, price and trades via DexScreener. All three are read at once.',
+  },
+  {
+    from: 14,
+    title: 'Ten checks',
+    body: 'Ten fixed questions, each answered only from what was read:',
+    checks: Object.values(PLAIN_LABEL),
+  },
+  {
+    from: 22,
+    title: 'The reading',
+    body: 'The facts are read against each other and written up: where they agree, where they do not, and what could not be seen. Nothing is scored.',
+  },
 ];
 
-function Loading() {
+const short = (address: string) => `${address.slice(0, 8)}…${address.slice(-6)}`;
+
+function Loading({
+  address,
+  onCancel,
+  panel,
+}: {
+  address: string;
+  onCancel: () => void;
+  panel: RefObject<HTMLDivElement | null>;
+}) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     const timer = setInterval(() => setElapsed((value) => value + 1), 1000);
     return () => clearInterval(timer);
   }, []);
-  const current = SCAN_STEPS.filter((step) => elapsed >= step.from).length - 1;
+  const current = PHASES.filter((phase) => elapsed >= phase.from).length - 1;
+  const progress = Math.min(1, elapsed / USUAL);
   return (
-    <div className="loading-state" role="status">
+    <div className="loading-state" role="status" tabIndex={-1} ref={panel}>
       <span className="scan-beam" aria-hidden="true" />
       <div className="loading-top">
-        <h2>
-          Reading public data
-          <span className="loading-dots" aria-hidden="true">
-            …
-          </span>
-        </h2>
+        <div>
+          <p className="loading-kicker">
+            Token <code title={address}>{short(address)}</code>
+          </p>
+          <h2>
+            Reading what the chain shows
+            <span className="loading-dots" aria-hidden="true">
+              …
+            </span>
+          </h2>
+        </div>
         <span className="index" aria-hidden="true">
           {elapsed} s
         </span>
       </div>
-      <ol className="scan-steps" aria-hidden="true">
-        {SCAN_STEPS.map((step, i) => (
-          <li
-            key={step.label}
-            data-state={i < current ? 'done' : i === current ? 'active' : 'wait'}
-          >
-            {step.label}
+      <div
+        className="loading-track"
+        aria-hidden="true"
+        data-over={elapsed >= USUAL || undefined}
+        style={{ '--progress': progress } as CSSProperties}
+      >
+        <span className="loading-fill" />
+        {PHASES.slice(1).map((phase) => (
+          <span
+            key={phase.title}
+            className="loading-tick"
+            style={{ '--at': phase.from / USUAL } as CSSProperties}
+          />
+        ))}
+      </div>
+      <div className="loading-scale" aria-hidden="true">
+        <span>0 s</span>
+        <span>usually 20 to 40 s</span>
+      </div>
+      <ol className="loading-phases" aria-label="What happens during the wait, in its usual order">
+        {PHASES.map((phase, i) => (
+          <li key={phase.title} data-state={i < current ? 'past' : i === current ? 'now' : 'next'}>
+            <span className="phase-time" aria-hidden="true">
+              {phase.from === 0 ? 'first' : `~${phase.from} s`}
+            </span>
+            <div>
+              <h3>{phase.title}</h3>
+              <p>{phase.body}</p>
+              {phase.checks && (
+                <ul className="phase-checks">
+                  {phase.checks.map((check) => (
+                    <li key={check}>{check}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </li>
         ))}
       </ol>
-      <p className="loading-sources">
-        On-chain history · Holders via Blockscout · Market via DexScreener
-      </p>
-      <p className="loading-caption">
-        {elapsed < 30
-          ? 'An analysis usually takes 15 to 30 seconds. Each source is read, then the ten questions are asked.'
-          : 'This is taking longer than expected. A source may be slow or incomplete; its limitations will be shown.'}
-      </p>
+      <p className="sr-only">Usually at this point: {PHASES[current]?.title}.</p>
+      <div className="loading-foot">
+        <p className="loading-caption">
+          {elapsed < SLOW
+            ? 'The steps follow the usual order; the report arrives in one piece once every source has answered.'
+            : 'This is taking longer than expected. A source may be slow or incomplete; its limitations will be shown.'}
+        </p>
+        <button type="button" className="loading-cancel" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }
@@ -75,39 +147,66 @@ export function AnalyzeForm() {
   const [validation, setValidation] = useState('');
   const [state, setState] = useState<State>({ status: 'idle' });
   const input = useRef<HTMLInputElement>(null);
+  const loadingPanel = useRef<HTMLDivElement>(null);
   const request = useRef<AbortController | null>(null);
+  const cancelled = useRef(false);
   useEffect(() => () => request.current?.abort(), []);
   // A finished report takes the focus: a screen reader starts at its title
   // instead of hearing the whole report read out as one live announcement.
   useEffect(() => {
     if (state.status === 'done') document.getElementById('report-title')?.focus();
   }, [state]);
+  // The wait is shown where the reader is looking: the panel takes the focus
+  // and comes into view, wherever the analysis was started from.
+  const loading = state.status === 'loading';
+  useEffect(() => {
+    const panel = loadingPanel.current;
+    if (!loading || !panel) return;
+    panel.focus({ preventScroll: true });
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    panel.scrollIntoView({ behavior: reduced ? 'instant' : 'smooth', block: 'start' });
+  }, [loading]);
 
   // A link such as /?token=0x…#analysis (the browser extension's "Full
-  // reading") opens with the address filled in and the analysis started. The
-  // start waits a tick so a remount in development does not send it twice.
+  // reading", or a shared reading) opens with the address filled in and the
+  // analysis started. The entrance field asks for an analysis the same way.
+  // The start waits a tick so a remount in development does not send it twice.
   useEffect(() => {
+    const start = (address: string) => {
+      setToken(address);
+      void analyze(address);
+    };
     const linked = new URLSearchParams(window.location.search).get('token')?.trim() ?? '';
-    if (!ADDRESS.test(linked)) return;
-    const timer = setTimeout(() => {
-      setToken(linked);
-      void analyze(linked);
-    }, 0);
-    return () => clearTimeout(timer);
+    const timer = ADDRESS.test(linked) ? setTimeout(() => start(linked), 0) : undefined;
+    const onRequest = (event: Event) => {
+      const address = (event as CustomEvent<string>).detail;
+      if (typeof address === 'string' && ADDRESS.test(address)) start(address);
+    };
+    window.addEventListener(ANALYZE_EVENT, onRequest);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener(ANALYZE_EVENT, onRequest);
+    };
     // Once, on arrival: later edits of the field are the reader's own.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function cancel() {
+    cancelled.current = true;
+    request.current?.abort();
+  }
+
   async function analyze(value: string = token) {
     const address = value.trim();
     if (!ADDRESS.test(address)) {
-      setValidation('Enter an address starting with 0x, followed by 40 hexadecimal characters.');
+      setValidation(ADDRESS_HINT);
       input.current?.focus();
       return;
     }
     if (request.current) return;
     setValidation('');
-    setState({ status: 'loading' });
+    setState({ status: 'loading', address });
+    cancelled.current = false;
     const controller = new AbortController();
     request.current = controller;
     const timeout = setTimeout(() => controller.abort(), 90_000);
@@ -124,7 +223,14 @@ export function AnalyzeForm() {
       }
       const result = (await response.json()) as AnalyzeResponse;
       setState({ status: 'done', result });
+      // The address bar now holds a link that reopens this reading.
+      window.history.replaceState(null, '', readingUrl(address));
     } catch {
+      if (cancelled.current) {
+        setState({ status: 'idle' });
+        setTimeout(() => input.current?.focus(), 0);
+        return;
+      }
       setState({
         status: 'error',
         message: controller.signal.aborted
@@ -183,12 +289,12 @@ export function AnalyzeForm() {
               spellCheck={false}
               autoComplete="off"
               autoCapitalize="none"
-              disabled={state.status === 'loading'}
+              disabled={loading}
               aria-invalid={Boolean(validation)}
               aria-describedby={validation ? 'token-error token-help' : 'token-help'}
             />
-            <Button type="submit" disabled={state.status === 'loading'}>
-              {state.status === 'loading' ? 'Analyzing…' : 'Analyze token'}
+            <Button type="submit" disabled={loading}>
+              {loading ? 'Analyzing…' : 'Analyze token'}
               <span className="cta-orb" aria-hidden="true">
                 →
               </span>
@@ -204,7 +310,7 @@ export function AnalyzeForm() {
             <button
               type="button"
               className="text-link"
-              disabled={state.status === 'loading'}
+              disabled={loading}
               onClick={() => {
                 setToken(EXAMPLE_TOKEN);
                 setValidation('');
@@ -222,12 +328,14 @@ export function AnalyzeForm() {
         </div>
         <p className="entry-principle">Evidence and context. Never a score.</p>
       </div>
-      {state.status === 'loading' && <Loading />}
+      {state.status === 'loading' && (
+        <Loading address={state.address} onCancel={cancel} panel={loadingPanel} />
+      )}
       {/* The loading panel announces itself; this only says the report is in. */}
       <p className="sr-only" aria-live="polite">
         {state.status === 'done' ? 'Analysis ready.' : ''}
       </p>
-      <div id="analysis-result" aria-busy={state.status === 'loading'}>
+      <div id="analysis-result" aria-busy={loading}>
         {state.status === 'error' && (
           <div className="error-state" role="alert">
             <h2>{state.title ?? 'The analysis could not be completed.'}</h2>

@@ -311,6 +311,50 @@ test('a ?token= link fills the address and starts the analysis', async ({ page }
   expect(posted).toEqual([{ token }]);
 });
 
+test('the entrance field starts the analysis, and the reading gets a link to share', async ({
+  page,
+}) => {
+  const posted: unknown[] = [];
+  await page.route('**/api/analyze', (route) => {
+    posted.push(route.request().postDataJSON());
+    return route.fulfill({ json: report });
+  });
+  await page.goto('/');
+  const field = page.getByLabel('Token address to analyze');
+  await expect(field).toBeVisible();
+  await field.fill('0x123');
+  await page.getByRole('button', { name: 'Analyze', exact: true }).click();
+  await expect(page.locator('.entrance-error')).toContainText('40 hexadecimal characters');
+  expect(posted).toEqual([]);
+  await field.fill(token);
+  await page.getByRole('button', { name: 'Analyze', exact: true }).click();
+  await expect(page.getByRole('article')).toBeVisible();
+  expect(posted).toEqual([{ token }]);
+  await expect(page.getByLabel('Token address', { exact: true })).toHaveValue(token);
+  expect(page.url().endsWith(`/?token=${token}#analysis`)).toBe(true);
+  const share = page.getByRole('group', { name: 'Share this reading' });
+  const post = new URL(
+    (await share.getByRole('link', { name: /Share on X/ }).getAttribute('href')) ?? '',
+  );
+  expect(post.origin + post.pathname).toBe('https://x.com/intent/post');
+  expect(post.searchParams.get('url')?.endsWith(`/?token=${token}#analysis`)).toBe(true);
+  await expect(share.getByRole('button', { name: 'Copy link' })).toBeVisible();
+});
+
+test('a running analysis can be cancelled', async ({ page }) => {
+  await page.route('**/api/analyze', () => {});
+  await page.goto('/');
+  await submit(page);
+  const status = page.getByRole('status');
+  await expect(status).toContainText('usually 20 to 40 s');
+  await expect(status).toContainText('Supply held by a few');
+  await status.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByRole('status')).toHaveCount(0);
+  await expect(page.getByRole('main').getByRole('alert')).toHaveCount(0);
+  await expect(page.getByLabel('Token address', { exact: true })).toBeEnabled();
+  await expect(page.getByLabel('Token address', { exact: true })).toHaveValue(token);
+});
+
 test('a ?token= link that is not an address starts nothing', async ({ page }) => {
   let requests = 0;
   await page.route('**/api/analyze', (route) => {
@@ -486,7 +530,7 @@ test('slow response is explained, reduced motion is respected, timeout allows re
   await submit(page);
   await expect(page.getByRole('status')).toBeVisible();
   await expect(page.locator('.loading-dots')).toHaveCSS('animation-name', 'none');
-  await page.clock.runFor(31_000);
+  await page.clock.runFor(46_000);
   await expect(page.getByRole('status')).toContainText('longer than expected');
   await page.clock.fastForward(60_000);
   await expect(page.getByRole('main').getByRole('alert')).toContainText('too long');
@@ -500,7 +544,7 @@ test('mountain entrance advances with native scroll, reveals the app, and revers
   page,
 }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Every token has another story.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Paste a token. Read its story.' })).toBeVisible();
   await accessible(page);
   const distance = await page
     .locator('.scroll-journey')
@@ -545,7 +589,7 @@ test('mountain entrance advances with native scroll, reveals the app, and revers
         ),
     )
     .toBe(1);
-  await page.getByRole('link', { name: 'Enter SEAL' }).click();
+  await page.getByRole('link', { name: 'Scroll to explore' }).click();
   await expect(page.locator('.analysis-world')).toHaveCSS('opacity', '1');
 });
 
@@ -568,7 +612,7 @@ test('entry links and logo scroll in both directions without losing the address'
   page,
 }) => {
   await page.goto('/');
-  await page.getByRole('link', { name: 'Enter SEAL' }).click();
+  await page.getByRole('link', { name: 'Scroll to explore' }).click();
   await expect
     .poll(() =>
       page.evaluate(() =>
@@ -580,7 +624,7 @@ test('entry links and logo scroll in both directions without losing the address'
   await page.getByLabel('Token address', { exact: true }).fill(token);
   await page.getByRole('link', { name: 'SEAL', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(2);
-  await page.getByRole('link', { name: 'Enter SEAL' }).click();
+  await page.getByRole('link', { name: 'Scroll to explore' }).click();
   await expect
     .poll(() =>
       page.evaluate(() =>

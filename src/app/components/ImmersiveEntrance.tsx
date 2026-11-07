@@ -3,6 +3,7 @@
 import { useEffect, useRef, type CSSProperties, type ReactNode, type Ref } from 'react';
 import { preload } from 'react-dom';
 import { Arch, Wordmark } from './brand';
+import { EntranceComposer } from './EntranceComposer';
 import { LegalLinks } from './LegalPage';
 
 /**
@@ -436,22 +437,19 @@ export function ImmersiveEntrance({
         >
           <div className="journey-stage">
             <div ref={copy} className="entrance-copy">
-              <p className="scene-eyebrow">Read the signals. Understand the context.</p>
+              <p className="scene-eyebrow">
+                <span>
+                  Robinhood Chain <span aria-hidden="true">·</span> pons, Virtuals, Doppler, flap.sh
+                </span>
+              </p>
               <h1 id="entrance-title">
-                Every token has
-                <br />
-                <em>another story.</em>
+                Paste a token. <em>Read its story.</em>
               </h1>
               <p className="entrance-description">
-                One Robinhood Chain token address. Three public sources. <br />
-                An explanation of what they reveal together.
+                Who launched it, who holds it, how it really trades: read from public data and
+                explained in plain words. No score, because a score hides what contradicts.
               </p>
-              <a href="#analysis" className="entrance-cta">
-                Enter SEAL
-                <span className="cta-orb" aria-hidden="true">
-                  →
-                </span>
-              </a>
+              <EntranceComposer />
             </div>
             <div className="journey-caption">
               <span className="caption-chapter">

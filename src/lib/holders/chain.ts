@@ -188,6 +188,68 @@ export async function recheckContracts(
   };
 }
 
+/** Largest holders whose balance is read again on chain, at most. */
+export const REFRESHED_BALANCES = 20;
+
+/**
+ * Blockscout's balances can lag the chain: a creator that had sold out still
+ * showed 2.9 % (0x137a…, prod 07/11/2026) while its balance was zero, and the
+ * report then said both. The largest holders are read again in one batch and
+ * their shares restated against the same base; a balance that could not be
+ * read keeps Blockscout's figure.
+ */
+export async function refreshBalances(
+  rpc: RpcClient,
+  data: HolderDistributionData,
+  cap = REFRESHED_BALANCES,
+): Promise<HolderDistributionData> {
+  const base = BigInt(data.countedSupply || '0');
+  const read = data.top
+    .filter((h) => h.kind === 'wallet' || h.kind === 'contract')
+    .slice(0, cap)
+    .map((h) => h.address);
+  if (base <= 0n || read.length === 0) return data;
+  const outcomes = await rpc.callBatch<string>(
+    read.map((a) => ({
+      method: 'eth_call',
+      params: [
+        { to: data.token, data: `${BALANCE_OF}${a.slice(2).toLowerCase().padStart(64, '0')}` },
+        'latest',
+      ],
+    })),
+  );
+  const fresh = new Map<string, bigint>();
+  read.forEach((a, i) => {
+    const o = outcomes[i];
+    if (o?.ok && typeof o.value === 'string' && /^0x[0-9a-f]+$/i.test(o.value)) {
+      fresh.set(a.toLowerCase(), BigInt(o.value));
+    }
+  });
+  if (fresh.size === 0) return data;
+  const top = data.top
+    .map((h) => {
+      const balance = fresh.get(h.address.toLowerCase());
+      if (balance === undefined || h.kind === 'pool' || h.kind === 'burn') return h;
+      return {
+        ...h,
+        balance: balance.toString(),
+        share: Number((balance * 1_000_000n) / base) / 1_000_000,
+      };
+    })
+    // An address emptied since Blockscout's last read is no holder today.
+    .filter((h) => h.kind === 'pool' || h.kind === 'burn' || BigInt(h.balance) > 0n)
+    .sort((a, b) => b.share - a.share);
+  const counted = top.filter((h) => h.kind === 'wallet' || h.kind === 'contract');
+  return {
+    ...data,
+    top,
+    concentration: {
+      top1: counted[0]?.share ?? 0,
+      top10: counted.slice(0, 10).reduce((sum, h) => sum + h.share, 0),
+    },
+  };
+}
+
 const TOTAL_SUPPLY = '0x18160ddd';
 const BALANCE_OF = '0x70a08231';
 const DECIMALS = '0x313ce567';
