@@ -50,6 +50,7 @@ import {
   findFirstMint,
   readPoolsShare,
   recheckContracts,
+  refreshBalances,
 } from './holders/chain';
 import {
   checkLiquidity,
@@ -64,7 +65,7 @@ import {
 } from './market';
 import { findMarketsById, POOL_MANAGER, type V4Market } from './chain/pools';
 import { isContractCode } from './chain/code';
-import { linkCreatorToHolders, withLinks } from './holders/links';
+import { linkCreatorToHolders, withLaunchLinks, withLinks } from './holders/links';
 import { withRoles } from './holders/roles';
 import { knownNames, readAddressRoles } from './chain/roles';
 import { readVirtualsGraduation, readVirtualsGraduations } from './chain/virtuals';
@@ -326,6 +327,12 @@ export type CollectOptions = {
   historyDeadlineMs?: number;
   /** After this long (ms), a creator's other launches are listed but not checked. */
   checkOthersWithinMs?: number;
+  /**
+   * Filled as the collection goes: the stages reached and each read's time.
+   * The route logs it when it cuts a collection at 30 s, which never reaches
+   * its own log line (0x2559…, 0x2e8c…: 504 with nothing to say where).
+   */
+  progress?: { stages: Record<string, number>; reads?: Record<string, number> };
 };
 
 /**
@@ -441,8 +448,9 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
   // Each optional read goes through the ledger: it answered, it does not
   // apply, or it failed — and a failure always lands in the failed reads.
   const ledger = new ReadLedger();
+  if (options.progress) options.progress.reads = ledger.timings;
   // When each stage ended, in ms since the start: where a slow analysis spent its time.
-  const stages: Record<string, number> = {};
+  const stages: Record<string, number> = options.progress?.stages ?? {};
   const stage = (name: string) => {
     stages[name] = Date.now() - startedAt;
   };
@@ -786,14 +794,24 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
               ...distribution,
               // Blockscout calls a wallet delegating under EIP-7702 a contract.
               data: valueOr(
-                await ledger.read('holder-codes', () =>
-                  recheckContracts(
-                    createRpcClient(options.rpcUrl, createBudget(RECHECK_BUDGET)),
+                await ledger.read('holder-codes', async () => {
+                  const rpc = createRpcClient(options.rpcUrl, createBudget(RECHECK_BUDGET));
+                  const checked = await recheckContracts(
+                    rpc,
                     distribution.data,
                     undefined,
                     (error) => ledger.fail('holder-codes', error),
-                  ),
-                ),
+                  );
+                  // Blockscout's balances can lag: the largest are read again, never left stale.
+                  // Not read again, Blockscout's figures stand, as they did before.
+                  return refreshBalances(rpc, checked).catch((error: unknown) => {
+                    log.warn('soldes des détenteurs non relus', {
+                      token: address,
+                      error: String(error),
+                    });
+                    return checked;
+                  });
+                }),
                 distribution.data,
               ),
             },
@@ -1056,7 +1074,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
       new IncompleteDataError('robinhood-rpc', 'the creator’s transfers were not all read'),
     );
   }
-  const linkedHolders =
+  const linkedRead =
     sends && holders.completeness !== 'unavailable' && latest > 0
       ? valueOr(
           await ledger.read('holder-links', async () => {
@@ -1087,6 +1105,15 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
           holders,
         )
       : holders;
+
+  // What the replay saw the creator hand out at launch links holders too.
+  const linkedHolders =
+    launchReplay && linkedRead.completeness !== 'unavailable'
+      ? {
+          ...linkedRead,
+          data: withLaunchLinks(linkedRead.data, launchReplay.data.moves, Boolean(sends)),
+        }
+      : linkedRead;
 
   // What the largest holders and the launch's recipients are: a lock, a pool
   // no listing names, a launchpad's wallet (SIRIUS: its "largest holder, a
