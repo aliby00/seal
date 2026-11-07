@@ -134,6 +134,10 @@ export async function request(url: string, options: FetchOptions): Promise<Respo
       return response;
     } catch (error) {
       lastError = error;
+      // A request the source refused was not served: it does not use up the
+      // analysis's allowance (staging 07/11/2026: reads allowed 2 requests
+      // spent them on two 429s and gave up, a third of the reports partial).
+      if (budget && error instanceof RateLimitError) budget.spent -= 1;
       if (!isRetryable(error) || attempt === retries) throw error;
 
       const retryAfter = error instanceof RateLimitError ? error.retryAfterSeconds : undefined;

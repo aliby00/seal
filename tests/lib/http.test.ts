@@ -173,6 +173,16 @@ describe('request', () => {
     ).rejects.toBeInstanceOf(UpstreamError);
     expect(budget.spent).toBe(3);
   });
+
+  // A refusal is not a request served: two 429s used to spend a read allowed
+  // two requests, and the read gave up before it was answered.
+  it('ne compte pas une requête refusée par un 429', async () => {
+    const { sleep } = recordingSleep();
+    stubFetch([new Response('', { status: 429 }), new Response('{}', { status: 200 })]);
+    const budget = createBudget(1);
+    await request('https://exemple.test', { source: 'robinhood-rpc', retries: 2, budget, sleep });
+    expect(budget.spent).toBe(1);
+  });
 });
 
 describe('the body under the timeout', () => {
