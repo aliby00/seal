@@ -43,6 +43,8 @@ const RECENT_SECONDS = 7 * 86_400;
 const MAX_ROWS = 1_000;
 /** Distinct pairs counted on one hook; beyond, the answer says "at least". */
 const HOOK_PAIRS_CAP = 1_000;
+/** A read past this is logged with its path. */
+const SLOW_REQUEST_MS = 250;
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 
@@ -440,6 +442,7 @@ export function createApi(deps: ApiDeps) {
 export function serve(handle: ReturnType<typeof createApi>, port: number): Server {
   const server = createServer((req, res) => {
     let response: ApiResponse;
+    const started = performance.now();
     try {
       response = handle({
         method: req.method ?? 'GET',
@@ -452,6 +455,13 @@ export function serve(handle: ReturnType<typeof createApi>, port: number): Serve
     }
     res.writeHead(response.status, response.headers);
     res.end(JSON.stringify(response.body));
+    // Every read holds the only thread: one slow answer stalls the others and
+    // the indexing loop (a 3 s stall timed out SEAL's reads, prod 07/11/2026).
+    const ms = Math.round(performance.now() - started);
+    if (ms >= SLOW_REQUEST_MS) {
+      const path = (req.url ?? '/').split('?')[0];
+      console.log(JSON.stringify({ at: new Date().toISOString(), event: 'slow-request', path, status: response.status, ms }));
+    }
   });
   server.listen(port);
   return server;
