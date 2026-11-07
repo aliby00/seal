@@ -481,7 +481,15 @@ export function serve(handle: ReturnType<typeof createApi>, port: number): Serve
     const ms = Math.round(performance.now() - started);
     if (ms >= SLOW_REQUEST_MS) {
       const path = (req.url ?? '/').split('?')[0];
-      console.log(JSON.stringify({ at: new Date().toISOString(), event: 'slow-request', path, status: response.status, ms }));
+      console.log(
+        JSON.stringify({
+          at: new Date().toISOString(),
+          event: 'slow-request',
+          path,
+          status: response.status,
+          ms,
+        }),
+      );
     }
   });
   server.listen(port);
