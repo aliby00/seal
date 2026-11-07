@@ -43,6 +43,10 @@ const RECENT_SECONDS = 7 * 86_400;
 const MAX_ROWS = 1_000;
 /** Distinct pairs counted on one hook; beyond, the answer says "at least". */
 const HOOK_PAIRS_CAP = 1_000;
+/** A read past this is logged with its path. */
+const SLOW_REQUEST_MS = 250;
+/** How long /health keeps its row counts. */
+const COUNTS_MS = 5 * 60_000;
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 
@@ -94,9 +98,16 @@ export function createApi(deps: ApiDeps) {
   );
   // Counted from the (token, ts) index alone: no row is read.
   const swapCount = db.raw.prepare('SELECT COUNT(*) AS n FROM swaps WHERE token = ?');
+  // Each side read in block order from its own index, then merged: an OR
+  // sorted every market of a busy currency first.
   const marketsOf = db.raw.prepare(
-    `SELECT id, currency0, currency1, fee, tick_spacing, hook, block, ts, tx_hash FROM markets
-     WHERE currency0 = ? OR currency1 = ? ORDER BY block LIMIT ${MAX_ROWS}`,
+    `SELECT * FROM (
+       SELECT * FROM (SELECT id, currency0, currency1, fee, tick_spacing, hook, block, ts, tx_hash
+         FROM markets WHERE currency0 = ?1 ORDER BY block LIMIT ${MAX_ROWS})
+       UNION ALL
+       SELECT * FROM (SELECT id, currency0, currency1, fee, tick_spacing, hook, block, ts, tx_hash
+         FROM markets WHERE currency1 = ?1 AND currency0 <> ?1 ORDER BY block LIMIT ${MAX_ROWS})
+     ) ORDER BY block LIMIT ${MAX_ROWS}`,
   );
 
   // Every market on these trading rules, over the whole history read: the
@@ -120,6 +131,24 @@ export function createApi(deps: ApiDeps) {
   const launchesTo = () => {
     const f = launchFrontier(db);
     return Number.isFinite(f) ? f : deps.clock.head();
+  };
+
+  // Counting millions of rows took 0.6 s on each call, holding the only thread.
+  let counted: { at: number; rows: Record<string, number> } | undefined;
+  const rowCounts = (): Record<string, number> => {
+    if (!counted || Date.now() - counted.at > COUNTS_MS) {
+      counted = {
+        at: Date.now(),
+        rows: {
+          launches: db.count('launches'),
+          swaps: db.count('swaps'),
+          markets: db.count('markets'),
+          funding: db.count('funding'),
+          funders: db.count('funders'),
+        },
+      };
+    }
+    return counted.rows;
   };
 
   function health(): ApiResponse {
@@ -152,13 +181,7 @@ export function createApi(deps: ApiDeps) {
           to: db.cursor(FORWARD) ?? null,
           target: db.cursor(TARGET) ?? null,
         },
-        rows: {
-          launches: db.count('launches'),
-          swaps: db.count('swaps'),
-          markets: db.count('markets'),
-          funding: db.count('funding'),
-          funders: db.count('funders'),
-        },
+        rows: rowCounts(),
         funding: deps.fundingEnabled ? 'enabled' : 'disabled: no BLOCKSCOUT_API_KEY',
         ...(deps.fundingUsage ? { fundingBudget: deps.fundingUsage() } : {}),
         rpc: deps.rpc.stats(),
@@ -334,7 +357,7 @@ export function createApi(deps: ApiDeps) {
 
   function markets(address: string): ApiResponse {
     const indexedTo = db.cursor(MARKETS) ?? 0;
-    const rows = marketsOf.all(address, address) as {
+    const rows = marketsOf.all(address) as {
       id: string;
       currency0: string;
       currency1: string;
@@ -440,6 +463,7 @@ export function createApi(deps: ApiDeps) {
 export function serve(handle: ReturnType<typeof createApi>, port: number): Server {
   const server = createServer((req, res) => {
     let response: ApiResponse;
+    const started = performance.now();
     try {
       response = handle({
         method: req.method ?? 'GET',
@@ -452,6 +476,21 @@ export function serve(handle: ReturnType<typeof createApi>, port: number): Serve
     }
     res.writeHead(response.status, response.headers);
     res.end(JSON.stringify(response.body));
+    // Every read holds the only thread: one slow answer stalls the others and
+    // the indexing loop (a 3 s stall timed out SEAL's reads, prod 07/11/2026).
+    const ms = Math.round(performance.now() - started);
+    if (ms >= SLOW_REQUEST_MS) {
+      const path = (req.url ?? '/').split('?')[0];
+      console.log(
+        JSON.stringify({
+          at: new Date().toISOString(),
+          event: 'slow-request',
+          path,
+          status: response.status,
+          ms,
+        }),
+      );
+    }
   });
   server.listen(port);
   return server;
