@@ -177,6 +177,8 @@ export function logQueries(payload: unknown): number {
  */
 export const SLOW_NODE_MS = 3_000;
 export const SET_ASIDE_MS = 60_000;
+/** A node that refused for its rate or quota: ten minutes (Alchemy, out of its monthly capacity). */
+export const REFUSED_ASIDE_MS = 10 * 60_000;
 /** A node that is not the last one gets this long before it is given up. */
 export const HANDOVER_TIMEOUT_MS = 6_000;
 /**
@@ -303,8 +305,8 @@ export function createRpcClient(
     if (targets.length === 0) {
       return Promise.reject(new UpstreamError('robinhood-rpc', 'no node configured'));
     }
-    const bench = (target: string) => {
-      if (targets.length > 1) setAside.set(target, Date.now() + SET_ASIDE_MS);
+    const bench = (target: string, ms = SET_ASIDE_MS) => {
+      if (targets.length > 1) setAside.set(target, Date.now() + ms);
     };
     return new Promise((resolve, reject) => {
       let next = 0;
@@ -343,7 +345,8 @@ export function createRpcClient(
             // A keyed node refusing the request (bad key, plan limit) answers
             // 400/401 with a JSON error: the next node may well accept it.
             if (!last && (status >= 400 || busyNodeError(body))) {
-              if (status === 429 || status >= 500 || busyNodeError(body)) bench(target);
+              if (status === 429 || busyNodeError(body)) bench(target, REFUSED_ASIDE_MS);
+              else if (status >= 500) bench(target);
               handOver(new UpstreamError('robinhood-rpc', `node answered ${status}`, status));
               return;
             }
@@ -359,7 +362,10 @@ export function createRpcClient(
               finish(() => reject(error));
               return;
             }
-            if (!last) bench(target);
+            // A node that refused for its rate stays aside longer: a keyed
+            // node past its monthly quota refuses every request for weeks.
+            if (!last)
+              bench(target, error instanceof RateLimitError ? REFUSED_ASIDE_MS : SET_ASIDE_MS);
             handOver(error);
           },
         );
