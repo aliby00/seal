@@ -22,11 +22,21 @@ const labels: Record<string, string> = {
 export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
   const glance = buildGlance(result);
   const replay = Boolean(result.launch && result.launch.moves.length > 0);
+  // Said once: the note above the text says it was written offline, the summary
+  // says which reads failed. The text itself keeps both for the API.
+  const reading = result.explanation
+    .split(/\n\s*\n/)
+    .filter(
+      (block, i) =>
+        !(result.offline && i === 0 && /^This account is produced without/.test(block)) &&
+        !(glance?.partial && /^Partial report:/.test(block.trim())),
+    )
+    .join('\n\n');
   // Sections are numbered in reading order; the replay only exists for some tokens.
   const number = (n: number) => String(n).padStart(2, '0');
   return (
     <article className="report" aria-labelledby="report-title">
-      <ReportHeader result={result} />
+      <ReportHeader result={result} headline={glance?.items[0]?.title} />
       {glance && <AtAGlance glance={glance} />}
       {/* Where the supply went comes right after the summary: what the rest is read against. */}
       {result.facts?.supplyFlow && (
@@ -68,11 +78,14 @@ export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
         {result.offline && (
           <section className="offline-note" aria-label="Offline mode">
             <h3>Offline mode</h3>
-            <p>Facts are presented without being cross-examined by the reasoning agent.</p>
+            <p>
+              Written without the reasoning agent: the observed facts are listed, not cross-examined
+              or interpreted.
+            </p>
           </section>
         )}
         <div className="reading-layout">
-          <Explanation text={result.explanation} offline={result.offline} />
+          <Explanation text={reading} offline={result.offline} />
           <aside className="sources" aria-label="Report sources">
             <details open>
               <summary>

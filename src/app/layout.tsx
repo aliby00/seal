@@ -14,7 +14,15 @@ export const metadata: Metadata = {
   title: { default: 'SEAL — token evidence on Robinhood Chain', template: '%s · SEAL' },
   description:
     'Understand any token on Robinhood Chain, whatever launched it, through evidence, context and plain-language analysis. No scores.',
-  openGraph: { type: 'website', siteName: 'SEAL', url: '/' },
+  // Declared here, not as app/opengraph-image.png: a file image would override the
+  // card a shared reading sets in page.tsx.
+  openGraph: {
+    type: 'website',
+    siteName: 'SEAL',
+    url: '/',
+    images: [{ url: '/og.png', width: 1200, height: 630, alt: 'SEAL' }],
+  },
+  twitter: { card: 'summary_large_image', images: ['/og.png'] },
 };
 
 export const viewport: Viewport = {

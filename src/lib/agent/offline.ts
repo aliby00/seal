@@ -1,3 +1,4 @@
+import { readableNote } from '../plain-note';
 import { OTHER_LAUNCH_SALES_DAYS } from '../contracts/creator';
 import type { TokenReport } from '../contracts';
 import type { SpecialistAnswer } from '../specialists/brief';
@@ -130,6 +131,8 @@ function deployerAccount(report: TokenReport): string {
 }
 
 /** Plain factual fallback. Explicitly does not claim to perform agent reasoning. */
+const noteOf = (note: string | undefined) => (note ? readableNote(note) : undefined);
+
 export function offlineExplanation(report: TokenReport, specialists?: SpecialistAnswer[]): string {
   const parts: string[] = [
     'This account is produced without the reasoning agent: it lists the observed facts without cross-examining or interpreting them.',
@@ -146,7 +149,8 @@ export function offlineExplanation(report: TokenReport, specialists?: Specialist
   const flow = toFacts(report).supplyFlow;
   if (flow) parts.push(`Launch: ${flowSentence(flow, report.creator.data.creator)}`);
   const { creator, holders, market } = report;
-  const creatorNote = creator.sources[0]?.note;
+  const rawCreatorNote = creator.sources[0]?.note;
+  const creatorNote = rawCreatorNote && readableNote(rawCreatorNote);
   if (creator.completeness === 'unavailable') {
     // Say why: "not a pons launch" and "the node did not answer" are different facts.
     parts.push(
@@ -181,7 +185,7 @@ export function offlineExplanation(report: TokenReport, specialists?: Specialist
   }
   if (holders.completeness === 'unavailable') {
     parts.push(
-      `Holder concentration: not measured (${holders.sources[0]?.note ?? 'source unavailable'}).`,
+      `Holder concentration: not measured (${noteOf(holders.sources[0]?.note) ?? 'source unavailable'}).`,
     );
   } else {
     const largest = holders.data.top.find((h) => h.kind === 'wallet' || h.kind === 'contract');
@@ -212,7 +216,7 @@ export function offlineExplanation(report: TokenReport, specialists?: Specialist
     }
   }
   if (market.completeness === 'unavailable') {
-    parts.push(`Market: ${market.sources[0]?.note ?? 'no data available'}.`);
+    parts.push(`Market: ${noteOf(market.sources[0]?.note) ?? 'no data available'}.`);
   } else {
     const m = market.data;
     const bits: string[] = [];

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { ReportFacts } from '../../src/lib/facts';
 import { buildGlance, usdShort } from '../../src/lib/glance';
 import { usdWords } from '../../src/lib/agent/offline';
+import { readableNote } from '../../src/lib/plain-note';
 import {
   classifyFailure,
   modelFailure,
@@ -198,5 +199,24 @@ describe('model health: a model that stops answering is seen', () => {
     expect((await modelFailure())?.kind).toBe('auth');
     await recordModelAnswer();
     expect(await modelFailure()).toBeNull();
+  });
+});
+
+describe('source notes as a reader takes them', () => {
+  it('drops the error kind and the source name', () => {
+    expect(
+      readableNote(
+        'incomplete : robinhood-rpc : incomplete data — the creator’s history did not finish in time this time; try again in a minute',
+      ),
+    ).toBe('the creator’s history did not finish in time this time; try again in a minute');
+    expect(
+      readableNote('upstream : dexscreener : network request failed', { sentence: true }),
+    ).toBe('The source did not answer this time; try again in a minute');
+  });
+
+  it('leaves a note already written for people as it is', () => {
+    expect(readableNote('Not covered: Doppler and direct deploys.')).toBe(
+      'Not covered: Doppler and direct deploys.',
+    );
   });
 });

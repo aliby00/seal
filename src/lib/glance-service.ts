@@ -42,6 +42,28 @@ export const glanceCache = new SharedCache<CachedGlance>({
   ttlMs: GLANCE_TTL_MS,
 });
 
+/**
+ * What a shared reading's card shows (/api/card): the last summary served for
+ * a token, partial or not. The page the sharer saw is what the card repeats;
+ * a partial report is never reused as an answer, only as this picture of it.
+ */
+export const CARD_TTL_MS = 30 * 60_000;
+
+export const cardCache = new SharedCache<CachedGlance>({
+  prefix: 'seal:card:v1',
+  ttlMs: CARD_TTL_MS,
+});
+
+/** Keeps the summary of an analysis just served, for its share card. Never throws. */
+export async function rememberCard(analysis: CachedAnalysis): Promise<void> {
+  try {
+    const card = fromAnalysis(analysis);
+    if (card) await cardCache.set(analysis.token.toLowerCase(), card);
+  } catch (error) {
+    log.warn('carte non gardée', { error: String(error) });
+  }
+}
+
 /** Collecting gets the same allowance as in /api/analyze. */
 export const GLANCE_COLLECT_TIMEOUT_MS = 30_000;
 
@@ -136,6 +158,7 @@ async function compute(token: string): Promise<CachedGlance> {
     glance,
     collectedAt: report.collectedAt,
   };
+  await cardCache.set(token.toLowerCase(), body).catch(() => undefined);
   const sources = [...report.creator.sources, ...report.holders.sources, ...report.market.sources];
   // A read cut short is worth retrying on the next hover, not repeating for minutes.
   if (!sourcesFailed(sources) && (report.failedReads?.length ?? 0) === 0) {
@@ -196,6 +219,7 @@ export async function tokenOfPair(pair: string): Promise<string | null> {
 
 export function resetGlanceState(): void {
   glanceCache.clear();
+  cardCache.clear();
   pairCache.clear();
   inflight.clear();
 }
