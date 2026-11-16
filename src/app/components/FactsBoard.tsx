@@ -1,3 +1,4 @@
+import { readableNote } from '@/lib/plain-note';
 import type { CSSProperties } from 'react';
 import type { ReportFacts, TimelineLaunch } from '@/lib/facts';
 import { whereSetAside } from '@/lib/set-aside';
@@ -31,7 +32,7 @@ export function plainNote(note: string | undefined): string | undefined {
   if (/too many transfers/i.test(note))
     return 'Too much trading history to rebuild here. This token needs the Blockscout source.';
   if (/start of this token/i.test(note)) return 'The start of this token’s history was not found.';
-  return note;
+  return readableNote(note, { sentence: true });
 }
 
 const SUBSCRIPT = '₀₁₂₃₄₅₆₇₈₉';

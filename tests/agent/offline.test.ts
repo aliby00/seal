@@ -148,7 +148,10 @@ describe('offlineExplanation', () => {
 
   it("donne le volume rapporté au nombre d'échanges", () => {
     expect(text).toMatch(/7 trades/);
-    expect(text).toMatch(/69\.39 USD per trade/);
+    expect(text).toMatch(/\$69\.39 per trade/);
+    // Dollars as people read them, never "0.000003654 USD" or "2.303e-10 USD".
+    expect(text).toMatch(/price \$0\.0₅3654/);
+    expect(text).toMatch(/liquidity \$3,654\.24/);
   });
 
   it('says a page-limited read is partial without claiming a source failed', () => {

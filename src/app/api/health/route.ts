@@ -3,6 +3,7 @@ import { resolveProvider } from '@/lib/agent/providers';
 import { storeKind } from '@/lib/store';
 import { indexerConfigured } from '@/lib/indexer/client';
 import { DEFAULT_RPC_URL, logsRpcUrl, logsRpcUrls, rpcUrls } from '@/lib/chain/rpc';
+import { modelFailure } from '@/lib/model-health';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,8 +11,12 @@ export const dynamic = 'force-dynamic';
  * Sonde utilisée par les smoke tests après chaque déploiement.
  * Elle doit rester sans dépendance externe : son rôle est de dire
  * « l'application tourne », pas « les APIs tierces répondent ».
+ * Seule exception, lue dans le store partagé (800 ms au plus, repli mémoire) :
+ * le dernier échec durable du modèle, que les lectures ont constaté elles-mêmes.
+ * La sonde n'appelle jamais le modèle.
  */
-export function GET() {
+export async function GET() {
+  const failure = await modelFailure().catch(() => null);
   return NextResponse.json({
     status: 'ok',
     env: process.env.SEAL_ENV ?? 'development',
@@ -31,6 +36,10 @@ export function GET() {
       // The SEAL indexer: configured or not, never its URL or token.
       indexer: indexerConfigured() ? 'configured' : 'absent',
     },
+    // A configured model that does not answer (revoked key, retired model id,
+    // no credit): its kind and since when, never the provider's message.
+    reasoningFailing: failure ? failure.kind : null,
+    reasoningFailingSince: failure ? failure.at : null,
     at: new Date().toISOString(),
   });
 }

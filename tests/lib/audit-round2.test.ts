@@ -675,9 +675,11 @@ describe('record: never "first token" while some launches cannot be listed (bug 
       notListed: ['Doppler', 'contracts deployed directly'],
     };
     const record = buildGlance({ facts: f })!.items.find((i) => i.id === 'record');
+    // What cannot be listed is said under the line, not inside it (16/11/2026).
     expect(record?.title).toBe(
-      'No other launch by this creator was found on the launchpads SEAL can list (Doppler and direct deploys are not listed).',
+      'No other launch by this creator was found on the launchpads SEAL can list.',
     );
+    expect(record?.detail).toMatch(/Not covered: Doppler and direct deploys\.$/);
     expect(record?.title).not.toMatch(/first token|at least/);
   });
 
@@ -692,9 +694,11 @@ describe('record: never "first token" while some launches cannot be listed (bug 
       launchpad: 'flap.sh',
       notListed: ['Doppler', 'contracts deployed directly'],
     };
-    expect(buildGlance({ facts: f })!.items.find((i) => i.id === 'record')?.title).toBe(
-      'No other launch by this creator was found on the launchpads SEAL can list (flap.sh, Doppler and direct deploys are not listed).',
+    const record = buildGlance({ facts: f })!.items.find((i) => i.id === 'record');
+    expect(record?.title).toBe(
+      'No other launch by this creator was found on the launchpads SEAL can list.',
     );
+    expect(record?.detail).toMatch(/Not covered: flap\.sh, Doppler and direct deploys\.$/);
   });
 });
 
@@ -954,8 +958,10 @@ describe('wording: shares near the top, and launchpad labels in a list (bug 10)'
       launchpad: 'launchpad 0x7ed5… (used by pons)',
       notListed: ['Doppler'],
     };
-    expect(buildGlance({ facts: f })!.items.find((i) => i.id === 'record')?.title).toBe(
-      'No other launch by this creator was found on the launchpads SEAL can list (launchpad 0x7ed5… and Doppler are not listed).',
+    const record = buildGlance({ facts: f })!.items.find((i) => i.id === 'record');
+    expect(record?.title).toBe(
+      'No other launch by this creator was found on the launchpads SEAL can list.',
     );
+    expect(record?.detail).toMatch(/Not covered: launchpad 0x7ed5… and Doppler\.$/);
   });
 });

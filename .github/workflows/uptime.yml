@@ -39,9 +39,15 @@ jobs:
           probe() {
             body=$(curl -fsS -m 20 "$URL/api/health") && echo "$body" | grep -q '"status":"ok"'
           }
-          if probe; then echo "up=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          report() {
+            # Le modèle configuré ne répond plus (clé révoquée, modèle retiré, crédit épuisé) :
+            # les lectures partent hors-ligne sans erreur visible, seule la sonde le dit.
+            failing=$(echo "$body" | grep -oE '"reasoningFailing":"[a-z]+"' | cut -d'"' -f4 || true)
+            echo "model=${failing:-ok}" >> "$GITHUB_OUTPUT"
+          }
+          if probe; then echo "up=true" >> "$GITHUB_OUTPUT"; report; exit 0; fi
           sleep 60
-          if probe; then echo "up=true" >> "$GITHUB_OUTPUT"; else echo "up=false" >> "$GITHUB_OUTPUT"; fi
+          if probe; then echo "up=true" >> "$GITHUB_OUTPUT"; report; else echo "up=false" >> "$GITHUB_OUTPUT"; fi
 
       - name: Ouvrir ou fermer l'issue
         env:
@@ -64,4 +70,26 @@ jobs:
           else
             gh issue create --title "$title" \
               --body "$URL/api/health ne répond pas « ok » (deux essais à une minute d'écart, $now). Cette issue se ferme seule au retour."
+          fi
+
+      - name: Ouvrir ou fermer l'issue du modèle
+        if: steps.probe.outputs.up == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SITE: ${{ matrix.site.name }}
+          URL: ${{ matrix.site.url }}
+          MODEL: ${{ steps.probe.outputs.model }}
+        run: |
+          title="Modèle en échec · $SITE"
+          open=$(gh issue list --state open --search "\"$title\" in:title" --json number,title \
+            --jq "map(select(.title == \"$title\")) | .[0].number // empty")
+          now=$(date -u +'%Y-%m-%d %H:%M UTC')
+          if [ "$MODEL" = "ok" ] || [ -z "$MODEL" ]; then
+            if [ -n "$open" ]; then
+              gh issue close "$open" --comment "Le modèle répond de nouveau ($now)."
+            fi
+          elif [ -z "$open" ]; then
+            gh issue create --title "$title" \
+              --body "$URL/api/health signale un échec durable du modèle (« $MODEL », $now) : les lectures sont servies hors-ligne. auth = clé invalide ou révoquée ; model = identifiant de modèle inconnu ; billing = crédit épuisé. Cette issue se ferme seule quand le modèle répond."
           fi

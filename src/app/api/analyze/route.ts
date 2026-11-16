@@ -9,6 +9,7 @@ import { log } from '@/lib/logger';
 import { overBudget, recordSpend } from '@/lib/spend';
 import { funderOf } from '@/lib/agent/prompt';
 import { analysisCache, type CachedAnalysis } from '@/lib/analysis-cache';
+import { rememberCard } from '@/lib/glance-service';
 import { mergeFailedReads, questionsFailed } from '@/lib/failed-reads';
 import {
   briefSpecialists,
@@ -213,6 +214,8 @@ async function analyze(request: Request, started: number): Promise<Response> {
 
     // A report a failed read left partial is worth asking again, never repeating.
     if ((report.failedReads?.length ?? 0) === 0) await analysisCache.set(cacheKey, body);
+    // The share card shows what was served, partial or not.
+    await rememberCard(body);
     log.info('analyse servie', {
       token,
       ms: Date.now() - started,

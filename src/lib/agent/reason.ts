@@ -1,5 +1,6 @@
 import type { TokenReport } from '../contracts';
 import { log } from '../logger';
+import { recordModelAnswer, recordModelFailure } from '../model-health';
 import { computeCost, type CostBreakdown } from './cost';
 import { resolveProvider, type Provider } from './providers';
 import { withoutClaims } from './claims';
@@ -96,9 +97,15 @@ export async function explain(
       model,
       error: error instanceof Error ? error.message : String(error),
     });
+    // A revoked key or a retired model fails every call the same way: kept,
+    // so /api/health says it instead of every reading going quietly offline.
+    await recordModelFailure(error);
     return served(offlineExplanation(report, options.specialists), computeCost('offline', {}));
   }
 
+  // The model answered: whatever failed before is over. Not awaited, the
+  // reading does not wait on the store.
+  void recordModelAnswer();
   const text = result.text.trim();
   const cost = computeCost(model, result.usage);
   const violations = findViolations(text);

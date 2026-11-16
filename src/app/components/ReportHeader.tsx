@@ -48,7 +48,14 @@ function CoverageMark({ coverage }: { coverage: Coverage }) {
 
 const short = (address: string) => `${address.slice(0, 8)}…${address.slice(-6)}`;
 
-export function ReportHeader({ result }: { result: AnalyzeResponse }) {
+export function ReportHeader({
+  result,
+  headline,
+}: {
+  result: AnalyzeResponse;
+  /** The first line of the summary: what a shared post says about the token. */
+  headline?: string;
+}) {
   const [copied, setCopied] = useState<'address' | 'link' | null>(null);
   const facts = result.facts;
   const sources: { name: string; coverage: Coverage }[] = facts
@@ -62,9 +69,12 @@ export function ReportHeader({ result }: { result: AnalyzeResponse }) {
 
   // Rendered only in the browser, once a reading has come back.
   const link = readingUrl(result.token);
-  const post = `What the chain shows about ${title}${
-    result.symbol && result.name ? ` (${result.symbol})` : ''
-  }, read by SEAL. No score, just the evidence.`;
+  const named = `${title}${result.symbol && result.name ? ` (${result.symbol})` : ''}`;
+  // The post carries the finding itself; the link's card repeats it as an image.
+  const post =
+    headline && headline.length <= 200
+      ? `${named}: ${headline}\n\nRead by SEAL. No score, only what the chain shows.`
+      : `What the chain shows about ${named}, read by SEAL. No score, just the evidence.`;
   const shareOnX = `https://x.com/intent/post?${new URLSearchParams({ text: post, url: link })}`;
 
   async function copy(what: 'address' | 'link') {
