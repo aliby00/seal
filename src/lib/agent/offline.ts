@@ -10,6 +10,31 @@ function pct(value: number): string {
   return `${(value * 100).toFixed(1)} %`;
 }
 
+/** "0x780a…6cba": a full address in a sentence is read as noise, not as a fact. */
+function short(address: string): string {
+  return /^0x[0-9a-fA-F]{40}$/.test(address)
+    ? `${address.slice(0, 6)}…${address.slice(-4)}`
+    : address;
+}
+
+/** "14,580", not "14580". */
+const count = (n: number) => n.toLocaleString('en-US');
+
+/** "$73.80", "$0.0012", "$0.0₉2303" — never "2.303e-10 USD". */
+export function usdWords(value: number): string {
+  if (value >= 1)
+    return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  if (value <= 0) return '$0';
+  if (value >= 0.0001) return `$${Number(value.toPrecision(3))}`;
+  // The zeros after the decimal point, written small as DexScreener does: 0.0₉2303.
+  const zeros = Math.ceil(-Math.log10(value)) - 1;
+  const digits = Math.round(value * 10 ** (zeros + 4))
+    .toString()
+    .replace(/0+$/, '');
+  const sub = String(zeros).replace(/\d/g, (d) => '₀₁₂₃₄₅₆₇₈₉'[Number(d)]!);
+  return `$0.0${sub}${digits}`;
+}
+
 const ROLE: Record<'deployer' | 'launcher' | 'first-minter', string> = {
   deployer: 'deployed by',
   launcher: 'launched by',
@@ -24,10 +49,10 @@ function deployerAccount(report: TokenReport): string {
   const sentences: string[] = [
     origin.launchpad
       ? origin.creatorFrom === 'launch-record'
-        ? `Creator: this token was launched through ${origin.launchpad.name}, whose launch record names ${data.creator}.`
-        : `Creator: this token was launched through ${origin.launchpad.name}, in a transaction sent by ${data.creator}.`
-      : `Creator: no known launchpad recorded this token. It was ${ROLE[origin.role]} ${data.creator}` +
-        (origin.launchContract ? ` through the contract ${origin.launchContract}` : '') +
+        ? `Creator: this token was launched through ${origin.launchpad.name}, whose launch record names ${short(data.creator)}.`
+        : `Creator: this token was launched through ${origin.launchpad.name}, in a transaction sent by ${short(data.creator)}.`
+      : `Creator: no known launchpad recorded this token. It was ${ROLE[origin.role]} ${short(data.creator)}` +
+        (origin.launchContract ? ` through the contract ${short(origin.launchContract)}` : '') +
         '.',
   ];
   if (origin.role === 'first-minter') {
@@ -37,7 +62,7 @@ function deployerAccount(report: TokenReport): string {
   }
   if (origin.transactionCount !== null) {
     sentences.push(
-      `The wallet has sent ${origin.transactionCount} transaction${origin.transactionCount === 1 ? '' : 's'}.`,
+      `The wallet has sent ${count(origin.transactionCount)} transaction${origin.transactionCount === 1 ? '' : 's'}.`,
     );
   }
   const launched = data.counts.launched;
@@ -49,11 +74,12 @@ function deployerAccount(report: TokenReport): string {
       ? `This address launched at least ${launched} token${launched === 1 ? '' : 's'}; some of its launches could not be read this time.`
       : origin.launchesListed
         ? `${where}, this address launched ${launched} token${launched === 1 ? '' : 's'}.`
-        : 'Its other launches on this launchpad cannot be listed from the chain.',
+        : origin.launchpad
+          ? 'Its other launches on this launchpad cannot be listed from the chain.'
+          : 'Its other launches cannot be listed from the chain.',
   );
-  if (origin.launchpadsNotRead?.length) {
-    sentences.push(`Launches on ${origin.launchpadsNotRead.join(', ')} are not listed.`);
-  }
+  // Which launchpads cannot be read is listed with the sources: here, a list of
+  // names and contract addresses buried the facts (RBCAT, 16/11/2026).
   const sales = data.tokens.filter((t) => t.creatorDumped !== null);
   const liquidity = data.tokens.filter((t) => t.liquidityPulled !== null);
   if (sales.length > 0) {
@@ -65,14 +91,27 @@ function deployerAccount(report: TokenReport): string {
         : `this token up to day ${window.days ?? '?'} after its launch`
       : null;
     const others = sales.length - (own ? 1 : 0);
-    sentences.push(
-      `Of ${sales.length} launch${sales.length === 1 ? '' : 'es'} checked, the creator sold into the market on ${sales.filter((t) => t.creatorDumped).length}` +
-        (ownWords
-          ? ` (sales read for ${ownWords}${others > 0 ? `, and in the first ${OTHER_LAUNCH_SALES_DAYS} days after each other launch` : ''}).`
-          : ` within the first ${OTHER_LAUNCH_SALES_DAYS} days after each launch.`),
-    );
+    const sold = sales.filter((t) => t.creatorDumped).length;
+    if (sales.length === 1 && own && ownWords) {
+      const over = ownWords.replace(/^this token /, 'its ');
+      sentences.push(
+        sold === 1
+          ? `The creator sold into this token’s market (sales read over ${over}).`
+          : `The creator has not sold into this token’s market (read over ${over}).`,
+      );
+    } else
+      sentences.push(
+        `Of ${sales.length} launch${sales.length === 1 ? '' : 'es'} checked, the creator sold into the market on ${sales.filter((t) => t.creatorDumped).length}` +
+          (ownWords
+            ? ` (sales read for ${ownWords}${others > 0 ? `, and in the first ${OTHER_LAUNCH_SALES_DAYS} days after each other launch` : ''}).`
+            : ` within the first ${OTHER_LAUNCH_SALES_DAYS} days after each launch.`),
+      );
   }
-  if (liquidity.length > 0) {
+  if (liquidity.length === 1 && liquidity[0]!.liquidityPulled === false && sales.length <= 1) {
+    sentences.push(
+      `The creator removed no liquidity in the first ${OTHER_LAUNCH_SALES_DAYS} days after the launch.`,
+    );
+  } else if (liquidity.length > 0) {
     sentences.push(
       `Of ${liquidity.length} with a market that could be read, liquidity was removed on ${liquidity.filter((t) => t.liquidityPulled).length} in the first ${OTHER_LAUNCH_SALES_DAYS} days after each launch.`,
     );
@@ -85,7 +124,7 @@ function deployerAccount(report: TokenReport): string {
         : `${graduated} of the ${data.tokens.length} launches read in detail graduated from their launch curve to an open market.`
       : origin.role === 'deployer' && !origin.launchpad
         ? 'The token was deployed on its own, with no launch curve: graduation does not apply.'
-        : 'Graduation is read on pons and Virtuals launches only, so what became of these launches is not measured here.',
+        : 'What became of these launches after their launch curve is not measured here.',
   );
   return sentences.join(' ');
 }
@@ -126,7 +165,7 @@ export function offlineExplanation(report: TokenReport, specialists?: Specialist
       // The launch was found, but the creator's launches could not be read:
       // "0 tokens launched" would contradict the token being analysed.
       parts.push(
-        `Creator: ${creator.data.creator}. Their other launches could not be read${creatorNote ? ` (${creatorNote})` : ''}.`,
+        `Creator: ${short(creator.data.creator)}. Their other launches could not be read${creatorNote ? ` (${creatorNote})` : ''}.`,
       );
     } else {
       const detailed = creator.data.tokens.length;
@@ -161,11 +200,11 @@ export function offlineExplanation(report: TokenReport, specialists?: Specialist
           .slice(0, 3)
           .map(
             (h) =>
-              `${h.address} received ${pct(h.fromCreator!.share)} of the supply ${h.fromCreator!.via ? `through ${h.fromCreator!.via}, a contract the creator sent tokens to` : 'directly from the creator'}`,
+              `${short(h.address)} received ${pct(h.fromCreator!.share)} of the supply ${h.fromCreator!.via ? `through ${h.fromCreator!.via}, a contract the creator sent tokens to` : 'directly from the creator'}`,
           ),
         ...links.distributors.map(
           (d) =>
-            `the creator sent ${pct(d.share)} of the supply to ${d.address}, which passed it on to ${d.recipients} addresses`,
+            `the creator sent ${pct(d.share)} of the supply to ${short(d.address)}, which passed it on to ${d.recipients} addresses`,
         ),
         ...(links.burned > 0 ? [`the creator burned ${pct(links.burned)} of the supply`] : []),
       ];
@@ -177,12 +216,12 @@ export function offlineExplanation(report: TokenReport, specialists?: Specialist
   } else {
     const m = market.data;
     const bits: string[] = [];
-    if (m.priceUsd !== null) bits.push(`price ${m.priceUsd} USD`);
+    if (m.priceUsd !== null) bits.push(`price ${usdWords(m.priceUsd)}`);
     if (m.liquidityUsd !== null && m.liquidityCheck?.current === false) {
       bits.push(
-        `a listed liquidity of ${m.liquidityUsd.toFixed(2)} USD that is not current: the token’s pools hold ${pct(m.liquidityCheck.poolsShare)} of its supply on chain`,
+        `a listed liquidity of ${usdWords(m.liquidityUsd)} that is not current: the token’s pools hold ${pct(m.liquidityCheck.poolsShare)} of its supply on chain`,
       );
-    } else if (m.liquidityUsd !== null) bits.push(`liquidity ${m.liquidityUsd.toFixed(2)} USD`);
+    } else if (m.liquidityUsd !== null) bits.push(`liquidity ${usdWords(m.liquidityUsd)}`);
     if (m.quiet)
       bits.push(`no trade in the last ${m.quiet.hours === 1 ? 'hour' : `${m.quiet.hours} hours`}`);
     if (m.graduation)
@@ -200,7 +239,7 @@ export function offlineExplanation(report: TokenReport, specialists?: Specialist
     if (perTrade !== null && m.txns) {
       const trades = m.txns.h24.buys + m.txns.h24.sells;
       parts.push(
-        `Over 24 hours: ${m.volumeUsd?.h24.toFixed(2)} USD in volume across ${trades} trades, averaging ${perTrade.toFixed(2)} USD per trade.`,
+        `Over 24 hours: ${usdWords(m.volumeUsd?.h24 ?? 0)} in volume across ${count(trades)} trade${trades === 1 ? '' : 's'}, averaging ${usdWords(perTrade)} per trade.`,
       );
     }
   }

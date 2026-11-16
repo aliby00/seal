@@ -237,6 +237,12 @@ function recordItem(
     };
   }
   const unlisted = unlistedWords(creator);
+  // What SEAL cannot list is said under the line, not inside it: in the
+  // summary's first sentences a list of launchpad names and contract
+  // addresses buried the fact itself (RBCAT, local 16/11/2026).
+  const notCovered = unlisted
+    ? ` Not covered:${unlisted.replace(/ (?:are|is) not listed\)$/, '').replace(/^ \(/, ' ')}.`
+    : '';
   // "First token" would claim that nowhere holds an earlier launch: SEAL
   // never reads every place that could (Doppler's Airlock does not name its
   // creators; a contract deployed directly is in no launchpad's record).
@@ -244,8 +250,8 @@ function recordItem(
     return {
       id: 'record',
       tone: 'neutral',
-      title: `No other launch by this creator was found on the launchpads SEAL can list${unlisted}.`,
-      detail: 'Their launch record on chain, this token included.',
+      title: 'No other launch by this creator was found on the launchpads SEAL can list.',
+      detail: `Their launch record on chain, this token included.${notCovered}`,
       href: '#fact-creator',
     };
   }
@@ -269,13 +275,13 @@ function recordItem(
         : ` ${creator.graduated} of the ${creator.detailed} read in detail graduated.`;
   // Many launches in a few days is a pattern worth seeing; one a month is not.
   const rapid = span !== null && span.dated >= 3 && span.days <= 7;
-  const where = unlisted ? ` on the launchpads SEAL can list${unlisted}` : '';
+  const where = unlisted ? ' on the launchpads SEAL can list' : '';
   return {
     id: 'record',
     tone: rapid ? 'attention' : creator.graduated > 0 ? 'reassuring' : 'neutral',
     figure: `${creator.launched}`,
     title: `This creator launched ${plural(creator.launched, 'token')}${span && span.dated >= creator.launched ? spanWords : ''}${where}${span && span.dated < creator.launched ? spanWords : ''}.${graduated}`,
-    detail: 'Their launch record on chain, this token included.',
+    detail: `Their launch record on chain, this token included.${notCovered}`,
     href: '#fact-creator',
   };
 }
@@ -451,6 +457,33 @@ const capitalized = (words: string) => words.charAt(0).toUpperCase() + words.sli
 function flowItem(facts: ReportFacts): GlanceItem | null {
   const flow = facts.supplyFlow;
   if (!flow) return null;
+  // A contract deployed on its own mints its whole supply to its deployer:
+  // "100% to the creator at launch" is true of every such token and tells
+  // nothing. What the creator still holds today does (RBCAT, 16/11/2026).
+  const only = flow.roots.length === 1 ? flow.roots[0]! : null;
+  if (
+    only &&
+    !flow.launchpad &&
+    only.kind === 'creator' &&
+    only.received >= 0.995 &&
+    only.children.length === 0 &&
+    only.heldNow !== null
+  ) {
+    const held = only.heldNow;
+    return {
+      id: 'flow',
+      tone: held >= 0.05 ? 'attention' : 'neutral',
+      figure: pct(held),
+      title:
+        held >= 0.995
+          ? 'The creator minted the whole supply to itself and still holds all of it.'
+          : held < 0.001
+            ? 'The creator minted the whole supply to itself and holds none of it today.'
+            : `The creator minted the whole supply to itself and still holds ${pct(held)} of it.`,
+      detail: 'Where the supply went at launch, drawn below with what each address holds today.',
+      href: '#supply-flow',
+    };
+  }
   const { figure, sentence, share, creatorKept } = flowHeadline(flow, facts.creator.address);
   // Nothing worth a first line: the other findings lead.
   if (share < 0.01) return null;
@@ -533,6 +566,8 @@ function launchBuysItem(launch: LaunchReplayData | undefined): GlanceItem | null
 export function usdShort(value: number): string {
   if (value >= 999_950) return `$${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1000) return `$${(value / 1000).toFixed(1)}k`;
+  // "$0" said a market held nothing when it held 39 cents (RBCAT, 16/11/2026).
+  if (value > 0 && value < 9.995) return `$${value.toFixed(2)}`;
   return `$${value.toFixed(0)}`;
 }
 
@@ -544,6 +579,9 @@ function quietWords(hours: number | null | undefined): string {
 
 /** Below this, a listed market's liquidity is the first thing to know about it. */
 export const THIN_LIQUIDITY_USD = 1_000;
+/** Below this, there is no market left to speak of. */
+export const EMPTY_MARKET_USD = 50;
+const EMPTY_MARKET_WORDS = 'Its market is all but empty';
 
 function marketItem(market: ReportFacts['market']): GlanceItem | null {
   // A liquidity the chain contradicts comes first: shown as liquidity, it
@@ -561,6 +599,27 @@ function marketItem(market: ReportFacts['market']): GlanceItem | null {
   }
   // A pool this thin is the market's first fact: one modest sale moves its
   // price (FOBO, prod 07/11/2026: $159 of liquidity behind 23,181 holders).
+  // Below a few dollars there is no market left to speak of: said as such,
+  // with how little still trades (RBCAT, 16/11/2026: $0.39 of liquidity,
+  // 2 trades in a day, read as "a sale of a few hundred dollars moves it").
+  if (market.measured && market.liquidityUsd !== null && market.liquidityUsd < EMPTY_MARKET_USD) {
+    const trades = (market.buys24h ?? 0) + (market.sells24h ?? 0);
+    const quiet = quietWords(market.quietHours);
+    const activity =
+      market.buys24h === null && market.sells24h === null
+        ? ''
+        : trades === 0
+          ? ' No trade in the last 24 hours.'
+          : ` ${capitalized(plural(trades, 'trade'))} in the last 24 hours${quiet ? `, none in ${quiet}` : ''}.`;
+    return {
+      id: 'market',
+      tone: 'attention',
+      figure: usdShort(market.liquidityUsd),
+      title: `${EMPTY_MARKET_WORDS}: ${usdShort(market.liquidityUsd)} of liquidity.${activity}`,
+      detail: 'Liquidity of the token’s listed trading pair.',
+      href: '#fact-market',
+    };
+  }
   if (market.measured && market.liquidityUsd !== null && market.liquidityUsd < THIN_LIQUIDITY_USD) {
     return {
       id: 'market',
@@ -671,9 +730,14 @@ export function buildGlance({ facts, timeline, launch, specialists }: GlanceInpu
   // the rest is read against. Then what deserves attention; within a tone,
   // the order above holds.
   const flow = flowItem(facts);
+  // A market with next to nothing left in it is the first thing to know,
+  // before how the supply was handed out.
+  const empty = candidates.find((i) => i.id === 'market' && i.title.startsWith(EMPTY_MARKET_WORDS));
+  const lead = [...(empty ? [empty] : []), ...(flow ? [flow] : [])];
   const items = [
-    ...(flow ? [flow] : []),
+    ...lead,
     ...candidates
+      .filter((item) => item !== empty)
       .map((item, i) => ({ item, i }))
       .sort(
         (a, b) =>
@@ -683,7 +747,7 @@ export function buildGlance({ facts, timeline, launch, specialists }: GlanceInpu
           Number(!a.item.figure) - Number(!b.item.figure) ||
           a.i - b.i,
       )
-      .slice(0, MAX_ITEMS - (flow ? 1 : 0))
+      .slice(0, MAX_ITEMS - lead.length)
       .map(({ item }) => item),
   ];
 
