@@ -8,8 +8,8 @@ export type DexScreenerPair = {
   dexId?: string;
   labels?: string[];
   pairAddress?: string;
-  baseToken?: { address?: string; symbol?: string };
-  quoteToken?: { address?: string; symbol?: string };
+  baseToken?: { address?: string; symbol?: string; name?: string };
+  quoteToken?: { address?: string; symbol?: string; name?: string };
   priceUsd?: string;
   priceNative?: string;
   liquidity?: { usd?: number; base?: number; quote?: number };
@@ -27,4 +27,17 @@ export const DEXSCREENER_BASE = 'https://api.dexscreener.com';
 
 export function tokenPairsUrl(token: string, base = DEXSCREENER_BASE): string {
   return `${base}/token-pairs/v1/${ROBINHOOD_SLUG}/${token}`;
+}
+
+/**
+ * DexScreener's chain id for Solana. "Get the pools of a given token
+ * address": GET /token-pairs/v1/{chainId}/{tokenAddress}, 300 requests a
+ * minute (https://docs.dexscreener.com/api/reference). Answered on
+ * 24/11/2026 for pump.fun, Meteora DBC, Raydium and Orca tokens.
+ */
+export const SOLANA_SLUG = 'solana';
+
+/** The mint goes in the path as is: Solana addresses are case-sensitive. */
+export function solanaTokenPairsUrl(mint: string, base = DEXSCREENER_BASE): string {
+  return `${base}/token-pairs/v1/${SOLANA_SLUG}/${mint}`;
 }
