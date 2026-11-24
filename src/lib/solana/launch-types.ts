@@ -60,7 +60,7 @@ export type SolanaRoundTrip = {
   soldAt: number;
   boughtSlot: number;
   soldSlot: number;
-  /** What it bought before that sale, and what that sale sold, share of the supply. */
+  /** What it bought in the window read, and what it sold after its first buy there, share of the supply. */
   bought: number;
   sold: number;
 };
@@ -95,7 +95,10 @@ export type SolanaLaunchReplayData = {
   /** The program owning the mint; `null` when the mint could not be read. */
   tokenProgram: string | null;
   decimals: number | null;
-  /** Supply the shares are measured against (today's), raw units. */
+  /**
+   * Supply the shares are measured against, raw units: today's, or what the
+   * transactions read created when that is more (tokens burned since).
+   */
   supply: string | null;
   creation: SolanaLaunchCreation | null;
   /** The creation slot, as the EVM replay's launch block. */

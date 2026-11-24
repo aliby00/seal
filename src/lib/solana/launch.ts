@@ -304,6 +304,27 @@ async function slotAtTime(
 type Earliest = { signatures: SignatureInfo[]; slot: number; blockTime: number | null };
 
 /**
+ * How far a listing bounded by an anchor block reaches, from the creation.
+ * `before` = the first signature of a block leaves out every transaction of
+ * that block: on 6qmo…pump (25/11/2026), `before` = the first signature of
+ * the block at creation + 3 gave the mint's 19, 8 and 11 transactions of
+ * slots +0, +1 and +2 and none of the 23 of slot +3. So the listing ends at
+ * the slot before the anchor; its time is not read, and the anchor's time,
+ * less a second, stands for it rather than overstate the window.
+ */
+function coveredBefore(
+  anchor: { slot: number; blockTime: number | null },
+  creationSlot: number,
+  creationTime: number | null,
+): { seconds: number; slot: number } | null {
+  if (anchor.blockTime === null || creationTime === null) return null;
+  return {
+    seconds: Math.max(0, anchor.blockTime - creationTime - 1),
+    slot: Math.max(0, anchor.slot - 1 - creationSlot),
+  };
+}
+
+/**
  * The token's first signatures, oldest first, read back from a block just
  * after `time`: the pages end at the token's first signature. `null`, with
  * a note, when no such block bounds them.
@@ -608,10 +629,7 @@ export async function replayLaunch(
       if (newest) until = newest.signature;
       bounded = true;
       fromOffset = earliest.slot - creationSlot;
-      knownUntil =
-        earliest.blockTime !== null && creationTime !== null
-          ? { seconds: earliest.blockTime - creationTime, slot: fromOffset }
-          : null;
+      knownUntil = coveredBefore(earliest, creationSlot, creationTime);
     }
     try {
       for (const offset of ANCHOR_SLOTS.filter((o) => o > fromOffset)) {
@@ -636,10 +654,7 @@ export async function replayLaunch(
           wholeHistory = true;
           break;
         }
-        knownUntil =
-          anchor.blockTime !== null && creationTime !== null
-            ? { seconds: anchor.blockTime - creationTime, slot: anchor.slot - creationSlot }
-            : null;
+        knownUntil = coveredBefore(anchor, creationSlot, creationTime);
       }
       if (!bounded) failedParts.push('no block after the creation could bound the window');
     } catch (error) {
@@ -721,6 +736,17 @@ export async function replayLaunch(
   const moves: Timed[] = flows.flatMap((f, index) =>
     movesOf(f, kindOf, mint).map((m) => ({ ...m, seconds: timeOf.get(f.signature) ?? 0, index })),
   );
+  // The other side of buys and sales is the market, whatever program owns
+  // its account. On the Meteora DBC launch of 8xKZ… (mainnet, 25/11/2026) the
+  // supply was created in the token account of FhVo…HLuM, the DBC program's
+  // ["pool_authority"] address, an account of the System Program holding no
+  // data: it was the other side of every trade read. As a `contract` it was
+  // counted as a holder that got 100 % of the supply at launch.
+  for (const m of moves) {
+    if ((m.kind === 'buy' || m.kind === 'sell') && kinds.get(m.counterparty) === 'contract') {
+      kinds.set(m.counterparty, 'pool');
+    }
+  }
   const lastFlow = flows[flows.length - 1];
   const lastSeconds = lastFlow ? (timeOf.get(lastFlow.signature) ?? 0) : 0;
   // Every signature up to the anchor block was listed and read: the window
@@ -748,7 +774,12 @@ export async function replayLaunch(
   const gets = (m: Timed) =>
     (m.kind === 'buy' || m.kind === 'allocation' || m.kind === 'mint') && isActor(m.actor);
   const own = (m: Timed) => creator !== null && m.actor === creator;
-  const share = (v: bigint) => shareOf(v, supply);
+  // Shares are of today's supply, or of what the transactions read created
+  // when that is more: tokens burned since would otherwise lift the launch's
+  // shares above 100 % (8xKZ…: 1e15 created, less today; mainnet, 25/11/2026).
+  const created = sum(flows.map((f) => (f.minted > 0n ? f.minted : 0n)));
+  const base = created > supply ? created : supply;
+  const share = (v: bigint) => shareOf(v, base);
 
   const creatorMoves = moves.filter(own);
   const creatorAtLaunch = sum(
@@ -770,13 +801,17 @@ export async function replayLaunch(
   // The transaction delivering the most to several addresses at once.
   const perTx = new Map<string, Timed[]>();
   for (const m of otherBuys) perTx.set(m.transaction, [...(perTx.get(m.transaction) ?? []), m]);
-  const bundleTx = [...perTx.values()]
+  const severalAtOnce = [...perTx.values()]
     .filter((list) => new Set(list.map((m) => m.actor)).size >= BUNDLE_MIN_WALLETS)
     .sort((a, b) => {
       const d = sum(b.map((m) => m.value)) - sum(a.map((m) => m.value));
       return d > 0n ? 1 : d < 0n ? -1 : 0;
-    })[0];
+    });
+  const bundleTx = severalAtOnce[0];
   const bundleBought = bundleTx ? byActor(bundleTx) : null;
+  // Every such transaction, not only the largest: on ANDL…pump three of them
+  // served three wallets each in the creation slot (mainnet, 25/11/2026).
+  const severalBought = byActor(severalAtOnce.flat());
 
   // What the creation transaction delivered to others than the creator (its
   // fee payer, when the creator is not known).
@@ -829,14 +864,19 @@ export async function replayLaunch(
       soldAt: m.seconds,
       boughtSlot: buy.slot - creationSlot,
       soldSlot: m.slot - creationSlot,
+      // Every buy and sale of the window, not only the first sale: on GdmU…pump
+      // (mainnet, 25/11/2026) 3Ugj… bought 2.90 % and sold it in two sales of
+      // 1.45 % in the next slot; the first alone read as half kept.
       bought: share(
+        sum(moves.filter((x) => x.actor === m.actor && x.kind === 'buy').map((x) => x.value)),
+      ),
+      sold: share(
         sum(
           moves
-            .filter((x) => x.actor === m.actor && x.kind === 'buy' && x.index < m.index)
+            .filter((x) => x.actor === m.actor && x.kind === 'sell' && x.index > buy.index)
             .map((x) => x.value),
         ),
       ),
-      sold: share(m.value),
     });
   }
   roundTrips.sort(
@@ -1057,6 +1097,11 @@ export async function replayLaunch(
           `what ${summary.balancesRead} of ${summary.balancesWanted} addresses hold today was read, in the token accounts they used`,
         ]
       : []),
+    ...(base > supply
+      ? [
+          `shares are of the ${base.toString()} units created in the transactions read; today's supply is ${supply.toString()}`,
+        ]
+      : []),
     ...(offCurve.length > asked.length
       ? [`${offCurve.length - asked.length} program accounts were not identified`]
       : []),
@@ -1086,7 +1131,13 @@ export async function replayLaunch(
     creationBought,
     sameSlot,
     payerGroup,
+    payerGroupWithCreation: payerMoves.some((m) => m.transaction === creationInfo.signature),
     bundle: summary.bundle,
+    severalAtOnce: {
+      transactions: severalAtOnce.length,
+      wallets: severalBought.size,
+      share: share(sum(severalBought.values())),
+    },
     earlyBought,
     earlySlot: Math.max(0, ...earlyBuys.map((m) => m.slot - creationSlot)),
     earlySeconds,
@@ -1107,6 +1158,7 @@ export async function replayLaunch(
     data: {
       ...blank,
       ...known,
+      supply: base.toString(),
       creation: creationInfo,
       launchBlock: creationSlot,
       launchedAt: creationInfo.launchedAt,
@@ -1186,7 +1238,11 @@ type StoryInput = {
   creationBought: ReadonlyMap<string, bigint>;
   sameSlot: SolanaLaunchGroup | null;
   payerGroup: (SolanaLaunchGroup & { payers: string[] }) | null;
+  /** The creation is one of the transactions counted in `payerGroup`. */
+  payerGroupWithCreation: boolean;
   bundle: LaunchSummary['bundle'];
+  /** Every transaction of the window that delivered to BUNDLE_MIN_WALLETS wallets or more, together. */
+  severalAtOnce?: { transactions: number; wallets: number; share: number };
   earlyBought: ReadonlyMap<string, bigint>;
   /** Slots from the creation to the last of those buys. */
   earlySlot: number;
@@ -1233,11 +1289,15 @@ export function tellStory(input: StoryInput): SolanaLaunchStoryLine[] {
   const minted = input.moves.find((m) => m.kind === 'mint' && m.transaction === creation.signature);
   if (minted) {
     const program = input.programOf.get(minted.actor);
-    const name = program ? knownProgram(program)?.name : undefined;
+    // Only a launchpad's or a market's name says something: an account of the
+    // System Program (FhVo…, the DBC pool authority) is just an account.
+    const known = program ? knownProgram(program) : undefined;
+    const name =
+      known && (known.kind === 'launchpad' || known.kind === 'amm') ? known.name : undefined;
     add(
       0,
       0,
-      `${percent(share(minted.value))} of today's supply was created on ${
+      `${percent(share(minted.value))} of the supply was created on ${
         name
           ? `an account of ${name}`
           : input.kindOf(minted.actor) === 'wallet'
@@ -1320,9 +1380,9 @@ export function tellStory(input: StoryInput): SolanaLaunchStoryLine[] {
         : byCreator
           ? 'The creator'
           : `${short(creation.payer)}, who paid for the creation,`;
-    const withCreation = input.moves.some(
-      (m) => m.transaction === creation.signature && input.creationBought.has(m.actor),
-    );
+    // Only when the creation is one of the transactions counted in the group:
+    // what it gave the fee payer itself is not.
+    const withCreation = input.payerGroupWithCreation;
     add(
       0,
       0,
@@ -1350,6 +1410,17 @@ export function tellStory(input: StoryInput): SolanaLaunchStoryLine[] {
       6,
       b.transaction,
     );
+    const all = input.severalAtOnce;
+    if (all && all.transactions > 1) {
+      add(
+        b.seconds,
+        tx ? tx.slot - creation.slot : 0,
+        `In all, ${all.transactions} transactions of the window read each delivered the token to ${BUNDLE_MIN_WALLETS} or more wallets at once: ${percent(
+          all.share,
+        )} of the supply to ${plural(all.wallets, 'wallet')}.`,
+        6,
+      );
+    }
   }
 
   if (input.earlyBought.size > 0) {
@@ -1377,9 +1448,13 @@ export function tellStory(input: StoryInput): SolanaLaunchStoryLine[] {
     add(
       t.soldAt,
       t.soldSlot,
-      `${t.address === creator ? 'The creator' : short(t.address)} sold ${percent(t.sold)} of the supply ${
-        t.soldSlot - t.boughtSlot
-      } slots after buying ${percent(t.bought)}.`,
+      `${t.address === creator ? 'The creator' : short(t.address)} bought ${percent(t.bought)} of the supply and sold ${percent(
+        t.sold,
+      )} in the window read, the first sale ${
+        t.soldSlot === t.boughtSlot
+          ? 'in the slot of its first buy'
+          : `${plural(t.soldSlot - t.boughtSlot, 'slot')} after its first buy`
+      }.`,
       8,
     );
   }
@@ -1398,7 +1473,8 @@ export function tellStory(input: StoryInput): SolanaLaunchStoryLine[] {
 
   for (const sale of input.creatorSales) {
     if (
-      largeTrips.some((t) => t.address === sale.actor && t.soldSlot === sale.slot - creation.slot)
+      // Its sales from the first one on are told in its round trip.
+      largeTrips.some((t) => t.address === sale.actor && sale.slot - creation.slot >= t.soldSlot)
     )
       continue;
     add(

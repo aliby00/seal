@@ -165,6 +165,40 @@ describe('movesOf', () => {
   });
 });
 
+describe('movesOf on a Meteora DBC launch (8xKZ…)', () => {
+  const DBC_MINT = '8xKZ1yzPFGG1hfsqwPR2tGWsSMx9rJWQGJKiYjKUCLRx';
+  /** The DBC pool authority: off the curve, an account of the System Program, no data. */
+  const AUTHORITY = 'FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM';
+  const kind = (o: string) =>
+    ownerKind(o, o === AUTHORITY ? '11111111111111111111111111111111' : undefined);
+
+  it('without a known pool, the program-derived owner is the other side', () => {
+    expect(kind(AUTHORITY)).toBe('contract');
+    // 5R2QMtmm…: Fuwe… bought 25.67 % in the creation slot.
+    const moves = movesOf(
+      readFlows(transaction('meteora-dbc.json', '5R2QMtmm'), DBC_MINT),
+      kind,
+      DBC_MINT,
+    );
+    expect(moves).toEqual([
+      expect.objectContaining({
+        kind: 'buy',
+        actor: 'Fuwec4gw9j2zw2B9QBJqkuH3sULBeodqMVM2jUgaKaNT',
+        counterparty: AUTHORITY,
+        value: 256_661_639_803_643n,
+      }),
+    ]);
+  });
+
+  it('the creation puts the whole supply on that owner', () => {
+    const flows = readFlows(transaction('meteora-dbc.json', 'iHeYqyqc'), DBC_MINT);
+    expect(flows.createsMint).toBe(true);
+    expect(flows.minted).toBe(1_000_000_000_000_000n);
+    const [mint] = movesOf(flows, kind, DBC_MINT);
+    expect(mint).toEqual(expect.objectContaining({ kind: 'mint', actor: AUTHORITY }));
+  });
+});
+
 /**
  * The same three transactions read a second way: the token program's own
  * `transferChecked` instructions (jsonParsed), which name the accounts, the
