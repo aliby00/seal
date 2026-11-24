@@ -4,6 +4,7 @@ import {
   findCreation,
   limitRpc,
   marketsIn,
+  notAnAddressNote,
   readMint,
   readWalletOnToken,
   signersOf,
@@ -12,6 +13,7 @@ import {
   systemTransfers,
   type ReadLimits,
 } from './creator';
+import { isSolanaAddress } from './address';
 import type { SolanaFundedWallet, SolanaLinkedWallets, SolanaSolTransfer } from './creator-types';
 import { associatedTokenAddress, INCINERATOR, knownProgram, SYSTEM_PROGRAM } from './programs';
 import { collectSignatures, type SignatureInfo, type SolanaRpc } from './rpc';
@@ -161,6 +163,14 @@ export async function linkedWallets(
     complete = false;
     notes.push(note);
   };
+  const invalid = [creator, mint].find((a) => !isSolanaAddress(a));
+  if (invalid !== undefined) {
+    return {
+      completeness: 'unavailable',
+      sources: [source('solana-rpc', r.now(), [notAnAddressNote(invalid)])],
+      data: { creator, mint, firstFunding: null, funding: 'not-reached', window: null, funded: [] },
+    };
+  }
 
   const listed = await attempt(() =>
     collectSignatures(r, creator, { maxPages: options.signaturePages ?? FUNDING_SIGNATURE_PAGES }),

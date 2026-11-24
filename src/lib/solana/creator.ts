@@ -3,12 +3,13 @@ import { CREATOR_SENDS_LISTED, type CreatorSends } from '../contracts/creator';
 import { SealError, UpstreamError } from '../errors';
 import { BudgetExhaustedError, requestJson } from '../http';
 import type { DexScreenerPair } from '../market/dexscreener';
-import { decodeBase58, encodeBase58 } from './address';
+import { decodeBase58, encodeBase58, isOnCurve, isSolanaAddress } from './address';
 import { recordingKey } from './fake-rpc';
 import {
   associatedTokenAddress,
   INCINERATOR,
   KNOWN_PROGRAMS,
+  knownProgram,
   metadataAddress,
   PUMP_FUN_PROGRAM,
   pumpBondingCurveAddress,
@@ -169,6 +170,11 @@ export function source(
   };
 }
 
+/** The note of a read refused before any call: what was asked is not an address. */
+export function notAnAddressNote(value: string): string {
+  return `${JSON.stringify(value.slice(0, 64))} is not a Solana address`;
+}
+
 // ── Bytes ───────────────────────────────────────────────────────────────────
 
 function u32(data: Uint8Array, offset: number): number | null {
@@ -267,9 +273,19 @@ export type FlatInstruction = {
   /** Index of the top-level instruction it belongs to. */
   top: number;
   inner: boolean;
+  /** The program that invoked it; `null` for a top-level instruction. */
+  parent: string | null;
 };
 
-/** Every instruction of a `json` transaction, each top-level one followed by those it invoked. */
+/**
+ * Every instruction of a `json` transaction, each top-level one followed by
+ * those it invoked. An inner instruction's `stackHeight` (2 for one a
+ * top-level instruction invoked, 3 below that…) names its caller: the last
+ * instruction seen one level up.
+ * https://solana.com/docs/rpc/json-structures#inner-instructions
+ * Checked on NFDGtWirk6… (24/11/2026): PumpSwap's CreatePool, at height 1,
+ * invokes Token-2022's InitializeMint2 at height 2.
+ */
 export function flatInstructions(tx: SolanaTransaction): FlatInstruction[] {
   const keys = transactionKeys(tx);
   const inner = new Map((tx.meta?.innerInstructions ?? []).map((i) => [i.index, i.instructions]));
@@ -282,17 +298,31 @@ export function flatInstructions(tx: SolanaTransaction): FlatInstruction[] {
     }
   };
   tx.transaction.message.instructions.forEach((ix, top) => {
-    const list = [
-      { ix, inner: false },
-      ...(inner.get(top) ?? []).map((i) => ({ ix: i, inner: true })),
-    ];
-    for (const { ix: one, inner: isInner } of list) {
+    const topProgram = keys[ix.programIdIndex] ?? '';
+    out.push({
+      programId: topProgram,
+      accounts: ix.accounts.map((a) => keys[a] ?? ''),
+      data: decode(ix.data),
+      top,
+      inner: false,
+      parent: null,
+    });
+    const atHeight: string[] = [];
+    atHeight[1] = topProgram;
+    for (const one of inner.get(top) ?? []) {
+      const programId = keys[one.programIdIndex] ?? '';
+      const height = typeof one.stackHeight === 'number' ? one.stackHeight : null;
+      // Without a height (older answers), the top-level program is the only caller known.
+      const parent =
+        height !== null && height >= 2 ? (atHeight[height - 1] ?? topProgram) : topProgram;
+      if (height !== null) atHeight[height] = programId;
       out.push({
-        programId: keys[one.programIdIndex] ?? '',
+        programId,
         accounts: one.accounts.map((a) => keys[a] ?? ''),
         data: decode(one.data),
         top,
-        inner: isInner,
+        inner: true,
+        parent,
       });
     }
   });
@@ -314,6 +344,18 @@ const MARKETS = new Set(
 /** The known market or launchpad programs a transaction ran, at any depth (an aggregator routes into them). */
 export function marketsIn(tx: SolanaTransaction): string[] {
   return [...new Set(flatInstructions(tx).map((i) => i.programId))].filter((p) => MARKETS.has(p));
+}
+
+const LOCKS = new Set(KNOWN_PROGRAMS.filter((p) => p.kind === 'lock').map((p) => p.address));
+
+/**
+ * The known lock and vesting programs a transaction ran, at any depth.
+ * Checked on 2VUskvm5… (24/11/2026): Streamflow's `Create` moved
+ * 20999999999999 of 6qmoWWfC… from its creator into Cf37Kkz1…, a token
+ * account whose owner is itself (an escrow, not a wallet), still holding them.
+ */
+export function locksIn(tx: SolanaTransaction): string[] {
+  return [...new Set(flatInstructions(tx).map((i) => i.programId))].filter((p) => LOCKS.has(p));
 }
 
 /**
@@ -382,7 +424,21 @@ export type FoundCreation = SolanaCreation & {
   decimals: number | null;
   /** The pump.fun curve the instruction names. */
   curve: string | null;
+  /** The program that invoked `InitializeMint`; `null` when it was a top-level instruction. */
+  by: string | null;
 };
+
+/**
+ * Whether a mint was initialised by a market program: the share token of a
+ * pool, not a launch. Seen on NFDGtWirk6… (24/11/2026): PumpSwap's
+ * CreatePool initialises 8rf7kbv9… (9 decimals, mint authority the pool
+ * FQJJm9RR…) in its signer's transaction.
+ */
+export function isPoolShareMint(creation: Pick<FoundCreation, 'launchpad' | 'by'>): boolean {
+  return (
+    creation.launchpad === null && creation.by !== null && knownProgram(creation.by)?.kind === 'amm'
+  );
+}
 
 /**
  * Token program `InitializeMint` (0) and `InitializeMint2` (20): tag,
@@ -421,6 +477,7 @@ export function creationsIn(tx: SolanaTransaction, signature: string): FoundCrea
             creator: null,
             decimals: null,
             curve: null,
+            by: ix.parent,
           });
         }
       }
@@ -446,6 +503,7 @@ export function creationsIn(tx: SolanaTransaction, signature: string): FoundCrea
       creator: encodeBase58(ix.data.subarray(uri[1], uri[1] + 32)),
       decimals: null,
       curve: ix.accounts[2] ?? null,
+      by: ix.parent,
     });
   }
   return [...byMint.values()].map((c) => ({ ...c, decimals: decimals.get(c.mint) ?? null }));
@@ -592,6 +650,13 @@ export async function findCreator(
 ): Promise<SolanaCreator> {
   const r = limitRpc(rpc, options);
   const notes: string[] = [];
+  if (!isSolanaAddress(mint)) {
+    return {
+      completeness: 'unavailable',
+      sources: [source('solana-rpc', r.now(), [notAnAddressNote(mint)])],
+      data: { mint, creator: null, from: null, account: null, creation: null, pumpCurve: null },
+    };
+  }
   const curveAddress = pumpBondingCurveAddress(mint);
   const metaAddress = metadataAddress(mint);
 
@@ -638,16 +703,31 @@ export async function findCreator(
 
   if (curve?.creator) return done(curve.creator, 'pump-curve', curveAddress);
   if (creation) return done(creation.feePayer, 'creation-transaction', null);
+  // CzLSujWB… (launched 2024) has a curve whose bytes 49..81 are all zero (read 24/11/2026).
+  if (curve) notes.push('its pump.fun curve names no creator');
 
-  const metaplex = decodeMetadataAuthority(metaInfo ?? null, mint);
+  /**
+   * An authority off the ed25519 curve has no private key: a program signs
+   * for it, so it names a program, not who launched the token. pump.fun's
+   * own TSLvdd1p… is the Metaplex update authority of its SPL Token
+   * launches, CzLSujWB… among them (off the curve, read 24/11/2026).
+   */
+  const wallet = (authority: string | null) => {
+    if (!authority) return null;
+    if (isOnCurve(authority)) return authority;
+    notes.push(`the metadata update authority ${authority} is a program address, not a wallet`);
+    return null;
+  };
+  const metaplex = wallet(decodeMetadataAuthority(metaInfo ?? null, mint));
   if (metaplex) return done(metaplex, 'metadata-update-authority', metaAddress);
   // Token-2022 keeps its metadata in the mint (`tokenMetadata` extension).
   const fullMint = await attempt(() => r.getAccountInfo(mint, { encoding: 'jsonParsed' }));
   if (fullMint.ok) {
     const parsed = parsedMint(fullMint.value);
     const state = parsed?.mint.extensions?.find((e) => e.extension === 'tokenMetadata')?.state;
-    const authority = typeof state?.updateAuthority === 'string' ? state.updateAuthority : null;
-    if (authority && authority !== DEFAULT_KEY) {
+    const raw = typeof state?.updateAuthority === 'string' ? state.updateAuthority : null;
+    const authority = wallet(raw && raw !== DEFAULT_KEY ? raw : null);
+    if (authority) {
       return done(authority, 'metadata-update-authority', mint);
     }
   } else {
@@ -720,8 +800,10 @@ async function dexBaseOfPairs(
   return out;
 }
 
+const count24h = (value: unknown) =>
+  typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0;
 const trades24h = (pairs: readonly DexScreenerPair[]) =>
-  pairs.reduce((n, p) => n + (p.txns?.h24?.buys ?? 0) + (p.txns?.h24?.sells ?? 0), 0);
+  pairs.reduce((n, p) => n + count24h(p.txns?.h24?.buys) + count24h(p.txns?.h24?.sells), 0);
 
 const DAY_S = 86_400;
 
@@ -821,6 +903,26 @@ export async function creatorHistory(
   const notes: string[] = [];
   const dexNotes: string[] = [];
   const drafts = new Map<string, Draft>();
+  if (!isSolanaAddress(creator)) {
+    return {
+      completeness: 'unavailable',
+      sources: [source('solana-rpc', r.now(), [notAnAddressNote(creator)])],
+      data: {
+        creator,
+        tokens: [],
+        counts: { launched: 0, graduated: 0, dead: 0, active: 0, unknown: 0 },
+        scanned: {
+          pumpCurvesListed: false,
+          curvesWithoutMint: 0,
+          signatures: 0,
+          signaturesComplete: false,
+          transactionsListed: 0,
+          transactionsRead: 0,
+          readSince: null,
+        },
+      },
+    };
+  }
 
   // 1. pump.fun curves naming the creator.
   const curves = await attempt(() =>
@@ -874,7 +976,7 @@ export async function creatorHistory(
       const ours =
         c.launchpad === 'pump.fun'
           ? c.creator === creator
-          : signers.has(creator) && c.decimals !== 0;
+          : signers.has(creator) && c.decimals !== 0 && !isPoolShareMint(c);
       if (!ours) continue;
       drafts.set(c.mint, {
         mint: c.mint,
@@ -901,7 +1003,8 @@ export async function creatorHistory(
     [...drafts.values()].filter((d) => d.curve).map((d) => [d.curve as string, d]),
   );
   const addCurve = (curve: string, mint: string, pair?: DexScreenerPair) => {
-    if (pumpBondingCurveAddress(mint) !== curve) return false;
+    // DexScreener's answer is not trusted: a malformed address would make the derivation throw.
+    if (!isSolanaAddress(mint) || pumpBondingCurveAddress(mint) !== curve) return false;
     const draft: Draft = drafts.get(mint) ?? {
       mint,
       launchpad: 'pump.fun',
@@ -924,7 +1027,10 @@ export async function creatorHistory(
     return true;
   };
   for (const c of curveList) byCurve.get(c.address)?.foundBy.add('pump-curves');
-  const excludedCurve = options.exclude ? pumpBondingCurveAddress(options.exclude) : null;
+  const excludedCurve =
+    options.exclude && isSolanaAddress(options.exclude)
+      ? pumpBondingCurveAddress(options.exclude)
+      : null;
   let unmapped = curveList
     .map((c) => c.address)
     .filter((c) => !byCurve.has(c) && c !== excludedCurve);
@@ -1073,18 +1179,27 @@ export function moveIn(
   if (delta === 0n) return null;
   const amount = delta < 0n ? -delta : delta;
   const others = [...deltas.entries()].filter(([owner, d]) => owner !== wallet && d !== 0n);
+  // All of them: `sendsOf` adds them up, a cut list would undercount a send to many.
   const opposite = others
     .filter(([, d]) => (delta < 0n ? d > 0n : d < 0n))
     .map(([address, d]) => ({ address, amount: (d < 0n ? -d : d).toString() }))
-    .sort((a, b) => (BigInt(b.amount) > BigInt(a.amount) ? 1 : -1));
+    .sort((a, b) =>
+      BigInt(b.amount) > BigInt(a.amount) ? 1 : BigInt(b.amount) < BigInt(a.amount) ? -1 : 0,
+    );
   let kind: SolanaTokenMove['kind'];
+  const locks = locksIn(tx);
   if (marketsIn(tx).length > 0) kind = delta > 0n ? 'buy' : 'sell';
+  else if (locks.length > 0) kind = delta > 0n ? 'unlocked' : 'locked';
   else if (delta > 0n) kind = 'received';
   else {
     // Sent to the incinerator's token account, or to nobody: gone for good.
     const toLiving = opposite.filter((o) => o.address !== INCINERATOR);
     kind = toLiving.length > 0 ? 'sent' : 'burned';
   }
+  const lockProgram =
+    kind === 'locked' || kind === 'unlocked'
+      ? (knownProgram(locks[0] as string)?.name ?? (locks[0] as string))
+      : undefined;
   return {
     signature,
     slot: tx.slot,
@@ -1093,8 +1208,38 @@ export function moveIn(
     amount: amount.toString(),
     share: share6(amount, supply),
     sol: solChange(tx, wallet).toString(),
-    counterparties: opposite.slice(0, CREATOR_SENDS_LISTED),
+    otherTokens: otherTokenChanges(tx, wallet, mint),
+    counterparties: opposite,
+    ...(lockProgram !== undefined ? { lockProgram } : {}),
   };
+}
+
+/**
+ * The wallet's change in every other token in the same transaction, raw
+ * units, signed: what a trade was paid with, or paid in, when it was not
+ * native SOL. Seen on M49A3kmy… (24/11/2026): the launch buy of 6qmoWWfC…
+ * was paid 531745 of SPCXxcqX…, the curve's quote token; the creator's SOL
+ * fell only by rent and fees. Wrapped SOL shows here too.
+ */
+export function otherTokenChanges(
+  tx: SolanaTransaction,
+  wallet: string,
+  mint: string,
+): { mint: string; change: string }[] {
+  const out = new Map<string, bigint>();
+  const add = (list: readonly TokenBalance[] | undefined, sign: 1n | -1n) => {
+    for (const b of list ?? []) {
+      if (b.mint === mint || b.owner !== wallet) continue;
+      const amount = toBigInt(b.uiTokenAmount.amount);
+      if (amount === null) continue;
+      out.set(b.mint, (out.get(b.mint) ?? 0n) + sign * amount);
+    }
+  };
+  add(tx.meta?.preTokenBalances, -1n);
+  add(tx.meta?.postTokenBalances, 1n);
+  return [...out.entries()]
+    .filter(([, change]) => change !== 0n)
+    .map(([other, change]) => ({ mint: other, change: change.toString() }));
 }
 
 export type WalletOnTokenRead = SolanaWalletOnToken & { complete: boolean; notes: string[] };
@@ -1177,6 +1322,8 @@ export async function readWalletOnToken(
     sold: sum('sell').toString(),
     received: sum('received').toString(),
     burned: sum('burned').toString(),
+    locked: sum('locked').toString(),
+    unlocked: sum('unlocked').toString(),
     solSpent: sol('buy').toString(),
     solReceived: sol('sell').toString(),
     holdsNow: holds === null ? null : holds.toString(),
@@ -1241,7 +1388,6 @@ export async function creatorOnToken(
   options: CreatorOnTokenOptions = {},
 ): Promise<SolanaCreatorOnToken> {
   const r = limitRpc(rpc, options);
-  const facts = await attempt(() => readMint(r, mint));
   const empty = {
     wallet: creator,
     mint,
@@ -1249,6 +1395,8 @@ export async function creatorOnToken(
     sold: '0',
     received: '0',
     burned: '0',
+    locked: '0',
+    unlocked: '0',
     solSpent: '0',
     solReceived: '0',
     holdsNow: null,
@@ -1260,6 +1408,15 @@ export async function creatorOnToken(
     decimals: null,
     sends: { recipients: [], distinct: 0, burned: '0', total: '0' },
   };
+  const invalid = [creator, mint].find((a) => !isSolanaAddress(a));
+  if (invalid !== undefined) {
+    return {
+      completeness: 'unavailable',
+      sources: [source('solana-rpc', r.now(), [notAnAddressNote(invalid)])],
+      data: empty,
+    };
+  }
+  const facts = await attempt(() => readMint(r, mint));
   if (!facts.ok || !facts.value) {
     return {
       completeness: 'unavailable',

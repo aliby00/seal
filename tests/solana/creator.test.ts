@@ -12,6 +12,7 @@ import {
   dexPairsUrl,
   dexTokensUrl,
   findCreator,
+  isPoolShareMint,
   isReadFailure,
   limitRpc,
   marketsIn,
@@ -32,9 +33,11 @@ import {
   recordingKey,
 } from '../../src/lib/solana/fake-rpc';
 import {
+  METEORA_DBC_PROGRAM,
   metadataAddress,
   pumpBondingCurveAddress,
   PUMP_FUN_PROGRAM,
+  PUMP_SWAP_PROGRAM,
 } from '../../src/lib/solana/programs';
 import type { AccountInfo, RecordedCall, SolanaTransaction } from '../../src/lib/solana/rpc';
 import { loadRecordings } from './fixtures';
@@ -184,6 +187,50 @@ describe('decoding what the chain wrote', () => {
     ]);
   });
 
+  it('tells a pool’s share mint, made by a market program, from a launch', async () => {
+    const { transaction, recordings } = creatorCase('pump-creator-sold');
+    // NFDGtWirk6…: PumpSwap's CreatePool, signed by FegrQGrD…, initialises the
+    // pool's share mint 8rf7kbv9… (D234v6Hg… is only an account in it).
+    const signature =
+      'NFDGtWirk6oitRPdPgQync1yi9ZTKtY3DjYgczsdjAMdekq1Y81NLt3RaJu7jNk2hTgifjkLykE8iuto5Ddhb6P';
+    const tx = transaction(signature);
+    const [share] = creationsIn(tx, signature);
+    expect(share).toMatchObject({
+      mint: '8rf7kbv9nPEYokymEh6gLhuzLVwuWPd5Yt1QiRP1g5e8',
+      instruction: 'initialize-mint2',
+      launchpad: null,
+      decimals: 9,
+      by: PUMP_SWAP_PROGRAM,
+    });
+    expect(share && isPoolShareMint(share)).toBe(true);
+    // A launch made outside any launchpad is not one.
+    const meteora = creatorCase('meteora-dbc');
+    const dbc =
+      'iHeYqyqcsa9mqRQeeADaYsd59eZSM96dBsVEc8tTgW9AzuXtGz9iEY9ZXne3Heu7gNz7hjXD4TSb3RL4Hhp5d4u';
+    const [launch] = creationsIn(meteora.transaction(dbc), dbc);
+    expect(launch?.by).toBe(METEORA_DBC_PROGRAM);
+    expect(launch && isPoolShareMint(launch)).toBe(false);
+    // So the pool's signer is not shown as its launcher. Its history is cut
+    // here to that one transaction (the real signature entry), with no curve.
+    const listed = recordings.find(
+      (e) => e.method === 'getSignaturesForAddress' && e.params?.[0] === SOLD_CREATOR,
+    )?.result as { signature: string }[];
+    const rpc = createFakeSolanaRpc([
+      { method: 'getProgramAccounts', result: [] },
+      {
+        method: 'getSignaturesForAddress',
+        result: listed.filter((s) => s.signature === signature),
+      },
+      ...recordings.filter((e) => e.method === 'getTransaction' && e.params?.[0] === signature),
+    ]);
+    const history = await creatorHistory('FegrQGrD2wHn276dnaCLSfUa93SB8goLgjSAXF8KLqvW', rpc, {
+      now: () => 0,
+      dex: async () => [],
+    });
+    expect(history.data.scanned.transactionsRead).toBe(1);
+    expect(history.data.tokens).toEqual([]);
+  });
+
   it('reads System transfers, balance changes and markets of a sale', () => {
     const { transaction } = creatorCase('pump-creator-sold');
     const creation = transaction(SOLD_CREATION);
@@ -291,6 +338,46 @@ describe('findCreator', () => {
     expect(CREATION_SIGNATURE_PAGES).toBe(3);
   });
 
+  it('does not name pump.fun’s own authority as the creator of an old pump.fun token', async () => {
+    // CzLSujWB… (2024): its curve's creator bytes are all zero and its
+    // Metaplex update authority is TSLvdd1p…, pump.fun's program address. Its
+    // creation is out of reach (hundreds of thousands of transactions): the
+    // listing is made to fail here instead of recording three pages.
+    const old = 'CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump';
+    const recordings = loadRecordings('creator', ['pump-old.json']);
+    const rpc = createFakeSolanaRpc([
+      ...recordings,
+      { method: 'getSignaturesForAddress', error: { code: 429, message: 'Too many requests' } },
+    ]);
+    const meta = creatorCase('pump-old').account(metadataAddress(old));
+    expect(decodeMetadataAuthority(meta, old)).toBe('TSLvdd1pWpHVjahSpsvCXUbgwsL3JAcvokwaKt1eokM');
+    const found = await findCreator(old, rpc, { now: () => 0 });
+    expect(found.completeness).toBe('unavailable');
+    expect(found.data).toMatchObject({
+      creator: null,
+      from: null,
+      pumpCurve: { address: pumpBondingCurveAddress(old), complete: true },
+    });
+    expect(found.sources[0]?.note).toContain('its pump.fun curve names no creator');
+    expect(found.sources[0]?.note).toContain(
+      'the metadata update authority TSLvdd1pWpHVjahSpsvCXUbgwsL3JAcvokwaKt1eokM is a program address, not a wallet',
+    );
+  });
+
+  it('says unavailable for an address no account lives at', async () => {
+    const recordings = loadRecordings('creator', ['unknown.json']);
+    const found = await findCreator(
+      'BZzWL1xjLT9vQhSuwoS4ChSn8Lc5ujn221TEyT8QTGaK',
+      createFakeSolanaRpc(recordings),
+      { now: () => 0 },
+    );
+    expect(found.completeness).toBe('unavailable');
+    expect(found.data).toMatchObject({ creator: null, creation: null, pumpCurve: null });
+    expect(found.sources[0]?.note).toBe(
+      'the mint has no successful transaction; no curve, creation transaction or metadata authority names a creator',
+    );
+  });
+
   it('says unavailable, without throwing, when the node fails', async () => {
     const rpc = createFakeSolanaRpc([
       { method: 'getMultipleAccounts', error: { code: 429, message: 'Too many requests' } },
@@ -396,6 +483,33 @@ describe('creatorHistory', () => {
     expect(history.sources[1]?.note).toBe('pairs not read; tokens not read: trading unknown');
   });
 
+  it('does not trust a malformed DexScreener answer', async () => {
+    const { rpc, now } = creatorCase('pump-bundled');
+    const dex: DexFetch = async (url) =>
+      url.includes('/pairs/')
+        ? {
+            pairs: [
+              {
+                pairAddress: '4aKGe5mSjyRYcGvx8zUWxZgRvds6ouRmGWBVxhpGEN59',
+                baseToken: { address: '9aihb952pxvrhuct9m3rkwowv4lg52p58fyjmvukpump' },
+              },
+            ],
+          }
+        : [
+            {
+              pairAddress: 'x',
+              baseToken: { address: '9AiHB952pXVrHuct9m3RKWoWv4LG52p58FYjMvUkpump' },
+              txns: { h24: { buys: '7', sells: null } },
+            },
+          ];
+    const history = await creatorHistory(BUNDLED_CREATOR, rpc, { now, dex, exclude: BUNDLED });
+    // The lower-cased mint is not taken: the curve is mapped on the chain;
+    // trade counts that are not numbers count for nothing.
+    expect(history.data.tokens.map((t) => [t.mint, t.outcome, t.trades24h])).toEqual([
+      ['9AiHB952pXVrHuct9m3RKWoWv4LG52p58FYjMvUkpump', 'graduated', 0],
+    ]);
+  });
+
   it('tells dead from active and unknown', () => {
     const nowS = 1_795_561_856;
     const day = 86_400;
@@ -448,27 +562,60 @@ describe('creatorOnToken', () => {
     ]);
   });
 
-  it('shows the bundled launch’s creator sent its launch buy to another wallet and holds the rest', async () => {
-    const { rpc, now } = creatorCase('pump-bundled');
+  it('shows the bundled launch’s creator put its launch buy into Streamflow and holds the rest', async () => {
+    const { rpc, now, transaction } = creatorCase('pump-bundled');
     const read = await creatorOnToken(BUNDLED_CREATOR, BUNDLED, rpc, { now });
     expect(read.completeness).toBe('full');
     expect(read.data.moves.map((m) => [m.kind, m.amount])).toEqual([
       ['buy', '21000000000000'],
-      ['sent', '20999999999999'],
+      ['locked', '20999999999999'],
       ['buy', '3302385368521'],
       ['buy', '3647348584033'],
     ]);
-    expect(read.data.holdsNow).toBe('6949733952555');
-    // Bought − sent = held, to the unit.
-    expect(BigInt(read.data.bought) - BigInt(read.data.sends.total ?? '0')).toBe(6949733952555n);
-    expect(read.data.sends).toEqual({
-      recipients: [
-        { address: 'Cf37Kkz14fDSPPgLVjWTuLMkkdYov9kYUo1zojPijrPQ', value: '20999999999999' },
+    // 2VUskvm5… ran Streamflow's Create: the tokens went to its escrow
+    // Cf37Kkz1…, a token account that owns itself, not to a wallet.
+    expect(read.data.moves[1]).toMatchObject({
+      lockProgram: 'Streamflow',
+      counterparties: [
+        { address: 'Cf37Kkz14fDSPPgLVjWTuLMkkdYov9kYUo1zojPijrPQ', amount: '20999999999999' },
       ],
-      distinct: 1,
-      burned: '0',
-      total: '20999999999999',
     });
+    expect(read.data.locked).toBe('20999999999999');
+    expect(read.data.sends).toEqual({ recipients: [], distinct: 0, burned: '0', total: '0' });
+    expect(read.data.holdsNow).toBe('6949733952555');
+    // Bought − locked = held, to the unit.
+    expect(BigInt(read.data.bought) - BigInt(read.data.locked)).toBe(6949733952555n);
+    // The launch buy was paid in the curve's quote token, not in SOL: its
+    // SOL change is rent and fees only.
+    expect(read.data.moves[0]).toMatchObject({
+      sol: '-11943080',
+      otherTokens: [{ mint: 'SPCXxcqXj6e5dJDVNovHN8744zkbhM2bYudU45BimGb', change: '-531745' }],
+    });
+    // The two later buys are version-1 transactions, read as the others.
+    expect(read.data.moves.slice(2).map((m) => transaction(m.signature).version)).toEqual([1, 1]);
+  });
+
+  it('adds up every recipient it is given, listing the largest 25', () => {
+    const counterparties = Array.from({ length: 30 }, (_, i) => ({
+      address: `r${i}`,
+      amount: String(i + 1),
+    }));
+    const sends = sendsOf([
+      {
+        signature: 's',
+        slot: 1,
+        blockTime: null,
+        kind: 'sent',
+        amount: '465',
+        share: null,
+        sol: '0',
+        otherTokens: [],
+        counterparties,
+      },
+    ]);
+    expect(sends.distinct).toBe(30);
+    expect(sends.total).toBe('465');
+    expect(sends.recipients).toHaveLength(25);
   });
 
   it('shows a creator that bought nothing at launch', async () => {
@@ -489,6 +636,7 @@ describe('creatorOnToken', () => {
         amount: '5',
         share: null,
         sol: '0',
+        otherTokens: [],
         counterparties: [
           { address: '1nc1nerator11111111111111111111111111111111', amount: '2' },
           { address: SOLD_CURVE, amount: '3' },
@@ -551,6 +699,21 @@ describe('limits shared by the four reads', () => {
   it('keeps a limited client as it is', () => {
     const limited = limitRpc(createFakeSolanaRpc([]), { maxCalls: 1 });
     expect(limitRpc(limited, { maxCalls: 99 })).toBe(limited);
+  });
+
+  it('refuses what is not an address before any call, without throwing', async () => {
+    const rpc = createFakeSolanaRpc([]);
+    const bad = 'fb5ev7camwjnrh5gvhlivx9y8qgoo8vpv3ex5npump0OIl';
+    const read = await Promise.all([
+      findCreator(bad, rpc, { now: () => 0 }),
+      creatorHistory(bad, rpc, { now: () => 0 }),
+      creatorOnToken(SOLD_CREATOR, bad, rpc, { now: () => 0 }),
+      creatorOnToken('', SOLD, rpc, { now: () => 0 }),
+      linkedWallets(bad, SOLD, rpc, { now: () => 0 }),
+    ]);
+    expect(read.map((r) => r.completeness)).toEqual(Array(5).fill('unavailable'));
+    expect(read[0]?.sources[0]?.note).toBe(`"${bad}" is not a Solana address`);
+    expect(rpc.calls).toEqual([]);
   });
 
   it('survives its caps and failing sources, never a bug or a missing fixture', () => {

@@ -127,16 +127,27 @@ export type SolanaTokenMove = {
   /**
    * - `buy` / `sell`: the transaction went through a known market or
    *   launchpad program (programs.ts) and the balance rose / fell;
-   * - `sent` / `received`: no market, the token went to / came from others;
-   * - `burned`: no market, the balance fell and nobody received it.
+   * - `locked` / `unlocked`: no market, a known lock or vesting program
+   *   (Streamflow, Jupiter Lock, Raydium Burn & Earn) ran and the balance
+   *   fell / rose: the tokens went into / came out of that program's custody;
+   * - `sent` / `received`: none of those, the token went to / came from others;
+   * - `burned`: none of those, the balance fell and nobody received it.
    */
-  kind: 'buy' | 'sell' | 'sent' | 'received' | 'burned';
+  kind: 'buy' | 'sell' | 'locked' | 'unlocked' | 'sent' | 'received' | 'burned';
   /** Raw units, positive. */
   amount: string;
   share: number | null;
-  /** The wallet's SOL change in lamports, fees excluded; signed. */
+  /**
+   * The wallet's native SOL change in lamports, the network fee given back;
+   * signed. Rent of accounts opened and tips are in it; a trade paid in
+   * another token (wrapped SOL, a curve's quote token) is not: see `otherTokens`.
+   */
   sol: string;
-  /** The other owners whose balance moved the other way (recipients of a send, senders of a receipt). */
+  /** The wallet's change in each other token in the same transaction, raw units, signed. */
+  otherTokens: { mint: string; change: string }[];
+  /** The lock or vesting program, for `locked` and `unlocked`. */
+  lockProgram?: string;
+  /** Every other owner whose balance moved the other way (recipients of a send, senders of a receipt, a lock's escrow). */
   counterparties: { address: string; amount: string }[];
 };
 
@@ -147,7 +158,14 @@ export type SolanaWalletOnToken = {
   sold: string;
   received: string;
   burned: string;
-  /** SOL spent on buys and received from sales, lamports. */
+  /** Put into / taken out of a lock or vesting program. */
+  locked: string;
+  unlocked: string;
+  /**
+   * The native SOL its balance fell by in its buys and rose by in its sales,
+   * lamports, the network fee given back (`sol` of each move): rent and tips
+   * included, payments in another token not (see each move's `otherTokens`).
+   */
   solSpent: string;
   solReceived: string;
   /** Held today across its token accounts of this mint; `null` when not read. */
