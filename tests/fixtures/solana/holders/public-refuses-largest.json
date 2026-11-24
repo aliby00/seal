@@ -1,0 +1,6 @@
+[
+  {
+    "method": "getTokenLargestAccounts",
+    "error": { "code": 429, "message": "Too many requests for a specific RPC call" }
+  }
+]
