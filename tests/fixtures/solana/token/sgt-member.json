@@ -1,0 +1,134 @@
+[
+  {
+    "method": "getMultipleAccounts",
+    "params": [
+      [
+        "62vJ96UJHgPucPCS1wDme8Kgi3CF93uQNmoEKPveA83Z",
+        "3RLRZmQzYsJZHV8mpoEH12cz5qPJs9gpB6r8VRTNTcxR"
+      ],
+      {
+        "commitment": "confirmed",
+        "encoding": "base64"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473520406
+      },
+      "value": [
+        {
+          "data": [
+            "AQAAAOWKqhdAvydh2LouHq0lKwjraNJka0hmiNGggbQhTCm9AQAAAAAAAAAAAQEAAADliqoXQL8nYdi6Lh6tJSsI62jSZGtIZojRoIG0IUwpvQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARIAQADliqoXQL8nYdi6Lh6tJSsI62jSZGtIZojRoIG0IUwpveWJkm0XmBofiHcH5IkGhI6YGUP+gVGTmnUrqnPiEJ7pDAAgAOWKqhdAvydh2LouHq0lKwjraNJka0hmiNGggbQhTCm9AwAgAOWKqhdAvydh2LouHq0lKwjraNJka0hmiNGggbQhTCm9FgBAAOWKqhdAvydh2LouHq0lKwjraNJka0hmiNGggbQhTCm9SshG4KsavKCJumDtEOGqRmOMCaXSeoT6C70XPcIDjOgXAEgASshG4KsavKCJumDtEOGqRmOMCaXSeoT6C70XPcIDjOjliZJtF5gaH4h3B+SJBoSOmBlD/oFRk5p1K6pz4hCe6ffbAQAAAAAA",
+            "base64"
+          ],
+          "executable": false,
+          "lamports": 2936240,
+          "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "rentEpoch": 18446744073709552000,
+          "space": 450
+        },
+        null
+      ]
+    }
+  },
+  {
+    "method": "getAccountInfo",
+    "params": [
+      "GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te",
+      {
+        "commitment": "confirmed",
+        "encoding": "base64"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473520407
+      },
+      "value": {
+        "data": [
+          "AQAAAOWKqhdAvydh2LouHq0lKwjraNJka0hmiNGggbQhTCm9AAAAAAAAAAAAAQEAAADliqoXQL8nYdi6Lh6tJSsI62jSZGtIZojRoIG0IUwpvQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARIAQADliqoXQL8nYdi6Lh6tJSsI62jSZGtIZojRoIG0IUwpveWJkm0XmBofiHcH5IkGhI6YGUP+gVGTmnUrqnPiEJ7pFABAAOWKqhdAvydh2LouHq0lKwjraNJka0hmiNGggbQhTCm95YmSbReYGh+IdwfkiQaEjpgZQ/6BUZOadSuqc+IQnukDACAA5YqqF0C/J2HYui4erSUrCOto0mRrSGaI0aCBtCFMKb0TAKYA5YqqF0C/J2HYui4erSUrCOto0mRrSGaI0aCBtCFMKb3liZJtF5gaH4h3B+SJBoSOmBlD/oFRk5p1K6pz4hCe6RQAAABTZWVrZXIgR2VuZXNpcyBUb2tlbggAAABTZWVrZXJHVDoAAABodHRwczovL3IyLnNvbGFuYW1vYmlsZWRhcHBzdG9yZS5jb20vc2tyL3NndC1tZXRhZGF0YS5qc29uAAAAABUAUADliqoXQL8nYdi6Lh6tJSsI62jSZGtIZojRoIG0IUwpveWJkm0XmBofiHcH5IkGhI6YGUP+gVGTmnUrqnPiEJ7p99sBAAAAAABAQg8AAAAAAA==",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 5080800,
+        "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "rentEpoch": 18446744073709552000,
+        "space": 592
+      }
+    }
+  },
+  {
+    "method": "getAccountInfo",
+    "params": [
+      "62vJ96UJHgPucPCS1wDme8Kgi3CF93uQNmoEKPveA83Z",
+      {
+        "commitment": "confirmed",
+        "encoding": "jsonParsed"
+      }
+    ],
+    "result": {
+      "context": {
+        "slot": 473520409
+      },
+      "value": {
+        "lamports": 2936240,
+        "data": {
+          "program": "spl-token-2022",
+          "parsed": {
+            "info": {
+              "decimals": 0,
+              "extensions": [
+                {
+                  "extension": "metadataPointer",
+                  "state": {
+                    "authority": "GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4",
+                    "metadataAddress": "GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te"
+                  }
+                },
+                {
+                  "extension": "permanentDelegate",
+                  "state": {
+                    "delegate": "GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4"
+                  }
+                },
+                {
+                  "extension": "mintCloseAuthority",
+                  "state": {
+                    "closeAuthority": "GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4"
+                  }
+                },
+                {
+                  "extension": "groupMemberPointer",
+                  "state": {
+                    "authority": "GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4",
+                    "memberAddress": "62vJ96UJHgPucPCS1wDme8Kgi3CF93uQNmoEKPveA83Z"
+                  }
+                },
+                {
+                  "extension": "tokenGroupMember",
+                  "state": {
+                    "group": "GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te",
+                    "memberNumber": 121847,
+                    "mint": "62vJ96UJHgPucPCS1wDme8Kgi3CF93uQNmoEKPveA83Z"
+                  }
+                }
+              ],
+              "freezeAuthority": "GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4",
+              "isInitialized": true,
+              "mintAuthority": "GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4",
+              "supply": "1"
+            },
+            "type": "mint"
+          },
+          "space": 450
+        },
+        "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "executable": false,
+        "rentEpoch": 18446744073709552000,
+        "space": 450
+      }
+    }
+  }
+]
