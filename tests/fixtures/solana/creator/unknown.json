@@ -1,0 +1,59 @@
+[
+  {
+    "method": "clock",
+    "result": 1795563050425
+  },
+  {
+    "method": "getMultipleAccounts",
+    "params": [
+      [
+        "BRzvYqBvN8HxCHykqiRU6BMW8ZKPMZ1dSb3RYH9VQFay",
+        "6FGQt3q1MNK37rpS1xszgdxXgWXjGBvxCJU5eobbWSHy",
+        "BZzWL1xjLT9vQhSuwoS4ChSn8Lc5ujn221TEyT8QTGaK"
+      ],
+      {
+        "commitment": "confirmed",
+        "encoding": "base64",
+        "dataSlice": {
+          "offset": 0,
+          "length": 81
+        }
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473529339
+      },
+      "value": [null, null, null]
+    }
+  },
+  {
+    "method": "getSignaturesForAddress",
+    "params": [
+      "BZzWL1xjLT9vQhSuwoS4ChSn8Lc5ujn221TEyT8QTGaK",
+      {
+        "commitment": "confirmed",
+        "limit": 1000
+      }
+    ],
+    "result": []
+  },
+  {
+    "method": "getAccountInfo",
+    "params": [
+      "BZzWL1xjLT9vQhSuwoS4ChSn8Lc5ujn221TEyT8QTGaK",
+      {
+        "commitment": "confirmed",
+        "encoding": "jsonParsed"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473529347
+      },
+      "value": null
+    }
+  }
+]
