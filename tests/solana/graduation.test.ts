@@ -105,6 +105,16 @@ describe('pump.fun', () => {
     expect(pumpCurveProgress(curve, global)).toBeCloseTo((793_100_000_000_000 - Number(curve.realTokenReserves)) / 793_100_000_000_000, 8);
     expect(pumpCurveProgress({ ...curve, virtualTokenReserves: curve.virtualTokenReserves + 1n }, global)).toBeNull();
     expect(pumpCurveProgress({ ...curve, complete: true }, global)).toBe(1);
+    // Same reserve gap but another supply: not a curve of these parameters, not measured.
+    expect(pumpCurveProgress({ ...curve, tokenTotalSupply: 2n * curve.tokenTotalSupply }, global)).toBeNull();
+    // Both token reserves moved up together past the start: not measured either, never a negative share.
+    const above = 1_000_000n + global.initialRealTokenReserves - curve.realTokenReserves;
+    expect(
+      pumpCurveProgress(
+        { ...curve, realTokenReserves: curve.realTokenReserves + above, virtualTokenReserves: curve.virtualTokenReserves + above },
+        global,
+      ),
+    ).toBeNull();
   });
 
   it('the PumpSwap pool migrate creates: DjbLtX1H… for B34nXKzC…, the pool DexScreener lists', () => {

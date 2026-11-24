@@ -2,12 +2,13 @@ import type { SolanaSourceName, SourceRef, Sourced } from '../contracts';
 import { NotFoundError, SealError, TimeoutError, UpstreamError } from '../errors';
 import { BudgetExhaustedError, requestJson, type RequestBudget } from '../http';
 import { isSolanaAddress } from '../solana/address';
+import { NATIVE_MINT } from '../solana/programs';
 import { readSolanaGraduation } from '../solana/graduation';
 import { findLaunchAccount, readSolanaLaunch, type LaunchAccount } from '../solana/launchpads';
 import { readSolanaLiquidity } from '../solana/liquidity';
 import type { SolanaRpc } from '../solana/rpc';
 import { solanaTokenPairsUrl, type DexScreenerPair } from './dexscreener';
-import { MAX_LISTED_POOLS, pickPrimaryPair, quietFor } from './index';
+import { MAX_LISTED_POOLS, MEANINGFUL_POOL_USD, pickPrimaryPair, quietFor } from './index';
 import type {
   ListedToken,
   SolanaGraduation,
@@ -84,9 +85,29 @@ export function solanaListedPools(
 }
 
 /**
- * The main pair: the most liquid one where the token is the base. A curve
- * has no liquidity figure; when no pair has one, the first listed is taken
- * (DexScreener lists a curve token's curve first).
+ * Quote assets whose pairs give the main price: wrapped SOL and the two
+ * dollar stablecoins. Checked on mainnet on 25/11/2026 (mint account and
+ * Metaplex metadata): USDC EPjFWdd5… "USD Coin" / USDC, USDT Es9vMFrz… "USDT"
+ * / USDT, both SPL Token, 6 decimals.
+ *
+ * DexScreener prices a pair through its quote token. Against a thin or
+ * mispriced quote token, a pair can show a liquidity and a price far from the
+ * token's market: B34nXKzC… (FIONA) had a $4.5M "liquidity" pair against
+ * Milk Money (MM, Ax8PSfCX…) pricing it at $35.05 (FDV $34.6B) while its
+ * $195k PumpSwap pool against SOL and every other pair priced it near $0.0033
+ * (read 25/11/2026). The main pair is taken among the pairs against these
+ * assets first.
+ */
+export const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+export const USDT_MINT = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
+export const REFERENCE_QUOTES: ReadonlySet<string> = new Set([NATIVE_MINT, USDC_MINT, USDT_MINT]);
+
+/**
+ * The main pair, where the token is the base: the most liquid one against
+ * SOL, USDC or USDT holding at least MEANINGFUL_POOL_USD (a dust pool anyone
+ * can open is not the market); when there is none, the most liquid one
+ * against any token. A curve has no liquidity figure; when no pair has one,
+ * the first listed is taken (DexScreener lists a curve token's curve first).
  */
 export function pickSolanaPair(
   mint: string,
@@ -94,6 +115,12 @@ export function pickSolanaPair(
 ): DexScreenerPair | undefined {
   const own = pairs.filter((p) => p.baseToken?.address === mint && p.pairAddress);
   const liquid = own.filter((p) => num(p.liquidity?.usd) !== null);
+  const reference = liquid.filter(
+    (p) =>
+      REFERENCE_QUOTES.has(p.quoteToken?.address ?? '') &&
+      (num(p.liquidity?.usd) ?? 0) >= MEANINGFUL_POOL_USD,
+  );
+  if (reference.length > 0) return pickPrimaryPair(reference);
   return pickPrimaryPair(liquid.length > 0 ? liquid : own.slice(0, 1));
 }
 
@@ -174,20 +201,24 @@ export function toSolanaMarketState(
     data.priceUsd === null ? 'price' : null,
     data.liquidityUsd === null ? 'liquidity' : null,
   ].filter((x): x is string => x !== null);
-  const onCurve = data.liquidityUsd === null && data.priceUsd !== null;
+  const quote = pair.quoteToken?.address;
+  const notes = [
+    missing.length === 0
+      ? null
+      : missing.length === 1 && missing[0] === 'liquidity'
+        ? `DexScreener gives no liquidity figure for the main pair (${data.dex ?? 'unknown venue'})`
+        : `${missing.join(' and ')} missing from the response`,
+    quote && !REFERENCE_QUOTES.has(quote)
+      ? `the main pair trades against ${pair.quoteToken?.symbol ?? quote}, not SOL, USDC or USDT: its USD figures go through that token's price`
+      : null,
+  ].filter((n): n is string => n !== null);
   return {
     completeness: missing.length === 0 ? 'full' : 'partial',
     sources: [
       {
         name: 'dexscreener-solana',
         fetchedAt,
-        ...(missing.length === 0
-          ? {}
-          : {
-              note: onCurve
-                ? `no liquidity figure for the main pair (${data.dex ?? 'unknown venue'}): a launchpad curve is listed without one`
-                : `${missing.join(' and ')} missing from the response`,
-            }),
+        ...(notes.length > 0 ? { note: notes.join('; ') } : {}),
       },
     ],
     data,
@@ -253,11 +284,18 @@ function withDeadline<T>(
   ]).finally(() => clearTimeout(timer));
 }
 
-function failed<T>(name: SourceRef['name'], fetchedAt: string, error: unknown, data: T): Sourced<T> {
+function failed<T>(
+  name: SourceRef['name'],
+  fetchedAt: string,
+  error: unknown,
+  data: T,
+  note?: string,
+): Sourced<T> {
   const reason =
-    error instanceof SealError || error instanceof BudgetExhaustedError
+    note ??
+    (error instanceof SealError || error instanceof BudgetExhaustedError
       ? error.message
-      : 'unexpected error';
+      : 'unexpected error');
   return { completeness: 'unavailable', sources: [{ name, fetchedAt, note: reason }], data };
 }
 
@@ -288,6 +326,17 @@ export async function readSolanaMarket(
   const deadline = Date.now() + (options.deadlineMs ?? SOLANA_MARKET_DEADLINE_MS);
   const at = () => now().toISOString();
   const { rpc } = options;
+
+  if (!isSolanaAddress(mint)) {
+    // Nothing to ask anyone: no request, no call.
+    const note = 'not a Solana address';
+    return {
+      market: failed('dexscreener-solana', at(), null, toSolanaMarketState(mint, [], { now }).data, note),
+      launch: failed('solana-rpc', at(), null, { mint, launchpad: null, account: null, foundBy: null }, note),
+      graduation: null,
+      liquidity: failed('solana-rpc', at(), null, { mint, pools: [] }, note),
+    };
+  }
 
   let market: SolanaMarketState;
   try {
@@ -327,9 +376,11 @@ export async function readSolanaMarket(
     }
   }
 
-  // The pool the token graduated to first, then the most liquid listed pools;
-  // the launch curve is not a pool.
-  const listed = pools.filter((p) => p.id !== found?.address).map((p) => p.id);
+  // The pool the token graduated to first, then the most liquid listed pools
+  // where it is the base; the launch curve is not a pool, and a pair where the
+  // token is only the quote (another token's launch, as FIONA's PumpSwap
+  // pairs of other pump.fun coins) says nothing of this token's liquidity.
+  const listed = pools.filter((p) => p.base && p.id !== found?.address).map((p) => p.id);
   const destination = graduation?.data.destination?.pool;
   const wanted = [...new Set([...(destination ? [destination] : []), ...listed])];
   let liquidity: SolanaLiquidity;

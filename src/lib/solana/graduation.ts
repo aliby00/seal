@@ -124,15 +124,19 @@ export function decodePumpGlobal(bytes: Uint8Array): PumpGlobal | null {
 /**
  * Part of the curve's tokens sold, from 0 to 1. Buys and sells move the
  * virtual and real token reserves by the same amount, so their difference
- * stays what it was at creation: when it matches the Global parameters, the
- * curve started from them and its initial real reserves are known. When it
- * does not (a curve created under other parameters), `null`.
+ * stays what it was at creation: when it matches the Global parameters, and
+ * the curve's total supply is Global's, the curve started from them and its
+ * initial real reserves are known. When either differs (a curve created under
+ * other parameters), `null`.
  */
 export function pumpCurveProgress(curve: PumpCurve, global: PumpGlobal): number | null {
   if (curve.complete) return 1;
   const offset = curve.virtualTokenReserves - curve.realTokenReserves;
   const expected = global.initialVirtualTokenReserves - global.initialRealTokenReserves;
   if (offset !== expected || global.initialRealTokenReserves <= 0n) return null;
+  if (curve.tokenTotalSupply !== global.tokenTotalSupply) return null;
+  // More left than the curve starts with: not a curve of these parameters.
+  if (curve.realTokenReserves > global.initialRealTokenReserves) return null;
   return ratio(global.initialRealTokenReserves - curve.realTokenReserves, global.initialRealTokenReserves);
 }
 

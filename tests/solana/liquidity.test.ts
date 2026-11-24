@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { RateLimitError } from '../../src/lib/errors';
 import { BudgetExhaustedError } from '../../src/lib/http';
 import { createFakeSolanaRpc } from '../../src/lib/solana/fake-rpc';
 import {
@@ -131,9 +132,41 @@ describe('LP-token pools', () => {
         throw new BudgetExhaustedError('solana-rpc', 1);
       },
     };
+    const read = await readSolanaLiquidity(rpc, 'CDBdbNqmrLu1PcgjrFG52yxg71QnFhBZcUE6PSFdbonk', recordedPools('launchlab-amm.json'));
+    // The shares already read stand; the holders are missing for the reason they are.
+    const [amm] = read.data.pools;
+    expect(amm).toMatchObject({ known: true, holders: [], note: 'the LP holders were not listed: the read ran out of calls' });
+    expect(amm?.burnedShare).toBeCloseTo(0.999735771, 8);
+  });
+
+  it('a pool whose own reads fail is reported unknown with the reason; the other pools are still described', async () => {
+    const base = fakeRpcFor('market', ['dbc-migrated-usdc.json']);
+    const rpc: SolanaRpc = {
+      ...base,
+      getProgramAccounts: async () => {
+        throw new RateLimitError('solana-rpc');
+      },
+    };
+    const pools = recordedPools('dbc-migrated-usdc.json');
+    const read = await readSolanaLiquidity(rpc, 'Ax5dAamJPeuaLpFUzs9FdcpoUhHDcxyjPzxCJQidjups', pools, { now: at });
+    expect(read.data.pools).toHaveLength(pools.length);
+    expect(read.data.pools[0]).toMatchObject({ kind: 'meteora-damm-v2', known: false, lockedShare: null });
+    expect(read.data.pools[0]?.note).toMatch(/^the pool could not be read: /);
+    expect(read.data.pools.slice(1).every((p) => p.kind === 'meteora-dlmm' && /Meteora DLMM/.test(p.note ?? ''))).toBe(true);
+    expect(read.completeness).toBe('unavailable');
+  });
+
+  it('a bug is not swallowed as an unknown pool', async () => {
+    const base = fakeRpcFor('market', ['dbc-migrated-usdc.json']);
+    const rpc: SolanaRpc = {
+      ...base,
+      getProgramAccounts: async () => {
+        throw new TypeError('boom');
+      },
+    };
     await expect(
-      readSolanaLiquidity(rpc, 'CDBdbNqmrLu1PcgjrFG52yxg71QnFhBZcUE6PSFdbonk', recordedPools('launchlab-amm.json')),
-    ).rejects.toBeInstanceOf(BudgetExhaustedError);
+      readSolanaLiquidity(rpc, 'Ax5dAamJPeuaLpFUzs9FdcpoUhHDcxyjPzxCJQidjups', recordedPools('dbc-migrated-usdc.json')),
+    ).rejects.toBeInstanceOf(TypeError);
   });
 });
 
@@ -150,6 +183,20 @@ describe('Meteora DAMM v2', () => {
     expect(damm?.lockedShare).toBeCloseTo(0.990724257, 8);
     expect(damm?.withdrawableShare).toBeCloseTo(0.009275742, 8);
     expect(damm?.holdersCount).toBe(8);
+    // The positions add up to the pool; who holds the withdrawable ones is not read, and said.
+    expect(damm?.note).toBe('who holds the positions that can be withdrawn is not read');
+  });
+
+  it('DAMM v2 positions that do not add up to the pool are said to fall short', async () => {
+    const base = fakeRpcFor('market', ['dbc-migrated-usdc.json']);
+    const rpc: SolanaRpc = {
+      ...base,
+      // One position of the eight recorded is left out.
+      getProgramAccounts: async (program, options) => (await base.getProgramAccounts(program, options)).slice(1),
+    };
+    const read = await readSolanaLiquidity(rpc, 'Ax5dAamJPeuaLpFUzs9FdcpoUhHDcxyjPzxCJQidjups', recordedPools('dbc-migrated-usdc.json'), { now: at });
+    expect(read.data.pools[0]?.holdersCount).toBe(7);
+    expect(read.data.pools[0]?.note).toMatch(/do not add up to the pool’s liquidity/);
   });
 });
 

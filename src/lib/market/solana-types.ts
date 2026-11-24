@@ -171,7 +171,11 @@ export type SolanaLiquidity = Sourced<SolanaLiquidityData>;
 export type SolanaMarketRead = {
   market: SolanaMarketState;
   launch: SolanaLaunch;
-  /** `null` when no launchpad read here holds the token. */
+  /**
+   * `null` when no launchpad read here holds the token, and also when the
+   * launch lookup itself failed: `launch.completeness` tells the two apart
+   * (`full` with no launchpad, or `unavailable` with its reason).
+   */
   graduation: SolanaGraduation | null;
   liquidity: SolanaLiquidity;
 };

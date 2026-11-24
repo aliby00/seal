@@ -48,3 +48,14 @@ Also:
   `getTokenLargestAccounts` on a keyed node.
 - **The public node rate-limits program scans** (429, `Retry-After: 10`) after
   a few in a row.
+- **The most liquid pair is not always the market** (review, 25/11/2026): in
+  `pump-graduated`, FIONA's largest pair (`AnZQ2Wkd…`, Meteora DLMM, $4.5M) is
+  against Milk Money (MM, `Ax8PSfCX…`) and prices FIONA at $35.05 (FDV
+  $34.6B), while its PumpSwap pool against SOL (`DjbLtX1H…`, $198k) and every
+  other pair price it near $0.0034. The main pair is the most liquid one
+  against SOL, USDC or USDT holding at least $1,000 (`MEANINGFUL_POOL_USD`);
+  another quote is used only when there is none, and the note names it.
+- **DAMM v2 positions do not always add up to the pool** (review): pool
+  `AhhFq3wY…` (MINI against `SV151D5p…`, read live, not recorded) has one
+  position slightly below the pool's
+  liquidity. The read says so instead of taking the sum for the whole.

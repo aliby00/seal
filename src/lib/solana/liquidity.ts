@@ -5,6 +5,7 @@ import type {
   SolanaPoolLiquidity,
 } from '../market/solana-types';
 import { findProgramAddress } from './address';
+import { SealError } from '../errors';
 import { BudgetExhaustedError } from '../http';
 import {
   DAMM_V2_POOL_SIZE,
@@ -208,20 +209,26 @@ export function lpLockAccounts(lpMint: string, lpProgram: string): { lock: strin
 async function largestLpHolders(
   rpc: SolanaRpc,
   lpMint: string,
-): Promise<{ account: string; owner: string; amount: bigint }[] | null> {
+): Promise<{ account: string; owner: string; amount: bigint }[] | 'not-served' | 'allowance-spent'> {
   let largest;
   try {
     largest = await rpc.getTokenLargestAccounts(lpMint);
   } catch (error) {
-    if (error instanceof BudgetExhaustedError) throw error;
-    return null;
+    // A spent allowance is not a node that does not list holders: said apart.
+    return error instanceof BudgetExhaustedError ? 'allowance-spent' : 'not-served';
   }
   const withBalance = largest.filter((a) => a.amount !== '0').slice(0, MAX_LP_HOLDERS);
   if (withBalance.length === 0) return [];
-  const infos = await rpc.getMultipleAccounts(
-    withBalance.map((a) => a.address),
-    { encoding: 'jsonParsed' },
-  );
+  let infos: (AccountInfo | null)[];
+  try {
+    infos = await rpc.getMultipleAccounts(
+      withBalance.map((a) => a.address),
+      { encoding: 'jsonParsed' },
+    );
+  } catch (error) {
+    if (error instanceof BudgetExhaustedError) return 'allowance-spent';
+    throw error;
+  }
   return withBalance.flatMap((a, i) => {
     const parsed = parsedTokenAccount(infos[i] ?? null);
     return parsed && parsed.mint === lpMint
@@ -255,10 +262,12 @@ async function readLpPool(
   const locked = held(vaults.lock, RAYDIUM_LOCK_CP_AUTHORITY) + held(vaults.burn, INCINERATOR);
   const withdrawable = supply > locked ? supply - locked : 0n;
 
-  const largest = withdrawable > 0n ? await largestLpHolders(rpc, lpMint) : [];
+  const listed = withdrawable > 0n ? await largestLpHolders(rpc, lpMint) : [];
+  const largest = Array.isArray(listed) ? listed : null;
   const notes = [
     burned < 0n ? 'the LP mint holds more than the pool counts: shares are of the pool’s count' : null,
-    largest === null ? 'the LP holders were not listed: the node does not serve getTokenLargestAccounts' : null,
+    listed === 'not-served' ? 'the LP holders were not listed: the node does not serve getTokenLargestAccounts' : null,
+    listed === 'allowance-spent' ? 'the LP holders were not listed: the read ran out of calls' : null,
   ].filter((n): n is string => n !== null);
   return {
     pool,
@@ -289,13 +298,27 @@ async function readDammV2(rpc: SolanaRpc, pool: string, info: AccountInfo, bytes
   });
   let unlocked = 0n;
   let vested = 0n;
+  let locked = 0n;
   for (const { account } of positions) {
     const b = accountBytes(account);
     if (!b || b.length < 48) continue;
     unlocked += readU128(b, 0);
     vested += readU128(b, 16);
+    locked += readU128(b, 32);
   }
+  // The positions add up to the pool (checked on BjoLhk… and CP222U…); when
+  // they do not, some were not returned and the shares below fall short.
+  const complete = unlocked + vested + locked === liquidity;
   const vestedShare = ratio(vested, liquidity);
+  const notes =
+    liquidity === 0n
+      ? ['the pool holds no liquidity']
+      : [
+          vested > 0n ? `${(vestedShare * 100).toFixed(2)}% of the liquidity unlocks over time (vesting)` : null,
+          // A position is held through its NFT; who holds each NFT is not read here.
+          unlocked > 0n ? 'who holds the positions that can be withdrawn is not read' : null,
+          complete ? null : 'the positions read do not add up to the pool’s liquidity: the withdrawable part may be larger',
+        ].filter((n): n is string => n !== null);
   return {
     pool,
     program: info.owner,
@@ -307,12 +330,7 @@ async function readDammV2(rpc: SolanaRpc, pool: string, info: AccountInfo, bytes
     withdrawableShare: liquidity > 0n ? ratio(unlocked, liquidity) : null,
     holders: [],
     holdersCount: positions.length,
-    note:
-      liquidity === 0n
-        ? 'the pool holds no liquidity'
-        : vested > 0n
-          ? `${(vestedShare * 100).toFixed(2)}% of the liquidity unlocks over time (vesting)`
-          : null,
+    note: notes.length > 0 ? notes.join('; ') : null,
   };
 }
 
@@ -322,6 +340,26 @@ const NOT_READ: Partial<Record<SolanaPoolKind, string>> = {
   'meteora-dlmm': 'Meteora DLMM liquidity sits in positions whose holders are not read',
   'meteora-damm-v1': 'Meteora DAMM v1 LP is held through vaults that are not read',
 };
+
+/**
+ * One pool's read: when its own calls fail (rate limit, spent allowance, a
+ * node error), that pool is reported unknown with the reason and the pools
+ * already read stand. Anything else is a bug and is thrown.
+ */
+async function isolated(
+  pool: string,
+  info: AccountInfo,
+  read: () => Promise<SolanaPoolLiquidity>,
+): Promise<SolanaPoolLiquidity> {
+  try {
+    return await read();
+  } catch (error) {
+    if (error instanceof SealError || error instanceof BudgetExhaustedError) {
+      return unknownPool(pool, info, `the pool could not be read: ${error.message}`);
+    }
+    throw error;
+  }
+}
 
 function holdsMint(bytes: Uint8Array, offsets: readonly number[], mint: string): boolean {
   return offsets.some((o) => bytes.length >= o + 32 && readAddress(bytes, o) === mint);
@@ -383,7 +421,10 @@ export async function readSolanaLiquidity(
       } else if (!holdsMint(d.bytes, d.layout.mints, mint)) {
         out.push(unknownPool(d.pool, d.info, 'the pool does not hold this token'));
       } else {
-        out.push(await readLpPool(rpc, d.pool, d.info, d.bytes, d.layout, reads));
+        const info = d.info;
+        const bytes = d.bytes;
+        const layout = d.layout;
+        out.push(await isolated(d.pool, info, () => readLpPool(rpc, d.pool, info, bytes, layout, reads)));
       }
       continue;
     }
@@ -393,7 +434,9 @@ export async function readSolanaLiquidity(
       } else if (!holdsMint(d.bytes, DAMM_V2.mints, mint)) {
         out.push(unknownPool(d.pool, d.info, 'the pool does not hold this token'));
       } else {
-        out.push(await readDammV2(rpc, d.pool, d.info, d.bytes));
+        const info = d.info;
+        const bytes = d.bytes;
+        out.push(await isolated(d.pool, info, () => readDammV2(rpc, d.pool, info, bytes)));
       }
       continue;
     }

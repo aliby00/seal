@@ -112,7 +112,9 @@ describe('toSolanaMarketState on recorded answers', () => {
     expect(state.data.pairedWith?.symbol).toBe('XMR');
     expect(state.data.liquidityUsd).toBeNull();
     expect(state.data.priceUsd).toBeGreaterThan(0);
-    expect(state.sources[0]?.note).toMatch(/launchpad curve is listed without one/);
+    expect(state.sources[0]?.note).toMatch(/no liquidity figure for the main pair \(pumpfun\)/);
+    // Its USD price goes through WXMR's: said, not judged.
+    expect(state.sources[0]?.note).toMatch(/trades against XMR, not SOL, USDC or USDT/);
   });
 
   it('a Meteora DBC curve reads the same way', () => {
@@ -122,14 +124,56 @@ describe('toSolanaMarketState on recorded answers', () => {
     expect(state.completeness).toBe('partial');
   });
 
-  it('picks the most liquid pair where the token is the base', () => {
-    const state = toSolanaMarketState(MINTS['pump-graduated'], pairsOf('pump-graduated'), { now: at });
-    expect(state.data.pair).toBe('AnZQ2WkdREg5v1cLT96mnt63wYysRXPtfnkU8JVFDN2f');
-    expect(state.data.dex).toBe('meteora');
-    expect(state.data.liquidityUsd).toBeCloseTo(4475088.75);
+  it('picks the most liquid pair against SOL, USDC or USDT, not a larger one against a mispriced token', () => {
+    // FIONA's most "liquid" pair ($4.5M) is against Milk Money (MM) and prices
+    // it at $35.05 (FDV $34.6B); its PumpSwap pool against SOL and every other
+    // pair price it near $0.0034 (recorded 25/11/2026).
+    const pairs = pairsOf('pump-graduated');
+    const spoof = pairs.find((p) => p.pairAddress === 'AnZQ2WkdREg5v1cLT96mnt63wYysRXPtfnkU8JVFDN2f');
+    expect(spoof?.quoteToken?.symbol).toBe('MM');
+    expect(Number(spoof?.priceUsd)).toBeGreaterThan(30);
+    const state = toSolanaMarketState(MINTS['pump-graduated'], pairs, { now: at });
+    expect(state.data.pair).toBe('DjbLtX1HRGZZrJgJ7CwTX6SN3D7tBLiytkGwomBUwTVB');
+    expect(state.data.dex).toBe('pumpswap');
+    expect(state.data.pairedWith?.symbol).toBe('SOL');
+    expect(state.data.priceUsd).toBe(0.00342);
+    expect(state.data.liquidityUsd).toBeCloseTo(198489.29);
+    expect(state.data.fdvUsd).toBeLessThan(4_000_000);
+    expect(state.completeness).toBe('full');
+    expect(state.sources[0]).not.toHaveProperty('note');
+    // The MM pair is still listed among the pools, the most liquid first.
+    expect(state.data.pools[0]?.id).toBe('AnZQ2WkdREg5v1cLT96mnt63wYysRXPtfnkU8JVFDN2f');
     // Pairs where FIONA is the quote side are listed, flagged as such.
     expect(state.data.pools.some((p) => !p.base)).toBe(true);
     expect(state.data.pools.length).toBeLessThanOrEqual(12);
+  });
+
+  it('with no pair against SOL, USDC or USDT, the most liquid pair, its quote named', () => {
+    const pairs = pairsOf('pump-graduated').filter(
+      (p) => p.baseToken?.address === MINTS['pump-graduated'] && !['SOL', 'USDC', 'USDT'].includes(p.quoteToken?.symbol ?? ''),
+    );
+    expect(pairs.length).toBeGreaterThan(1);
+    const state = toSolanaMarketState(MINTS['pump-graduated'], pairs, { now: at });
+    expect(state.data.pair).toBe('AnZQ2WkdREg5v1cLT96mnt63wYysRXPtfnkU8JVFDN2f');
+    expect(state.sources[0]?.note).toBe(
+      'the main pair trades against MM, not SOL, USDC or USDT: its USD figures go through that token\'s price',
+    );
+  });
+
+  it('a dust pool against SOL is not the market: the most liquid pair is, its quote named', () => {
+    // underdog's CPMM pool against SOL brought down to $12, under MEANINGFUL_POOL_USD.
+    const pairs = pairsOf('launchlab-cpmm').map((p) =>
+      p.pairAddress === 'CuAr9cYgcSr4HVvByctB1qHzKC8UuGRt8rQRC4nByaoa' ? { ...p, liquidity: { ...p.liquidity, usd: 12 } } : p,
+    );
+    const state = toSolanaMarketState(MINTS['launchlab-cpmm'], pairs, { now: at });
+    expect(state.data.pair).toBe('96yihy6gSVeSRXKT4Chysgg9v6U8RGptwn51MQ51JsAQ');
+    expect(state.sources[0]?.note).toMatch(/trades against USD1, not SOL, USDC or USDT/);
+  });
+
+  it('a pair against USDC counts as much as one against SOL: RAY reads its RAY/USDC pool', () => {
+    const state = toSolanaMarketState(MINTS.ray, pairsOf('ray'), { now: at });
+    expect(state.data.pair).toBe('6UmmUiYoBjSrhakAobJw8BvkmJtDVxaeBtbt7rxWo1mg');
+    expect(state.data.pairedWith?.address).toBe('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
   });
 
   it('no pair indexed: unavailable, not an error', () => {
@@ -291,5 +335,54 @@ describe('readSolanaMarket, the whole zone, on recorded answers', () => {
     expect(result.launch.completeness).toBe('unavailable');
     expect(result.launch.sources[0]?.note).toMatch(/timed out/);
     expect(SOLANA_MARKET_DEADLINE_MS).toBeLessThanOrEqual(15_000);
+  });
+
+  it('not a Solana address: every part unavailable with that reason, no request, no call', async () => {
+    const fetchMock = stubDexScreener([]);
+    for (const input of ['not-an-address', '0x494ddf6f7b4b045ede0abbb9ae86e4d59fa62ec9', '']) {
+      const rpc = createFakeSolanaRpc([]);
+      const result = await readSolanaMarket(input, { rpc, now: at });
+      expect(rpc.calls).toEqual([]);
+      for (const part of [result.market, result.launch, result.liquidity]) {
+        expect(part.completeness).toBe('unavailable');
+        expect(part.sources[0]?.note).toBe('not a Solana address');
+      }
+      expect(result.graduation).toBeNull();
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('reads the liquidity of the pools where the token is the base, not of another token’s pool quoted in it', async () => {
+    // A pair where FIONA is only the quote side (TIMOTHY/FIONA on PumpSwap),
+    // made the most liquid: it is still listed, but its LP is TIMOTHY's launch.
+    const pairs = pairsOf('pump-graduated').map((p) =>
+      p.pairAddress === '7NCEXHBRkerKTdc4GrcfW6CmAsdsKmrQ6qGPfSQ7Vip7'
+        ? { ...p, liquidity: { ...p.liquidity, usd: 1e9 } }
+        : p,
+    );
+    stubDexScreener(pairs);
+    // The launch lookup now asks the same recorded accounts in another order:
+    // it is answered from the recorded values, address by address.
+    const recordings = loadRecordings('market', ['pump-graduated.json']);
+    const first = recordings.find((e) => e.method === 'getMultipleAccounts');
+    const values = (first?.result as { value: unknown[] }).value;
+    const known = new Map((first?.params?.[0] as string[]).map((a, i) => [a, values[i]]));
+    const curve = '8ypnRXDiWLUtgM2gGBueGJhVr5obKhLF6rXQ8Bvd9XGm';
+    const base = createFakeSolanaRpc(recordings);
+    const rpc: SolanaRpc = {
+      ...base,
+      getMultipleAccounts: async (addresses, options) =>
+        addresses.includes(curve) && addresses.every((a) => known.has(a))
+          ? (addresses.map((a) => structuredClone(known.get(a))) as Awaited<ReturnType<SolanaRpc['getMultipleAccounts']>>)
+          : base.getMultipleAccounts(addresses, options),
+    };
+    const result = await readSolanaMarket(MINTS['pump-graduated'], { rpc, now: at });
+    expect(result.graduation?.data.destination?.pool).toBe('DjbLtX1HRGZZrJgJ7CwTX6SN3D7tBLiytkGwomBUwTVB');
+    expect(result.market.data.pools[0]).toMatchObject({ id: '7NCEXHBRkerKTdc4GrcfW6CmAsdsKmrQ6qGPfSQ7Vip7', base: false });
+    expect(result.liquidity.data.pools.map((p) => p.pool)).toEqual([
+      'DjbLtX1HRGZZrJgJ7CwTX6SN3D7tBLiytkGwomBUwTVB',
+      'AnZQ2WkdREg5v1cLT96mnt63wYysRXPtfnkU8JVFDN2f',
+      'Cqqm1KxwAELT6t21dUQfDEecZrqZ6dgA7dK2ptK9oj5g',
+    ]);
   });
 });
