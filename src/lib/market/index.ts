@@ -3,7 +3,7 @@ import { NotFoundError, UpstreamError } from '../errors';
 import { requestJson, type RequestBudget } from '../http';
 import { tokenPairsUrl, type DexScreenerPair } from './dexscreener';
 
-export { ROBINHOOD_SLUG, tokenPairsUrl } from './dexscreener';
+export { ROBINHOOD_SLUG, SOLANA_SLUG, solanaTokenPairsUrl, tokenPairsUrl } from './dexscreener';
 export type { DexScreenerPair } from './dexscreener';
 
 /** État de graduation, lu on-chain par `lib/chain` et injecté ici par l'orchestrateur. */
@@ -258,8 +258,10 @@ export function mainPool(
   market: Pick<MarketStateData, 'pair' | 'pools'> | undefined,
 ): ListedPool | null {
   if (!market?.pair) return null;
-  const id = market.pair.toLowerCase();
-  return market.pools?.find((p) => p.id === id) ?? null;
+  // EVM ids are kept lowercase; a Solana id keeps its case (base58 is case-sensitive).
+  const pair = market.pair;
+  const id = pair.toLowerCase();
+  return market.pools?.find((p) => p.id === pair) ?? market.pools?.find((p) => p.id === id) ?? null;
 }
 
 /** The pools beside the main one with liquidity enough to be traded in, where the token is the base. */
@@ -322,7 +324,9 @@ export function venuesOf(
  * histoire que 485 $ sur 200 échanges. On expose le ratio brut : c'est à
  * l'agent d'en tirer une lecture, pas à nous.
  */
-export function volumePerTrade(state: MarketState): number | null {
+export function volumePerTrade(state: {
+  data: Pick<MarketStateData, 'volumeUsd' | 'txns'>;
+}): number | null {
   const volume = state.data.volumeUsd?.h24;
   const counts = state.data.txns?.h24;
   if (volume === undefined || !counts) return null;

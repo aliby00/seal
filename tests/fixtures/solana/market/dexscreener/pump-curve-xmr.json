@@ -1,0 +1,74 @@
+[
+ {
+  "chainId": "solana",
+  "dexId": "pumpfun",
+  "url": "https://dexscreener.com/solana/8j8apxsgywc9m9xysaadcymuzhetfzs2zmoj36opq8ya",
+  "pairAddress": "8j8apXSGYWc9m9XySAADCYmUzhetFzs2ZMoj36opQ8YA",
+  "baseToken": {
+   "address": "ANDLpP3C7tFXEpqRBmmnbS4usmQthHfs93N5oHGpump",
+   "name": "Bouncer",
+   "symbol": "BOUNCER"
+  },
+  "quoteToken": {
+   "address": "WXMRyRZhsa19ety5erZhHg4N3xj3EVN92u94422teJp",
+   "name": "Monero",
+   "symbol": "XMR"
+  },
+  "priceNative": "0.000000006119",
+  "priceUsd": "0.000003138",
+  "txns": {
+   "m5": {
+    "buys": 0,
+    "sells": 10
+   },
+   "h1": {
+    "buys": 174,
+    "sells": 261
+   },
+   "h6": {
+    "buys": 506,
+    "sells": 527
+   },
+   "h24": {
+    "buys": 506,
+    "sells": 527
+   }
+  },
+  "volume": {
+   "h24": 61561.7,
+   "h6": 61561.7,
+   "h1": 24335.01,
+   "m5": 107.16
+  },
+  "priceChange": {
+   "m5": -6.13,
+   "h1": -83.13,
+   "h6": -18.44,
+   "h24": -18.44
+  },
+  "fdv": 3138.1,
+  "marketCap": 3138.1,
+  "pairCreatedAt": 1795552482000,
+  "info": {
+   "imageUrl": "https://cdn.dexscreener.com/cms/images/r3tU0QUYekXTyTPu?width=800&height=800&quality=95&format=auto",
+   "header": "https://cdn.dexscreener.com/cms/images/zYTqCsbmiVBW1jIa?width=1500&height=500&quality=95&format=auto",
+   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/ANDLpP3C7tFXEpqRBmmnbS4usmQthHfs93N5oHGpump?timestamp=1795561800000",
+   "websites": [
+    {
+     "url": "https://getbouncer.xyz/",
+     "label": "Website"
+    },
+    {
+     "url": "https://getbouncer.xyz/docs/",
+     "label": "Docs"
+    }
+   ],
+   "socials": [
+    {
+     "url": "https://x.com/bouncerxyz",
+     "type": "twitter"
+    }
+   ]
+  }
+ }
+]
