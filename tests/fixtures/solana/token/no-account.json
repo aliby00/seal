@@ -1,0 +1,39 @@
+[
+  {
+    "method": "getMultipleAccounts",
+    "params": [
+      [
+        "1nc1nerator11111111111111111111111111111111",
+        "8YaUDuZvew9ihsnLaLUXs9MaLngMSxPCMrD1ttozEiGE"
+      ],
+      {
+        "commitment": "confirmed",
+        "encoding": "base64"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473520435
+      },
+      "value": [null, null]
+    }
+  },
+  {
+    "method": "getAccountInfo",
+    "params": [
+      "1nc1nerator11111111111111111111111111111111",
+      {
+        "commitment": "confirmed",
+        "encoding": "jsonParsed"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473520436
+      },
+      "value": null
+    }
+  }
+]

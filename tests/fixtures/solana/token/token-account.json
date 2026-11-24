@@ -1,0 +1,82 @@
+[
+  {
+    "method": "getMultipleAccounts",
+    "params": [
+      [
+        "33J8AEXc7aFsnNoEU8wr2qNtNGQKXzRYXaZkAM54vuN3",
+        "2fXyhaA46GxeaEFtKoxE2YheUqPyhBnpkJfVA1n4TaSW"
+      ],
+      {
+        "commitment": "confirmed",
+        "encoding": "base64"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473520427
+      },
+      "value": [
+        {
+          "data": [
+            "lRxPeg1ZlHFHH98uKWAA+TMrZw+18kLvkhCMTycVg++9NXf/Q+K6EihxqNl2pcsGCgdoQxHtYwnpcODNliUvavsosZCUGwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgcAAAA=",
+            "base64"
+          ],
+          "executable": false,
+          "lamports": 1513840,
+          "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "rentEpoch": 18446744073709552000,
+          "space": 170
+        },
+        null
+      ]
+    }
+  },
+  {
+    "method": "getAccountInfo",
+    "params": [
+      "33J8AEXc7aFsnNoEU8wr2qNtNGQKXzRYXaZkAM54vuN3",
+      {
+        "commitment": "confirmed",
+        "encoding": "jsonParsed"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473520429
+      },
+      "value": {
+        "data": {
+          "parsed": {
+            "info": {
+              "extensions": [
+                {
+                  "extension": "immutableOwner"
+                }
+              ],
+              "isNative": false,
+              "mint": "B34nXKzCgsJb9ChLuSHPRpXLE3WFSWyeT8Cqkzzmpump",
+              "owner": "DjbLtX1HRGZZrJgJ7CwTX6SN3D7tBLiytkGwomBUwTVB",
+              "state": "initialized",
+              "tokenAmount": {
+                "amount": "30324896639227",
+                "decimals": 6,
+                "uiAmount": 30324896.639227,
+                "uiAmountString": "30324896.639227"
+              }
+            },
+            "type": "account"
+          },
+          "program": "spl-token-2022",
+          "space": 170
+        },
+        "executable": false,
+        "lamports": 1513840,
+        "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "rentEpoch": 18446744073709552000,
+        "space": 170
+      }
+    }
+  }
+]

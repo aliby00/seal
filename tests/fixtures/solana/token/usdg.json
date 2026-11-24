@@ -1,0 +1,146 @@
+[
+  {
+    "method": "getMultipleAccounts",
+    "params": [
+      [
+        "2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH",
+        "7BosC38sh3jHg8e3EG3Fp3sA8eJy8W66BpSp6Ft7kp8k"
+      ],
+      {
+        "commitment": "confirmed",
+        "encoding": "base64"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473520393
+      },
+      "value": [
+        {
+          "data": [
+            "AQAAAHMSVByxL1XhY+l2xRPtTURUeGaLfKij06n3YHN1APzQeUmuESSJAQAGAQEAAAAXhTJh72q4Uypn8FOGWq0xKT/PB88SCrW5oVcGVI3AKwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQMAIAAXhTJh72q4Uypn8FOGWq0xKT/PB88SCrW5oVcGVI3AKwwAIAAXhTJh72q4Uypn8FOGWq0xKT/PB88SCrW5oVcGVI3AKwEAbAAXhTJh72q4Uypn8FOGWq0xKT/PB88SCrW5oVcGVI3AKxeFMmHvarhTKmfwU4ZarTEpP88HzxIKtbmhVwZUjcArAAAAAAAAAADSAgAAAAAAAAAAAAAAAAAAAADSAgAAAAAAAAAAAAAAAAAAAAAEAEEAF4UyYe9quFMqZ/BThlqtMSk/zwfPEgq1uaFXBlSNwCsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAIEAF4UyYe9quFMqZ/BThlqtMSk/zwfPEgq1uaFXBlSNwCsm0cx6nT0Kf+Fu2TflaERKcxbP98dKRVQu4LCksu7ubQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADgBAABeFMmHvarhTKmfwU4ZarTEpP88HzxIKtbmhVwZUjcArAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASAEAAF4UyYe9quFMqZ/BThlqtMSk/zwfPEgq1uaFXBlSNwCscLuZ/Ek327fKp0r9eOlM8dwG1j42qlXIQoeWwYYzSvhMArgAXhTJh72q4Uypn8FOGWq0xKT/PB88SCrW5oVcGVI3AKxwu5n8STfbt8qnSv146Uzx3AbWPjaqVchCh5bBhjNK+DQAAAEdsb2JhbCBEb2xsYXIEAAAAVVNER00AAABodHRwczovL3Rva2VuLW1ldGFkYXRhLnBheG9zLmNvbS91c2RnX21ldGFkYXRhL3Byb2Qvc29sYW5hL3VzZGdfbWV0YWRhdGEuanNvbgAAAAA=",
+            "base64"
+          ],
+          "executable": false,
+          "lamports": 564301471,
+          "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "rentEpoch": 18446744073709552000,
+          "space": 866
+        },
+        null
+      ]
+    }
+  },
+  {
+    "method": "getAccountInfo",
+    "params": [
+      "2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH",
+      {
+        "commitment": "confirmed",
+        "encoding": "jsonParsed"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473520394
+      },
+      "value": {
+        "data": {
+          "parsed": {
+            "info": {
+              "decimals": 6,
+              "extensions": [
+                {
+                  "extension": "mintCloseAuthority",
+                  "state": {
+                    "closeAuthority": "2apBGMsS6ti9RyF5TwQTDswXBWskiJP2LD4cUEDqYJjk"
+                  }
+                },
+                {
+                  "extension": "permanentDelegate",
+                  "state": {
+                    "delegate": "2apBGMsS6ti9RyF5TwQTDswXBWskiJP2LD4cUEDqYJjk"
+                  }
+                },
+                {
+                  "extension": "transferFeeConfig",
+                  "state": {
+                    "newerTransferFee": {
+                      "epoch": 722,
+                      "maximumFee": 0,
+                      "transferFeeBasisPoints": 0
+                    },
+                    "olderTransferFee": {
+                      "epoch": 722,
+                      "maximumFee": 0,
+                      "transferFeeBasisPoints": 0
+                    },
+                    "transferFeeConfigAuthority": "2apBGMsS6ti9RyF5TwQTDswXBWskiJP2LD4cUEDqYJjk",
+                    "withdrawWithheldAuthority": "2apBGMsS6ti9RyF5TwQTDswXBWskiJP2LD4cUEDqYJjk",
+                    "withheldAmount": 0
+                  }
+                },
+                {
+                  "extension": "confidentialTransferMint",
+                  "state": {
+                    "auditorElgamalPubkey": null,
+                    "authority": "2apBGMsS6ti9RyF5TwQTDswXBWskiJP2LD4cUEDqYJjk",
+                    "autoApproveNewAccounts": false
+                  }
+                },
+                {
+                  "extension": "confidentialTransferFeeConfig",
+                  "state": {
+                    "authority": "2apBGMsS6ti9RyF5TwQTDswXBWskiJP2LD4cUEDqYJjk",
+                    "harvestToMintEnabled": true,
+                    "withdrawWithheldAuthorityElgamalPubkey": "JtHMep09Cn/hbtk35WhESnMWz/fHSkVULuCwpLLu7m0=",
+                    "withheldAmount": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+                  }
+                },
+                {
+                  "extension": "transferHook",
+                  "state": {
+                    "authority": "2apBGMsS6ti9RyF5TwQTDswXBWskiJP2LD4cUEDqYJjk",
+                    "programId": null
+                  }
+                },
+                {
+                  "extension": "metadataPointer",
+                  "state": {
+                    "authority": "2apBGMsS6ti9RyF5TwQTDswXBWskiJP2LD4cUEDqYJjk",
+                    "metadataAddress": "2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH"
+                  }
+                },
+                {
+                  "extension": "tokenMetadata",
+                  "state": {
+                    "additionalMetadata": [],
+                    "mint": "2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH",
+                    "name": "Global Dollar",
+                    "symbol": "USDG",
+                    "updateAuthority": "2apBGMsS6ti9RyF5TwQTDswXBWskiJP2LD4cUEDqYJjk",
+                    "uri": "https://token-metadata.paxos.com/usdg_metadata/prod/solana/usdg_metadata.json"
+                  }
+                }
+              ],
+              "freezeAuthority": "2apBGMsS6ti9RyF5TwQTDswXBWskiJP2LD4cUEDqYJjk",
+              "isInitialized": true,
+              "mintAuthority": "8kC6WyMQvcKynL3oXxJdH1aH6sEpuL4KQHX2tY8nDkwy",
+              "supply": "432262985173369"
+            },
+            "type": "mint"
+          },
+          "program": "spl-token-2022",
+          "space": 866
+        },
+        "executable": false,
+        "lamports": 564301471,
+        "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "rentEpoch": 18446744073709552000,
+        "space": 866
+      }
+    }
+  }
+]
