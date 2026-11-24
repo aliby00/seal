@@ -1,0 +1,77 @@
+[
+  {
+    "method": "getMultipleAccounts",
+    "params": [
+      [
+        "1yYy5Vcy5Zop8Q2cPeJhyPtGpn5G46XWMZCR4s6F4y",
+        "2jzMkwvtk9mYiDqSGPnkTBBwRQSVUh2X7LDbp1gRaz2n"
+      ],
+      {
+        "commitment": "confirmed",
+        "encoding": "base64"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473523826
+      },
+      "value": [
+        {
+          "data": [
+            "xvp6877brTo9ZfNqq8l0MbG75MLS9uDkfKYCA0UvXWFBV7BYDzHF/ORKYlgtvPnXjudZQ6CEo5OzUDaNIomTCBKOXQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "base64"
+          ],
+          "executable": false,
+          "lamports": 2039280,
+          "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "rentEpoch": 18446744073709552000,
+          "space": 165
+        },
+        null
+      ]
+    }
+  },
+  {
+    "method": "getAccountInfo",
+    "params": [
+      "1yYy5Vcy5Zop8Q2cPeJhyPtGpn5G46XWMZCR4s6F4y",
+      {
+        "commitment": "confirmed",
+        "encoding": "jsonParsed"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473523828
+      },
+      "value": {
+        "data": {
+          "parsed": {
+            "info": {
+              "isNative": false,
+              "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              "owner": "5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1",
+              "state": "initialized",
+              "tokenAmount": {
+                "amount": "6131218",
+                "decimals": 6,
+                "uiAmount": 6.131218,
+                "uiAmountString": "6.131218"
+              }
+            },
+            "type": "account"
+          },
+          "program": "spl-token",
+          "space": 165
+        },
+        "executable": false,
+        "lamports": 2039280,
+        "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "rentEpoch": 18446744073709552000,
+        "space": 165
+      }
+    }
+  }
+]

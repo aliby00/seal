@@ -34,7 +34,7 @@ export type * from './token-types';
  * call instead of two, and u64 values stay exact (jsonParsed writes them as
  * JSON numbers, which lose precision above 2^53). The decoding was checked
  * against the node's own jsonParsed of the same mints on 24/11/2026
- * (tests/solana/token-decode.test.ts): PYUSD, USDG, BERN, TSLAx, SPYx, the
+ * (tests/solana/token.test.ts): PYUSD, USDG, BERN, TSLAx, SPYx, the
  * Seeker Genesis Token group and one of its members, pump.fun mints.
  *
  * Layouts, from the programs' own source:
@@ -69,6 +69,17 @@ export const TOKEN_READ_TIMEOUT_MS = 8_000;
 const MINT_LEN = 82;
 /** `Account::LEN`: where a Token-2022 mint with extensions puts its account type. */
 const ACCOUNT_TYPE_OFFSET = 165;
+/**
+ * `Multisig::LEN`. Token-2022 never gives an account with extensions this
+ * length (`adjust_len_for_multisig` adds two bytes) and refuses to read one as
+ * a mint or a token account (`check_min_len_and_not_multisig`), in
+ * https://github.com/solana-program/token-2022/blob/main/interface/src/extension/mod.rs
+ * Its byte 165 falls inside the signer keys, so it says nothing there.
+ * Seen on mainnet 25/11/2026: PYUSD's mint authority DRXA1H9S… (Token-2022)
+ * and USDC's BJE5MMbq… (SPL Token) are 355-byte accounts the node parses as
+ * `multisig`.
+ */
+const MULTISIG_LEN = 355;
 const ACCOUNT_TYPE_MINT = 1;
 const TLV_START = ACCOUNT_TYPE_OFFSET + 1;
 /** Metaplex `Key::MetadataV1`. */
@@ -447,11 +458,18 @@ export function decodeMintAccount(info: AccountInfo): DecodedMint {
     return { ok: false, why: `the account is owned by ${info.owner}, not a token program` };
   const bytes = accountBytes(info);
   if (!bytes) return { ok: false, why: 'the account data was not sent as bytes' };
+  const aProgram = program === 'token-2022' ? 'a Token-2022' : 'an SPL Token';
+  if (bytes.length === MULTISIG_LEN) {
+    return { ok: false, why: `the account is ${aProgram} multisig, not a mint` };
+  }
+  if (bytes.length === ACCOUNT_TYPE_OFFSET) {
+    return { ok: false, why: `the account is ${aProgram} token account, not a mint` };
+  }
   const withExtensions = program === 'token-2022' && bytes.length > ACCOUNT_TYPE_OFFSET;
   if (bytes.length !== MINT_LEN && !withExtensions) {
     return {
       ok: false,
-      why: `the account is a ${program} account of ${bytes.length} bytes, not a mint`,
+      why: `the account is ${aProgram} account of ${bytes.length} bytes, not a mint`,
     };
   }
   if (withExtensions && bytes[ACCOUNT_TYPE_OFFSET] !== ACCOUNT_TYPE_MINT) {
@@ -614,15 +632,16 @@ export async function readToken(
   const inMint = extensionOf(extensions, 'tokenMetadata');
   const metaplexBytes =
     metaplexInfo?.owner === TOKEN_METADATA_PROGRAM ? accountBytes(metaplexInfo) : null;
-  const metaplex = (() => {
-    if (!metaplexBytes) return null;
+  let metaplex: TokenMetadataInfo | null = null;
+  let metaplexUnreadable = false;
+  if (metaplexBytes) {
     try {
-      return metaplexFor(metaplexAccount, metaplexBytes, mint);
+      metaplex = metaplexFor(metaplexAccount, metaplexBytes, mint);
     } catch {
+      metaplexUnreadable = true;
       gaps.push(`the Metaplex metadata account ${metaplexAccount} could not be decoded`);
-      return null;
     }
-  })();
+  }
 
   let metadata: TokenMetadataInfo | null = null;
   const target = pointer?.metadataAddress ?? null;
@@ -631,6 +650,14 @@ export async function readToken(
     else gaps.push('the metadata pointer names the mint, which holds no metadata');
   } else if (target === metaplexAccount) {
     metadata = metaplex;
+    // A decoding failure already left its own gap.
+    if (!metadata && !metaplexUnreadable) {
+      gaps.push(
+        metaplexInfo
+          ? `the metadata pointer names ${target}, owned by ${metaplexInfo.owner}: not read`
+          : `the metadata pointer names ${target}, where no account lives`,
+      );
+    }
   } else if (target) {
     try {
       const info = await within(rpc.getAccountInfo(target), remaining());
@@ -1003,15 +1030,29 @@ export function tokenPowers(token: SolanaToken): TokenPower[] {
     });
   }
 
+  // Confidential mints need the mint authority, confidential burns the account
+  // owner: process_confidential_mint / process_confidential_burn in
+  // https://github.com/solana-program/token-2022/blob/main/program/src/extension/confidential_mint_burn/processor.rs
   if (extensionOf(all, 'confidentialMintBurn')) {
-    add({
-      power: 'confidential-mint-burn',
-      status: token.mintAuthority ? 'held' : 'fixed',
-      holder: token.mintAuthority,
-      from: 'confidentialMintBurn',
-      sentence:
-        'Tokens can be created and burned with hidden amounts (confidential mint and burn).',
-    });
+    add(
+      token.mintAuthority
+        ? {
+            power: 'confidential-mint-burn',
+            status: 'held',
+            holder: token.mintAuthority,
+            from: 'confidentialMintBurn',
+            sentence:
+              'Someone can create tokens with hidden amounts, and holders can burn theirs with hidden amounts (confidential mint and burn).',
+          }
+        : {
+            power: 'confidential-mint-burn',
+            status: 'none',
+            holder: null,
+            from: 'confidentialMintBurn',
+            sentence:
+              'No one can create tokens with hidden amounts: there is no mint authority (confidential mint and burn).',
+          },
+    );
   }
 
   const burn = extensionOf(all, 'permissionedBurnConfig');
@@ -1122,11 +1163,12 @@ function addFeePowers(
       sentence: `Every transfer pays a fee of ${percent(fee.olderTransferFee.transferFeeBasisPoints)} before epoch ${fee.newerTransferFee.epoch} and ${percent(fee.newerTransferFee.transferFeeBasisPoints)} from it; the current epoch was not read.`,
     });
   } else if (active.transferFeeBasisPoints > 0) {
+    // Said last, so that "collect" plainly refers to the fee in force.
     const scheduled =
       active === fee.olderTransferFee
-        ? `; from epoch ${fee.newerTransferFee.epoch} it becomes ${percent(fee.newerTransferFee.transferFeeBasisPoints)}`
+        ? `; from epoch ${fee.newerTransferFee.epoch} it becomes ${percent(fee.newerTransferFee.transferFeeBasisPoints)}${capped(fee.newerTransferFee)}`
         : '';
-    const base = `Every transfer pays a ${percent(active.transferFeeBasisPoints)} fee${capped(active)}${scheduled}`;
+    const base = `Every transfer pays a ${percent(active.transferFeeBasisPoints)} fee${capped(active)}`;
     add(
       fee.withdrawWithheldAuthority
         ? {
@@ -1134,14 +1176,14 @@ function addFeePowers(
             status: 'held',
             holder: fee.withdrawWithheldAuthority,
             from,
-            sentence: `${base}, which someone can collect (withdraw authority).`,
+            sentence: `${base}, which someone can collect (withdraw authority)${scheduled}.`,
           }
         : {
             power: 'transfer-fee',
             status: 'fixed',
             holder: null,
             from,
-            sentence: `${base}; no one can collect it (no withdraw authority).`,
+            sentence: `${base}; no one can collect it (no withdraw authority)${scheduled}.`,
           },
     );
   } else if (active === fee.olderTransferFee && fee.newerTransferFee.transferFeeBasisPoints > 0) {
@@ -1150,7 +1192,7 @@ function addFeePowers(
       status: fee.withdrawWithheldAuthority ? 'held' : 'fixed',
       holder: fee.withdrawWithheldAuthority,
       from,
-      sentence: `Transfers pay no fee today; from epoch ${fee.newerTransferFee.epoch} they pay ${percent(fee.newerTransferFee.transferFeeBasisPoints)}.`,
+      sentence: `Transfers pay no fee today; from epoch ${fee.newerTransferFee.epoch} they pay ${percent(fee.newerTransferFee.transferFeeBasisPoints)}${capped(fee.newerTransferFee)}.`,
     });
   }
 

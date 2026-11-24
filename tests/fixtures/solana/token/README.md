@@ -26,6 +26,14 @@ order, and replays through the fake node (`tests/solana/token.test.ts`).
 | `program`       | `6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P`  | Not a mint: the pump.fun program                                                                                                         |
 | `no-account`    | `1nc1nerator11111111111111111111111111111111`  | No account at all                                                                                                                        |
 
+Recorded on 25/11/2026 the same way, for `tests/solana/token-edge.test.ts`:
+
+| Slug                | Address                                        | What it shows                                                                              |
+| ------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `multisig-2022`     | `DRXA1H9SjZPyPCEeuAWpfwk8GqVW6dZsKFAtdfpFwApX` | Not a mint: PYUSD's mint authority, a 355-byte Token-2022 multisig (jsonParsed `multisig`) |
+| `multisig-spl`      | `BJE5MMbqXjVwjAF7oxwPYXnTXDyspzZyt4vwenNw5ruG` | Not a mint: USDC's mint authority, a 355-byte SPL Token multisig                           |
+| `spl-token-account` | `1yYy5Vcy5Zop8Q2cPeJhyPtGpn5G46XWMZCR4s6F4y`   | Not a mint: a 165-byte SPL Token account holding USDC (owner: Raydium AMM v4 authority)    |
+
 No mainnet mint carrying `nonTransferable`, `interestBearingConfig`,
 `confidentialMintBurn` or `permissionedBurnConfig` was found that day (the
 public node refuses `getProgramAccounts` over the whole Token-2022 program:
