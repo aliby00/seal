@@ -7,7 +7,14 @@
  * message, donc ils ne peuvent pas partager un seul type d'erreur.
  */
 
-export type SourceName = 'robinhood-rpc' | 'blockscout' | 'dexscreener' | 'anthropic' | 'groq';
+export type SourceName =
+  | 'robinhood-rpc'
+  | 'blockscout'
+  | 'dexscreener'
+  | 'anthropic'
+  | 'groq'
+  | 'solana-rpc'
+  | 'dexscreener-solana';
 
 export abstract class SealError extends Error {
   abstract readonly kind: string;
