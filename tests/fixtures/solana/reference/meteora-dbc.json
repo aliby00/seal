@@ -1,0 +1,66 @@
+[
+  {
+    "method": "getAccountInfo",
+    "params": [
+      "8xKZ1yzPFGG1hfsqwPR2tGWsSMx9rJWQGJKiYjKUCLRx",
+      {
+        "commitment": "confirmed",
+        "encoding": "jsonParsed"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473513561
+      },
+      "value": {
+        "data": {
+          "parsed": {
+            "info": {
+              "decimals": 6,
+              "freezeAuthority": null,
+              "isInitialized": true,
+              "mintAuthority": null,
+              "supply": "991536344331803"
+            },
+            "type": "mint"
+          },
+          "program": "spl-token",
+          "space": 82
+        },
+        "executable": false,
+        "lamports": 1066800,
+        "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "rentEpoch": 18446744073709552000,
+        "space": 82
+      }
+    }
+  },
+  {
+    "method": "getAccountInfo",
+    "params": [
+      "DbdgjtiiRBWY2C3F3cLssjgfaFQXkRWuoHjduEvexJ9f",
+      {
+        "commitment": "confirmed",
+        "encoding": "base64"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473513562
+      },
+      "value": {
+        "data": [
+          "1eAF0WJFd1x3EAZrAAAAAAAAAAAAAAAAn6JoNqRCdwMAAAAAAAAAALFfdQAAAAAAAAAAAAAAAABx2DIAAAAAAAAAAAAAAAAAqKQwaM3LcYCVceYl/x9FdRcbgQpwQ9GBA3WTG74bwFuCBa5xfDXMpaxAd8zGPqHIvPVYp+fgMYeipZl0WQc6xnYtutUrd2O3sFG/7a4VeedHHhSgpVJc6MLjWDmgppn701asGB9WExSWcdEsCwjXZ+B4XywoIbXGtjSwwXyy6YkaRS9WrXQ3x/hIWYaaDKZKaKZg2Dd0RqlFFywWSLQMlNkO59TpKAEAy8bTRQsAAAAAAAAAAAAAAG0PWRoAAAAAAAAAAAAAAAAAAAAAAAAAANRxie1nnooDAAAAAAAAAAAe7jgcAAAAAAAAAAAAAAAAAAAAAAAAAADsh6iRAAAAAAAAAAAAAAAAuf84ZwIAAAAAAAAAAAAAAAAAAAAAAAAA51bCDgAAAAAAAAEAAAAAABQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 2804160,
+        "owner": "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
+        "rentEpoch": 18446744073709552000,
+        "space": 424
+      }
+    }
+  }
+]
