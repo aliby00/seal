@@ -14,10 +14,21 @@ around 00:08 UTC. They replay through the fake node
 | `streamflow.json`             | `4iNowernM7VnmA79FyedcUGnM22GMm2keEtwbaJepump` | Raydium AMM v4 (81.10 %) and CLMM pools, a Streamflow escrow, a pump.fun curve     |
 | `launchlab.json`              | `8tLjXE3MRduPL3qZcFZ4k2Covpuk6Zax4A1aqDTfLoat` | Raydium LaunchLab authority 99.97 %; 4 accounts                                    |
 | `burn.json`                   | `8YbE2LfQJmUYVw9Uhdy5EC53iuUNV7qfQq8naiGiGgan` | Incinerator 43.96 %, a Meteora DAMM v2 pool, a Meteora DBC curve                   |
-| `many-holders.json`           | `CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump` | GOAT: the sample of owners starting with a zero byte (1,020 accounts)              |
+| `many-holders.json`           | `CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump` | GOAT: 5 owners starting with two zero bytes, the largest accounts' owners          |
+| `mid-holders.json`            | `8x5VqbHA8D7NkD52uNuS5nnt3PwA8pLD34ymskeSo2Wn` | ZEREBRO: 1 owner starting with two zero bytes, 698 with one (≈ 178,688 accounts)   |
 | `pools.json`                  | —                                              | Nine pools of nine venues and one vault of each                                    |
 | `edge.json`                   | —                                              | No account at the incinerator; a PumpSwap pool read as a mint                      |
 | `public-refuses-largest.json` | —                                              | The public node's answer to `getTokenLargestAccounts`: HTTP 429, `Retry-After: 10` |
+
+## Recorded later
+
+The coarser sample (owners whose first two bytes are 0, `memcmp` bytes `11`
+at offset 32) came after the first recordings. Its answers were recorded on
+25/11/2026 around 00:32 UTC by the same read through the public node, and
+added to `pump-curve`, `meteora-dbc`, `jup-lock`, `streamflow`, `launchlab`,
+`burn` (no account each) and `many-holders` (5 accounts). GOAT's 1-in-256
+sample, no longer asked, was taken out of `many-holders.json`.
+`mid-holders.json` was recorded whole at the same time.
 
 ## Two answers that are not the node's
 

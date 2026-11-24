@@ -60,6 +60,38 @@
           {
             "memcmp": {
               "offset": 32,
+              "bytes": "11"
+            }
+          }
+        ]
+      }
+    ],
+    "result": []
+  },
+  {
+    "method": "getProgramAccounts",
+    "params": [
+      "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      {
+        "commitment": "confirmed",
+        "encoding": "base64",
+        "dataSlice": {
+          "offset": 0,
+          "length": 0
+        },
+        "filters": [
+          {
+            "dataSize": 165
+          },
+          {
+            "memcmp": {
+              "offset": 0,
+              "bytes": "8tLjXE3MRduPL3qZcFZ4k2Covpuk6Zax4A1aqDTfLoat"
+            }
+          },
+          {
+            "memcmp": {
+              "offset": 32,
               "bytes": "1"
             }
           }

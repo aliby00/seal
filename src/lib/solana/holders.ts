@@ -10,7 +10,7 @@ import type {
 } from '../contracts';
 import { SealError } from '../errors';
 import { BudgetExhaustedError } from '../http';
-import { encodeBase58 } from './address';
+import { encodeBase58, isSolanaAddress } from './address';
 import { STREAMFLOW_PROGRAM, TOKEN_2022_PROGRAM, TOKEN_PROGRAM } from './programs';
 import {
   isSelfOwnedTokenAccount,
@@ -24,6 +24,7 @@ import {
 import {
   accountBytes,
   COMMITMENT,
+  MethodUnavailableError,
   parsedAccount,
   type AccountInfo,
   type ProgramAccount,
@@ -95,15 +96,39 @@ export const SAMPLE_RATIO = 256;
 /** Base58 of one zero byte: the owner's first byte is 0. */
 const SAMPLE_PREFIX = '1';
 
-/** Off-curve owners whose account is read to say what they are (100 per call). */
-export const MAX_OWNER_LOOKUPS = 300;
+/**
+ * The 1-in-256 sample of a very large token is itself large: on 25/11/2026
+ * it was 122,362 accounts (28 MB) for USDC, 8,231 (1.9 MB) for BONK. So a
+ * coarser one comes first: owners whose first two bytes are 0, one in 65,536
+ * (USDC 623 accounts, BONK 55, GOAT 5, FIONA 1, all read that day; each
+ * answer's owners did start with two zero bytes). More than
+ * COARSE_SAMPLE_MAX of them puts the mint far above FULL_READ_MAX_ACCOUNTS:
+ * a mint with 40,000 accounts gives 0.61 on average, and 4 or more about
+ * once in 290 reads.
+ */
+export const COARSE_SAMPLE_RATIO = 65_536;
+export const COARSE_SAMPLE_MAX = 3;
+/** Base58 of two zero bytes. */
+const COARSE_SAMPLE_PREFIX = '11';
+
+/**
+ * Off-curve owners whose account is read to say what they are (100 per
+ * call), the largest first. FIONA (30,561 accounts, 25/11/2026) had 820, the
+ * last of them a pool holding 1,180 raw units: with 300, that pool was
+ * counted as a holder.
+ */
+export const MAX_OWNER_LOOKUPS = 1_000;
 /** Owners checked as Streamflow escrows (one call each). */
 export const MAX_STREAMFLOW_LOOKUPS = 3;
 /** Size of the Streamflow contracts read on 24/11/2026 (three of three). */
 const STREAMFLOW_CONTRACT_SIZE = 1104;
 
-/** Calls one holders read may spend, and how long it may take. */
-export const DEFAULT_MAX_CALLS = 14;
+/**
+ * Calls one holders read may spend, and how long it may take. The most a read
+ * spends: mint 1, largest accounts 1, two samples, the full read 1, owners 10,
+ * Streamflow 3, the wallet asked about 1.
+ */
+export const DEFAULT_MAX_CALLS = 20;
 export const DEFAULT_TIMEOUT_MS = 12_000;
 export const DEFAULT_TOP = 20;
 
@@ -199,6 +224,8 @@ class AllowanceError extends Error {
 type Allowance = {
   run<T>(cost: number, fn: () => Promise<T>): Promise<T>;
   spent(): number;
+  /** Calls still allowed. */
+  left(): number;
 };
 
 function allowance(maxCalls: number, timeoutMs: number, clock: () => number): Allowance {
@@ -206,6 +233,7 @@ function allowance(maxCalls: number, timeoutMs: number, clock: () => number): Al
   let spent = 0;
   return {
     spent: () => spent,
+    left: () => maxCalls - spent,
     async run<T>(cost: number, fn: () => Promise<T>): Promise<T> {
       if (spent + cost > maxCalls) throw new AllowanceError('calls');
       const left = timeoutMs - (clock() - start);
@@ -219,6 +247,11 @@ function allowance(maxCalls: number, timeoutMs: number, clock: () => number): Al
             timer = setTimeout(() => reject(new AllowanceError('time')), left);
           }),
         ]);
+      } catch (error) {
+        // Refused by the client before any node was asked (the public node and
+        // getTokenLargestAccounts): nothing was spent.
+        if (error instanceof MethodUnavailableError) spent -= cost;
+        throw error;
       } finally {
         clearTimeout(timer);
       }
@@ -294,6 +327,16 @@ export async function readHolders(
     data,
   });
 
+  // Addresses are base58 and case-sensitive: one that does not decode to 32
+  // bytes is not asked about (the node would answer -32602 "Invalid param").
+  if (!isSolanaAddress(mint)) {
+    notes.push('not a Solana address');
+    return source('unavailable', emptyData(mint));
+  }
+  const creatorAsked =
+    options.creator === undefined || isSolanaAddress(options.creator) ? options.creator : null;
+  if (creatorAsked === null) notes.push("creator's balance not read (not a Solana address)");
+
   // 1. The mint: its program, decimals and supply.
   let mintInfo = options.mint;
   if (!mintInfo) {
@@ -336,17 +379,20 @@ export async function readHolders(
     method = 'all-accounts';
   } else {
     try {
-      const sample = await budget.run(1, () =>
-        rpc.getProgramAccounts(programId(mintInfo.program), {
-          encoding: 'base64',
-          dataSlice: { offset: 0, length: 0 },
-          filters: [
-            ...mintAccountFilters(mint, mintInfo.program),
-            { memcmp: { offset: TOKEN_ACCOUNT_OWNER_OFFSET, bytes: SAMPLE_PREFIX } },
-          ],
-        }),
-      );
-      if (sample.length * SAMPLE_RATIO <= FULL_READ_MAX_ACCOUNTS) {
+      const sampleOf = (prefix: string) =>
+        budget.run(1, () =>
+          rpc.getProgramAccounts(programId(mintInfo.program), {
+            encoding: 'base64',
+            dataSlice: { offset: 0, length: 0 },
+            filters: [
+              ...mintAccountFilters(mint, mintInfo.program),
+              { memcmp: { offset: TOKEN_ACCOUNT_OWNER_OFFSET, bytes: prefix } },
+            ],
+          }),
+        );
+      const coarse = await sampleOf(COARSE_SAMPLE_PREFIX);
+      const sample = coarse.length > COARSE_SAMPLE_MAX ? null : await sampleOf(SAMPLE_PREFIX);
+      if (sample !== null && sample.length * SAMPLE_RATIO <= FULL_READ_MAX_ACCOUNTS) {
         const all = await budget.run(1, () =>
           rpc.getProgramAccounts(programId(mintInfo.program), {
             encoding: 'base64',
@@ -399,18 +445,18 @@ export async function readHolders(
 
   // 5. The wallet asked about.
   let creator: { address: string; amount: bigint; accounts: number } | null = null;
-  let creatorFailed = false;
-  if (options.creator) {
-    const listed = owners.find((o) => o.owner === options.creator);
+  let creatorFailed = creatorAsked === null;
+  if (creatorAsked) {
+    const listed = owners.find((o) => o.owner === creatorAsked);
     if (method === 'all-accounts') {
       creator = {
-        address: options.creator,
+        address: creatorAsked,
         amount: listed?.amount ?? 0n,
         accounts: listed?.accounts.length ?? 0,
       };
     } else {
       try {
-        creator = await readOwnerBalance(rpc, budget, options.creator, mint);
+        creator = await readOwnerBalance(rpc, budget, creatorAsked, mint);
       } catch (error) {
         if (!isSourceFailure(error)) throw error;
         creatorFailed = true;
@@ -498,11 +544,16 @@ async function readOwnerBalance(
     ]),
   );
   let amount = 0n;
+  let accounts = 0;
   for (const entry of answer.value) {
     const decoded = decodeOwnerAndAmount(entry.account);
-    if (decoded && decoded.owner === owner) amount += decoded.amount;
+    if (decoded && decoded.owner === owner && decoded.amount > 0n) {
+      amount += decoded.amount;
+      accounts += 1;
+    }
   }
-  return { address: owner, amount, accounts: answer.value.length };
+  // Non-empty accounts only, as counted from a full list (groupByOwner).
+  return { address: owner, amount, accounts };
 }
 
 type OwnerTotal = { owner: string; amount: bigint; accounts: string[] };
@@ -548,7 +599,11 @@ async function classifyOwners(
     if (known) roles.set(owner, known);
     else toRead.push(owner);
   }
-  const looked = toRead.slice(0, MAX_OWNER_LOOKUPS);
+  // As many as the calls left allow, one kept for a Streamflow check or the
+  // wallet asked about when there are more than one.
+  const left = budget.left();
+  const callsForOwners = left > 1 ? left - 1 : Math.max(left, 0);
+  const looked = toRead.slice(0, Math.min(MAX_OWNER_LOOKUPS, callsForOwners * 100));
   let accounts: OwnerAccount[] = [];
   try {
     if (looked.length > 0) {
@@ -608,8 +663,10 @@ async function classifyOwners(
       });
     }
   }
-  if (toRead.length > accounts.length && accounts.length > 0) {
+  if (toRead.length > accounts.length && looked.length > 0 && accounts.length > 0) {
     notes.push(`${toRead.length - accounts.length} smaller off-curve owners not looked up`);
+  } else if (toRead.length > 0 && looked.length === 0) {
+    notes.push(`${toRead.length} off-curve owners not looked up (call allowance used up)`);
   }
   return roles;
 }
@@ -688,6 +745,9 @@ export function summarize(input: SummaryInput): SolanaHoldersData {
     };
   });
   const counted = holders.filter((h) => h.kind === 'wallet' || h.kind === 'contract');
+  // An owner whose account was not read may be a pool or a lock: counted as a
+  // holder, it makes the count a ceiling, not an exact figure.
+  const unclassified = counted.filter((h) => h.owner.evidence === NOT_LOOKED_UP).length;
   const wallets = holders.filter((h) => h.kind === 'wallet');
   const byKind = (kind: OwnerRole['kind']) =>
     share6(
@@ -726,8 +786,8 @@ export function summarize(input: SummaryInput): SolanaHoldersData {
     method: input.method,
     accountsRead: input.accountsRead,
     countedSupply: circulating.toString(),
-    holderCount: input.method === 'all-accounts' ? counted.length : null,
-    holdersAtLeast: counted.length,
+    holderCount: input.method === 'all-accounts' && unclassified === 0 ? counted.length : null,
+    holdersAtLeast: counted.length - unclassified,
     // Holders first, then what is set aside, as the EVM list orders them.
     top: [...holders].sort((a, b) => b.share - a.share).slice(0, input.topN),
     concentration: {
