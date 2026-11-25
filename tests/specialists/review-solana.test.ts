@@ -69,6 +69,65 @@ describe('a creator question with no creator', () => {
   });
 });
 
+describe('a creator question with no creator, the creation found by the launch replay', () => {
+  const PAYER = 'JUPhop9E8ZfdJ5FNHhxQt4uAih822Vs4QpqsWcewFbq';
+  const withCreation = (report: TokenReport): TokenReport => ({
+    ...report,
+    launch: {
+      ...report.launch,
+      data: {
+        ...report.launch.data,
+        creation: {
+          signature:
+            '4h5iBF43PvG9SuKZyJiJ2mEUddsNd71uVW7X7Lz5RYzMJYqPeoPqLyNtz2fH9nd9FWKxqKXhmXtK3F9QqptzbZ',
+          slot: 243989543,
+          launchedAt: '2024-01-25T08:54:00.000Z',
+          payer: PAYER,
+          signers: [PAYER],
+          foundBy: 'creation-time',
+        },
+      },
+    },
+  });
+  // JUP as staging served it (25/11/2026): the creator read answered, without a creator.
+  const jup = withCreation(
+    solanaReport({
+      creator: {
+        completeness: 'unavailable',
+        sources: [
+          {
+            name: 'solana-rpc',
+            fetchedAt: base.collectedAt,
+            note: 'the mint has more than 3000 transactions: its creation was not reached; no curve, creation transaction or metadata authority names a creator',
+          },
+        ],
+        data: { ...base.creator.data, creator: null, from: null },
+      },
+      creatorHistory: null,
+      creatorOnToken: null,
+      linkedWallets: null,
+    }),
+  );
+  const said =
+    'no creator is named on the chain (no pump.fun curve or metadata authority names one); JUPh…wFbq paid for the creation (transaction 4h5i…tzbZ)';
+
+  it('says who paid for the creation, never that no creation transaction names one', () => {
+    for (const id of ['wallet-age', 'funding-trace', 'creator-history'] as const) {
+      for (const report of [jup, withCreation(noCreator('full'))]) {
+        const finding = ask(id, report);
+        expect(finding.signal).toBe('unknown');
+        expect(finding.limits).toEqual([said]);
+        expect(finding.limits.join(' ')).not.toMatch(/creation transaction or metadata/);
+        expect(findViolations(finding.limits.join(' '))).toEqual([]);
+      }
+      // A creator read that failed still says so.
+      expect(ask(id, withCreation(noCreator('unavailable'))).limits.join(' ')).toMatch(
+        /^the creator could not be read/,
+      );
+    }
+  });
+});
+
 describe('an extension SEAL cannot decode', () => {
   const report = solanaReport({ powers: [...base.powers, UNDECODED] });
 

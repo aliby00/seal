@@ -2,6 +2,7 @@ import type { TokenReport } from '../contracts';
 import { pairsWords, volumePerTrade } from '../market';
 import { sourcesFailed } from '../failed-reads';
 import { readableNote } from '../plain-note';
+import { shortAddress } from '../solana/address';
 import type { SolanaHolder } from '../solana/holders';
 import { NATIVE_MINT } from '../solana/programs';
 import type { TokenPower, TokenPowerKind } from '../solana/token-types';
@@ -416,11 +417,20 @@ export const CREATOR_FROM: Record<NonNullable<TokenReport['creator']['data']['fr
 const NO_CREATOR =
   'no creator is named on the chain (no pump.fun curve, creation transaction or metadata authority names one)';
 
+/** No creator named, and the creation the launch replay found: who paid for it, never "the creator". */
+const noCreatorNamed = (found: { signature: string; payer: string }) =>
+  `no creator is named on the chain (no pump.fun curve or metadata authority names one); ${shortAddress(found.payer)} paid for the creation (transaction ${shortAddress(found.signature)})`;
+
 /**
  * A question about the creator, with no creator to ask about: "nobody is
- * named" only when the creator read answered; a failed read says so.
+ * named" only when the creator read answered; a failed read says so. When
+ * the launch replay found the creation the creator read did not reach (JUP,
+ * GOAT on staging, 25/11/2026), "no creation transaction names one" would
+ * contradict it: its payer is said instead, as the offline text does.
  */
 function withoutCreator(id: SpecialistId, report: TokenReport): Finding {
+  const found = report.launch.data.creation;
+  if (found && !sourcesFailed(report.creator.sources)) return unknown(id, [noCreatorNamed(found)]);
   return report.creator.completeness === 'unavailable'
     ? unknown(id, [unread('the creator', report.creator)])
     : unknown(id, [NO_CREATOR]);
