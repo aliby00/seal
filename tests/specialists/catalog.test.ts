@@ -424,6 +424,43 @@ describe('Volume Reality, Sell Path, Liquidity Move, Name Clone', () => {
     );
   });
 
+  it('a transfer fee someone can raise up to 100% is said, and nothing is called reassuring', () => {
+    // CKfatsPM… on 25/11/2026: "Nothing in the mint can stop a sale", under
+    // "What is reassuring", while BeRN…WyEe could raise its fee to 100%.
+    const sentence =
+      'Someone can change the transfer fee, up to 100%, starting two epochs later (transfer fee authority).';
+    const finding = ask(
+      'sell-path',
+      solanaReport({
+        powers: [
+          power({ power: 'freeze', status: 'none' }),
+          power({
+            power: 'transfer-fee',
+            status: 'held',
+            holder: 'BeRNwDN8aGHvxYRVhNyMkF1wsxuEeceux2xn5deFWyEe',
+            sentence:
+              'Every transfer pays a 2.69% fee, which someone can collect (withdraw authority).',
+          }),
+          power({
+            power: 'transfer-fee-change',
+            status: 'held',
+            holder: 'BeRNwDN8aGHvxYRVhNyMkF1wsxuEeceux2xn5deFWyEe',
+            sentence,
+          }),
+        ],
+      }),
+    );
+    expect(finding.signal).toBe('observation');
+    expect(finding.facts).toContain(sentence);
+    expect(finding.facts.join(' ')).not.toMatch(/Nothing in the mint can stop a sale/);
+    // Nobody able to change the fee: nothing in the mint stands in the way.
+    const fixed = ask(
+      'sell-path',
+      solanaReport({ powers: [power({ power: 'transfer-fee-change', status: 'none' })] }),
+    );
+    expect(fixed.signal).toBe('reassurance');
+  });
+
   it('reassures on selling only when nothing in the mint can stop a sale and sales went through', () => {
     expect(ask('sell-path', base).signal).toBe('reassurance');
     const frozen = ask(

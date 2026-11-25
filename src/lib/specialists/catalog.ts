@@ -928,6 +928,8 @@ const sellPath: Specialist = {
         'freeze',
         'permanent-delegate',
         'transfer-hook',
+        // A fee someone can raise up to 100% can take a whole sale (CKfat…, 25/11/2026).
+        'transfer-fee-change',
       ] as const) {
         const p = power(kind);
         if (!p || p.status === 'none') continue;
