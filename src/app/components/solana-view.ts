@@ -2,6 +2,8 @@ import type { Completeness, SourceRef, TokenReport } from '@/lib/contracts';
 import type { SolanaHolder } from '@/lib/solana/holders';
 import type { OwnerRoleKind } from '@/lib/solana/roles';
 import type { TokenPower } from '@/lib/solana/token-types';
+import { displayName } from '@/lib/specialists/names';
+import { short } from './explorer';
 
 /**
  * What the report screen draws of a Solana reading, taken from the collected
@@ -16,6 +18,11 @@ import type { TokenPower } from '@/lib/solana/token-types';
  *
  * Lists are capped so the response stays small; each cap says how many were
  * left out (`more`).
+ *
+ * Names and symbols come from the chain, chosen by whoever made the token:
+ * each goes through `displayName`, as in the report header, so a name that
+ * reads as a verdict ("SAFE 100X") is withheld and invisible or bidi
+ * characters are taken out.
  */
 
 export type ViewBlock<T> = { read: Completeness; note?: string; data: T };
@@ -100,8 +107,11 @@ export type SolanaView = {
     /** Token-2022 extensions, by name; empty for an SPL Token mint. */
     extensions: string[];
     metadata: {
-      name: string;
-      symbol: string;
+      /** `null` when none was set, or when it was withheld. */
+      name: string | null;
+      symbol: string | null;
+      /** A name or symbol was set but reads as a verdict or advice: not repeated. */
+      withheld: boolean;
       from: 'tokenMetadata' | 'metaplex';
       mutable: boolean;
       updateAuthority: string | null;
@@ -270,6 +280,24 @@ function group(g: TokenReport['launch']['data']['sameSlot']): GroupView | null {
   };
 }
 
+/** The token's name and symbol as the page shows them, and whether one was withheld. */
+function shownNames(rawName: string, rawSymbol: string) {
+  const name = displayName(rawName);
+  const symbol = displayName(rawSymbol);
+  const set = (raw: string) => raw.trim().length > 0;
+  return {
+    name,
+    symbol,
+    withheld: (set(rawName) && name === null) || (set(rawSymbol) && symbol === null),
+  };
+}
+
+/** The token the main pair trades against: its symbol, or its address when the symbol is withheld. */
+function pairedWith(token: TokenReport['market']['data']['pairedWith']): string | null {
+  if (!token?.symbol) return null;
+  return displayName(token.symbol) ?? (token.address ? short(token.address) : null);
+}
+
 export function toSolanaView(report: TokenReport): SolanaView {
   const mint = report.mint.data;
   const supply = mint?.supply ?? report.holders.data.supply ?? null;
@@ -318,8 +346,8 @@ export function toSolanaView(report: TokenReport): SolanaView {
         historyComplete: history.data.scanned.signaturesComplete,
         tokens: history.data.tokens.slice(0, OTHER_TOKENS_SHOWN).map((t) => ({
           mint: t.mint,
-          name: t.name ?? null,
-          symbol: t.symbol ?? null,
+          name: displayName(t.name),
+          symbol: displayName(t.symbol),
           launchpad: t.launchpad,
           launchedAt: t.launchedAt,
           outcome: t.outcome,
@@ -369,8 +397,7 @@ export function toSolanaView(report: TokenReport): SolanaView {
             extensions: mint.extensions.map((e) => e.extension),
             metadata: mint.metadata
               ? {
-                  name: mint.metadata.name,
-                  symbol: mint.metadata.symbol,
+                  ...shownNames(mint.metadata.name, mint.metadata.symbol),
                   from: mint.metadata.source,
                   mutable: mint.metadata.isMutable,
                   updateAuthority: mint.metadata.updateAuthority,
@@ -430,7 +457,7 @@ export function toSolanaView(report: TokenReport): SolanaView {
     market: block(report.market, {
       pair: report.market.data.pair,
       dex: report.market.data.dex,
-      pairedWith: report.market.data.pairedWith?.symbol ?? null,
+      pairedWith: pairedWith(report.market.data.pairedWith),
       marketCapUsd: report.market.data.marketCapUsd,
       pairCreatedAt: report.market.data.pairCreatedAt,
     }),
