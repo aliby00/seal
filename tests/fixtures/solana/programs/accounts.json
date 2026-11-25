@@ -614,5 +614,61 @@
         "space": 679
       }
     }
+  },
+  {
+    "method": "getAccountInfo",
+    "params": [
+      "24Uqj9JCLxUeoC3hGfh5W3s9FM9uCHDS2SG3LYwBpyTi",
+      {
+        "encoding": "base64",
+        "dataSlice": {
+          "offset": 0,
+          "length": 0
+        },
+        "commitment": "confirmed"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473720863
+      },
+      "value": {
+        "data": ["", "base64"],
+        "executable": true,
+        "lamports": 1296445,
+        "owner": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "rentEpoch": 18446744073709552000,
+        "space": 36
+      }
+    }
+  },
+  {
+    "method": "getAccountInfo",
+    "params": [
+      "FLUXubRmkEi2q6K3Y9kBPg9248ggaZVsoSFhtJHSrm1X",
+      {
+        "encoding": "base64",
+        "dataSlice": {
+          "offset": 0,
+          "length": 0
+        },
+        "commitment": "confirmed"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473720867
+      },
+      "value": {
+        "data": ["", "base64"],
+        "executable": true,
+        "lamports": 1179440,
+        "owner": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "rentEpoch": 18446744073709552000,
+        "space": 36
+      }
+    }
   }
 ]

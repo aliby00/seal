@@ -1,6 +1,13 @@
 import { sha256 } from '@noble/hashes/sha2';
-import { encodeBase58, findProgramAddress, isOnCurve } from './address';
 import {
+  addressBytes,
+  createProgramAddress,
+  encodeBase58,
+  findProgramAddress,
+  isOnCurve,
+} from './address';
+import {
+  FLUXBEAM_PROGRAM,
   INCINERATOR,
   isTokenProgram,
   JUPITER_LOCK_PROGRAM,
@@ -8,6 +15,7 @@ import {
   METEORA_DAMM_V2_PROGRAM,
   METEORA_DBC_PROGRAM,
   METEORA_DLMM_PROGRAM,
+  METEORA_VAULT_PROGRAM,
   ORCA_WHIRLPOOL_PROGRAM,
   PUMP_FUN_PROGRAM,
   PUMP_SWAP_PROGRAM,
@@ -65,7 +73,11 @@ const hex = (bytes: Uint8Array) =>
  *  - Orca Whirlpool `Whirlpool` (3f95d10c…): 5zpyutJu… owns BONK vault 4dmvFGeQ…;
  *  - Meteora DLMM `LbPair` (210b3162…): 31p1hptj… owns BONK vault GdRr8u8c…;
  *  - Jupiter Lock `VestingEscrow` (f477b704…): escrows 7b5uNn86…, 9bNpHSun…
- *    and five others own the locked tokens of their escrow.
+ *    and five others own the locked tokens of their escrow;
+ *  - Meteora Dynamic Vault `Vault` (d308e82b…, 25/11/2026): J9K67Pxq…, the
+ *    vault of the BONK side of DAMM v1 pool 278P6iwd…, owns BONK account
+ *    66i1ucUa…, which it names at byte 19 (its mint at byte 83). DAMM v1
+ *    pools keep their tokens in such vaults, never in accounts of their own.
  */
 const OWNED_ROLES: readonly {
   program: string;
@@ -93,6 +105,12 @@ const OWNED_ROLES: readonly {
     account: 'VestingEscrow',
     kind: 'lock',
     name: 'Jupiter Lock escrow',
+  },
+  {
+    program: METEORA_VAULT_PROGRAM,
+    account: 'Vault',
+    kind: 'pool',
+    name: 'Meteora Dynamic Vault',
   },
 ];
 
@@ -177,6 +195,68 @@ export function poolAuthorities(): ReadonlyMap<string, (typeof AUTHORITIES)[numb
  */
 export const STREAMFLOW_ESCROW_OFFSET = 209;
 export const STREAMFLOW_MINT_OFFSET = 177;
+
+/**
+ * Pools of the SPL token-swap layout (FluxBeam). Their vaults belong to an
+ * authority with no account of its own, derived from the pool's address and
+ * the bump the pool keeps ([pool, bump]): the owner alone says nothing, the
+ * pool that names the vault does. The pool account is 324 bytes: version
+ * (1) at byte 0, initialised (1) at 1, the authority's bump at 2, vault A at
+ * 35, vault B at 67, mint A at 131, mint B at 163. Read on BERN's FluxBeam
+ * pool Ebbpz3PW… on 25/11/2026: bump 254, BERN vault Ft1URsGG… at 35, BERN
+ * at 131, wrapped SOL at 163; the owner of Ft1URsGG… is GZHYAsik…, the
+ * address the pool derives, and no account lives there.
+ */
+export const TOKEN_SWAP_POOL_SIZE = 324;
+const TOKEN_SWAP = { bump: 2, vaultA: 35, vaultB: 67, mintA: 131, mintB: 163 } as const;
+/** Bytes a reader needs of a token-swap pool: up to mint B's end. */
+export const TOKEN_SWAP_READ = TOKEN_SWAP.mintB + 32;
+/** Programs whose pools have that layout. */
+export const TOKEN_SWAP_PROGRAMS: readonly string[] = [FLUXBEAM_PROGRAM];
+
+/** A token-swap pool as read: its address, owning program, and its first `TOKEN_SWAP_READ` bytes or more. */
+export type TokenSwapPool = { address: string; program: string; data: Uint8Array };
+
+/**
+ * The authority that owns a token-swap pool's vault of `mint`, and its role:
+ * the pool names the mint and the vault, and the authority is the address
+ * derived from the pool with the bump it keeps. `null` when the pool is not
+ * one, or holds no vault of `mint`.
+ */
+export function tokenSwapAuthority(
+  pool: TokenSwapPool,
+  mint: string,
+): { authority: string; vault: string; role: OwnerRole } | null {
+  const { data, program } = pool;
+  if (!TOKEN_SWAP_PROGRAMS.includes(program) || data.length < TOKEN_SWAP_READ) return null;
+  if (data[0] !== 1 || data[1] !== 1) return null;
+  const at = (offset: number) => encodeBase58(data.subarray(offset, offset + 32));
+  const vaultAt =
+    at(TOKEN_SWAP.mintA) === mint
+      ? TOKEN_SWAP.vaultA
+      : at(TOKEN_SWAP.mintB) === mint
+        ? TOKEN_SWAP.vaultB
+        : null;
+  if (vaultAt === null) return null;
+  // The program signs for its vaults with [pool, bump]: the same seeds give the owner.
+  const authority = createProgramAddress(
+    [addressBytes(pool.address), data.subarray(TOKEN_SWAP.bump, TOKEN_SWAP.bump + 1)],
+    program,
+  );
+  if (!authority) return null;
+  const vault = at(vaultAt);
+  const name = `${knownProgram(program)?.name ?? program} pool`;
+  return {
+    authority,
+    vault,
+    role: {
+      kind: 'pool',
+      name,
+      program,
+      evidence: `owner of vault ${vault}, which ${name} ${pool.address} names at byte ${vaultAt}; derived from the pool's address`,
+    },
+  };
+}
 
 /** What is known of an owner's own account: `null` when no account lives there. */
 export type OwnerAccount = {

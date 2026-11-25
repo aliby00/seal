@@ -5,7 +5,7 @@ import { readableNote } from '../plain-note';
 import type { SolanaHolder } from '../solana/holders';
 import { NATIVE_MINT } from '../solana/programs';
 import type { TokenPower, TokenPowerKind } from '../solana/token-types';
-import { addressesSoftware, imitatedName, normalizeName, quoteName } from './names';
+import { addressesSoftware, imitatedName, normalizeName, quoteName, WATCHED_TOKENS } from './names';
 import {
   BUYS_WITHOUT_SALE,
   CREATOR_HOLDS_SHARE,
@@ -1091,10 +1091,17 @@ const nameClone: Specialist = {
     }
     const facts: string[] = [];
     const signals: Signal[] = [];
+    // The token may be one of the well-known mints itself: its name is then its own.
+    const itself = WATCHED_TOKENS.find((t) => t.mint === token);
+    if (itself) {
+      facts.push(
+        `This is the mint of ${itself.label} itself, one of the well-known tokens SEAL compares names with.`,
+      );
+    }
     const bySymbol = imitatedName(meta.symbol);
     const byName = imitatedName(meta.name);
-    const borrowed = bySymbol ?? byName;
-    if (borrowed && borrowed.mint !== token) {
+    const borrowed = [bySymbol, byName].find((t) => t && t.mint !== token) ?? null;
+    if (borrowed) {
       const which =
         bySymbol === borrowed && byName === borrowed
           ? `Its name ${quoteName(meta.name)} and symbol ${quoteName(meta.symbol)} use those of`
@@ -1144,7 +1151,12 @@ const nameClone: Specialist = {
       signal: strongest(signals, 'quiet'),
       facts,
       limits: [
-        'names are compared with a short list of well-known Solana tokens and the creator’s own launches only',
+        // The well-known mint itself was recognised by its address: no list to qualify.
+        ...(itself
+          ? []
+          : [
+              'names are compared with a short list of well-known Solana tokens and the creator’s own launches only',
+            ]),
         ...(historyRead
           ? []
           : [

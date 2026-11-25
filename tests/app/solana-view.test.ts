@@ -386,3 +386,74 @@ describe('the launch replay, when no other wallet bought', () => {
     expect(replay(true)).not.toMatch(/0 addresses bought/);
   });
 });
+
+describe('names chosen on chain, on the Solana blocks', () => {
+  const render = (v: SolanaView) =>
+    renderToStaticMarkup(createElement(SolanaFacts, { view: v, index: '03' }));
+  const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  const base = solanaReport();
+  const launched = (mint: string, name: string, symbol: string) => ({
+    mint,
+    launchpad: 'pump.fun',
+    name,
+    symbol,
+    signature: null,
+    slot: null,
+    launchedAt: null,
+    curve: null,
+    outcome: 'dead' as const,
+    trades24h: 0,
+    foundBy: ['pump-curves' as const],
+  });
+  const QUOTE = '9AhKqLR67hwapvG8SA2JFXaCshXc9nALJjpKaHZrsbkw';
+  // A name a creator can choose: it reads as a verdict, or hides behind a right-to-left override.
+  const report = solanaReport({
+    mint: {
+      ...base.mint,
+      data: {
+        ...base.mint.data!,
+        metadata: { ...base.mint.data!.metadata!, name: 'SAFE 100X', symbol: 'RUG PULL' },
+      },
+    },
+    creatorHistory: {
+      ...base.creatorHistory!,
+      data: {
+        ...base.creatorHistory!.data,
+        tokens: [
+          launched('8wUEF4ewdQfhZRFY1D4e4MhdMcaHHNhA2Yt8cFxJYhYa', 'Legit Moon', 'SAFE'),
+          launched('GZHYAsikiCAAeMzJ6wX2oUx8Z9eh78wKUA9WyabB53tB', '\u202ePUJ', 'J\u200bUP'),
+        ],
+      },
+    },
+    market: {
+      ...base.market,
+      data: { ...base.market.data, pairedWith: { address: QUOTE, symbol: 'SCAM' } },
+    },
+  });
+
+  it('withholds a name or symbol that reads as a verdict, as the header does', () => {
+    const v = toSolanaView(report);
+    expect(v.mint.data?.metadata).toMatchObject({ name: null, symbol: null, withheld: true });
+    expect(v.history?.data.tokens[0]).toMatchObject({ name: null, symbol: null });
+    // Invisible and bidi characters are taken out, the rest kept.
+    expect(v.history?.data.tokens[1]).toMatchObject({ name: 'PUJ', symbol: 'J UP' });
+    // A pair's symbol withheld: the quote token is named by its address.
+    expect(v.market.data.pairedWith).toBe('9AhK…sbkw');
+
+    const html = text(render(v));
+    expect(findViolations(html)).toEqual([]);
+    expect(html).not.toMatch(/[\u200b-\u200f\u202a-\u202e]/);
+    expect(html).toMatch(/reads as a verdict or advice/);
+  });
+
+  it('keeps a plain name as it is', () => {
+    const v = toSolanaView(base);
+    const meta = base.mint.data!.metadata!;
+    expect(v.mint.data?.metadata).toMatchObject({
+      name: meta.name,
+      symbol: meta.symbol,
+      withheld: false,
+    });
+    expect(v.market.data.pairedWith).toBe('SOL');
+  });
+});
