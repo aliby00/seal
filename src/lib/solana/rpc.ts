@@ -659,10 +659,15 @@ export function createSolanaRpc(options: SolanaRpcOptions = {}): SolanaRpcClient
     signal: AbortSignal | undefined,
   ) {
     const rate = rateOf(node);
+    // A call cut while it waits for its turn leaves the queue without
+    // taking one: the readers still running are not held behind it.
     await throttle(node.url, 1, {
       rate,
       burst: node.public ? Math.min(PUBLIC_BURST, rate) : Math.max(KEYED_BURST, rate),
       ...(options.sleep ? { sleep: options.sleep } : {}),
+      ...(signal ? { signal } : {}),
+    }).catch((error: unknown) => {
+      throw signal?.aborted ? abortReason(signal) : error;
     });
     // Cut while it waited for its turn: nothing is sent, nothing is spent.
     if (signal?.aborted) throw abortReason(signal);

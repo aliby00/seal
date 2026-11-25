@@ -392,6 +392,12 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
   } finally {
     clearTimeout(timer);
     options.signal?.removeEventListener('abort', onCallerAbort);
+    // Every block is settled: a request a reader left behind when its own cap
+    // fired is no longer wanted. Clearing the deadline's timer alone left it
+    // running (until fetch's own 15 s timeout) once the report was out.
+    if (!cut.signal.aborted) {
+      cut.abort(new TimeoutError('solana-rpc', Date.now() - startedAt));
+    }
   }
 }
 
