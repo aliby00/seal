@@ -247,6 +247,23 @@ export function buildSupplyFlow(
   };
 }
 
+/**
+ * "40 seconds", "12 minutes", "5 hours", "7.2 days": a time after the launch
+ * in the unit a person would use. BONK's creator passing its supply on over
+ * a week read "within 10352 minutes" (offline text, staging, 25/11/2026).
+ */
+export function flowSpan(seconds: number): string {
+  const s = Math.max(0, seconds);
+  if (s < 90) {
+    const n = Math.round(s);
+    return `${n} ${n === 1 ? 'second' : 'seconds'}`;
+  }
+  if (s < 90 * 60) return `${Math.round(s / 60)} minutes`;
+  if (s < 48 * 3600) return `${Math.round(s / 3600)} hours`;
+  const days = s / 86_400;
+  return `${days < 10 ? Math.round(days * 10) / 10 : Math.round(days)} days`;
+}
+
 /** "28.6%", "50%", "<0.1%": one decimal, none when it is whole. */
 export function flowPct(value: number): string {
   if (value > 0 && value < 0.001) return '<0.1%';
@@ -329,7 +346,7 @@ export function flowSentence(flow: SupplyFlow, creator?: string | null): string 
     }
     const passed = r.children.reduce((n, c) => n + c.received, 0);
     const last = Math.max(...r.children.map((c) => c.at));
-    const when = last < 90 ? `${Math.round(last)} seconds` : `${Math.round(last / 60)} minutes`;
+    const when = flowSpan(last);
     const kids = r.children.map(
       (c) => `${flowPct(c.received)} to ${inSentence(c.name)}${todayWords(c, creator)}`,
     );
