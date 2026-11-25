@@ -357,7 +357,7 @@ describe('the measured cards, on recorded reports', () => {
 
   it('pump.fun on its curve: the curve’s 99.8 % is not rounded to the whole supply', () => {
     const html = board('pump-creator-sold');
-    expect(html).toMatch(/99\.8% of the supply sits in its launch curve/);
+    expect(html).toMatch(/99\.8% of the supply sits in its bonding curve/);
     expect(html).toMatch(/NYqu…Qnb2 , its launch curve/);
   });
 });
