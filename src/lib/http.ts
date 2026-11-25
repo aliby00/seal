@@ -11,8 +11,8 @@ import {
  *
  * Il porte trois choses qu'aucun module ne doit réimplémenter : le timeout, le
  * retry exponentiel qui respecte `Retry-After`, et un plafond de requêtes par
- * analyse — pour qu'une seule analyse ne puisse pas épuiser le quota journalier
- * de Blockscout (100 000 crédits) à elle seule.
+ * analyse — pour qu'une seule analyse ne puisse pas épuiser à elle seule le
+ * quota d'une source (le nœud Solana, DexScreener).
  */
 
 export type RequestBudget = {

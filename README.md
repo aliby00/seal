@@ -56,20 +56,18 @@ le signale. Une source manquante n'empêche jamais l'analyse.
 
 ## Commandes
 
-|                             |                                         |
-| --------------------------- | --------------------------------------- |
-| `pnpm dev`                  | serveur de développement                |
-| `pnpm build`                | build de production                     |
-| `pnpm typecheck`            | TypeScript, mode strict                 |
-| `pnpm lint` / `pnpm format` | ESLint / Prettier                       |
-| `pnpm test`                 | suite complète, **aucun appel réseau**  |
-| `pnpm test:guards`          | garde-fous de l'agent uniquement        |
-| `pnpm probe:rpc`            | rejoue les mesures RPC de `RESEARCH.md` |
-| `pnpm probe:blockscout`     | idem Blockscout                         |
-| `pnpm probe:dexscreener`    | idem DexScreener                        |
+|                             |                                        |
+| --------------------------- | -------------------------------------- |
+| `pnpm dev`                  | serveur de développement               |
+| `pnpm build`                | build de production                    |
+| `pnpm typecheck`            | TypeScript, mode strict                |
+| `pnpm lint` / `pnpm format` | ESLint / Prettier                      |
+| `pnpm test`                 | suite complète, **aucun appel réseau** |
+| `pnpm test:guards`          | garde-fous de l'agent uniquement       |
 
-Les sondes touchent le réseau pour de vrai — c'est leur but. Elles existent pour que les
-chiffres de `RESEARCH.md` soient rejouables plutôt que crus sur parole.
+Les sondes de Robinhood Chain (`probe:rpc`, `probe:blockscout`, `probe:dexscreener`) sont
+retirées avec la lecture EVM. Les mesures Solana sont rejouées par
+`SEAL_RECORD=1 pnpm vitest run tests/collect/record.live.test.ts`.
 
 ## Structure
 

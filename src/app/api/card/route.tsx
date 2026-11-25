@@ -145,7 +145,7 @@ function Card({ data }: { data: CardData }) {
           <div style={{ fontSize: 34, fontWeight: 700, letterSpacing: 6 }}>SEAL</div>
         </div>
         <div style={{ fontFamily: 'Mono', fontSize: 18, color: FAINT, letterSpacing: 3 }}>
-          READING · ROBINHOOD CHAIN
+          READING · SOLANA
         </div>
       </div>
 
