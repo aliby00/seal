@@ -20,32 +20,39 @@ export async function GET() {
     modelFailure().catch(() => null),
     solanaNodeHealth(),
   ]);
-  return NextResponse.json({
-    status: 'ok',
-    env: process.env.SEAL_ENV ?? 'development',
-    commit: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
-    // Which services are configured — names only, never a key or a URL — so a
-    // deployment that silently runs offline is visible from outside.
-    config: {
-      reasoning: resolveProvider()?.provider.name ?? 'offline',
-      chain: 'solana',
-      // The Solana node read first, by its label; the public one closes the list.
-      solanaNode: solana.node,
-      solanaNodes: solana.nodes,
-      // Where the rate limit and the analysis cache live: shared, or per instance.
-      store: storeKind(),
+  // Every analysis reads the chain first: a node that does not answer leaves
+  // the site up but unable to read anything. The probe says so with a 503 and
+  // `degraded`, so the smoke tests and the uptime check see it; the body keeps
+  // every field.
+  return NextResponse.json(
+    {
+      status: solana.slotOk ? 'ok' : 'degraded',
+      env: process.env.SEAL_ENV ?? 'development',
+      commit: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
+      // Which services are configured — names only, never a key or a URL — so a
+      // deployment that silently runs offline is visible from outside.
+      config: {
+        reasoning: resolveProvider()?.provider.name ?? 'offline',
+        chain: 'solana',
+        // The Solana node read first, by its label; the public one closes the list.
+        solanaNode: solana.node,
+        solanaNodes: solana.nodes,
+        // Where the rate limit and the analysis cache live: shared, or per instance.
+        store: storeKind(),
+      },
+      // Whether the first node answered a `getSlot` just now, and how fast.
+      solana: {
+        node: solana.node,
+        slotOk: solana.slotOk,
+        ...(solana.slotOk ? { slot: solana.slot } : { error: solana.error }),
+        ms: solana.ms,
+      },
+      // A configured model that does not answer (revoked key, retired model id,
+      // no credit): its kind and since when, never the provider's message.
+      reasoningFailing: failure ? failure.kind : null,
+      reasoningFailingSince: failure ? failure.at : null,
+      at: new Date().toISOString(),
     },
-    // Whether the first node answered a `getSlot` just now, and how fast.
-    solana: {
-      node: solana.node,
-      slotOk: solana.slotOk,
-      ...(solana.slotOk ? { slot: solana.slot } : { error: solana.error }),
-      ms: solana.ms,
-    },
-    // A configured model that does not answer (revoked key, retired model id,
-    // no credit): its kind and since when, never the provider's message.
-    reasoningFailing: failure ? failure.kind : null,
-    reasoningFailingSince: failure ? failure.at : null,
-    at: new Date().toISOString(),
-  });
+    { status: solana.slotOk ? 200 : 503 },
+  );
 }
