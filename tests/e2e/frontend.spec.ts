@@ -467,7 +467,7 @@ test('loading describes sources; report keeps limits before prose and sources gl
   expect(text.indexOf('In short')).toBeLessThan(text.indexOf('Not measured here'));
   expect(text.indexOf('Not measured here')).toBeLessThan(text.indexOf('The creator launched'));
   await expect(page.locator('.glance-lead')).toContainText(
-    'One wallet holds 31% of the tokens held outside its curve and pools.',
+    'One wallet holds 31% of the tokens held outside any curve, pool or lock.',
   );
   await expect(page.locator('.divergent')).toHaveCount(1);
   await expect(page.getByText('Sources apply to the report as a whole.')).toBeVisible();
