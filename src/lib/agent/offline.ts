@@ -86,7 +86,9 @@ function creatorAccount(report: TokenReport): string {
         : '';
     sentences.push(
       c.launched === 0
-        ? 'No other token by this address was found on pump.fun’s curves or in its transactions read.'
+        ? history.data.scanned.transactionsRead === 0 && history.data.scanned.transactionsListed > 0
+          ? 'No other token by this address was found on pump.fun’s curves; none of its own transactions could be read.'
+          : 'No other token by this address was found on pump.fun’s curves or in its transactions read.'
         : `This address launched ${atLeast}${c.launched} other token${c.launched === 1 ? '' : 's'}: ${c.graduated} graduated from their curve, ${c.active} traded in the last 24 hours, ${c.dead} launched over a day ago with no trade in the last 24 hours, ${c.unknown} not determined.`,
     );
   } else if (history) {
@@ -113,7 +115,9 @@ function creatorAccount(report: TokenReport): string {
           ? d.transactions.read === 0
             ? 'The creator has no move on this token: it did not sell any.'
             : `The creator did not sell this token in the ${d.transactions.read} transaction${d.transactions.read === 1 ? '' : 's'} on its token accounts, all of them read.`
-          : `No sale by the creator was seen in the ${d.transactions.read} of ${d.transactions.listed} transactions read: not all of them, so a sale may be among the others.`,
+          : d.transactions.read === 0 && d.transactions.listed > 0
+            ? `None of the ${d.transactions.listed} transactions on the creator’s token accounts could be read this time: whether it sold is not known.`
+            : `No sale by the creator was seen in the ${d.transactions.read} of ${d.transactions.listed} transactions read: not all of them, so a sale may be among the others.`,
       );
     }
     if (d.holdsNow !== null) {

@@ -491,3 +491,90 @@ describe('claims the facts forbid', () => {
     expect(findClaims('The creator has not sold this token.', base)).toEqual([]);
   });
 });
+
+describe('a read of the creator’s moves cut short (PYUSD on the public node, 0 of 2 read)', () => {
+  const cut = solanaReport({
+    creatorOnToken: {
+      ...base.creatorOnToken!,
+      completeness: 'partial',
+      sources: [
+        {
+          name: 'solana-rpc',
+          fetchedAt: base.collectedAt,
+          note: 'transactions read up to 0: solana-rpc : request limit reached, retry in 10 s; 0 of 2 transactions read',
+        },
+      ],
+      data: { ...base.creatorOnToken!.data, transactions: { listed: 2, read: 0 } },
+    },
+    creatorHistory: {
+      ...base.creatorHistory!,
+      completeness: 'partial',
+      data: {
+        ...base.creatorHistory!.data,
+        scanned: {
+          ...base.creatorHistory!.data.scanned,
+          transactionsRead: 0,
+          transactionsListed: 117,
+        },
+      },
+    },
+  });
+
+  it('Creator History says no absence over transactions it did not read', () => {
+    const finding = ask('creator-history', cut);
+    const facts = finding.facts.join(' ');
+    expect(facts).not.toMatch(/neither bought nor received/);
+    expect(facts).not.toMatch(/in the 0 transactions/);
+    expect(facts).toContain(
+      'No other token by this creator was found on pump.fun’s curves; none of its own transactions could be read.',
+    );
+    expect(finding.measures?.creator?.hasSold).toBeNull();
+  });
+
+  it('the model reads "none seen", never "bought none"', () => {
+    const text = renderReport(cut);
+    expect(text).toContain(
+      'Bought none seen in the transactions read (not all of them); sold none seen in the transactions read (not all of them)',
+    );
+    expect(text).not.toMatch(/Bought none;/);
+  });
+
+  it('the text without the model says whether it sold is not known', () => {
+    const text = offlineExplanation(cut);
+    expect(text).toContain(
+      'None of the 2 transactions on the creator’s token accounts could be read this time: whether it sold is not known.',
+    );
+    expect(text).toContain('none of its own transactions could be read');
+  });
+});
+
+describe('In short, after a launch replay that failed', () => {
+  it('says what the creation slot got as a floor', () => {
+    const report = solanaReport({
+      failedReads: [
+        { read: 'launch-replay', note: '59 of 60 transactions of the window could not be read' },
+      ],
+      launch: {
+        ...base.launch,
+        completeness: 'partial',
+        data: {
+          ...base.launch.data,
+          sameSlot: {
+            wallets: 2,
+            share: 0.395,
+            transactions: 2,
+            heldNow: null,
+            unread: 2,
+            soldInWindow: 0,
+            solSpent: 24.19,
+            addresses: [],
+          },
+        },
+      },
+    });
+    const item = glanceOf(report).items.find((i) => i.id === 'launch-buys');
+    expect(item?.title).toBe(
+      'In the creation slot, 2 wallets other than the creator got at least 40% of the supply.',
+    );
+  });
+});

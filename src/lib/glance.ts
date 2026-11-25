@@ -519,7 +519,13 @@ function heldWords(g: GroupMeasure): string {
  * (or the creation's fee payer) paid for, or in the creation slot itself.
  * Facts only: what they got and hold, never what they are.
  */
-function launchBuysItem(launch: LaunchReplayData | undefined, m: Measures): GlanceItem | null {
+function launchBuysItem(
+  launch: LaunchReplayData | undefined,
+  m: Measures,
+  /** The replay's read failed this time: what the groups got is what was read, a floor. */
+  cut = false,
+): GlanceItem | null {
+  const atLeast = cut ? 'at least ' : '';
   const groups = m.launch;
   const paid = groups?.payerGroup;
   const slot = groups?.sameSlot;
@@ -529,7 +535,7 @@ function launchBuysItem(launch: LaunchReplayData | undefined, m: Measures): Glan
       id: 'launch-buys',
       tone: paid.share >= GROUP_SHARE ? 'attention' : 'neutral',
       figure: pct(paid.share),
-      title: `${capitalized(wallets(paid.wallets))} got ${pct(paid.share)} of the supply in transactions paid by the creator or by the creation’s fee payer${heldWords(paid)}.`,
+      title: `${capitalized(wallets(paid.wallets))} got ${atLeast}${pct(paid.share)} of the supply in transactions paid by the creator or by the creation’s fee payer${heldWords(paid)}.`,
       detail: 'Read from the first transactions after the creation, by who paid each one.',
       href: '#launch-title',
     };
@@ -539,7 +545,7 @@ function launchBuysItem(launch: LaunchReplayData | undefined, m: Measures): Glan
       id: 'launch-buys',
       tone: slot.share >= GROUP_SHARE ? 'attention' : 'neutral',
       figure: pct(slot.share),
-      title: `In the creation slot, ${wallets(slot.wallets)} other than the creator got ${pct(slot.share)} of the supply${heldWords(slot)}.`,
+      title: `In the creation slot, ${wallets(slot.wallets)} other than the creator got ${atLeast}${pct(slot.share)} of the supply${heldWords(slot)}.`,
       detail: 'Read from the transactions of the slot the token was created in.',
       href: '#launch-title',
     };
@@ -737,7 +743,7 @@ export function buildGlance({ facts, timeline, launch, specialists }: GlanceInpu
   const candidates = [
     salesItem(facts.creator, m, readFailed(failed, 'creator-sales')),
     supplyItem(facts, launch),
-    launchBuysItem(launch, m),
+    launchBuysItem(launch, m, readFailed(failed, 'launch-replay')),
     recordItem(facts.creator, m, timeline, readFailed(failed, 'creator-launches')),
     marketItem(facts.market, m),
     ...(powers && powers.tone !== 'attention' ? [powers] : []),

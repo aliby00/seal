@@ -217,9 +217,16 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
       const d = onToken!.data;
       const spent = solOf(d.solSpent);
       const got = solOf(d.solReceived);
+      // On a partial read a zero is what was seen, not an absence.
+      const seen = (raw: string) =>
+        raw === '0'
+          ? onToken!.completeness === 'full'
+            ? 'none'
+            : 'none seen in the transactions read (not all of them)'
+          : share(raw, supply);
       return [
-        `Bought ${share(d.bought, supply)}${spent ? ` for ${solWords(spent)}` : ''}; sold ${d.sold === '0' ? (onToken!.completeness === 'full' ? 'none' : 'none seen in the transactions read (not all of them)') : `${share(d.sold, supply)}${got ? ` for ${solWords(got)}` : ''}`}; received ${share(d.received, supply)}; put in a lock ${share(d.locked, supply)}; burned ${share(d.burned, supply)}.`,
-        `Holds today: ${d.holdsNow === null ? 'not read' : holding(d.holdsNow, supply)}. Sent ${d.sends.distinct === 0 ? 'nothing' : `${d.sends.total ? share(d.sends.total, supply) : 'some'} to ${d.sends.distinct} other address${d.sends.distinct === 1 ? '' : 'es'}`} outside markets.`,
+        `Bought ${seen(d.bought)}${spent ? ` for ${solWords(spent)}` : ''}; sold ${seen(d.sold)}${d.sold !== '0' && got ? ` for ${solWords(got)}` : ''}; received ${seen(d.received)}; put in a lock ${seen(d.locked)}; burned ${seen(d.burned)}.`,
+        `Holds today: ${d.holdsNow === null ? 'not read' : holding(d.holdsNow, supply)}. Sent ${d.sends.distinct === 0 ? (onToken!.completeness === 'full' ? 'nothing' : 'nothing seen') : `${d.sends.total ? share(d.sends.total, supply) : 'some'} to ${d.sends.distinct} other address${d.sends.distinct === 1 ? '' : 'es'}`} outside markets.`,
         `Transactions on its token accounts: ${d.transactions.read} read of ${d.transactions.listed}.`,
       ];
     }),

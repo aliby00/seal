@@ -455,7 +455,9 @@ const creatorHistory: Specialist = {
       const atLeast = history.completeness !== 'full' || !s.pumpCurvesListed;
       if (c.launched === 0) {
         facts.push(
-          `No other token by this creator was found on pump.fun’s curves or in the ${count(s.transactionsRead, 'transaction')} of its own read.`,
+          s.transactionsRead > 0
+            ? `No other token by this creator was found on pump.fun’s curves or in the ${count(s.transactionsRead, 'transaction')} of its own read.`
+            : `No other token by this creator was found on pump.fun’s curves${s.transactionsListed > 0 ? '; none of its own transactions could be read' : ''}.`,
         );
       } else {
         facts.push(
@@ -508,17 +510,21 @@ const creatorHistory: Specialist = {
       if (d.locked !== '0') parts.push(`put ${part(d.locked)} into a lock`);
       if (d.burned !== '0') parts.push(`burned ${part(d.burned)}`);
       const read = `${d.transactions.read} of ${count(d.transactions.listed, 'transaction')} on its token accounts read`;
-      facts.push(
-        parts.length > 0
-          ? `On this token, the creator ${parts.join(', ')} (${read}).`
-          : `On this token, the creator neither bought nor received any (${read}).`,
-      );
+      const all = onToken.completeness === 'full';
+      // An absence is said only over what was read: "neither bought nor
+      // received" after 0 of 2 transactions read is not a fact (PYUSD, rate-limited).
+      if (parts.length > 0) facts.push(`On this token, the creator ${parts.join(', ')} (${read}).`);
+      else if (all)
+        facts.push(`On this token, the creator neither bought nor received any (${read}).`);
+      else if (d.transactions.read > 0)
+        facts.push(`No buy or receipt by the creator was seen in the ${read}.`);
       if (sold === false) facts.push('The creator has not sold any of this token.');
       if (sold === null) {
         limits.push(
           'not every move of the creator on this token was read: no sale was seen, but one may lie in the transactions not read',
         );
       }
+      if (!all && d.transactions.read === 0 && noteOf(onToken)) limits.push(noteOf(onToken)!);
       const holds = d.holdsNow === null ? null : (shareOf(d.holdsNow, supply) ?? d.holdsNowShare);
       if (d.holdsNow !== null && holds !== null) {
         facts.push(
