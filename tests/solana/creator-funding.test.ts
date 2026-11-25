@@ -91,6 +91,18 @@ describe('linkedWallets', () => {
     expect(linked.completeness).toBe('full');
   });
 
+  it('waits for a launch time given later, and reads around it', async () => {
+    // The creation the launch replay finds comes while the funding is read:
+    // the mint's own history is not read again (BONK, 25/11/2026).
+    const { rpc, now } = creatorCase('pump-creator-sold');
+    const linked = await linkedWallets(SOLD_CREATOR, SOLD, rpc, {
+      now,
+      launchTime: Promise.resolve(1795554868),
+    });
+    expect(linked.data.window).toEqual({ from: 1795554868 - 86_400, to: 1795554868 + 3_600 });
+    expect(linked.sources[0]?.note).not.toMatch(/launch time unknown/);
+  });
+
   it('says unavailable when the creator’s transactions cannot be listed', async () => {
     const rpc = createFakeSolanaRpc([
       { method: 'getSignaturesForAddress', error: { code: 429, message: 'Too many requests' } },
