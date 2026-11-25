@@ -421,7 +421,7 @@ describe('names chosen on chain, on the Solana blocks', () => {
         ...base.creatorHistory!.data,
         tokens: [
           launched('8wUEF4ewdQfhZRFY1D4e4MhdMcaHHNhA2Yt8cFxJYhYa', 'Legit Moon', 'SAFE'),
-          launched('GZHYAsikiCAAeMzJ6wX2oUx8Z9eh78wKUA9WyabB53tB', '‮PUJ', 'J​UP'),
+          launched('GZHYAsikiCAAeMzJ6wX2oUx8Z9eh78wKUA9WyabB53tB', '\u202ePUJ', 'J\u200bUP'),
         ],
       },
     },
@@ -442,7 +442,7 @@ describe('names chosen on chain, on the Solana blocks', () => {
 
     const html = text(render(v));
     expect(findViolations(html)).toEqual([]);
-    expect(html).not.toMatch(/[​-‏‪-‮]/);
+    expect(html).not.toMatch(/[\u200b-\u200f\u202a-\u202e]/);
     expect(html).toMatch(/reads as a verdict or advice/);
   });
 
