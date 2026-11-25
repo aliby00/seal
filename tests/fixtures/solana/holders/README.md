@@ -20,6 +20,14 @@ around 00:08 UTC. They replay through the fake node
 | `edge.json`                   | —                                              | No account at the incinerator; a PumpSwap pool read as a mint                      |
 | `public-refuses-largest.json` | —                                              | The public node's answer to `getTokenLargestAccounts`: HTTP 429, `Retry-After: 10` |
 
+## Added on 25/11/2026
+
+`pools.json` also holds, read the same way on 25/11/2026 around 11:50 UTC:
+the Meteora Dynamic Vault `J9K67Pxq…` (the BONK side of DAMM v1 pool
+`278P6iwd…`) and its BONK account `66i1ucUa…`; BERN's FluxBeam pool
+`Ebbpz3PW…` and its BERN vault `Ft1URsGG…`, owned by `GZHYAsik…`, an address
+with no account.
+
 ## Recorded later
 
 The coarser sample (owners whose first two bytes are 0, `memcmp` bytes `11`
