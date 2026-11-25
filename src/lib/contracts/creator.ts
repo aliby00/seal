@@ -1,5 +1,3 @@
-import type { Sourced } from './completeness';
-
 /** Ce qu'est devenu un token après son lancement. */
 export type TokenOutcome =
   /** Le seuil de graduation a été atteint. Ne dit rien de la qualité. */
@@ -176,7 +174,7 @@ export type CreatorOrigin = {
   launchpadsRead?: string[];
   /**
    * Where they could not be: launchpads whose event does not index the
-   * creator (unless the indexer listed them), and contracts deployed directly.
+   * creator, and contracts deployed directly.
    */
   launchpadsNotRead?: string[];
   /** Transactions sent by the address, when it is a wallet (null for a contract). */
@@ -215,8 +213,6 @@ export type CreatorHistoryData = {
    */
   scannedRange: { fromBlock: number; toBlock: number };
 };
-
-export type CreatorHistory = Sourced<CreatorHistoryData>;
 
 /** One launchpad's share of the checks: its launches listed, and the most recent checked. */
 export type CheckedSample = {

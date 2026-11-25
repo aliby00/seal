@@ -1,5 +1,3 @@
-import type { Sourced } from './completeness';
-
 /**
  * Why an address is set aside rather than counted as a holder: it holds
  * tokens for trading or for the launch mechanism, not for anyone.
@@ -102,23 +100,3 @@ export type HolderDistributionData = {
   /** Links from the creator to the holders, when its transfers were all read. */
   creatorLinks?: CreatorLinks;
 };
-
-export type HolderDistribution = Sourced<HolderDistributionData>;
-
-/** Holders below which "most of them received it from the creator" says too little to be said. */
-export const AIRDROP_MIN_HOLDERS = 50;
-
-/**
- * Whether most of the holders received the token from its creator: only
- * when the creator's recipients outnumber half of a real holder list. KEL
- * (2 holders, the creator's "1 recipient" the router of its own sale) was
- * told that most of its holders had received it rather than bought it.
- */
-export function mostHoldersFromCreator(
-  recipients: number | null | undefined,
-  holderCount: number | null | undefined,
-): boolean {
-  if (recipients === null || recipients === undefined) return false;
-  if (holderCount === null || holderCount === undefined) return false;
-  return holderCount >= AIRDROP_MIN_HOLDERS && recipients > holderCount / 2;
-}
