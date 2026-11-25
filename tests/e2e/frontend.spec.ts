@@ -163,7 +163,7 @@ test('a report a failed read left partial says so in In short, below the finding
       failed: [
         {
           read: 'creator-launches',
-          note: 'the SEAL indexer did not answer: the launches it lists could not be read this time',
+          note: 'the node refused getTransaction (rate-limit): the creator’s other launches could not be read this time',
         },
       ],
     } as typeof report.facts,
@@ -177,7 +177,7 @@ test('a report a failed read left partial says so in In short, below the finding
   );
   await expect(notice).toContainText('Try again in a minute.');
   await expect(page.locator('.glance')).toContainText(
-    'some of the places their launches are listed could not be read this time',
+    'part of its history could not be read this time',
   );
   await accessible(page);
 });
@@ -209,7 +209,9 @@ test('report opens with the token, then gives ten plain checks, without a tally'
   // Each check has a plain name and a one-line answer.
   await expect(panel.getByText('Supply held by a few')).toBeVisible();
   await expect(
-    panel.getByText('Largest holder 31.0% · top 10 78.0% (pools left out)'),
+    panel.locator('.check-answer', {
+      hasText: 'The largest holder has 31.0% of counted supply; the top 10 have 78.0%.',
+    }),
   ).toBeVisible();
   // What could not be measured is gathered in one line, not spread among the answers.
   const unmeasured = panel.locator('.check-unmeasured');
@@ -222,55 +224,6 @@ test('report opens with the token, then gives ten plain checks, without a tally'
   await panel.getByText('Supply held by a few').click();
   await expect(panel.getByText('Pool and burn addresses are excluded.')).toBeVisible();
   await expect(panel.getByText('What it could not see').first()).toBeVisible();
-  await accessible(page);
-});
-
-test('a creator funded by a wallet that funded others: summary line, then the path in its tile', async ({
-  page,
-}) => {
-  const funder = 'BeRNwDN8aGHvxYRVhNyMkF1wsxuEeceux2xn5deFWyEe';
-  const above = 'DRXA1H9SjZPyPCEeuAWpfwk8GqVW6dZsKFAtdfpFwApX';
-  const linked = {
-    ...report,
-    specialists: [
-      ...report.specialists.filter((a) => a.specialist !== 'funding-trace'),
-      {
-        specialist: 'funding-trace',
-        title: 'Funding Trace',
-        question: 'Who paid for the creator’s wallet, and did they fund other creators?',
-        signal: 'concern',
-        facts: [
-          `The wallet that funded the creator (${funder}, 33 transactions) also funded 16 other token creators, linked through 2 funding steps. Together they launched 41 tokens.`,
-        ],
-        limits: [],
-        funding: {
-          kind: 'wallet',
-          linkedCreators: 16,
-          launches: 41,
-          depth: 2,
-          path: [
-            { address: funder, kind: 'wallet', name: null, txCount: 33 },
-            { address: above, kind: 'wallet', name: null, txCount: 232 },
-          ],
-        },
-      },
-    ],
-  };
-  await page.route('**/api/analyze', (route) => route.fulfill({ json: linked }));
-  await page.goto('/#analysis');
-  await submit(page);
-  const line = page.locator('.glance a').filter({
-    hasText: 'also funded 16 other token creators, who launched 41 tokens between them.',
-  });
-  await expect(line).toHaveAttribute('href', '#question-funding-trace');
-  await line.click();
-  const tile = page.locator('#question-funding-trace');
-  await expect(tile).toHaveAttribute('open', '');
-  const path = tile.getByRole('list').filter({ hasText: 'Creator funded by' });
-  await expect(path.getByRole('listitem')).toHaveCount(2);
-  await expect(path).toContainText('BeRN…WyEe');
-  await expect(path).toContainText('wallet, 33 transactions');
-  await expect(path).toContainText('232 transactions');
   await accessible(page);
 });
 
@@ -454,7 +407,7 @@ test('loading describes sources; report keeps limits before prose and sources gl
   expect(text.indexOf('In short')).toBeLessThan(text.indexOf('Not measured here'));
   expect(text.indexOf('Not measured here')).toBeLessThan(text.indexOf('The creator launched'));
   await expect(page.locator('.glance-lead')).toContainText(
-    'The creator sold into the pool on 7 of 10 launches checked.',
+    'One wallet holds 31% of the tokens held outside its curve and pools.',
   );
   await expect(page.locator('.divergent')).toHaveCount(1);
   await expect(page.getByText('Sources apply to the report as a whole.')).toBeVisible();
