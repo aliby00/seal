@@ -20,6 +20,7 @@ import {
   isTokenProgram,
 } from './programs';
 import {
+  abortable,
   accountBytes,
   collectSignatures,
   COMMITMENT,
@@ -101,24 +102,34 @@ export type LimitedRpc = SolanaRpc & {
   now(): number;
 };
 
-export function limitRpc(rpc: SolanaRpc, limits: ReadLimits = {}): LimitedRpc {
-  if ((rpc as Partial<LimitedRpc>)[LIMITED]) return rpc as LimitedRpc;
+export function limitRpc(client: SolanaRpc, limits: ReadLimits = {}): LimitedRpc {
+  if ((client as Partial<LimitedRpc>)[LIMITED]) return client as LimitedRpc;
   const {
     maxCalls = DEFAULT_CREATOR_CALLS,
     timeoutMs = DEFAULT_CREATOR_TIMEOUT_MS,
     now = Date.now,
   } = limits;
   const deadline = now() + timeoutMs;
+  // At the time cap, the requests still in flight are aborted too: they fail
+  // as a call refused for time would.
+  const cut = new AbortController();
+  const timer = setTimeout(() => cut.abort(new ReadCapError('time', timeoutMs)), timeoutMs);
+  (timer as { unref?: () => void }).unref?.();
+  const rpc = abortable(client, cut.signal);
   const memo = new Map<string, Promise<unknown>>();
   let spent = 0;
-  const call: SolanaCall = <T>(method: string, params: readonly unknown[]) => {
+  const call: SolanaCall = <T>(
+    method: string,
+    params: readonly unknown[],
+    signal?: AbortSignal,
+  ) => {
     const key = recordingKey(method, params);
     const known = memo.get(key);
     if (known) return known as Promise<T>;
     if (spent >= maxCalls) return Promise.reject(new ReadCapError('calls', maxCalls));
     if (now() >= deadline) return Promise.reject(new ReadCapError('time', timeoutMs));
     spent += 1;
-    const answer = rpc.call<T>(method, params);
+    const answer = rpc.call<T>(method, params, signal);
     memo.set(key, answer);
     answer.catch(() => memo.delete(key));
     return answer;

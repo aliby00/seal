@@ -1,15 +1,22 @@
 import { base64 } from '@scure/base';
-import { throttle } from '../chain/rpc';
-import { RateLimitError, SealError, UpstreamError } from '../errors';
+import { RateLimitError, SealError, TimeoutError, UpstreamError } from '../errors';
 import { BudgetExhaustedError, createBudget, request, type RequestBudget } from '../http';
 import { log } from '../logger';
+import { throttle } from '../throttle';
 
 /**
  * JSON-RPC client for Solana mainnet.
  *
- * One client per read: it carries that read's allowance of calls. Every
- * reader codes against `SolanaRpc`, never against `fetch`, so the tests hand
- * it a fake one answering from recorded responses (fake-rpc.ts).
+ * One client per analysis: it carries the analysis's allowance of calls
+ * (`createSolanaRpc({ maxCalls })`), shared by every reader. Every reader
+ * codes against `SolanaRpc`, never against `fetch`, so the tests hand it a
+ * fake one answering from recorded responses (fake-rpc.ts).
+ *
+ * A reader's time cap cuts its requests for real: `withSignal` (or
+ * `abortable`) gives it a view of the client whose calls carry its own
+ * `AbortSignal`, passed down to `fetch`. When the signal aborts, the request
+ * in flight is aborted, the call rejects with the signal's reason (the
+ * reader's own cap error when it gave one) and later calls are refused.
  *
  * The node URL of a keyed provider holds its key: it is never logged, never
  * put in an error message. Logs name the node by its label.
@@ -271,12 +278,30 @@ export type SolanaTransaction = {
   };
 };
 
-/** The call every helper goes through: what the real client and the fake both provide. */
-export type SolanaCall = <T>(method: string, params: readonly unknown[]) => Promise<T>;
+/**
+ * The call every helper goes through: what the real client and the fake both
+ * provide. `signal`, when given, cuts the request: the real client hands it
+ * to `fetch`.
+ */
+export type SolanaCall = <T>(
+  method: string,
+  params: readonly unknown[],
+  signal?: AbortSignal,
+) => Promise<T>;
 
 export interface SolanaRpc {
-  /** Any method; params as the node expects them. Throws a SealError (or BudgetExhaustedError). */
-  call<T>(method: string, params?: readonly unknown[]): Promise<T>;
+  /**
+   * Any method; params as the node expects them. Throws a SealError (or
+   * BudgetExhaustedError); once `signal` aborts, the signal's reason.
+   */
+  call<T>(method: string, params?: readonly unknown[], signal?: AbortSignal): Promise<T>;
+  /**
+   * The same client, every call of it cut when `signal` aborts: the request
+   * in flight is aborted and later calls are refused, with the signal's
+   * reason. Allowance and pacing stay those of the client it came from.
+   * Optional for hand-made test doubles: `abortable` covers them.
+   */
+  withSignal?(signal: AbortSignal): SolanaRpc;
   /** `null` when no account lives at the address. */
   getAccountInfo(address: string, options?: AccountOptions): Promise<AccountInfo | null>;
   /** In the order asked, `null` where no account lives; sent 100 addresses a call. */
@@ -314,10 +339,130 @@ function accountConfig(options: AccountOptions = {}): Record<string, unknown> {
   };
 }
 
-/** The helpers, built on any `call`. */
-export function solanaRpcFrom(call: SolanaCall): SolanaRpc {
+/** What a call cut by `signal` rejects with: the reason the signal was aborted with. */
+export function abortReason(signal: AbortSignal): Error {
+  const reason: unknown = signal.reason;
+  return reason instanceof Error ? reason : new TimeoutError('solana-rpc', 0);
+}
+
+/** Both signals; either one aborting aborts it. */
+export function eitherSignal(
+  a: AbortSignal | undefined,
+  b: AbortSignal | undefined,
+): AbortSignal | undefined {
+  if (!a) return b;
+  if (!b || a === b) return a;
+  return AbortSignal.any([a, b]);
+}
+
+/**
+ * `run()`, settled as soon as `signal` aborts even when the call underneath
+ * does not listen to it (a fake node, a call waiting for its turn): it then
+ * rejects with the signal's reason. A call never starts on an aborted signal.
+ */
+export function cutBy<T>(signal: AbortSignal | undefined, run: () => Promise<T>): Promise<T> {
+  if (!signal) return run();
+  if (signal.aborted) return quietly(Promise.reject(abortReason(signal)));
+  const settled: Promise<T> = new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      // Readers start calls in parallel and await them one by one: a cut
+      // call nobody awaits any more is not an unhandled error.
+      quietly(settled);
+      reject(abortReason(signal));
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    run().then(
+      (value) => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener('abort', onAbort);
+        // Once aborted, the abort's reason has already settled it: a later
+        // rejection (the fetch's own AbortError) is dropped.
+        reject(signal.aborted ? abortReason(signal) : error);
+      },
+    );
+  });
+  return settled;
+}
+
+/** `promise`, its rejection marked as handled; whoever awaits it still gets it. */
+function quietly<T>(promise: Promise<T>): Promise<T> {
+  promise.catch(() => undefined);
+  return promise;
+}
+
+/** The methods of a `SolanaRpc`, `call` and its helpers. */
+const RPC_METHODS = [
+  'call',
+  'getAccountInfo',
+  'getMultipleAccounts',
+  'getTokenLargestAccounts',
+  'getProgramAccounts',
+  'getSignaturesForAddress',
+  'getTransaction',
+  'getSlot',
+] as const;
+
+/** The methods `solanaRpcFrom` builds: they send through its `call`, which carries the signal. */
+const BUILT = new WeakSet<object>();
+
+/**
+ * `rpc` with its calls cut by `signal`. The methods `solanaRpcFrom` built
+ * are taken from `rpc.withSignal(signal)`, so the signal reaches the request
+ * itself; a method set by hand on top of them (a test double overriding one
+ * helper, a reader's own meter) is kept, and settled by the abort.
+ */
+export function abortable(rpc: SolanaRpc, signal: AbortSignal | undefined): SolanaRpc {
+  if (!signal) return rpc;
+  const base: SolanaRpc = rpc.withSignal
+    ? rpc.withSignal(signal)
+    : solanaRpcFrom(
+        <T>(method: string, params: readonly unknown[], own?: AbortSignal) =>
+          rpc.call<T>(method, params, own),
+        signal,
+      );
+  const out: Record<string, unknown> = { ...base };
+  for (const key of RPC_METHODS) {
+    const own = rpc[key] as ((...args: unknown[]) => Promise<unknown>) | undefined;
+    if (typeof own !== 'function' || BUILT.has(own)) continue;
+    out[key] =
+      key === 'call'
+        ? (method: string, params: readonly unknown[] = [], extra?: AbortSignal) => {
+            const cut = eitherSignal(signal, extra);
+            return cutBy(cut, () => own.call(rpc, method, params, cut));
+          }
+        : (...args: unknown[]) => cutBy(signal, () => own.apply(rpc, args));
+  }
+  out.withSignal = (next: AbortSignal) => abortable(rpc, eitherSignal(signal, next) as AbortSignal);
+  return out as unknown as SolanaRpc;
+}
+
+/**
+ * The helpers, built on any `call`. Each call carries `signal` (and the
+ * caller's own, when it gives one), and is cut by it.
+ */
+export function solanaRpcFrom(call: SolanaCall, signal?: AbortSignal): SolanaRpc {
+  const send = <T>(method: string, params: readonly unknown[], own?: AbortSignal): Promise<T> => {
+    const cut = eitherSignal(signal, own);
+    return cutBy(cut, () => call<T>(method, params, cut));
+  };
+  return helpers(send, (next) => solanaRpcFrom(call, eitherSignal(signal, next)));
+}
+
+function helpers(call: SolanaCall, withSignal: (signal: AbortSignal) => SolanaRpc): SolanaRpc {
+  const built = builtHelpers(call, withSignal);
+  for (const key of RPC_METHODS) BUILT.add(built[key]);
+  return built;
+}
+
+function builtHelpers(call: SolanaCall, withSignal: (signal: AbortSignal) => SolanaRpc): SolanaRpc {
   return {
-    call: <T>(method: string, params: readonly unknown[] = []) => call<T>(method, params),
+    call: <T>(method: string, params: readonly unknown[] = [], signal?: AbortSignal) =>
+      call<T>(method, params, signal),
+
+    withSignal,
 
     async getAccountInfo(address, options) {
       const answer = await call<WithContext<AccountInfo | null>>('getAccountInfo', [
@@ -450,12 +595,20 @@ export type RecordedCall = {
   params?: unknown[];
   result?: unknown;
   error?: { code: number; message: string };
+  /**
+   * No configured node serves the method (the public node and
+   * `getTokenLargestAccounts`): the client refused it without a request.
+   */
+  unavailable?: true;
 };
 
 export type SolanaRpcOptions = {
   /** The nodes, in order; `solanaRpcNodes()` when omitted. */
   nodes?: SolanaNode[];
-  /** Calls this read may spend, each retry and each node tried counting one. */
+  /**
+   * Calls the whole analysis may spend, every reader together, each retry
+   * and each node tried counting one: the global ceiling of one analysis.
+   */
   maxCalls?: number;
   /** Or a budget shared with other clients of the same read. */
   budget?: RequestBudget;
@@ -463,7 +616,10 @@ export type SolanaRpcOptions = {
   rate?: (node: SolanaNode) => number;
   /** Every answer, as a fixture entry: to record a read for the tests. */
   record?: (entry: RecordedCall) => void;
-  /** Cuts every request when the caller runs out of time. */
+  /**
+   * Cuts every request of this client when the caller runs out of time; a
+   * reader adds its own with `withSignal`.
+   */
   signal?: AbortSignal;
   /** Waits (pacing, backoff); injectable so that no test sleeps for real. */
   sleep?: (ms: number) => Promise<void>;
@@ -495,13 +651,21 @@ export function createSolanaRpc(options: SolanaRpcOptions = {}): SolanaRpcClient
   const rateOf = options.rate ?? defaultRate;
   let nextId = 1;
 
-  async function send(node: SolanaNode, method: string, params: readonly unknown[], last: boolean) {
+  async function send(
+    node: SolanaNode,
+    method: string,
+    params: readonly unknown[],
+    last: boolean,
+    signal: AbortSignal | undefined,
+  ) {
     const rate = rateOf(node);
     await throttle(node.url, 1, {
       rate,
       burst: node.public ? Math.min(PUBLIC_BURST, rate) : Math.max(KEYED_BURST, rate),
       ...(options.sleep ? { sleep: options.sleep } : {}),
     });
+    // Cut while it waited for its turn: nothing is sent, nothing is spent.
+    if (signal?.aborted) throw abortReason(signal);
     const response = await request(node.url, {
       source: 'solana-rpc',
       ...(options.sleep ? { sleep: options.sleep } : {}),
@@ -514,7 +678,7 @@ export function createSolanaRpc(options: SolanaRpcOptions = {}): SolanaRpcClient
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ jsonrpc: '2.0', id: nextId++, method, params }),
-        ...(options.signal ? { signal: options.signal } : {}),
+        ...(signal ? { signal } : {}),
       },
     });
     let body: JsonRpcAnswer;
@@ -545,10 +709,19 @@ export function createSolanaRpc(options: SolanaRpcOptions = {}): SolanaRpcClient
     return body;
   }
 
-  const call: SolanaCall = async <T>(method: string, params: readonly unknown[]) => {
+  const call: SolanaCall = async <T>(
+    method: string,
+    params: readonly unknown[],
+    own?: AbortSignal,
+  ) => {
+    const signal = eitherSignal(options.signal, own);
+    if (signal?.aborted) throw abortReason(signal);
     const now = Date.now();
     const usable = nodes.filter((node) => serves(node, method));
-    if (usable.length === 0) throw new MethodUnavailableError(method);
+    if (usable.length === 0) {
+      options.record?.({ method, params: [...params], unavailable: true });
+      throw new MethodUnavailableError(method);
+    }
     const aside = (node: SolanaNode) => (setAside.get(node.url) ?? 0) > now;
     const ordered = [...usable.filter((n) => !aside(n)), ...usable.filter(aside)];
 
@@ -556,12 +729,15 @@ export function createSolanaRpc(options: SolanaRpcOptions = {}): SolanaRpcClient
     for (const [index, node] of ordered.entries()) {
       const last = index === ordered.length - 1;
       try {
-        const body = await send(node, method, params, last);
+        const body = await send(node, method, params, last, signal);
         options.record?.({ method, params: [...params], result: body.result });
         return body.result as T;
       } catch (error) {
         lastError = error;
-        // A spent allowance, or a caller's own abort, would be the same on the next node.
+        // The caller's own abort: the node is not at fault, and the next one
+        // would be cut the same way.
+        if (signal?.aborted) throw abortReason(signal);
+        // A spent allowance would be the same on the next node.
         if (error instanceof BudgetExhaustedError || !(error instanceof SealError)) throw error;
         // The node answered, and the answer is about the request: no other node will differ.
         if (error instanceof SolanaRpcError && error.aboutRequest) {
@@ -582,6 +758,14 @@ export function createSolanaRpc(options: SolanaRpcOptions = {}): SolanaRpcClient
           );
         }
       }
+    }
+    // Refused by every node for its rate: a recording replays the same refusal.
+    if (lastError instanceof RateLimitError) {
+      options.record?.({
+        method,
+        params: [...params],
+        error: { code: 429, message: 'Too many requests' },
+      });
     }
     throw lastError;
   };

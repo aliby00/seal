@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { resetThrottle } from '../../src/lib/chain/rpc';
+import { resetThrottle } from '../../src/lib/throttle';
 import { RateLimitError } from '../../src/lib/errors';
 import { BudgetExhaustedError } from '../../src/lib/http';
 import { createFakeSolanaRpc } from '../../src/lib/solana/fake-rpc';

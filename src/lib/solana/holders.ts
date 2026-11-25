@@ -22,6 +22,7 @@ import {
   type OwnerRole,
 } from './roles';
 import {
+  abortable,
   accountBytes,
   COMMITMENT,
   MethodUnavailableError,
@@ -226,25 +227,39 @@ type Allowance = {
   spent(): number;
   /** Calls still allowed. */
   left(): number;
+  /**
+   * Aborted when the time allowance runs out: the read's calls carry it, so
+   * the request in flight is cut, not only waited past.
+   */
+  signal: AbortSignal;
 };
 
 function allowance(maxCalls: number, timeoutMs: number, clock: () => number): Allowance {
   const start = clock();
+  const cut = new AbortController();
   let spent = 0;
   return {
     spent: () => spent,
     left: () => maxCalls - spent,
+    signal: cut.signal,
     async run<T>(cost: number, fn: () => Promise<T>): Promise<T> {
       if (spent + cost > maxCalls) throw new AllowanceError('calls');
       const left = timeoutMs - (clock() - start);
-      if (left <= 0) throw new AllowanceError('time');
+      if (left <= 0) {
+        cut.abort(new AllowanceError('time'));
+        throw new AllowanceError('time');
+      }
       spent += cost;
       let timer: ReturnType<typeof setTimeout> | undefined;
       try {
         return await Promise.race([
           fn(),
           new Promise<never>((_, reject) => {
-            timer = setTimeout(() => reject(new AllowanceError('time')), left);
+            timer = setTimeout(() => {
+              const error = new AllowanceError('time');
+              cut.abort(error);
+              reject(error);
+            }, left);
           }),
         ]);
       } catch (error) {
@@ -309,7 +324,7 @@ export function mintAccountFilters(mint: string, program: SolanaTokenProgram) {
  */
 export async function readHolders(
   mint: string,
-  rpc: SolanaRpc,
+  client: SolanaRpc,
   options: ReadHoldersOptions = {},
 ): Promise<SolanaHolders> {
   const fetchedAt = (options.now ?? (() => new Date()))().toISOString();
@@ -318,6 +333,7 @@ export async function readHolders(
     options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     options.clock ?? Date.now,
   );
+  const rpc = abortable(client, budget.signal);
   const notes: string[] = [];
   const source = (completeness: Completeness, data: SolanaHoldersData): SolanaHolders => ({
     completeness,

@@ -15,6 +15,7 @@ import type {
 } from './launch-types';
 import { associatedTokenAddress, INCINERATOR, knownProgram } from './programs';
 import {
+  abortable,
   MAX_MULTIPLE_ACCOUNTS,
   MAX_SIGNATURES_PAGE,
   parsedAccount,
@@ -153,19 +154,38 @@ function absorbed(error: unknown): boolean {
   );
 }
 
-/** Each call checks the allowance of calls and the deadline before it leaves. */
-function metered(rpc: SolanaRpc, maxCalls: number, deadline: number, now: () => number) {
+/**
+ * Each call checks the allowance of calls and the deadline before it leaves;
+ * a call still in flight at the deadline is aborted (its request is cut) and
+ * counts as stopped for time, as one refused for time would.
+ */
+function metered(client: SolanaRpc, maxCalls: number, deadline: number, now: () => number) {
   let spent = 0;
   let stopped: StopReading['reason'] | null = null;
+  let inflight = 0;
+  const cut = new AbortController();
+  const timer = setTimeout(
+    () => {
+      if (inflight > 0) stopped ??= 'time';
+      cut.abort(new StopReading('time'));
+    },
+    Math.max(0, deadline - now()),
+  );
+  // The read does not wait on its own deadline to finish.
+  (timer as { unref?: () => void }).unref?.();
+  const rpc = abortable(client, cut.signal);
   const via = <T>(calls: number, run: () => Promise<T>): Promise<T> => {
     if (spent + calls > maxCalls) stopped = 'calls';
     else if (now() >= deadline) stopped = 'time';
     if (stopped) return Promise.reject(new StopReading(stopped));
     spent += calls;
-    return run();
+    inflight += 1;
+    return run().finally(() => {
+      inflight -= 1;
+    });
   };
   const wrapped: SolanaRpc = {
-    call: (method, params) => via(1, () => rpc.call(method, params)),
+    call: (method, params, signal) => via(1, () => rpc.call(method, params, signal)),
     getAccountInfo: (address, options) => via(1, () => rpc.getAccountInfo(address, options)),
     getMultipleAccounts: (addresses, options) =>
       via(Math.max(1, Math.ceil(addresses.length / MAX_MULTIPLE_ACCOUNTS)), () =>

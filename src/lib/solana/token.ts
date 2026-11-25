@@ -10,7 +10,7 @@ import {
   TOKEN_METADATA_PROGRAM,
   TOKEN_PROGRAM,
 } from './programs';
-import { accountBytes, type AccountInfo, type SolanaRpc } from './rpc';
+import { abortable, accountBytes, type AccountInfo, type SolanaRpc } from './rpc';
 import type {
   DefaultAccountState,
   SolanaToken,
@@ -565,14 +565,27 @@ export type ReadTokenOptions = {
   timeoutMs?: number;
 };
 
-async function within<T>(promise: Promise<T>, ms: number): Promise<T> {
-  if (ms <= 0) throw new TimeoutError('solana-rpc', 0);
+/**
+ * `promise`, or a TimeoutError after `ms`. The read's calls carry `cut`'s
+ * signal: when time runs out, the request in flight is aborted too, instead
+ * of running on unseen.
+ */
+async function within<T>(promise: Promise<T>, ms: number, cut: AbortController): Promise<T> {
+  if (ms <= 0) {
+    cut.abort(new TimeoutError('solana-rpc', 0));
+    promise.catch(() => undefined);
+    throw new TimeoutError('solana-rpc', 0);
+  }
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
       promise,
       new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new TimeoutError('solana-rpc', ms)), ms);
+        timer = setTimeout(() => {
+          const error = new TimeoutError('solana-rpc', ms);
+          cut.abort(error);
+          reject(error);
+        }, ms);
       }),
     ]);
   } finally {
@@ -592,10 +605,13 @@ function kindOf(error: unknown): string {
  */
 export async function readToken(
   mint: string,
-  rpc: SolanaRpc,
+  client: SolanaRpc,
   options: ReadTokenOptions = {},
 ): Promise<TokenRead> {
   if (!isSolanaAddress(mint)) throw new TypeError(`not a Solana address: ${mint}`);
+  // The read's time cap aborts its requests, not only its wait.
+  const cut = new AbortController();
+  const rpc = abortable(client, cut.signal);
   const now = options.now ?? (() => new Date());
   const readAt = now().toISOString();
   const timeoutMs = options.timeoutMs ?? TOKEN_READ_TIMEOUT_MS;
@@ -608,7 +624,7 @@ export async function readToken(
   const metaplexAccount = metadataAddress(mint);
   let accounts: (AccountInfo | null)[];
   try {
-    accounts = await within(rpc.getMultipleAccounts([mint, metaplexAccount]), remaining());
+    accounts = await within(rpc.getMultipleAccounts([mint, metaplexAccount]), remaining(), cut);
   } catch (error) {
     log.warn('mint Solana illisible', { mint, error: kindOf(error) });
     return {
@@ -660,7 +676,7 @@ export async function readToken(
     }
   } else if (target) {
     try {
-      const info = await within(rpc.getAccountInfo(target), remaining());
+      const info = await within(rpc.getAccountInfo(target), remaining(), cut);
       metadata = info ? readMetadataAt(target, info, mint) : null;
       if (!metadata) {
         gaps.push(
@@ -686,6 +702,7 @@ export async function readToken(
       const info = await within(
         rpc.call<{ epoch: number }>('getEpochInfo', [{ commitment: 'confirmed' }]),
         remaining(),
+        cut,
       );
       epoch = info.epoch;
     } catch (error) {

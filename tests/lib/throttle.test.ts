@@ -1,12 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  configuredRate,
-  DEFAULT_RPC_URL,
-  logQueries,
-  resetThrottle,
-  RPC_CALLS_PER_SECOND,
-  throttle,
-} from '../../src/lib/chain/rpc';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { resetThrottle, throttle } from '../../src/lib/throttle';
 
 /** A fake clock: sleeping moves time forward instead of waiting. */
 function clock() {
@@ -52,26 +45,5 @@ describe('throttle', () => {
     await throttle('rpc://a', 50, { rate: 4, burst: 20, ...c });
     await throttle('rpc://a', 50, { rate: 4, burst: 20, ...c });
     expect(c.waits.length).toBeGreaterThan(0);
-  });
-});
-
-describe('logQueries', () => {
-  it('counts only eth_getLogs, single or batched', () => {
-    expect(logQueries({ method: 'eth_blockNumber' })).toBe(0);
-    expect(logQueries({ method: 'eth_getLogs' })).toBe(1);
-    expect(
-      logQueries([{ method: 'eth_getLogs' }, { method: 'eth_call' }, { method: 'eth_getLogs' }]),
-    ).toBe(2);
-  });
-});
-
-describe('configuredRate', () => {
-  afterEach(() => vi.unstubAllEnvs());
-
-  it('raises the pace of a configured node, never of the public one', () => {
-    vi.stubEnv('SEAL_RPC_RATE', '50');
-    vi.stubEnv('SEAL_PUBLIC_RPC_RATE', '');
-    expect(configuredRate('https://paid.example')).toBe(50);
-    expect(configuredRate(DEFAULT_RPC_URL)).toBe(RPC_CALLS_PER_SECOND);
   });
 });

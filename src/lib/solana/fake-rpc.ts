@@ -1,5 +1,6 @@
 import { RateLimitError } from '../errors';
 import {
+  MethodUnavailableError,
   SolanaRpcError,
   solanaRpcFrom,
   type RecordedCall,
@@ -11,7 +12,7 @@ import {
  * A Solana node that answers from recorded responses, for the tests: no test
  * of this repository reaches the network.
  *
- * A recording is `{ method, params?, result?, error? }`, the shape the real
+ * A recording is `{ method, params?, result?, error?, unavailable? }`, the shape the real
  * client hands to its `record` option and the shape of the fixtures under
  * `tests/fixtures/solana/<zone>/*.json` (one entry or an array per file).
  * A call matches the entry with the same method and the same params, compared
@@ -55,23 +56,49 @@ export type FakeSolanaRpc = SolanaRpc & {
   readonly calls: { method: string; params: unknown[] }[];
 };
 
-export function createFakeSolanaRpc(recordings: readonly RecordedCall[]): FakeSolanaRpc {
-  const exact = new Map<string, RecordedCall>();
+export type FakeSolanaRpcOptions = {
+  /**
+   * Replays the answers to one call in the order they were recorded: the
+   * n-th identical call gets the n-th answer, the last one repeating. A whole
+   * collection asks some calls more than once (a page of a busy mint's
+   * history, by two readers seconds apart) and the node answered each time
+   * what it held then. Otherwise the first recorded answer serves them all.
+   */
+  sequential?: boolean;
+};
+
+export function createFakeSolanaRpc(
+  recordings: readonly RecordedCall[],
+  options: FakeSolanaRpcOptions = {},
+): FakeSolanaRpc {
+  const exact = new Map<string, RecordedCall[]>();
   const anyParams = new Map<string, RecordedCall>();
   for (const entry of recordings) {
     if (entry.params === undefined) {
       if (!anyParams.has(entry.method)) anyParams.set(entry.method, entry);
     } else {
       const key = recordingKey(entry.method, entry.params);
-      if (!exact.has(key)) exact.set(key, entry);
+      const list = exact.get(key) ?? [];
+      if (options.sequential || list.length === 0) list.push(entry);
+      exact.set(key, list);
     }
   }
+  const asked = new Map<string, number>();
+  const answerTo = (key: string): RecordedCall | undefined => {
+    const list = exact.get(key);
+    if (!list) return undefined;
+    const n = asked.get(key) ?? 0;
+    asked.set(key, n + 1);
+    return list[Math.min(n, list.length - 1)];
+  };
   const calls: { method: string; params: unknown[] }[] = [];
 
   const call: SolanaCall = async <T>(method: string, params: readonly unknown[]) => {
     calls.push({ method, params: [...params] });
-    const entry = exact.get(recordingKey(method, params)) ?? anyParams.get(method);
+    const entry = answerTo(recordingKey(method, params)) ?? anyParams.get(method);
     if (!entry) throw new MissingRecordingError(method, params);
+    // Refused by the client itself, as the real one does for the public node.
+    if (entry.unavailable) throw new MethodUnavailableError(method);
     if (entry.error) {
       // The errors the real client would throw for the same answer.
       if (entry.error.code === 429) throw new RateLimitError('solana-rpc');

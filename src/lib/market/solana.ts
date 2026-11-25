@@ -6,7 +6,7 @@ import { NATIVE_MINT } from '../solana/programs';
 import { readSolanaGraduation } from '../solana/graduation';
 import { findLaunchAccount, readSolanaLaunch, type LaunchAccount } from '../solana/launchpads';
 import { readSolanaLiquidity } from '../solana/liquidity';
-import type { SolanaRpc } from '../solana/rpc';
+import { abortable, eitherSignal, type SolanaRpc } from '../solana/rpc';
 import { solanaTokenPairsUrl, type DexScreenerPair } from './dexscreener';
 import { MAX_LISTED_POOLS, MEANINGFUL_POOL_USD, pickPrimaryPair, quietFor } from './index';
 import type {
@@ -274,7 +274,11 @@ function withDeadline<T>(
   source: SolanaSourceName = 'solana-rpc',
 ): Promise<T> {
   const left = deadline - Date.now();
-  if (left <= 0) return Promise.reject(new TimeoutError(source, 0));
+  if (left <= 0) {
+    // Already late: its calls are cut too, and its failure is not waited for.
+    work.catch(() => undefined);
+    return Promise.reject(new TimeoutError(source, 0));
+  }
   let timer: ReturnType<typeof setTimeout> | undefined;
   return Promise.race([
     work,
@@ -310,6 +314,8 @@ export type ReadSolanaMarketOptions = {
   deadlineMs?: number;
   /** Pools whose liquidity is read; MAX_LIQUIDITY_POOLS when omitted. */
   maxPools?: number;
+  /** Cuts the whole zone (the analysis running out of time). */
+  signal?: AbortSignal;
 };
 
 /**
@@ -323,9 +329,9 @@ export async function readSolanaMarket(
   options: ReadSolanaMarketOptions,
 ): Promise<SolanaMarketRead> {
   const now = options.now ?? (() => new Date());
-  const deadline = Date.now() + (options.deadlineMs ?? SOLANA_MARKET_DEADLINE_MS);
+  const started = Date.now();
+  const deadline = started + (options.deadlineMs ?? SOLANA_MARKET_DEADLINE_MS);
   const at = () => now().toISOString();
-  const { rpc } = options;
 
   if (!isSolanaAddress(mint)) {
     // Nothing to ask anyone: no request, no call.
@@ -338,9 +344,41 @@ export async function readSolanaMarket(
     };
   }
 
+  // At the zone's deadline its requests in flight are aborted, DexScreener's
+  // and the node's, not only left behind.
+  const cut = new AbortController();
+  const timer = setTimeout(
+    () => cut.abort(new TimeoutError('solana-rpc', deadline - started)),
+    Math.max(0, deadline - Date.now()),
+  );
+  const signal = eitherSignal(cut.signal, options.signal) as AbortSignal;
+  const rpc = abortable(options.rpc, signal);
+  try {
+    return await readZone(mint, { ...options, rpc, signal }, deadline, at, now);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function readZone(
+  mint: string,
+  options: ReadSolanaMarketOptions & { signal: AbortSignal },
+  deadline: number,
+  at: () => string,
+  now: () => Date,
+): Promise<SolanaMarketRead> {
+  const { rpc } = options;
   let market: SolanaMarketState;
   try {
-    const pairs = await withDeadline(fetchSolanaPairs(mint, options), deadline, 'dexscreener-solana');
+    const pairs = await withDeadline(
+      fetchSolanaPairs(mint, {
+        ...(options.budget ? { budget: options.budget } : {}),
+        ...(options.baseUrl ? { baseUrl: options.baseUrl } : {}),
+        signal: options.signal,
+      }),
+      deadline,
+      'dexscreener-solana',
+    );
     market = toSolanaMarketState(mint, pairs, { now });
   } catch (error) {
     market = failed('dexscreener-solana', at(), error, toSolanaMarketState(mint, [], { now }).data);

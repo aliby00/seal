@@ -116,7 +116,10 @@ export async function request(url: string, options: FetchOptions): Promise<Respo
   const { source, retries = DEFAULT_RETRIES, budget, sleep = defaultSleep } = options;
   let lastError: unknown;
 
+  const callerSignal = options.init?.signal ?? undefined;
   for (let attempt = 0; attempt <= retries; attempt += 1) {
+    // The caller gave up (its own time cap): nothing more is sent or spent.
+    if (callerSignal?.aborted) throw lastError ?? new TimeoutError(source, 0);
     if (budget) {
       if (budget.spent >= budget.max) throw new BudgetExhaustedError(source, budget.max);
       budget.spent += 1;
@@ -138,6 +141,8 @@ export async function request(url: string, options: FetchOptions): Promise<Respo
       // analysis's allowance (staging 07/11/2026: reads allowed 2 requests
       // spent them on two 429s and gave up, a third of the reports partial).
       if (budget && error instanceof RateLimitError) budget.spent -= 1;
+      // Cut by the caller: retrying would only be cut again.
+      if (callerSignal?.aborted) throw error;
       if (!isRetryable(error) || attempt === retries) throw error;
 
       const retryAfter = error instanceof RateLimitError ? error.retryAfterSeconds : undefined;
