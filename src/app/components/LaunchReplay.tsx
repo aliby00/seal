@@ -37,19 +37,37 @@ function pct(value: number): string {
   return `${(value * 100).toFixed(value < 0.1 || (value > 0.99 && value < 1) ? 1 : 0)}%`;
 }
 
-/** "the first 10 minutes", "the first 40 seconds", "the first minute". */
+/**
+ * "the first 40 seconds", "the first 10 minutes", "the first 5 hours", "the
+ * first 3.4 days": a window of 295,183 seconds (JUP) read "4920 minutes".
+ */
 function span(seconds: number): string {
   if (seconds < 90) {
     const s = Math.max(1, Math.round(seconds));
     return s === 1 ? 'second' : `${s} seconds`;
   }
-  const m = Math.round(seconds / 60);
-  return m === 1 ? 'minute' : `${m} minutes`;
+  if (seconds < 90 * 60) {
+    const m = Math.round(seconds / 60);
+    return m === 1 ? 'minute' : `${m} minutes`;
+  }
+  if (seconds < 48 * 3600) return `${Math.round(seconds / 3600)} hours`;
+  const days = seconds / 86400;
+  return `${days < 10 ? Math.round(days * 10) / 10 : Math.round(days)} days`;
 }
 
 function when(seconds: number): string {
   if (seconds < 1) return 'launch';
   if (seconds < 60) return `+${Math.round(seconds)} s`;
+  if (seconds >= 48 * 3600) {
+    const d = Math.floor(seconds / 86400);
+    const h = Math.floor((seconds % 86400) / 3600);
+    return h ? `+${d} d ${h} h` : `+${d} d`;
+  }
+  if (seconds >= 90 * 60) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    return m ? `+${h} h ${m} min` : `+${h} h`;
+  }
   const m = Math.floor(seconds / 60);
   const s = Math.round(seconds % 60);
   return s ? `+${m} min ${s} s` : `+${m} min`;
@@ -71,12 +89,12 @@ const HOLDING_WORD = {
 
 function Story({
   story,
-  span: within,
+  early: earlyWithin,
   partial,
 }: {
   story: LaunchStory;
-  /** "5 seconds": how long the window read lasts. */
-  span: string;
+  /** "10 seconds": the time the first buyers are counted over. */
+  early: string;
   /** The replay was read in part: an absence in it is not a fact. */
   partial: boolean;
 }) {
@@ -136,9 +154,10 @@ function Story({
         ? {
             tone: 'neutral',
             figure: '?',
-            label: `buyers in these first ${within}: the window was not read in full`,
+            label: `buyers in the first ${earlyWithin}: the window was not read in full`,
           }
-        : { tone: 'calm', figure: '0', label: `wallets bought in these first ${within}` },
+        : // Counted over the first seconds only: a later buyer is listed below.
+          { tone: 'calm', figure: '0', label: `addresses bought in the first ${earlyWithin}` },
     );
   }
   if (story.creatorSold > 0) {
@@ -386,6 +405,10 @@ export function LaunchReplay({
   // A launch that only handed its supply out has no buyer to draw: an empty
   // chart said nothing (SIRIUS). The supply flow above draws it instead.
   const noBuys = !launch.moves.some((m) => m.kind === 'buy' || m.kind === 'sell');
+  // The first buyers are counted over these seconds, not over the whole window.
+  const earlySpan = span(launch.summary?.earlySeconds ?? launch.windowSeconds);
+  // Buys of dust only (JUP): a chart that reads 0 % says nothing.
+  const drawn = story.curve.some((p) => p.bought >= 0.0001);
 
   return (
     <section className="launch-replay" aria-labelledby="launch-title">
@@ -410,9 +433,9 @@ export function LaunchReplay({
           )}
         </p>
       ) : (
-        <Story story={story} span={firstSpan} partial={partial} />
+        <Story story={story} early={earlySpan} partial={partial} />
       )}
-      {!noBuys && (
+      {!noBuys && drawn && (
         <div className="launch-stage">
           {!story.frontLoaded && (
             <div className="launch-stage-top">
