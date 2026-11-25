@@ -12,7 +12,7 @@ import { SignalIcon } from './signals';
 
 const KIND_LABEL: Record<FunderKind, string> = {
   wallet: 'wallet',
-  service: 'service or contract',
+  service: 'service or program',
   tool: 'batch-sending tool',
   unknown: 'not identified',
 };

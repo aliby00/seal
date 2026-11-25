@@ -2,6 +2,7 @@ import { readableNote } from '@/lib/plain-note';
 import type { CSSProperties } from 'react';
 import type { ReportFacts, TimelineLaunch } from '@/lib/facts';
 import { whereSetAside } from '@/lib/set-aside';
+import { creatorFrom } from './creator-from';
 import { addressUrl, short } from './explorer';
 import type { SolanaView } from './solana-view';
 
@@ -15,7 +16,8 @@ function pct(value: number): string {
   if (value > 0 && value < 0.001) return '<0.1%';
   // 99.96% rounded would read as the whole supply.
   if (value > 0.999 && value < 1) return '>99.9%';
-  return `${(value * 100).toFixed(value < 0.1 ? 1 : 0)}%`;
+  // Above 99 %, one decimal: 99.79 % rounded to "100%" would sit next to "the other 0.2%".
+  return `${(value * 100).toFixed(value < 0.1 || (value > 0.99 && value < 1) ? 1 : 0)}%`;
 }
 
 /**
@@ -28,6 +30,9 @@ export function plainNote(note: string | undefined): string | undefined {
   if (/no launch record found/i.test(note))
     return 'No launch record names a creator, and the transaction that created the mint was not found.';
   if (/402|no api key/i.test(note)) return 'Not available for this token yet.';
+  // A large token on a node that refuses the largest accounts (the public one): no list at all.
+  if (/largest token accounts not read/i.test(note))
+    return 'Too many token accounts to read them all, and the chain node used does not list the largest ones: the holders could not be read this time.';
   if (/rate-limit|request limit|could not be read/i.test(note))
     return 'The chain node was busy. Try again in a minute.';
   if (/no pair indexed/i.test(note)) return 'No trading pair listed on DexScreener.';
@@ -294,17 +299,20 @@ function Missing({ note }: { note?: string }) {
 /**
  * How the creator was found, said plainly. A fee payer only paid for the
  * transaction that created the mint: that does not prove who made the token,
- * and the card says so.
+ * and the card says so, launchpad or not. On Solana, `launch-record` is the
+ * `creator` field of the pump.fun bonding curve; an origin the facts do not
+ * name (the metadata's update authority) is said by the Solana creator card.
  */
 export function creatorOrigin(creator: ReportFacts['creator']): string | null {
-  if (creator.launchpad) {
-    return creator.creatorFrom === 'launch-record'
-      ? `Named as creator by its ${creator.launchpad} launch record.`
-      : `Launched the token through ${creator.launchpad}: the payer of that transaction.`;
+  if (creator.creatorFrom === 'launch-record') {
+    return creator.launchpad === 'pump.fun'
+      ? 'Named as creator by the token’s pump.fun bonding curve.'
+      : `Named as creator by its ${creator.launchpad ?? 'launch'} record.`;
   }
   if (creator.creatorFrom === 'transaction') {
-    return 'Paid for the transaction that created the mint. This does not prove who made the token.';
+    return 'Paid for the transaction that created the mint. A launch service can pay it: this does not prove who made the token.';
   }
+  if (creator.launchpad) return null;
   switch (creator.role) {
     case 'deployer':
       return 'Created the token.';
@@ -331,19 +339,40 @@ function Address({ address }: { address: string }) {
   );
 }
 
+/**
+ * Whether the creator's launches were all listed. `launchesListed` only says
+ * the pump.fun curves were; the Solana history also says whether the
+ * creator's own transactions were all reached and read.
+ */
+export function launchesComplete(creator: ReportFacts['creator'], solana?: SolanaView): boolean {
+  if (creator.launchesListed === false || (creator.notListed?.length ?? 0) > 0) return false;
+  if (!solana) return true;
+  const history = solana.history;
+  return history !== null && history.read === 'full' && history.data.historyComplete;
+}
+
 function CreatorCard({
   creator,
   timeline,
+  solana,
 }: {
   creator: ReportFacts['creator'];
   timeline?: TimelineLaunch[];
+  solana?: SolanaView;
 }) {
   const wide = creator.measured && (timeline?.length ?? 0) >= 2;
+  // The analysed token is in the counts only when its own curve is complete.
+  const ownCounted = solana?.graduation?.data.graduated === true;
+  // The facts do not name every origin (the metadata's update authority): the Solana creator does.
+  const origin = creatorOrigin(creator) ?? (solana ? creatorFrom(solana.creator.data.from) : null);
   return (
     <section className="fact-card" data-wide={wide || undefined} aria-labelledby="fact-creator">
       <h3 id="fact-creator">Creator</h3>
       {!creator.measured ? (
         <Missing note={creator.note} />
+      ) : !creator.address ? (
+        // A creator read in full may still find nobody named: no count to draw.
+        <p className="fact-line">Nothing on the chain names a creator for this token.</p>
       ) : (
         <>
           <p className="fact-big">
@@ -351,9 +380,7 @@ function CreatorCard({
             <span>
               {' '}
               token{creator.launched === 1 ? '' : 's'} launched, this one included
-              {creator.launchesListed === false || (creator.notListed?.length ?? 0) > 0
-                ? ', from what could be listed'
-                : ''}
+              {launchesComplete(creator, solana) ? '' : ', from what could be listed'}
             </span>
           </p>
           {creator.address && (
@@ -363,10 +390,10 @@ function CreatorCard({
                 ` · ${creator.transactionCount} transaction${creator.transactionCount === 1 ? '' : 's'} sent`}
             </p>
           )}
-          {creatorOrigin(creator) && <p className="fact-line">{creatorOrigin(creator)}</p>}
+          {origin && <p className="fact-line">{origin}</p>}
           {(creator.graduation ?? 'measured') === 'measured' ? (
             <Split
-              label={`Outcomes of the ${creator.detailed} other tokens read in detail, and this one`}
+              label={`Outcomes of the ${creator.detailed} other tokens read in detail${solana && !ownCounted ? '' : ', and this one'}`}
               parts={[
                 { value: creator.graduated, tone: 'calm', name: 'graduated' },
                 { value: creator.active, tone: 'neutral', name: 'traded in 24 h' },
@@ -406,17 +433,24 @@ function HoldersCard({
   holders,
   creator,
   names,
+  listRead = true,
 }: {
   holders: ReportFacts['holders'];
   creator: string | null;
   /** What the chain names an address, by address (case kept). */
   names: Record<string, string>;
+  /**
+   * Whether a holders list was read at all. A partial read with no list (a
+   * large token on a node that refuses the largest accounts) has nothing to
+   * draw: its zeros would read as a fact about the token.
+   */
+  listRead?: boolean;
 }) {
   const largest = holders.top[0]?.share ?? 0;
   return (
     <section className="fact-card" aria-labelledby="fact-holders">
       <h3 id="fact-holders">Holders</h3>
-      {!holders.measured ? (
+      {!holders.measured || !listRead ? (
         <Missing note={holders.note} />
       ) : (
         <>
@@ -518,6 +552,7 @@ function MarketCard({ market, solana }: { market: ReportFacts['market']; solana?
               Main pair{listed.dex ? ` on ${listed.dex}` : ''}
               {listed.pairedWith ? ` against ${listed.pairedWith}` : ''}:{' '}
               <Address address={listed.pair} />
+              {listed.pair === solana?.launchpad.data?.account ? ', its launch curve' : ''}
             </p>
           )}
           {market.staleLiquidity && (
@@ -577,11 +612,16 @@ export function FactsBoard({
         <h3 id="facts-title">What the chain and the market show.</h3>
       </div>
       <div className="facts-board" role="region" aria-label="Measured facts">
-        <CreatorCard creator={facts.creator} timeline={timeline} />
+        <CreatorCard creator={facts.creator} timeline={timeline} solana={solana} />
         <HoldersCard
           holders={facts.holders}
           creator={facts.creator.address}
           names={namesOf(solana)}
+          listRead={
+            solana
+              ? solana.holders.data.method !== 'none'
+              : facts.holders.top.length > 0 || facts.holders.holderCount !== null
+          }
         />
         <MarketCard market={facts.market} solana={solana} />
       </div>

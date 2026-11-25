@@ -84,7 +84,10 @@ export type FundedView = {
 export type GroupView = {
   wallets: number;
   share: number;
+  /** What the wallets read today hold, capped at what they got: a floor when some were not read. */
   heldNow: number | null;
+  /** How many of them were not read today. */
+  unread: number;
   soldInWindow: number;
   addresses: string[];
 };
@@ -196,7 +199,12 @@ function block<T>(
 
 const SHARE_SCALE = 1_000_000n;
 
-/** `raw / supply`, rounded to six places; `null` when either cannot be read. */
+/**
+ * `raw / supply`, rounded down to six places; `null` when either cannot be
+ * read. A positive amount below one millionth is kept at one millionth: a
+ * move that happened is never drawn as 0 % (PYUSD's creator received a few
+ * units, 25/11/2026).
+ */
 export function shareOf(
   raw: string | null | undefined,
   supply: string | null | undefined,
@@ -205,7 +213,9 @@ export function shareOf(
   try {
     const total = BigInt(supply);
     if (total <= 0n) return null;
-    return Number((BigInt(raw) * SHARE_SCALE) / total) / Number(SHARE_SCALE);
+    const amount = BigInt(raw);
+    if (amount > 0n && amount * SHARE_SCALE < total) return 1 / Number(SHARE_SCALE);
+    return Number((amount * SHARE_SCALE) / total) / Number(SHARE_SCALE);
   } catch {
     return null;
   }
@@ -254,6 +264,7 @@ function group(g: TokenReport['launch']['data']['sameSlot']): GroupView | null {
     wallets: g.wallets,
     share: g.share,
     heldNow: g.heldNow,
+    unread: g.unread,
     soldInWindow: g.soldInWindow,
     addresses: g.addresses.slice(0, 10),
   };

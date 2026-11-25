@@ -133,6 +133,7 @@ export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
           index={replayIndex}
           hasFlow={Boolean(result.facts?.supplyFlow)}
           names={namesOf(result.solana)}
+          partial={result.solana ? result.solana.launch.read !== 'full' : false}
         />
       )}
       {result.specialists && result.specialists.length > 0 && (

@@ -6,10 +6,14 @@ import {
   outcomeWord,
   pct,
   powerTitle,
+  sol,
   SolanaFacts,
   sortedPowers,
   tokens,
 } from '../../src/app/components/SolanaFacts';
+import { FactsBoard, launchesComplete } from '../../src/app/components/FactsBoard';
+import { LaunchReplay } from '../../src/app/components/LaunchReplay';
+import { launchView, toFacts } from '../../src/lib/facts';
 import {
   shareOf,
   solOf,
@@ -160,6 +164,8 @@ describe('amounts', () => {
     expect(shareOf('5', '0')).toBeNull();
     expect(shareOf(null, '10')).toBeNull();
     expect(shareOf('not a number', '10')).toBeNull();
+    // A move that happened is never 0 %.
+    expect(shareOf('3', '725520000000000')).toBe(0.000001);
     // Above 2^53: BigInt keeps it right.
     expect(shareOf('3906250000000000000', '7812500000000000000')).toBe(0.5);
   });
@@ -169,12 +175,22 @@ describe('amounts', () => {
     expect(solOf(null)).toBeNull();
   });
 
+  it('says dust as dust, never in exponent notation', () => {
+    expect(sol(solOf('100'))).toBe('<0.001 SOL');
+    expect(sol(0.0123)).toBe('0.012 SOL');
+    expect(sol(5.626514133)).toBe('5.63 SOL');
+  });
+
   it('formats shares, whole tokens and SOL plainly', () => {
     expect(pct(null)).toBe('not read');
     expect(pct(0)).toBe('0%');
     expect(pct(0.0004)).toBe('<0.1%');
     expect(pct(0.119065)).toBe('12%');
     expect(pct(0.05)).toBe('5.0%');
+    // 99.79 % is not the whole supply, and must not read "100%" next to "the other 0.2%".
+    expect(pct(0.997896)).toBe('99.8%');
+    expect(pct(0.9996)).toBe('>99.9%');
+    expect(pct(1)).toBe('100%');
     expect(tokens('1000000000000000', 6)).toBe('1B');
     expect(tokens('983999503236614', 6)).toBe('984M');
   });
@@ -217,8 +233,10 @@ describe('the Solana blocks, drawn', () => {
 
   it('says a token with no pool has no pool liquidity, not that a read failed', () => {
     const html = text(render(view('pump-creator-sold').view));
-    expect(html).toMatch(/No trading pool was found for this token/);
-    expect(html).not.toMatch(/pools could not be read/);
+    expect(html).toMatch(
+      /DexScreener lists no trading pool for this token other than its launch curve: there is no pool liquidity to read/,
+    );
+    expect(html).not.toMatch(/pools could not be read|could not be listed/);
   });
 
   it('links each creation to its transaction', () => {
@@ -226,5 +244,145 @@ describe('the Solana blocks, drawn', () => {
     expect(render(v)).toContain(
       `https://explorer.solana.com/tx/${report.launch.data.creation!.signature}`,
     );
+  });
+});
+
+describe('what the screen must not claim', () => {
+  const render = (v: SolanaView) =>
+    renderToStaticMarkup(createElement(SolanaFacts, { view: v, index: '03' }));
+  const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  const at = '2026-11-25T00:00:00.000Z';
+
+  it('does not say a token has no pool when the market read itself failed', () => {
+    const base = solanaReport();
+    const v = toSolanaView({
+      ...base,
+      market: {
+        ...base.market,
+        completeness: 'unavailable',
+        sources: [{ name: 'dexscreener-solana', fetchedAt: at, note: 'rate-limit : 429' }],
+      },
+      failedReads: [{ read: 'market', note: 'rate-limit : 429' }],
+    });
+    const html = text(render(v));
+    expect(html).not.toMatch(/no trading pool|no pool liquidity/i);
+    expect(html).toMatch(/pools could not be listed: the market read failed this time/);
+  });
+
+  it('says what a launch group holds today only for the wallets read', () => {
+    const base = solanaReport();
+    const group = {
+      wallets: 5,
+      share: 0.2,
+      transactions: 5,
+      heldNow: 0.03,
+      unread: 2,
+      soldInWindow: 0,
+      solSpent: 1,
+      addresses: [],
+    };
+    const v = toSolanaView({
+      ...base,
+      launch: { ...base.launch, data: { ...base.launch.data, sameSlot: group } },
+    });
+    expect(v.launch.data.sameSlot?.unread).toBe(2);
+    const html = text(render(v));
+    expect(html).toMatch(/today 3\.0% is held by the 3 of them read \(2 not read\)/);
+    expect(html).not.toMatch(/they hold 3\.0% today/);
+  });
+
+  it('says the other tokens are from what could be read when the history was read in part', () => {
+    const base = solanaReport();
+    const v = toSolanaView({
+      ...base,
+      creatorHistory: {
+        ...base.creatorHistory!,
+        completeness: 'partial',
+        sources: [
+          {
+            name: 'solana-rpc',
+            fetchedAt: at,
+            note: "12 of the creator's 13 transactions listed were read for launches outside pump.fun",
+          },
+        ],
+      },
+    });
+    expect(text(render(v))).toMatch(/0 other tokens found, from what could be read/);
+    // The creator card says the same: its launch count is a floor.
+    expect(launchesComplete(toFacts(base).creator, v)).toBe(false);
+    expect(launchesComplete(toFacts(base).creator, toSolanaView(base))).toBe(true);
+  });
+
+  it('draws no launch count when nothing names a creator', () => {
+    const base = solanaReport();
+    const report = {
+      ...base,
+      creator: { ...base.creator, data: { ...base.creator.data, creator: null, from: null } },
+      creatorHistory: null,
+      creatorOnToken: null,
+      linkedWallets: null,
+    };
+    const html = text(
+      renderToStaticMarkup(
+        createElement(FactsBoard, { facts: toFacts(report), solana: toSolanaView(report) }),
+      ),
+    );
+    expect(html).toMatch(/Nothing on the chain names a creator for this token/);
+    expect(html).not.toMatch(/tokens? launched, this one included/);
+  });
+});
+
+describe('the measured cards, on recorded reports', () => {
+  const board = (slug: string) => {
+    const { report } = loadCollectRecording(slug);
+    const html = renderToStaticMarkup(
+      createElement(FactsBoard, { facts: toFacts(report), solana: toSolanaView(report) }),
+    );
+    return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  };
+
+  it('PYUSD: no holders list was read, so no concentration is drawn', () => {
+    const html = board('pyusd');
+    expect(html).toMatch(/Not measured/);
+    expect(html).not.toMatch(/Largest holder|Concentration: largest/);
+    expect(html).toMatch(/the chain node used does not list the largest ones/);
+    expect(html).not.toMatch(/upstream|getTokenLargestAccounts/);
+  });
+
+  it('PYUSD: says the creator is the metadata authority, which proves nothing', () => {
+    expect(board('pyusd')).toMatch(
+      /Can edit the token’s name and symbol\. Often a team or a service/,
+    );
+  });
+
+  it('pump.fun on its curve: the curve’s 99.8 % is not rounded to the whole supply', () => {
+    const html = board('pump-creator-sold');
+    expect(html).toMatch(/99\.8% of the supply sits in its launch curve/);
+    expect(html).toMatch(/NYqu…Qnb2 , its launch curve/);
+  });
+});
+
+describe('the launch replay, when no other wallet bought', () => {
+  const replay = (partial: boolean) => {
+    const { report } = loadCollectRecording('pump-creator-sold');
+    const launch = launchView(report.launch)!;
+    // Only the creator's own moves: no other buyer in what is drawn.
+    const own = { ...launch, moves: launch.moves.filter((m) => m.actorIsCreator) };
+    const { summary: _summary, ...withoutSummary } = own;
+    void _summary;
+    const html = renderToStaticMarkup(
+      createElement(LaunchReplay, { launch: withoutSummary, index: '04', partial }),
+    );
+    return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  };
+
+  it('says none bought only when the whole window was read, and for that window', () => {
+    expect(replay(false)).toMatch(/0 wallets bought in these first/);
+    expect(replay(false)).not.toMatch(/first minute /);
+  });
+
+  it('leaves it unknown when the replay was read in part', () => {
+    expect(replay(true)).toMatch(/the window was not read in full/);
+    expect(replay(true)).not.toMatch(/0 wallets bought/);
   });
 });

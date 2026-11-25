@@ -142,7 +142,9 @@ test('report draws the measured facts, says what is missing, and gives no score'
   await expect(board.getByText('Launches read in detail, in time order')).toBeVisible();
   await expect(board.getByText('No trading pair listed on DexScreener.')).toBeVisible();
   await expect(board.getByText('The creator sold some of this token.')).toBeVisible();
-  await expect(board.getByText('Named as creator by its pump.fun launch record.')).toBeVisible();
+  await expect(
+    board.getByText('Named as creator by the token’s pump.fun bonding curve.'),
+  ).toBeVisible();
   // Addresses are shortened in base58, case kept, and open the Solana Explorer.
   await expect(board.getByRole('link', { name: '9WzD…AWWM' })).toHaveAttribute(
     'href',

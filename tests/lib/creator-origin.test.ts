@@ -24,24 +24,31 @@ const base: ReportFacts['creator'] = {
 };
 
 describe('creatorOrigin', () => {
-  it('says the creator was named by its launchpad’s record', () => {
+  it('says the creator was named by the token’s pump.fun curve', () => {
     expect(creatorOrigin({ ...base, launchpad: 'pump.fun', creatorFrom: 'launch-record' })).toBe(
-      'Named as creator by its pump.fun launch record.',
+      'Named as creator by the token’s pump.fun bonding curve.',
     );
-    expect(
-      creatorOrigin({
-        ...base,
-        launchpad: 'Meteora Dynamic Bonding Curve',
-        creatorFrom: 'transaction',
-      }),
-    ).toBe(
-      'Launched the token through Meteora Dynamic Bonding Curve: the payer of that transaction.',
-    );
+  });
+
+  it('never says a fee payer launched the token, launchpad or not', () => {
+    const text = creatorOrigin({
+      ...base,
+      launchpad: 'Meteora Dynamic Bonding Curve',
+      creatorFrom: 'transaction',
+    });
+    expect(text).toMatch(/^Paid for the transaction that created the mint\./);
+    expect(text).toMatch(/does not prove who made the token/);
+    expect(text).not.toMatch(/Launched/);
+  });
+
+  it('says nothing for an origin it does not know, even with a launchpad', () => {
+    // The metadata's update authority: the Solana creator card says it.
+    expect(creatorOrigin({ ...base, launchpad: 'pump.fun', creatorFrom: null })).toBeNull();
   });
 
   it('says a fee payer does not prove who made the token', () => {
     expect(creatorOrigin({ ...base, creatorFrom: 'transaction' })).toMatch(
-      /^Paid for the transaction that created the mint\. This does not prove/,
+      /^Paid for the transaction that created the mint\. A launch service can pay it: this does not prove/,
     );
   });
 

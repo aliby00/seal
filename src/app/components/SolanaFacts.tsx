@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { creatorFrom } from './creator-from';
 import { plainNote } from './FactsBoard';
 import { addressUrl, short, txUrl } from './explorer';
 import type {
@@ -25,7 +26,8 @@ export function pct(value: number | null): string {
   if (value === 0) return '0%';
   if (value > 0 && value < 0.001) return '<0.1%';
   if (value > 0.999 && value < 1) return '>99.9%';
-  return `${(value * 100).toFixed(value < 0.1 ? 1 : 0)}%`;
+  // Above 99 %, one decimal: 99.79 % is not the whole supply.
+  return `${(value * 100).toFixed(value < 0.1 || (value > 0.99 && value < 1) ? 1 : 0)}%`;
 }
 
 /** A raw amount in whole tokens, compact: "1B", "983.99M". */
@@ -43,6 +45,8 @@ export function tokens(raw: string, decimals: number): string {
 export function sol(value: number | null): string {
   if (value === null) return 'not read';
   if (value === 0) return '0 SOL';
+  // Dust (a few thousand lamports) would print as "1e-7 SOL".
+  if (value < 0.001) return '<0.001 SOL';
   return `${value >= 100 ? value.toFixed(0) : value >= 1 ? value.toFixed(2) : Number(value.toPrecision(2))} SOL`;
 }
 
@@ -93,19 +97,7 @@ export function sortedPowers(powers: readonly PowerView[]): PowerView[] {
   return [...powers].sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]);
 }
 
-/** How the creator was found, said plainly, with what it does not prove. */
-export function creatorFrom(from: SolanaView['creator']['data']['from']): string | null {
-  switch (from) {
-    case 'pump-curve':
-      return 'Named as creator by the token’s pump.fun bonding curve.';
-    case 'creation-transaction':
-      return 'Paid for the transaction that created the mint. A launch service can pay it: this does not prove who made the token.';
-    case 'metadata-update-authority':
-      return 'Can edit the token’s name and symbol. Often a team or a service: this does not prove who made the token.';
-    default:
-      return null;
-  }
-}
+export { creatorFrom };
 
 const OUTCOME_WORD: Record<OtherTokenView['outcome'], string> = {
   graduated: 'graduated',
@@ -131,7 +123,8 @@ const ROLE_WORD: Record<string, string> = {
   curve: 'Bonding curve',
   launchpad: 'Launchpad',
   locker: 'Lock',
-  vesting: 'Vesting',
+  // holders.ts files every lock program (Jupiter Lock, Streamflow) under this role.
+  vesting: 'Lock or vesting',
   burn: 'Burned',
 };
 
@@ -236,7 +229,7 @@ function MintCard({ view }: { view: SolanaView }) {
             <p className="fact-line">
               Named {mint.metadata.name || 'without a name'}
               {mint.metadata.symbol ? ` (${mint.metadata.symbol})` : ''} in its{' '}
-              {mint.metadata.from === 'metaplex' ? 'Metaplex metadata' : 'own Token-2022 metadata'}.
+              {mint.metadata.from === 'metaplex' ? 'Metaplex metadata' : 'Token-2022 metadata'}.
               {mint.metadata.mutable ? (
                 mint.metadata.updateAuthority ? (
                   <>
@@ -326,6 +319,7 @@ function SupplyCard({ view }: { view: SolanaView }) {
               ))}
             </ol>
           )}
+          {shown.length > 0 && <p className="fact-note">Shares of the whole supply.</p>}
           {h.data.creator && (
             <p className="fact-line">
               The creator, <Address address={h.data.creator.address} />, holds{' '}
@@ -336,10 +330,7 @@ function SupplyCard({ view }: { view: SolanaView }) {
             <ul className="sol-list" aria-label="Set aside from the holders">
               {h.data.setAside.map((s) => (
                 <li key={s.address}>
-                  <span>
-                    {ROLE_WORD[s.role] ?? s.role}
-                    {s.name ? ` · ${s.name}` : ''}
-                  </span>
+                  <span>{s.name ?? ROLE_WORD[s.role] ?? s.role}</span>
                   <Address address={s.address} />
                   <strong>{pct(s.share)}</strong>
                 </li>
@@ -402,13 +393,22 @@ function PoolRow({ pool }: { pool: PoolView }) {
 
 function LiquidityCard({ view }: { view: SolanaView }) {
   const l = view.liquidity;
-  // No pool to read is a fact about the token (one still on its curve), not a failed read.
+  // The pools come from DexScreener's list: with none listed there is nothing to
+  // read (a token still on its curve), which is a fact about the token — unless
+  // the market read itself failed, and then the pools are simply unknown.
   const noPool = l.data.pools.length === 0 && /no pool to read/i.test(l.note ?? '');
+  const marketFailed = view.failed.some((f) => f.read === 'market');
   return (
     <Card id="fact-liquidity" title="Liquidity by pool">
-      {noPool ? (
+      {noPool && marketFailed ? (
         <p className="fact-line">
-          No trading pool was found for this token: there is no pool liquidity to read.
+          The token’s pools could not be listed: the market read failed this time.
+        </p>
+      ) : noPool ? (
+        <p className="fact-line">
+          {view.launchpad.data
+            ? 'DexScreener lists no trading pool for this token other than its launch curve: there is no pool liquidity to read.'
+            : 'DexScreener lists no trading pool for this token: there is no pool liquidity to read.'}
         </p>
       ) : l.data.pools.length === 0 ? (
         <p className="fact-line">
@@ -423,7 +423,9 @@ function LiquidityCard({ view }: { view: SolanaView }) {
           ))}
         </ul>
       )}
-      {!noPool && <ReadNote block={l} />}
+      {/* Each pool already says why its liquidity was not read. */}
+      {!noPool && !l.data.pools.every((p) => !p.known && p.note) && <ReadNote block={l} />}
+      {noPool && marketFailed && <ReadNote block={view.market} />}
     </Card>
   );
 }
@@ -433,7 +435,11 @@ function Group({ group, what }: { group: GroupView; what: string }) {
     <p className="fact-line">
       <strong>{group.wallets}</strong> wallet{group.wallets === 1 ? '' : 's'} other than the creator
       got {pct(group.share)} of the supply {what}
-      {group.heldNow === null ? '' : `; they hold ${pct(group.heldNow)} today`}
+      {group.heldNow === null
+        ? '; what they hold today was not read'
+        : group.unread > 0
+          ? `; today ${pct(group.heldNow)} is held by the ${group.wallets - group.unread} of them read (${group.unread} not read)`
+          : `; they hold ${pct(group.heldNow)} today`}
       {group.soldInWindow > 0 ? `; ${group.soldInWindow} sold in the window read` : ''}.
     </p>
   );
@@ -619,7 +625,9 @@ function OtherTokensCard({ view }: { view: SolanaView }) {
             <span>
               {' '}
               other token{d.launched === 1 ? '' : 's'} found
-              {d.curvesListed && d.historyComplete ? '' : ', from what could be read'}
+              {d.curvesListed && d.historyComplete && history.read === 'full'
+                ? ''
+                : ', from what could be read'}
             </span>
           </p>
           {d.launched > 0 && (
@@ -706,7 +714,9 @@ function LinkedCard({ view }: { view: SolanaView }) {
             <p className="fact-line">
               {d.funding === 'none-seen'
                 ? 'No SOL received from another address was seen in the creator’s whole history.'
-                : 'The creator’s first SOL was not reached: its history is longer than what was read.'}
+                : d.funding === 'not-reached'
+                  ? 'The creator’s first SOL was not reached: its history is longer than what was read.'
+                  : 'Who first sent the creator SOL was not read.'}
             </p>
           )}
           {d.window ? (

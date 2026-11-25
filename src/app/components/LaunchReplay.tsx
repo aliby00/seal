@@ -32,7 +32,9 @@ function pct(value: number): string {
   if (value === 0) return '0%';
   if (value < 0.0001) return '<0.01%';
   if (value < 0.01) return `${(value * 100).toFixed(2)}%`;
-  return `${(value * 100).toFixed(value < 0.1 ? 1 : 0)}%`;
+  // 99.96% rounded would read as the whole supply.
+  if (value > 0.999 && value < 1) return '>99.9%';
+  return `${(value * 100).toFixed(value < 0.1 || (value > 0.99 && value < 1) ? 1 : 0)}%`;
 }
 
 /** "the first 10 minutes", "the first 40 seconds", "the first minute". */
@@ -67,7 +69,17 @@ const HOLDING_WORD = {
   unknown: 'Unknown',
 } as const;
 
-function Story({ story }: { story: LaunchStory }) {
+function Story({
+  story,
+  span: within,
+  partial,
+}: {
+  story: LaunchStory;
+  /** "5 seconds": how long the window read lasts. */
+  span: string;
+  /** The replay was read in part: an absence in it is not a fact. */
+  partial: boolean;
+}) {
   const { early } = story;
   const items: { tone: string; figure: string; label: string }[] = [];
   if (story.creatorAtLaunch > 0) {
@@ -118,13 +130,22 @@ function Story({ story }: { story: LaunchStory }) {
           },
     );
   } else {
-    items.push({ tone: 'calm', figure: '0', label: 'wallets bought in the first minute' });
+    // None seen is a fact only when the whole window was read, and only for that window.
+    items.push(
+      partial
+        ? {
+            tone: 'neutral',
+            figure: '?',
+            label: `buyers in these first ${within}: the window was not read in full`,
+          }
+        : { tone: 'calm', figure: '0', label: `wallets bought in these first ${within}` },
+    );
   }
   if (story.creatorSold > 0) {
     items.push({
       tone: 'attention',
       figure: pct(story.creatorSold),
-      label: `sold by the creator in these first minutes${among}`,
+      label: `sold by the creator in the window read${among}`,
     });
   }
   // The round trips, with those left out of the count and why (RH: 25
@@ -134,7 +155,7 @@ function Story({ story }: { story: LaunchStory }) {
     items.push({
       tone: 'neutral',
       figure: String(trips.wallets),
-      label: `${trips.wallets === 1 ? 'address' : 'addresses'} bought and sold back within these first minutes${roundTripsExcludedWords(trips.excluded ?? undefined)}`,
+      label: `${trips.wallets === 1 ? 'address' : 'addresses'} bought and sold back within the window read${roundTripsExcludedWords(trips.excluded ?? undefined)}`,
     });
   }
   return (
@@ -344,7 +365,10 @@ export function LaunchReplay({
   index = '03',
   hasFlow = false,
   names,
+  partial = false,
 }: {
+  /** The replay was read in part (a failed or capped read): what it did not see is unknown. */
+  partial?: boolean;
   /** What the chain says each address is, by address (case kept: base58 is case-sensitive). */
   names?: Record<string, string>;
   launch: LaunchReplayData;
@@ -386,7 +410,7 @@ export function LaunchReplay({
           )}
         </p>
       ) : (
-        <Story story={story} />
+        <Story story={story} span={firstSpan} partial={partial} />
       )}
       {!noBuys && (
         <div className="launch-stage">
