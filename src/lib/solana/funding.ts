@@ -43,8 +43,12 @@ export const FUNDED_WALLETS_READ = 3;
 export const FUNDED_WALLET_TRANSACTIONS = 4;
 
 export type LinkedWalletsOptions = ReadLimits & {
-  /** Unix seconds of the launch; read from the mint's creation when not given. */
-  launchTime?: number | null;
+  /**
+   * Unix seconds of the launch, or their promise: the creation the launch
+   * replay finds while the creator's first funding is read. Read from the
+   * mint's creation when not given, or when it comes to `null`.
+   */
+  launchTime?: number | null | PromiseLike<number | null>;
   signaturePages?: number;
   fundingTransactions?: number;
   windowTransactions?: number;
@@ -202,7 +206,7 @@ export async function linkedWallets(
   const facts = await attempt(() => readMint(r, mint));
   if (!facts.ok) partial(`mint not read: ${failureNote(facts.error)}`);
   const mintFacts = facts.ok ? facts.value : null;
-  let launch = options.launchTime ?? null;
+  let launch = (await options.launchTime) ?? null;
   if (launch === null) {
     const hints = {
       accounts: mintFacts ? [associatedTokenAddress(creator, mint, mintFacts.program)] : [],

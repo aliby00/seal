@@ -128,11 +128,14 @@ export async function explain(
   // A text cut at the token limit stops mid-sentence: not published either.
   const truncated = result.stopReason === 'max_tokens' || result.stopReason === 'length';
   if (text.length === 0 || violations.length > 0 || truncated) {
+    // The words matched are logged: a guardrail that refuses legitimate
+    // wording can only be told apart from a real violation by them.
     log.warn('restitution refusée, restitution hors-ligne', {
       provider: provider.name,
       empty: text.length === 0,
       truncated,
-      violations: violations.map((v) => v.kind),
+      stopReason: result.stopReason,
+      violations: violations.map((v) => `${v.kind}: ${v.matched}`),
     });
     return { ...served(offlineExplanation(report, options.specialists), cost), rejected: true };
   }
@@ -148,6 +151,9 @@ export async function explain(
     });
   }
   if (checked.text === null) {
+    log.warn('restitution vidée par la vérification des faits, restitution hors-ligne', {
+      provider: provider.name,
+    });
     return { ...served(offlineExplanation(report, options.specialists), cost), rejected: true };
   }
 

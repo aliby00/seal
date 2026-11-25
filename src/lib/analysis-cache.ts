@@ -46,7 +46,7 @@ const ANALYSIS_TTL_MS = 3 * 60_000;
 export function keepAnalysis(body: CachedAnalysis, modelConfigured: boolean): boolean {
   if (sourcesFailed(body.sources)) return false;
   // A read that failed without a source note saying so (the launch replay,
-  // the indexer, the creator's other launchpads) is a degraded report too.
+  // the creator's other launches) is a degraded report too.
   if ((body.facts?.failed?.length ?? 0) > 0) return false;
   // A question that ran out of time is a read that failed too (AI: six of ten).
   if (

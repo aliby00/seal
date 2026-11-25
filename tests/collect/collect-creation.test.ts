@@ -25,6 +25,18 @@ vi.mock('../../src/lib/solana/creator', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/lib/solana/creator')>()),
   findCreator: async () => read.creator,
 }));
+/** The launch time each linked-wallets read was given, once settled. */
+const linkedLaunch = vi.hoisted(() => ({ times: [] as (number | null | undefined)[] }));
+vi.mock('../../src/lib/solana/funding', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/lib/solana/funding')>();
+  return {
+    ...actual,
+    linkedWallets: async (...args: Parameters<typeof actual.linkedWallets>) => {
+      linkedLaunch.times.push(await args[3]?.launchTime);
+      return actual.linkedWallets(...args);
+    },
+  };
+});
 vi.mock('../../src/lib/solana/launch', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/lib/solana/launch')>()),
   replayLaunch: async () => read.launch,
@@ -137,6 +149,21 @@ describe('collect: the creation the launch replay found', () => {
     );
     expect(report.creator.data).toEqual(BONK_READ.data);
     expect(JSON.stringify(report)).not.toMatch(/creation was not reached/);
+  });
+
+  it('BONK: the linked wallets are read around the creation the launch replay found', async () => {
+    // Prod, 25/11/2026: "launch time unknown: the mint has more than 3000
+    // transactions: its creation was not reached" in solana.linked.note and
+    // in the funding question's limits, beside the creation found.
+    linkedLaunch.times.length = 0;
+    await collectWith(BONK, BONK_READ, replayFound(BONK, BONK_CREATION));
+    expect(linkedLaunch.times).toEqual([Date.parse('2022-12-08T20:33:32.000Z') / 1000]);
+  });
+
+  it('leaves the linked wallets to find the launch when the replay did not either', async () => {
+    linkedLaunch.times.length = 0;
+    await collectWith(BONK, BONK_READ, replayFound(BONK, null));
+    expect(linkedLaunch.times).toEqual([null]);
   });
 
   it('keeps "not reached" when the launch replay did not find the creation either', async () => {

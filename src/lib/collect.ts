@@ -316,7 +316,13 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
       ? settled(
           linkedWallets(creatorAddress, token, rpc, {
             ...limits(),
-            ...(creation?.blockTime ? { launchTime: creation.blockTime } : {}),
+            // The creator's read gives the launch time, else the creation the
+            // launch replay finds: its own read of the mint stopped where the
+            // creator's did. BONK on prod (25/11/2026) said "launch time
+            // unknown: … its creation was not reached" in the linked wallets
+            // and their question, beside the creation the replay showed.
+            launchTime:
+              creation?.blockTime || launch.then((r) => unixTime(r.data.creation?.launchedAt)),
           }),
           (error) =>
             unavailable('solana-rpc', collectedAt, error, {
@@ -409,6 +415,12 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
       cut.abort(new TimeoutError('solana-rpc', Date.now() - startedAt));
     }
   }
+}
+
+/** Unix seconds of an ISO time; `null` when there is none. */
+export function unixTime(iso: string | null | undefined): number | null {
+  const ms = iso ? Date.parse(iso) : NaN;
+  return Number.isFinite(ms) ? Math.floor(ms / 1000) : null;
 }
 
 /**
