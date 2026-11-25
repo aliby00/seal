@@ -1,6 +1,7 @@
 import { readableNote } from '../plain-note';
 import type { TokenReport } from '../contracts';
 import { isSolanaAddress, shortAddress } from '../solana/address';
+import { withLaunchCreation } from '../solana/creator';
 import type { SpecialistAnswer } from '../specialists/brief';
 import { CREATOR_FROM } from '../specialists/catalog';
 import {
@@ -225,14 +226,18 @@ export function offlineExplanation(report: TokenReport, specialists?: Specialist
   const powers = powersAccount(report);
   if (powers) parts.push(powers);
   const { creator, holders, market } = report;
-  const rawCreatorNote = creator.sources[0]?.note;
+  // The creation the launch replay found, when the creator's read did not reach it.
+  const found = report.launch.data.creation;
+  const rawCreatorNote = withLaunchCreation(creator, found).sources[0]?.note;
   const creatorNote = rawCreatorNote && readableNote(rawCreatorNote);
   if (creator.data.creator === null) {
     // Say why: "nothing names one" and "the node did not answer" are different facts.
     parts.push(
       readFailed(failedReads, 'creator')
         ? `Creator could not be read${creatorNote ? ` (${creatorNote})` : ''}.`
-        : 'Creator: no curve, creation transaction or metadata authority on the chain names one.',
+        : found
+          ? `Creator: no curve or metadata authority on the chain names one; ${short(found.payer)} paid for the creation (transaction ${shortAddress(found.signature)}).`
+          : 'Creator: no curve, creation transaction or metadata authority on the chain names one.',
     );
   } else {
     parts.push(creatorAccount(report));

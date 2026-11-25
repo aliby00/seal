@@ -177,3 +177,72 @@ describe('what the creator paid for its buys, said only for what SOL paid', () =
     );
   });
 });
+
+describe('the creation the launch replay found is not said unreached', () => {
+  const JUP_PAYER = 'JUPhop9E8ZfdJ5FNHhxQt4uAih822Vs4QpqsWcewFbq';
+  const creation = {
+    signature:
+      '4h5iBF43PvG9SuKZyJiJ2mEUddsNd71uVW7X7Lz5RYzMJYqPeoPqLyNtz2fH9nd9FWKxqKXhmXtK3F9QqptzbZ',
+    slot: 243989543,
+    launchedAt: '2024-01-25T08:54:00.000Z',
+    payer: JUP_PAYER,
+    signers: [JUP_PAYER],
+    foundBy: 'creation-time' as const,
+  };
+  const notReached = 'the mint has more than 3000 transactions: its creation was not reached';
+  const withCreation = (creator: ReturnType<typeof solanaReport>['creator']) =>
+    solanaReport({
+      creator,
+      launch: { ...base.launch, data: { ...base.launch.data, creation } },
+      creatorHistory: null,
+      creatorOnToken: null,
+      linkedWallets: null,
+    });
+  const noCreator = withCreation({
+    completeness: 'unavailable',
+    sources: [
+      {
+        name: 'solana-rpc',
+        fetchedAt: base.creator.sources[0]!.fetchedAt,
+        note: `${notReached}; no curve, creation transaction or metadata authority names a creator`,
+      },
+    ],
+    data: { ...base.creator.data, creator: null, from: null, creation: null, pumpCurve: null },
+  });
+
+  it('offline: names the address that paid for the creation, not as the creator', () => {
+    const out = offlineExplanation(noCreator);
+    expect(out).toContain(
+      'Creator: no curve or metadata authority on the chain names one; JUPh…wFbq paid for the creation (transaction 4h5i…tzbZ).',
+    );
+    expect(out).not.toMatch(/not reached/);
+    expect(findViolations(out)).toEqual([]);
+  });
+
+  it('prompt: the creator block says where the creation was found', () => {
+    const text = renderSolanaBlocks(noCreator).join('\n');
+    expect(text).not.toMatch(/its creation was not reached/);
+    expect(text).toContain('found by the launch replay, was paid for by ' + JUP_PAYER);
+  });
+
+  it('prompt: a creator named by its metadata gets the creation the replay found', () => {
+    const named = withCreation({
+      ...base.creator,
+      completeness: 'partial',
+      sources: [
+        { name: 'solana-rpc', fetchedAt: base.creator.sources[0]!.fetchedAt, note: notReached },
+      ],
+      data: {
+        ...base.creator.data,
+        from: 'metadata-update-authority',
+        creation: null,
+        pumpCurve: null,
+      },
+    });
+    const text = renderSolanaBlocks(named).join('\n');
+    expect(text).not.toMatch(/was not reached/);
+    expect(text).toContain(
+      `Created in transaction ${creation.signature}, slot 243989543, on 2024-01-25T08:54:00.000Z, paid by ${JUP_PAYER} (found by the launch replay).`,
+    );
+  });
+});

@@ -8,6 +8,7 @@ import { CREATOR_FROM } from '../specialists/catalog';
 import { quoteName } from '../specialists/names';
 import { dayOf, paidWords, pct, shareOf, solOf, solWords } from '../specialists/words';
 import { READ_WORDS, readFailed } from '../failed-reads';
+import { withLaunchCreation } from '../solana/creator';
 import type { SolanaHolder } from '../solana/holders';
 import type { SolanaLaunchGroup } from '../solana/launch-types';
 
@@ -153,6 +154,8 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
   const mint = report.mint.data;
   const supply = mint?.supply ?? report.holders.data.supply ?? null;
   const creator = report.creator.data;
+  // Found by the launch replay when the creator's read did not reach it.
+  const launchCreation = report.launch.data.creation;
   const history = report.creatorHistory;
   const onToken = report.creatorOnToken;
   const linked = report.linkedWallets;
@@ -185,7 +188,7 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
         )
       : ['- Not read.']),
     '',
-    ...block('Creator', report.creator, () =>
+    ...block('Creator', withLaunchCreation(report.creator, launchCreation), () =>
       creator.creator
         ? [
             `Creator: ${creator.creator}, ${creator.from ? CREATOR_FROM[creator.from] : 'source not stated'}.`,
@@ -193,7 +196,11 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
               ? [
                   `Created in transaction ${creator.creation.signature}, slot ${creator.creation.slot}${creator.creation.blockTime ? `, on ${new Date(creator.creation.blockTime * 1000).toISOString()}` : ''}, paid by ${who(creator.creation.feePayer, report)}${creator.creation.launchpad ? `, through ${creator.creation.launchpad}` : ''}.`,
                 ]
-              : ['The creation transaction was not reached.']),
+              : launchCreation
+                ? [
+                    `Created in transaction ${launchCreation.signature}, slot ${launchCreation.slot}${launchCreation.launchedAt ? `, on ${launchCreation.launchedAt}` : ''}, paid by ${who(launchCreation.payer, report)} (found by the launch replay).`,
+                  ]
+                : ['The creation transaction was not reached.']),
           ]
         : ['No curve, creation transaction or metadata authority names a creator.'],
     ),
