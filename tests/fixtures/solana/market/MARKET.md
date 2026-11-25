@@ -8,19 +8,19 @@ Recorded on mainnet on 24-25/11/2026 through the public node
 (`/token-pairs/v1/solana/<mint>`) it read. Young tokens move: a test reads the
 fixture, never the chain.
 
-| Slug                | Mint                                           | What it shows                                                                         |
-| ------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `pump-curve-xmr`    | `ANDLpP3C7tFXEpqRBmmnbS4usmQthHfs93N5oHGpump`  | pump.fun curve paired with WXMR (`quote_mint` at 83), progress from Global            |
-| `pump-curve-sol`    | `FB5eSv7CAMWJnrH5GvHLivx9y8Qgoo8vpPV3EX5Npump` | pump.fun curve on SOL                                                                 |
-| `pump-graduated`    | `B34nXKzCgsJb9ChLuSHPRpXLE3WFSWyeT8Cqkzzmpump` | curve complete, PumpSwap pool `DjbLtX1H…` derived and read, LP supply 0: all burned   |
+| Slug                | Mint                                           | What it shows                                                                                 |
+| ------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `pump-curve-xmr`    | `ANDLpP3C7tFXEpqRBmmnbS4usmQthHfs93N5oHGpump`  | pump.fun curve paired with WXMR (`quote_mint` at 83), progress from Global                    |
+| `pump-curve-sol`    | `FB5eSv7CAMWJnrH5GvHLivx9y8Qgoo8vpPV3EX5Npump` | pump.fun curve on SOL                                                                         |
+| `pump-graduated`    | `B34nXKzCgsJb9ChLuSHPRpXLE3WFSWyeT8Cqkzzmpump` | curve complete, PumpSwap pool `DjbLtX1H…` derived and read, LP supply 0: all burned           |
 | `pump-raydium-era`  | `CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump` | GOAT: 150-byte curve, complete, no PumpSwap pool; Raydium AMM v4 `9Tb2ohu5…` LP 99.7 % burned |
-| `dbc-curve`         | `8xKZ1yzPFGG1hfsqwPR2tGWsSMx9rJWQGJKiYjKUCLRx` | Meteora DBC pool `DbdgjtiiR…` and its config: SOL raised against the threshold        |
-| `dbc-migrated-sol`  | `8X6SyaSgYdPfmZTc1B7Kc7YytMwUYJVTWXgSxJWMBAGS` | DBC (bags) migrated, DAMM v2 `BjoLhkUZ…` found by its creator, 100 % permanent lock   |
-| `dbc-migrated-usdc` | `Ax5dAamJPeuaLpFUzs9FdcpoUhHDcxyjPzxCJQidjups` | DBC on USDC (Jupiter studio) migrated, DAMM v2 `CP222Ubb…` 99.07 % locked, 8 positions |
-| `launchlab-amm`     | `CDBdbNqmrLu1PcgjrFG52yxg71QnFhBZcUE6PSFdbonk` | LaunchLab status 2, migrate type 0: AMM v4 `Hv1i8Wrx…`, LP 99.97 % burned             |
-| `launchlab-cpmm`    | `B4aJyVCibxP1J95RccZ57DPJWEfkkzUDbm9DuFD9bonk` | LaunchLab migrate type 1: CPMM `CuAr9cYg…`, LP 73.2 % burned, 26.8 % in Burn & Earn   |
-| `launchlab-curve`   | `FnYLY1FQqbfNiMdDpedMPwpKWdM8RtAkwWBvWYNAwq4T` | young LaunchLab pool against another quote token, found by a program scan; no pair    |
-| `ray`               | `4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R` | no launchpad; RAY/USDC and RAY/SOL AMM v4 LP held by their holders                    |
+| `dbc-curve`         | `8xKZ1yzPFGG1hfsqwPR2tGWsSMx9rJWQGJKiYjKUCLRx` | Meteora DBC pool `DbdgjtiiR…` and its config: SOL raised against the threshold                |
+| `dbc-migrated-sol`  | `8X6SyaSgYdPfmZTc1B7Kc7YytMwUYJVTWXgSxJWMBAGS` | DBC (bags) migrated, DAMM v2 `BjoLhkUZ…` found by its creator, 100 % permanent lock           |
+| `dbc-migrated-usdc` | `Ax5dAamJPeuaLpFUzs9FdcpoUhHDcxyjPzxCJQidjups` | DBC on USDC (Jupiter studio) migrated, DAMM v2 `CP222Ubb…` 99.07 % locked, 8 positions        |
+| `launchlab-amm`     | `CDBdbNqmrLu1PcgjrFG52yxg71QnFhBZcUE6PSFdbonk` | LaunchLab status 2, migrate type 0: AMM v4 `Hv1i8Wrx…`, LP 99.97 % burned                     |
+| `launchlab-cpmm`    | `B4aJyVCibxP1J95RccZ57DPJWEfkkzUDbm9DuFD9bonk` | LaunchLab migrate type 1: CPMM `CuAr9cYg…`, LP 73.2 % burned, 26.8 % in Burn & Earn           |
+| `launchlab-curve`   | `FnYLY1FQqbfNiMdDpedMPwpKWdM8RtAkwWBvWYNAwq4T` | young LaunchLab pool against another quote token, found by a program scan; no pair            |
+| `ray`               | `4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R` | no launchpad; RAY/USDC and RAY/SOL AMM v4 LP held by their holders                            |
 
 Also:
 

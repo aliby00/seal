@@ -337,8 +337,20 @@ export async function readSolanaMarket(
     // Nothing to ask anyone: no request, no call.
     const note = 'not a Solana address';
     return {
-      market: failed('dexscreener-solana', at(), null, toSolanaMarketState(mint, [], { now }).data, note),
-      launch: failed('solana-rpc', at(), null, { mint, launchpad: null, account: null, foundBy: null }, note),
+      market: failed(
+        'dexscreener-solana',
+        at(),
+        null,
+        toSolanaMarketState(mint, [], { now }).data,
+        note,
+      ),
+      launch: failed(
+        'solana-rpc',
+        at(),
+        null,
+        { mint, launchpad: null, account: null, foundBy: null },
+        note,
+      ),
       graduation: null,
       liquidity: failed('solana-rpc', at(), null, { mint, pools: [] }, note),
     };
@@ -388,16 +400,27 @@ async function readZone(
   let found: LaunchAccount | null = null;
   let launch: SolanaLaunch;
   try {
-    found = await withDeadline(findLaunchAccount(rpc, mint, { hints: pools.map((p) => p.id) }), deadline);
+    found = await withDeadline(
+      findLaunchAccount(rpc, mint, { hints: pools.map((p) => p.id) }),
+      deadline,
+    );
     launch = await readSolanaLaunch(rpc, mint, { found, now });
   } catch (error) {
-    launch = failed('solana-rpc', at(), error, { mint, launchpad: null, account: null, foundBy: null });
+    launch = failed('solana-rpc', at(), error, {
+      mint,
+      launchpad: null,
+      account: null,
+      foundBy: null,
+    });
   }
 
   let graduation: SolanaGraduation | null = null;
   if (found) {
     try {
-      graduation = await withDeadline(readSolanaGraduation(rpc, mint, { launch: found, now }), deadline);
+      graduation = await withDeadline(
+        readSolanaGraduation(rpc, mint, { launch: found, now }),
+        deadline,
+      );
     } catch (error) {
       graduation = failed('solana-rpc', at(), error, {
         mint,

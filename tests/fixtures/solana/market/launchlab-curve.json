@@ -1,84 +1,81 @@
 [
- {
-  "method": "getMultipleAccounts",
-  "params": [
-   [
-    "5cLnbMtDX77QeyjQTb1qS1f7EWuHDakMcZ18MaJyqHeA",
-    "4CGYWhYmCbphsMvvnxm25YHmPk47WTnZUcQ5e4uDAWoz"
-   ],
-   {
-    "commitment": "confirmed",
-    "encoding": "base64"
-   }
-  ],
-  "result": {
-   "context": {
-    "apiVersion": "4.4.0",
-    "slot": 473524679
-   },
-   "value": [
-    null,
-    null
-   ]
-  }
- },
- {
-  "method": "getProgramAccounts",
-  "params": [
-   "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
-   {
-    "commitment": "confirmed",
-    "encoding": "base64",
-    "filters": [
-     {
-      "dataSize": 424
-     },
-     {
-      "memcmp": {
-       "offset": 136,
-       "bytes": "FnYLY1FQqbfNiMdDpedMPwpKWdM8RtAkwWBvWYNAwq4T"
+  {
+    "method": "getMultipleAccounts",
+    "params": [
+      [
+        "5cLnbMtDX77QeyjQTb1qS1f7EWuHDakMcZ18MaJyqHeA",
+        "4CGYWhYmCbphsMvvnxm25YHmPk47WTnZUcQ5e4uDAWoz"
+      ],
+      {
+        "commitment": "confirmed",
+        "encoding": "base64"
       }
-     }
-    ]
-   }
-  ],
-  "result": []
- },
- {
-  "method": "getProgramAccounts",
-  "params": [
-   "LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj",
-   {
-    "commitment": "confirmed",
-    "encoding": "base64",
-    "filters": [
-     {
-      "dataSize": 429
-     },
-     {
-      "memcmp": {
-       "offset": 205,
-       "bytes": "FnYLY1FQqbfNiMdDpedMPwpKWdM8RtAkwWBvWYNAwq4T"
-      }
-     }
-    ]
-   }
-  ],
-  "result": [
-   {
-    "pubkey": "BYa8uA3enWj8QfxhQsgxwRYgF8yt89yauE6RpQVPTgWR",
-    "account": {
-     "lamports": 2829560,
-     "data": [
-      "9+3j9dfD3kZIBAAAAAAAAPoABggBAIDGpH6NAwAAeMX7UdECAK4uDz7pzwMACnWtUAAAAACkLTs2AAQAAOUEVQAAAAAACHeU5AAAAAA6wBoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFHg74bXj0RNAHXQkbT4m9JKn3O3AZNwnG3zyaEmgj8lNF5467uId8T+hDkEHLNibXaPT5YpV3S7SudH4Btb6sduuL56Nsls5xwoDeq5YaH1+IcOoCbLXYzFM/LVzvtboB+ilDhQP2leR9FZqlX/Trj+HPmo0Zv/BPXkRnfqatQpYdCYbmj5nbwxsQsEn+/BwEW7B4zAM470I3JTUxdMlzG06s0tDNswgtscDyHvclMAaBNb4+s7+7dqV2+YNcFbzL27a8Miin2JXXZrT3AFuRAwpXbz7H99qMgyCZPf5vOsDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-      "base64"
-     ],
-     "owner": "LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj",
-     "executable": false,
-     "rentEpoch": 18446744073709552000,
-     "space": 429
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473524679
+      },
+      "value": [null, null]
     }
-   }
-  ]
- }
+  },
+  {
+    "method": "getProgramAccounts",
+    "params": [
+      "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
+      {
+        "commitment": "confirmed",
+        "encoding": "base64",
+        "filters": [
+          {
+            "dataSize": 424
+          },
+          {
+            "memcmp": {
+              "offset": 136,
+              "bytes": "FnYLY1FQqbfNiMdDpedMPwpKWdM8RtAkwWBvWYNAwq4T"
+            }
+          }
+        ]
+      }
+    ],
+    "result": []
+  },
+  {
+    "method": "getProgramAccounts",
+    "params": [
+      "LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj",
+      {
+        "commitment": "confirmed",
+        "encoding": "base64",
+        "filters": [
+          {
+            "dataSize": 429
+          },
+          {
+            "memcmp": {
+              "offset": 205,
+              "bytes": "FnYLY1FQqbfNiMdDpedMPwpKWdM8RtAkwWBvWYNAwq4T"
+            }
+          }
+        ]
+      }
+    ],
+    "result": [
+      {
+        "pubkey": "BYa8uA3enWj8QfxhQsgxwRYgF8yt89yauE6RpQVPTgWR",
+        "account": {
+          "lamports": 2829560,
+          "data": [
+            "9+3j9dfD3kZIBAAAAAAAAPoABggBAIDGpH6NAwAAeMX7UdECAK4uDz7pzwMACnWtUAAAAACkLTs2AAQAAOUEVQAAAAAACHeU5AAAAAA6wBoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFHg74bXj0RNAHXQkbT4m9JKn3O3AZNwnG3zyaEmgj8lNF5467uId8T+hDkEHLNibXaPT5YpV3S7SudH4Btb6sduuL56Nsls5xwoDeq5YaH1+IcOoCbLXYzFM/LVzvtboB+ilDhQP2leR9FZqlX/Trj+HPmo0Zv/BPXkRnfqatQpYdCYbmj5nbwxsQsEn+/BwEW7B4zAM470I3JTUxdMlzG06s0tDNswgtscDyHvclMAaBNb4+s7+7dqV2+YNcFbzL27a8Miin2JXXZrT3AFuRAwpXbz7H99qMgyCZPf5vOsDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "base64"
+          ],
+          "owner": "LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj",
+          "executable": false,
+          "rentEpoch": 18446744073709552000,
+          "space": 429
+        }
+      }
+    ]
+  }
 ]

@@ -52,7 +52,8 @@ function pairsOf(slug: Slug): DexScreenerPair[] {
 /** fetch answering DexScreener from a recording, and nothing else. */
 function stubDexScreener(body: unknown, status = 200) {
   const fetchMock = vi.fn(async (url: string) => {
-    if (!String(url).startsWith('https://api.dexscreener.com/')) throw new Error(`unexpected ${url}`);
+    if (!String(url).startsWith('https://api.dexscreener.com/'))
+      throw new Error(`unexpected ${url}`);
     return new Response(JSON.stringify(body), { status });
   });
   vi.stubGlobal('fetch', fetchMock);
@@ -73,9 +74,13 @@ describe('solanaTokenPairsUrl', () => {
 
 describe('toSolanaMarketState on recorded answers', () => {
   it('reads a graduated token: price, liquidity, volume, buys and sells, FDV, venue', () => {
-    const state = toSolanaMarketState(MINTS['launchlab-cpmm'], pairsOf('launchlab-cpmm'), { now: at });
+    const state = toSolanaMarketState(MINTS['launchlab-cpmm'], pairsOf('launchlab-cpmm'), {
+      now: at,
+    });
     expect(state.completeness).toBe('full');
-    expect(state.sources).toEqual([{ name: 'dexscreener-solana', fetchedAt: '2026-11-25T00:00:00.000Z' }]);
+    expect(state.sources).toEqual([
+      { name: 'dexscreener-solana', fetchedAt: '2026-11-25T00:00:00.000Z' },
+    ]);
     expect(state.data).toMatchObject({
       chain: 'solana',
       token: MINTS['launchlab-cpmm'],
@@ -105,7 +110,9 @@ describe('toSolanaMarketState on recorded answers', () => {
   });
 
   it('a token still on its pump.fun curve: the curve is the pair, no liquidity figure, said so', () => {
-    const state = toSolanaMarketState(MINTS['pump-curve-xmr'], pairsOf('pump-curve-xmr'), { now: at });
+    const state = toSolanaMarketState(MINTS['pump-curve-xmr'], pairsOf('pump-curve-xmr'), {
+      now: at,
+    });
     expect(state.completeness).toBe('partial');
     expect(state.data.pair).toBe('8j8apXSGYWc9m9XySAADCYmUzhetFzs2ZMoj36opQ8YA');
     expect(state.data.dex).toBe('pumpfun');
@@ -129,7 +136,9 @@ describe('toSolanaMarketState on recorded answers', () => {
     // it at $35.05 (FDV $34.6B); its PumpSwap pool against SOL and every other
     // pair price it near $0.0034 (recorded 25/11/2026).
     const pairs = pairsOf('pump-graduated');
-    const spoof = pairs.find((p) => p.pairAddress === 'AnZQ2WkdREg5v1cLT96mnt63wYysRXPtfnkU8JVFDN2f');
+    const spoof = pairs.find(
+      (p) => p.pairAddress === 'AnZQ2WkdREg5v1cLT96mnt63wYysRXPtfnkU8JVFDN2f',
+    );
     expect(spoof?.quoteToken?.symbol).toBe('MM');
     expect(Number(spoof?.priceUsd)).toBeGreaterThan(30);
     const state = toSolanaMarketState(MINTS['pump-graduated'], pairs, { now: at });
@@ -150,20 +159,24 @@ describe('toSolanaMarketState on recorded answers', () => {
 
   it('with no pair against SOL, USDC or USDT, the most liquid pair, its quote named', () => {
     const pairs = pairsOf('pump-graduated').filter(
-      (p) => p.baseToken?.address === MINTS['pump-graduated'] && !['SOL', 'USDC', 'USDT'].includes(p.quoteToken?.symbol ?? ''),
+      (p) =>
+        p.baseToken?.address === MINTS['pump-graduated'] &&
+        !['SOL', 'USDC', 'USDT'].includes(p.quoteToken?.symbol ?? ''),
     );
     expect(pairs.length).toBeGreaterThan(1);
     const state = toSolanaMarketState(MINTS['pump-graduated'], pairs, { now: at });
     expect(state.data.pair).toBe('AnZQ2WkdREg5v1cLT96mnt63wYysRXPtfnkU8JVFDN2f');
     expect(state.sources[0]?.note).toBe(
-      'the main pair trades against MM, not SOL, USDC or USDT: its USD figures go through that token\'s price',
+      "the main pair trades against MM, not SOL, USDC or USDT: its USD figures go through that token's price",
     );
   });
 
   it('a dust pool against SOL is not the market: the most liquid pair is, its quote named', () => {
     // underdog's CPMM pool against SOL brought down to $12, under MEANINGFUL_POOL_USD.
     const pairs = pairsOf('launchlab-cpmm').map((p) =>
-      p.pairAddress === 'CuAr9cYgcSr4HVvByctB1qHzKC8UuGRt8rQRC4nByaoa' ? { ...p, liquidity: { ...p.liquidity, usd: 12 } } : p,
+      p.pairAddress === 'CuAr9cYgcSr4HVvByctB1qHzKC8UuGRt8rQRC4nByaoa'
+        ? { ...p, liquidity: { ...p.liquidity, usd: 12 } }
+        : p,
     );
     const state = toSolanaMarketState(MINTS['launchlab-cpmm'], pairs, { now: at });
     expect(state.data.pair).toBe('96yihy6gSVeSRXKT4Chysgg9v6U8RGptwn51MQ51JsAQ');
@@ -177,7 +190,9 @@ describe('toSolanaMarketState on recorded answers', () => {
   });
 
   it('no pair indexed: unavailable, not an error', () => {
-    const state = toSolanaMarketState(MINTS['launchlab-curve'], pairsOf('launchlab-curve'), { now: at });
+    const state = toSolanaMarketState(MINTS['launchlab-curve'], pairsOf('launchlab-curve'), {
+      now: at,
+    });
     expect(pairsOf('launchlab-curve')).toEqual([]);
     expect(state.completeness).toBe('unavailable');
     expect(state.sources[0]?.note).toBe('no pair indexed by DexScreener for this token');
@@ -185,7 +200,9 @@ describe('toSolanaMarketState on recorded answers', () => {
   });
 
   it('a token listed only as the quote side has no price of its own', () => {
-    const quoteOnly = pairsOf('pump-graduated').filter((p) => p.baseToken?.address !== MINTS['pump-graduated']);
+    const quoteOnly = pairsOf('pump-graduated').filter(
+      (p) => p.baseToken?.address !== MINTS['pump-graduated'],
+    );
     expect(quoteOnly.length).toBeGreaterThan(0);
     const state = toSolanaMarketState(MINTS['pump-graduated'], quoteOnly, { now: at });
     expect(state.completeness).toBe('unavailable');
@@ -203,13 +220,17 @@ describe('toSolanaMarketState on recorded answers', () => {
 
 describe('helpers shared with Robinhood Chain', () => {
   it('mainPool finds a Solana pool by its exact id', () => {
-    const state = toSolanaMarketState(MINTS['dbc-migrated-usdc'], pairsOf('dbc-migrated-usdc'), { now: at });
+    const state = toSolanaMarketState(MINTS['dbc-migrated-usdc'], pairsOf('dbc-migrated-usdc'), {
+      now: at,
+    });
     expect(mainPool(state.data)?.id).toBe('CP222Ubb6wY2J3EnMbMmEGGQdgGWDcUADa358LDN7HxX');
     expect(meaningfulPools(state.data).every((p) => p.id !== state.data.pair)).toBe(true);
   });
 
   it('volumePerTrade reads a Solana state', () => {
-    const state = toSolanaMarketState(MINTS['launchlab-cpmm'], pairsOf('launchlab-cpmm'), { now: at });
+    const state = toSolanaMarketState(MINTS['launchlab-cpmm'], pairsOf('launchlab-cpmm'), {
+      now: at,
+    });
     expect(volumePerTrade(state)).toBeCloseTo(18.38 / 15);
   });
 });
@@ -226,7 +247,9 @@ describe('fetchSolanaPairs', () => {
 
   it('refuses what is not a Solana address, without a request', async () => {
     const fetchMock = stubDexScreener([]);
-    await expect(fetchSolanaPairs('0x494ddf6f7b4b045ede0abbb9ae86e4d59fa62ec9')).rejects.toBeInstanceOf(UpstreamError);
+    await expect(
+      fetchSolanaPairs('0x494ddf6f7b4b045ede0abbb9ae86e4d59fa62ec9'),
+    ).rejects.toBeInstanceOf(UpstreamError);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -263,9 +286,15 @@ describe('readSolanaMarket, the whole zone, on recorded answers', () => {
     const { result, calls } = await read('pump-graduated');
     expect(result.launch.data.launchpad?.id).toBe('pump.fun');
     expect(result.graduation?.data.graduated).toBe(true);
-    expect(result.graduation?.data.destination?.pool).toBe('DjbLtX1HRGZZrJgJ7CwTX6SN3D7tBLiytkGwomBUwTVB');
+    expect(result.graduation?.data.destination?.pool).toBe(
+      'DjbLtX1HRGZZrJgJ7CwTX6SN3D7tBLiytkGwomBUwTVB',
+    );
     const [first] = result.liquidity.data.pools;
-    expect(first).toMatchObject({ pool: 'DjbLtX1HRGZZrJgJ7CwTX6SN3D7tBLiytkGwomBUwTVB', kind: 'pumpswap', burnedShare: 1 });
+    expect(first).toMatchObject({
+      pool: 'DjbLtX1HRGZZrJgJ7CwTX6SN3D7tBLiytkGwomBUwTVB',
+      kind: 'pumpswap',
+      burnedShare: 1,
+    });
     // DLMM pools beside it are not read: partial, and said why.
     expect(result.liquidity.completeness).toBe('partial');
     expect(result.liquidity.sources[0]?.note).toMatch(/Meteora DLMM/);
@@ -282,8 +311,14 @@ describe('readSolanaMarket, the whole zone, on recorded answers', () => {
   it('Meteora DBC migrated to DAMM v2: liquidity locked for good', async () => {
     const { result } = await read('dbc-migrated-sol');
     expect(result.launch.data.launchpad?.id).toBe('meteora-dbc');
-    expect(result.graduation?.data.destination?.pool).toBe('BjoLhkUZKtPMBxEN7Lofn6n4k6vKtm88xSj8V2n1E69u');
-    expect(result.liquidity.data.pools[0]).toMatchObject({ kind: 'meteora-damm-v2', lockedShare: 1, withdrawableShare: 0 });
+    expect(result.graduation?.data.destination?.pool).toBe(
+      'BjoLhkUZKtPMBxEN7Lofn6n4k6vKtm88xSj8V2n1E69u',
+    );
+    expect(result.liquidity.data.pools[0]).toMatchObject({
+      kind: 'meteora-damm-v2',
+      lockedShare: 1,
+      withdrawableShare: 0,
+    });
     expect(result.liquidity.completeness).toBe('full');
   });
 
@@ -292,7 +327,11 @@ describe('readSolanaMarket, the whole zone, on recorded answers', () => {
     expect(result.launch.data.launchpad).toBeNull();
     expect(result.launch.sources[0]?.note).toMatch(/no pump.fun curve/);
     expect(result.graduation).toBeNull();
-    expect(result.liquidity.data.pools.map((p) => p.kind)).toEqual(['raydium-amm-v4', 'raydium-amm-v4', 'raydium-clmm']);
+    expect(result.liquidity.data.pools.map((p) => p.kind)).toEqual([
+      'raydium-amm-v4',
+      'raydium-amm-v4',
+      'raydium-clmm',
+    ]);
   });
 
   it('every recorded token reads within the call cap', async () => {
@@ -308,7 +347,10 @@ describe('readSolanaMarket, the whole zone, on recorded answers', () => {
     stubDexScreener(pairsOf('launchlab-cpmm'));
     // Only the launch lookup was recorded: the graduation and liquidity reads find no answer.
     const recordings = loadRecordings('market', ['launchlab-cpmm.json']).slice(0, 1);
-    const result = await readSolanaMarket(MINTS['launchlab-cpmm'], { rpc: createFakeSolanaRpc(recordings), now: at });
+    const result = await readSolanaMarket(MINTS['launchlab-cpmm'], {
+      rpc: createFakeSolanaRpc(recordings),
+      now: at,
+    });
     expect(result.market.completeness).toBe('full');
     expect(result.launch.data.launchpad?.id).toBe('raydium-launchlab');
     expect(result.graduation?.completeness).toBe('unavailable');
@@ -331,7 +373,11 @@ describe('readSolanaMarket, the whole zone, on recorded answers', () => {
       ...fakeRpcFor('market', ['pump-curve-sol.json']),
       getMultipleAccounts: () => new Promise(() => {}),
     };
-    const result = await readSolanaMarket(MINTS['pump-curve-sol'], { rpc: never, now: at, deadlineMs: 50 });
+    const result = await readSolanaMarket(MINTS['pump-curve-sol'], {
+      rpc: never,
+      now: at,
+      deadlineMs: 50,
+    });
     expect(result.launch.completeness).toBe('unavailable');
     expect(result.launch.sources[0]?.note).toMatch(/timed out/);
     expect(SOLANA_MARKET_DEADLINE_MS).toBeLessThanOrEqual(15_000);
@@ -373,12 +419,19 @@ describe('readSolanaMarket, the whole zone, on recorded answers', () => {
       ...base,
       getMultipleAccounts: async (addresses, options) =>
         addresses.includes(curve) && addresses.every((a) => known.has(a))
-          ? (addresses.map((a) => structuredClone(known.get(a))) as Awaited<ReturnType<SolanaRpc['getMultipleAccounts']>>)
+          ? (addresses.map((a) => structuredClone(known.get(a))) as Awaited<
+              ReturnType<SolanaRpc['getMultipleAccounts']>
+            >)
           : base.getMultipleAccounts(addresses, options),
     };
     const result = await readSolanaMarket(MINTS['pump-graduated'], { rpc, now: at });
-    expect(result.graduation?.data.destination?.pool).toBe('DjbLtX1HRGZZrJgJ7CwTX6SN3D7tBLiytkGwomBUwTVB');
-    expect(result.market.data.pools[0]).toMatchObject({ id: '7NCEXHBRkerKTdc4GrcfW6CmAsdsKmrQ6qGPfSQ7Vip7', base: false });
+    expect(result.graduation?.data.destination?.pool).toBe(
+      'DjbLtX1HRGZZrJgJ7CwTX6SN3D7tBLiytkGwomBUwTVB',
+    );
+    expect(result.market.data.pools[0]).toMatchObject({
+      id: '7NCEXHBRkerKTdc4GrcfW6CmAsdsKmrQ6qGPfSQ7Vip7',
+      base: false,
+    });
     expect(result.liquidity.data.pools.map((p) => p.pool)).toEqual([
       'DjbLtX1HRGZZrJgJ7CwTX6SN3D7tBLiytkGwomBUwTVB',
       'AnZQ2WkdREg5v1cLT96mnt63wYysRXPtfnkU8JVFDN2f',

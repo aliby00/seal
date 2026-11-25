@@ -25,7 +25,9 @@ const at = () => new Date('2026-11-25T00:00:00.000Z');
 /** The pools the zone asked for, as recorded: the second getMultipleAccounts (base64) of the file. */
 function recordedPools(file: string): string[] {
   const reads = loadRecordings('market', [file]).filter(
-    (e) => e.method === 'getMultipleAccounts' && (e.params?.[1] as { encoding: string }).encoding === 'base64',
+    (e) =>
+      e.method === 'getMultipleAccounts' &&
+      (e.params?.[1] as { encoding: string }).encoding === 'base64',
   );
   return reads[reads.length - 1]?.params?.[0] as string[];
 }
@@ -48,7 +50,10 @@ describe('derived lock accounts', () => {
 
 describe('LP-token pools', () => {
   it('PumpSwap (pump.fun graduate): every LP token burned', async () => {
-    const { read } = await liquidity('pump-graduated', 'B34nXKzCgsJb9ChLuSHPRpXLE3WFSWyeT8Cqkzzmpump');
+    const { read } = await liquidity(
+      'pump-graduated',
+      'B34nXKzCgsJb9ChLuSHPRpXLE3WFSWyeT8Cqkzzmpump',
+    );
     expect(read.data.pools[0]).toEqual({
       pool: 'DjbLtX1HRGZZrJgJ7CwTX6SN3D7tBLiytkGwomBUwTVB',
       program: 'pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA',
@@ -65,16 +70,28 @@ describe('LP-token pools', () => {
   });
 
   it('Raydium CPMM (LaunchLab graduate): part burned, the rest locked in Burn & Earn', async () => {
-    const { read } = await liquidity('launchlab-cpmm', 'B4aJyVCibxP1J95RccZ57DPJWEfkkzUDbm9DuFD9bonk');
+    const { read } = await liquidity(
+      'launchlab-cpmm',
+      'B4aJyVCibxP1J95RccZ57DPJWEfkkzUDbm9DuFD9bonk',
+    );
     const [cpmm] = read.data.pools;
-    expect(cpmm).toMatchObject({ kind: 'raydium-cpmm', known: true, withdrawableShare: 0, holders: [], note: null });
+    expect(cpmm).toMatchObject({
+      kind: 'raydium-cpmm',
+      known: true,
+      withdrawableShare: 0,
+      holders: [],
+      note: null,
+    });
     expect(cpmm?.burnedShare).toBeCloseTo(0.731941415, 8);
     expect(cpmm?.lockedShare).toBeCloseTo(0.268058584, 8);
     expect((cpmm?.burnedShare ?? 0) + (cpmm?.lockedShare ?? 0)).toBeCloseTo(1, 6);
   });
 
   it('Raydium AMM v4 (LaunchLab graduate): nearly all burned, the rest withdrawable', async () => {
-    const { read } = await liquidity('launchlab-amm', 'CDBdbNqmrLu1PcgjrFG52yxg71QnFhBZcUE6PSFdbonk');
+    const { read } = await liquidity(
+      'launchlab-amm',
+      'CDBdbNqmrLu1PcgjrFG52yxg71QnFhBZcUE6PSFdbonk',
+    );
     const [amm] = read.data.pools;
     expect(amm?.kind).toBe('raydium-amm-v4');
     expect(amm?.burnedShare).toBeCloseTo(0.999735771, 8);
@@ -84,7 +101,10 @@ describe('LP-token pools', () => {
   });
 
   it('Raydium AMM v4 of an old pump.fun graduate (GOAT, 2024): 99.7 % burned', async () => {
-    const { read } = await liquidity('pump-raydium-era', 'CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump');
+    const { read } = await liquidity(
+      'pump-raydium-era',
+      'CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump',
+    );
     expect(read.data.pools[0]?.burnedShare).toBeCloseTo(0.996657243, 8);
   });
 
@@ -112,7 +132,12 @@ describe('LP-token pools', () => {
         },
       ],
     };
-    const read = await readSolanaLiquidity(rpc, 'CDBdbNqmrLu1PcgjrFG52yxg71QnFhBZcUE6PSFdbonk', recordedPools('launchlab-amm.json'), { now: at });
+    const read = await readSolanaLiquidity(
+      rpc,
+      'CDBdbNqmrLu1PcgjrFG52yxg71QnFhBZcUE6PSFdbonk',
+      recordedPools('launchlab-amm.json'),
+      { now: at },
+    );
     expect(read.data.pools[0]?.holders).toEqual([
       {
         account: 'FGHBr5hqjPRbAEX4oVA6QyJf7NYdgLnSLZT6EQGy3RSe',
@@ -132,10 +157,18 @@ describe('LP-token pools', () => {
         throw new BudgetExhaustedError('solana-rpc', 1);
       },
     };
-    const read = await readSolanaLiquidity(rpc, 'CDBdbNqmrLu1PcgjrFG52yxg71QnFhBZcUE6PSFdbonk', recordedPools('launchlab-amm.json'));
+    const read = await readSolanaLiquidity(
+      rpc,
+      'CDBdbNqmrLu1PcgjrFG52yxg71QnFhBZcUE6PSFdbonk',
+      recordedPools('launchlab-amm.json'),
+    );
     // The shares already read stand; the holders are missing for the reason they are.
     const [amm] = read.data.pools;
-    expect(amm).toMatchObject({ known: true, holders: [], note: 'the LP holders were not listed: the read ran out of calls' });
+    expect(amm).toMatchObject({
+      known: true,
+      holders: [],
+      note: 'the LP holders were not listed: the read ran out of calls',
+    });
     expect(amm?.burnedShare).toBeCloseTo(0.999735771, 8);
   });
 
@@ -148,11 +181,24 @@ describe('LP-token pools', () => {
       },
     };
     const pools = recordedPools('dbc-migrated-usdc.json');
-    const read = await readSolanaLiquidity(rpc, 'Ax5dAamJPeuaLpFUzs9FdcpoUhHDcxyjPzxCJQidjups', pools, { now: at });
+    const read = await readSolanaLiquidity(
+      rpc,
+      'Ax5dAamJPeuaLpFUzs9FdcpoUhHDcxyjPzxCJQidjups',
+      pools,
+      { now: at },
+    );
     expect(read.data.pools).toHaveLength(pools.length);
-    expect(read.data.pools[0]).toMatchObject({ kind: 'meteora-damm-v2', known: false, lockedShare: null });
+    expect(read.data.pools[0]).toMatchObject({
+      kind: 'meteora-damm-v2',
+      known: false,
+      lockedShare: null,
+    });
     expect(read.data.pools[0]?.note).toMatch(/^the pool could not be read: /);
-    expect(read.data.pools.slice(1).every((p) => p.kind === 'meteora-dlmm' && /Meteora DLMM/.test(p.note ?? ''))).toBe(true);
+    expect(
+      read.data.pools
+        .slice(1)
+        .every((p) => p.kind === 'meteora-dlmm' && /Meteora DLMM/.test(p.note ?? '')),
+    ).toBe(true);
     expect(read.completeness).toBe('unavailable');
   });
 
@@ -165,20 +211,37 @@ describe('LP-token pools', () => {
       },
     };
     await expect(
-      readSolanaLiquidity(rpc, 'Ax5dAamJPeuaLpFUzs9FdcpoUhHDcxyjPzxCJQidjups', recordedPools('dbc-migrated-usdc.json')),
+      readSolanaLiquidity(
+        rpc,
+        'Ax5dAamJPeuaLpFUzs9FdcpoUhHDcxyjPzxCJQidjups',
+        recordedPools('dbc-migrated-usdc.json'),
+      ),
     ).rejects.toBeInstanceOf(TypeError);
   });
 });
 
 describe('Meteora DAMM v2', () => {
   it('a pool locked for good (DBC graduate on bags): 100 % permanent lock, two positions', async () => {
-    const { read } = await liquidity('dbc-migrated-sol', '8X6SyaSgYdPfmZTc1B7Kc7YytMwUYJVTWXgSxJWMBAGS');
+    const { read } = await liquidity(
+      'dbc-migrated-sol',
+      '8X6SyaSgYdPfmZTc1B7Kc7YytMwUYJVTWXgSxJWMBAGS',
+    );
     expect(read.completeness).toBe('full');
-    expect(read.data.pools[0]).toMatchObject({ kind: 'meteora-damm-v2', known: true, lockedShare: 1, withdrawableShare: 0, holdersCount: 2, burnedShare: null });
+    expect(read.data.pools[0]).toMatchObject({
+      kind: 'meteora-damm-v2',
+      known: true,
+      lockedShare: 1,
+      withdrawableShare: 0,
+      holdersCount: 2,
+      burnedShare: null,
+    });
   });
 
   it('a pool with positions beside the locked ones (Jupiter studio, USDC)', async () => {
-    const { read } = await liquidity('dbc-migrated-usdc', 'Ax5dAamJPeuaLpFUzs9FdcpoUhHDcxyjPzxCJQidjups');
+    const { read } = await liquidity(
+      'dbc-migrated-usdc',
+      'Ax5dAamJPeuaLpFUzs9FdcpoUhHDcxyjPzxCJQidjups',
+    );
     const [damm] = read.data.pools;
     expect(damm?.lockedShare).toBeCloseTo(0.990724257, 8);
     expect(damm?.withdrawableShare).toBeCloseTo(0.009275742, 8);
@@ -192,9 +255,15 @@ describe('Meteora DAMM v2', () => {
     const rpc: SolanaRpc = {
       ...base,
       // One position of the eight recorded is left out.
-      getProgramAccounts: async (program, options) => (await base.getProgramAccounts(program, options)).slice(1),
+      getProgramAccounts: async (program, options) =>
+        (await base.getProgramAccounts(program, options)).slice(1),
     };
-    const read = await readSolanaLiquidity(rpc, 'Ax5dAamJPeuaLpFUzs9FdcpoUhHDcxyjPzxCJQidjups', recordedPools('dbc-migrated-usdc.json'), { now: at });
+    const read = await readSolanaLiquidity(
+      rpc,
+      'Ax5dAamJPeuaLpFUzs9FdcpoUhHDcxyjPzxCJQidjups',
+      recordedPools('dbc-migrated-usdc.json'),
+      { now: at },
+    );
     expect(read.data.pools[0]?.holdersCount).toBe(7);
     expect(read.data.pools[0]?.note).toMatch(/do not add up to the pool’s liquidity/);
   });
@@ -202,7 +271,10 @@ describe('Meteora DAMM v2', () => {
 
 describe('what is not read', () => {
   it('concentrated pools: unknown, never guessed', async () => {
-    const { read } = await liquidity('pump-raydium-era', 'CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump');
+    const { read } = await liquidity(
+      'pump-raydium-era',
+      'CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump',
+    );
     expect(read.completeness).toBe('partial');
     expect(read.data.pools.slice(1).map((p) => [p.kind, p.known, p.lockedShare])).toEqual([
       ['orca-whirlpool', false, null],
@@ -212,7 +284,10 @@ describe('what is not read', () => {
   });
 
   it('Meteora DLMM: unknown', async () => {
-    const { read } = await liquidity('pump-graduated', 'B34nXKzCgsJb9ChLuSHPRpXLE3WFSWyeT8Cqkzzmpump');
+    const { read } = await liquidity(
+      'pump-graduated',
+      'B34nXKzCgsJb9ChLuSHPRpXLE3WFSWyeT8Cqkzzmpump',
+    );
     expect(read.data.pools.slice(1).every((p) => p.kind === 'meteora-dlmm' && !p.known)).toBe(true);
   });
 
@@ -224,11 +299,19 @@ describe('what is not read', () => {
       {
         method: 'getMultipleAccounts',
         params: [[curve], { commitment: 'confirmed', encoding: 'base64' }],
-        result: { context: { slot: 0 }, value: [(firstMulti?.result as { value: unknown[] }).value[0]] },
+        result: {
+          context: { slot: 0 },
+          value: [(firstMulti?.result as { value: unknown[] }).value[0]],
+        },
       },
     ]);
     // The answer above is the curve's recorded account, asked alone.
-    const read = await readSolanaLiquidity(rpc, 'FB5eSv7CAMWJnrH5GvHLivx9y8Qgoo8vpPV3EX5Npump', [curve], { now: at });
+    const read = await readSolanaLiquidity(
+      rpc,
+      'FB5eSv7CAMWJnrH5GvHLivx9y8Qgoo8vpPV3EX5Npump',
+      [curve],
+      { now: at },
+    );
     expect(read.data.pools[0]?.note).toBe('a launchpad curve, not a pool: see the graduation');
     expect(read.completeness).toBe('unavailable');
   });
@@ -236,7 +319,12 @@ describe('what is not read', () => {
   it('the CPMM pool read for a token it does not hold', async () => {
     const rpc = fakeRpcFor('market', ['launchlab-cpmm.json']);
     const pools = recordedPools('launchlab-cpmm.json');
-    const read = await readSolanaLiquidity(rpc, 'FB5eSv7CAMWJnrH5GvHLivx9y8Qgoo8vpPV3EX5Npump', pools, { now: at });
+    const read = await readSolanaLiquidity(
+      rpc,
+      'FB5eSv7CAMWJnrH5GvHLivx9y8Qgoo8vpPV3EX5Npump',
+      pools,
+      { now: at },
+    );
     expect(read.data.pools[0]?.note).toBe('the pool does not hold this token');
   });
 

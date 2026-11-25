@@ -172,7 +172,8 @@ type ParsedTokenAccount = { mint: string; owner: string; amount: bigint };
 
 function parsedMint(info: AccountInfo | null, program: string): ParsedMint | null {
   if (!info || info.owner !== program) return null;
-  const parsed = parsedAccount(info)?.parsed as { type?: string; info?: Partial<ParsedMint> } | undefined;
+  const parsed = parsedAccount(info)?.parsed as
+    { type?: string; info?: Partial<ParsedMint> } | undefined;
   if (parsed?.type !== 'mint' || typeof parsed.info?.supply !== 'string') return null;
   return { supply: parsed.info.supply, decimals: parsed.info.decimals ?? 0 };
 }
@@ -183,7 +184,12 @@ function parsedTokenAccount(info: AccountInfo | null): ParsedTokenAccount | null
     | { type?: string; info?: { mint?: string; owner?: string; tokenAmount?: { amount?: string } } }
     | undefined;
   const t = parsed?.info;
-  if (parsed?.type !== 'account' || !t?.mint || !t.owner || typeof t.tokenAmount?.amount !== 'string') {
+  if (
+    parsed?.type !== 'account' ||
+    !t?.mint ||
+    !t.owner ||
+    typeof t.tokenAmount?.amount !== 'string'
+  ) {
     return null;
   }
   return { mint: t.mint, owner: t.owner, amount: BigInt(t.tokenAmount.amount) };
@@ -209,7 +215,9 @@ export function lpLockAccounts(lpMint: string, lpProgram: string): { lock: strin
 async function largestLpHolders(
   rpc: SolanaRpc,
   lpMint: string,
-): Promise<{ account: string; owner: string; amount: bigint }[] | 'not-served' | 'allowance-spent'> {
+): Promise<
+  { account: string; owner: string; amount: bigint }[] | 'not-served' | 'allowance-spent'
+> {
   let largest;
   try {
     largest = await rpc.getTokenLargestAccounts(lpMint);
@@ -265,9 +273,15 @@ async function readLpPool(
   const listed = withdrawable > 0n ? await largestLpHolders(rpc, lpMint) : [];
   const largest = Array.isArray(listed) ? listed : null;
   const notes = [
-    burned < 0n ? 'the LP mint holds more than the pool counts: shares are of the pool’s count' : null,
-    listed === 'not-served' ? 'the LP holders were not listed: the node does not serve getTokenLargestAccounts' : null,
-    listed === 'allowance-spent' ? 'the LP holders were not listed: the read ran out of calls' : null,
+    burned < 0n
+      ? 'the LP mint holds more than the pool counts: shares are of the pool’s count'
+      : null,
+    listed === 'not-served'
+      ? 'the LP holders were not listed: the node does not serve getTokenLargestAccounts'
+      : null,
+    listed === 'allowance-spent'
+      ? 'the LP holders were not listed: the read ran out of calls'
+      : null,
   ].filter((n): n is string => n !== null);
   return {
     pool,
@@ -289,12 +303,20 @@ async function readLpPool(
   };
 }
 
-async function readDammV2(rpc: SolanaRpc, pool: string, info: AccountInfo, bytes: Uint8Array): Promise<SolanaPoolLiquidity> {
+async function readDammV2(
+  rpc: SolanaRpc,
+  pool: string,
+  info: AccountInfo,
+  bytes: Uint8Array,
+): Promise<SolanaPoolLiquidity> {
   const liquidity = readU128(bytes, DAMM_V2.liquidity);
   const permanent = readU128(bytes, DAMM_V2.permanentLock);
   const positions = await rpc.getProgramAccounts(METEORA_DAMM_V2_PROGRAM, {
     dataSlice: { offset: DAMM_V2_POSITION.liquidity, length: 48 },
-    filters: [{ dataSize: DAMM_V2_POSITION.size }, { memcmp: { offset: DAMM_V2_POSITION.pool, bytes: pool } }],
+    filters: [
+      { dataSize: DAMM_V2_POSITION.size },
+      { memcmp: { offset: DAMM_V2_POSITION.pool, bytes: pool } },
+    ],
   });
   let unlocked = 0n;
   let vested = 0n;
@@ -314,10 +336,14 @@ async function readDammV2(rpc: SolanaRpc, pool: string, info: AccountInfo, bytes
     liquidity === 0n
       ? ['the pool holds no liquidity']
       : [
-          vested > 0n ? `${(vestedShare * 100).toFixed(2)}% of the liquidity unlocks over time (vesting)` : null,
+          vested > 0n
+            ? `${(vestedShare * 100).toFixed(2)}% of the liquidity unlocks over time (vesting)`
+            : null,
           // A position is held through its NFT; who holds each NFT is not read here.
           unlocked > 0n ? 'who holds the positions that can be withdrawn is not read' : null,
-          complete ? null : 'the positions read do not add up to the pool’s liquidity: the withdrawable part may be larger',
+          complete
+            ? null
+            : 'the positions read do not add up to the pool’s liquidity: the withdrawable part may be larger',
         ].filter((n): n is string => n !== null);
   return {
     pool,
@@ -402,7 +428,8 @@ export async function readSolanaLiquidity(
     return [lpMint, lock, burn];
   });
   const unique = [...new Set(wanted)];
-  const answers = unique.length > 0 ? await rpc.getMultipleAccounts(unique, { encoding: 'jsonParsed' }) : [];
+  const answers =
+    unique.length > 0 ? await rpc.getMultipleAccounts(unique, { encoding: 'jsonParsed' }) : [];
   const reads = new Map(unique.map((address, i) => [address, answers[i] ?? null]));
 
   const out: SolanaPoolLiquidity[] = [];
@@ -424,12 +451,17 @@ export async function readSolanaLiquidity(
         const info = d.info;
         const bytes = d.bytes;
         const layout = d.layout;
-        out.push(await isolated(d.pool, info, () => readLpPool(rpc, d.pool, info, bytes, layout, reads)));
+        out.push(
+          await isolated(d.pool, info, () => readLpPool(rpc, d.pool, info, bytes, layout, reads)),
+        );
       }
       continue;
     }
     if (d.kind === 'meteora-damm-v2') {
-      if (d.bytes.length !== DAMM_V2_POOL_SIZE || !startsWith(d.bytes, PUMPSWAP_POOL_DISCRIMINATOR)) {
+      if (
+        d.bytes.length !== DAMM_V2_POOL_SIZE ||
+        !startsWith(d.bytes, PUMPSWAP_POOL_DISCRIMINATOR)
+      ) {
         out.push(unknownPool(d.pool, d.info, 'the pool account does not have the layout read'));
       } else if (!holdsMint(d.bytes, DAMM_V2.mints, mint)) {
         out.push(unknownPool(d.pool, d.info, 'the pool does not hold this token'));
@@ -460,7 +492,12 @@ export async function readSolanaLiquidity(
         name: 'solana-rpc',
         fetchedAt,
         ...(unknown > 0
-          ? { note: `${unknown} of ${out.length} pools read could not be described: ${out.filter((p) => !p.known).map((p) => p.note).join('; ')}` }
+          ? {
+              note: `${unknown} of ${out.length} pools read could not be described: ${out
+                .filter((p) => !p.known)
+                .map((p) => p.note)
+                .join('; ')}`,
+            }
           : {}),
       },
     ],

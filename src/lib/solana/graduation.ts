@@ -137,7 +137,10 @@ export function pumpCurveProgress(curve: PumpCurve, global: PumpGlobal): number 
   if (curve.tokenTotalSupply !== global.tokenTotalSupply) return null;
   // More left than the curve starts with: not a curve of these parameters.
   if (curve.realTokenReserves > global.initialRealTokenReserves) return null;
-  return ratio(global.initialRealTokenReserves - curve.realTokenReserves, global.initialRealTokenReserves);
+  return ratio(
+    global.initialRealTokenReserves - curve.realTokenReserves,
+    global.initialRealTokenReserves,
+  );
 }
 
 /** The pump.fun PDA that creates a graduated coin's pool: ["pool-authority", mint] (pump.json, `migrate`). */
@@ -153,7 +156,13 @@ export function pumpPoolAuthority(mint: string): string {
  */
 export function pumpSwapPoolAddress(mint: string, quoteMint: string = NATIVE_MINT): string {
   return findProgramAddress(
-    ['pool', new Uint8Array([0, 0]), addressBytes(pumpPoolAuthority(mint)), addressBytes(mint), addressBytes(quoteMint)],
+    [
+      'pool',
+      new Uint8Array([0, 0]),
+      addressBytes(pumpPoolAuthority(mint)),
+      addressBytes(mint),
+      addressBytes(quoteMint),
+    ],
     PUMP_SWAP_PROGRAM,
   ).address;
 }
@@ -199,7 +208,11 @@ export const DBC_CONFIG_DISCRIMINATOR = [26, 108, 14, 123, 116, 230, 129, 43] as
  * (0 DAMM v1, 1 DAMM v2), `migration_quote_threshold` 264. Checked on three
  * configs (SOL and USDC quotes).
  */
-export type DbcConfig = { quoteMint: string; migrationOption: number; migrationQuoteThreshold: bigint };
+export type DbcConfig = {
+  quoteMint: string;
+  migrationOption: number;
+  migrationQuoteThreshold: bigint;
+};
 
 export function decodeDbcConfig(bytes: Uint8Array): DbcConfig | null {
   if (bytes.length < 272 || !startsWith(bytes, DBC_CONFIG_DISCRIMINATOR)) return null;
@@ -314,16 +327,24 @@ async function readPump(rpc: SolanaRpc, mint: string, launch: LaunchAccount): Pr
       poolBytes.length >= PUMPSWAP_BASE_MINT_OFFSET + 32 &&
       readAddress(poolBytes, PUMPSWAP_BASE_MINT_OFFSET) === mint;
     return {
-      data: { ...data, progress: 1, progressBasis: 'tokens-sold', ...(isPool ? { destination: destination(pool, PUMP_SWAP_PROGRAM) } : {}) },
+      data: {
+        ...data,
+        progress: 1,
+        progressBasis: 'tokens-sold',
+        ...(isPool ? { destination: destination(pool, PUMP_SWAP_PROGRAM) } : {}),
+      },
       // Coins that graduated before PumpSwap (spring 2025) moved to Raydium:
       // that pool is not derived from the curve (GOAT: none at the PumpSwap address).
-      missing: isPool ? null : 'the curve is complete but no PumpSwap pool sits at the address its migration creates: the pool it moved to was not found',
+      missing: isPool
+        ? null
+        : 'the curve is complete but no PumpSwap pool sits at the address its migration creates: the pool it moved to was not found',
     };
   }
 
   const globalInfo = await rpc.getAccountInfo(PUMP_GLOBAL);
   const globalBytes = globalInfo ? accountBytes(globalInfo) : null;
-  const global = globalInfo?.owner === PUMP_FUN_PROGRAM && globalBytes ? decodePumpGlobal(globalBytes) : null;
+  const global =
+    globalInfo?.owner === PUMP_FUN_PROGRAM && globalBytes ? decodePumpGlobal(globalBytes) : null;
   const progress = global ? pumpCurveProgress(curve, global) : null;
   return {
     data: { ...data, progress, progressBasis: progress === null ? null : 'tokens-sold' },
@@ -366,7 +387,8 @@ async function readDbc(rpc: SolanaRpc, mint: string, launch: LaunchAccount): Pro
         : null,
   };
   data.progressBasis = data.progress === null ? null : 'quote-raised';
-  if (!config) return { data, missing: 'the DBC config could not be read: no target to measure against' };
+  if (!config)
+    return { data, missing: 'the DBC config could not be read: no target to measure against' };
   if (!pool.isMigrated) return { data, missing: null };
   if (config.migrationOption !== 1) {
     return { data, missing: 'migrated to Meteora DAMM v1: the pool it moved to is not read' };
@@ -380,7 +402,10 @@ async function readDbc(rpc: SolanaRpc, mint: string, launch: LaunchAccount): Pro
     ],
   });
   if (found.length === 1 && found[0]) {
-    return { data: { ...data, destination: destination(found[0].pubkey, METEORA_DAMM_V2_PROGRAM) }, missing: null };
+    return {
+      data: { ...data, destination: destination(found[0].pubkey, METEORA_DAMM_V2_PROGRAM) },
+      missing: null,
+    };
   }
   return {
     data,
@@ -401,7 +426,11 @@ export function cpmmMintOrder(mintA: string, mintB: string): [string, string] {
   return [mintA, mintB];
 }
 
-async function readLaunchLab(rpc: SolanaRpc, mint: string, launch: LaunchAccount): Promise<Reading> {
+async function readLaunchLab(
+  rpc: SolanaRpc,
+  mint: string,
+  launch: LaunchAccount,
+): Promise<Reading> {
   const bytes = accountBytes(launch.info);
   const pool = bytes ? decodeLaunchLabPool(bytes) : null;
   const base: SolanaGraduationData = {
@@ -466,7 +495,10 @@ async function readLaunchLab(rpc: SolanaRpc, mint: string, launch: LaunchAccount
   };
 }
 
-const READERS: Record<SolanaLaunchpadId, (rpc: SolanaRpc, mint: string, launch: LaunchAccount) => Promise<Reading>> = {
+const READERS: Record<
+  SolanaLaunchpadId,
+  (rpc: SolanaRpc, mint: string, launch: LaunchAccount) => Promise<Reading>
+> = {
   'pump.fun': readPump,
   'meteora-dbc': readDbc,
   'raydium-launchlab': readLaunchLab,

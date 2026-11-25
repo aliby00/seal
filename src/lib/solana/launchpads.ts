@@ -1,8 +1,4 @@
-import type {
-  SolanaLaunch,
-  SolanaLaunchpadId,
-  SolanaLaunchpadRef,
-} from '../market/solana-types';
+import type { SolanaLaunch, SolanaLaunchpadId, SolanaLaunchpadRef } from '../market/solana-types';
 import { addressBytes, decodeBase58, encodeBase58, findProgramAddress } from './address';
 import {
   METEORA_DBC_PROGRAM,
@@ -82,8 +78,14 @@ export const SOLANA_LAUNCHPADS: readonly SolanaLaunchpad[] = [
     // IDL: dynamic-bonding-curve scripts/idl/release_0.1.6.json; the SPL one
     // seen creating 8xKZ1yzP… (InitializeVirtualPoolWithSplToken).
     creates: [
-      { name: 'initialize_virtual_pool_with_spl_token', discriminator: [140, 85, 215, 176, 102, 54, 104, 79] },
-      { name: 'initialize_virtual_pool_with_token2022', discriminator: [169, 118, 51, 78, 145, 110, 220, 155] },
+      {
+        name: 'initialize_virtual_pool_with_spl_token',
+        discriminator: [140, 85, 215, 176, 102, 54, 104, 79],
+      },
+      {
+        name: 'initialize_virtual_pool_with_token2022',
+        discriminator: [169, 118, 51, 78, 145, 110, 220, 155],
+      },
     ],
   },
   {
@@ -177,7 +179,11 @@ export async function findLaunchAccount(
   options: { hints?: readonly string[] } = {},
 ): Promise<LaunchAccount | null> {
   const candidates = [
-    ...new Set([pumpBondingCurveAddress(mint), launchLabPoolAddress(mint), ...(options.hints ?? [])]),
+    ...new Set([
+      pumpBondingCurveAddress(mint),
+      launchLabPoolAddress(mint),
+      ...(options.hints ?? []),
+    ]),
   ].slice(0, 100);
   const infos = await rpc.getMultipleAccounts(candidates);
   for (const [i, address] of candidates.entries()) {

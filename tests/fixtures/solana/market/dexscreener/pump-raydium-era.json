@@ -1,2170 +1,2116 @@
 [
- {
-  "chainId": "solana",
-  "dexId": "raydium",
-  "url": "https://dexscreener.com/solana/9tb2ohu5p16bpbarqd3n27wnkf51ukfs8z1gzzldxvzw",
-  "pairAddress": "9Tb2ohu5P16BpBarqd3N27WnkF51Ukfs8Z1GzzLDxVZW",
-  "baseToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "quoteToken": {
-   "address": "So11111111111111111111111111111111111111112",
-   "name": "Wrapped SOL",
-   "symbol": "SOL"
-  },
-  "priceNative": "0.0001420",
-  "priceUsd": "0.009929",
-  "txns": {
-   "m5": {
-    "buys": 2,
-    "sells": 7
-   },
-   "h1": {
-    "buys": 6,
-    "sells": 37
-   },
-   "h6": {
-    "buys": 89,
-    "sells": 117
-   },
-   "h24": {
-    "buys": 347,
-    "sells": 444
-   }
-  },
-  "volume": {
-   "h24": 42718.19,
-   "h6": 11960.74,
-   "h1": 2278.26,
-   "m5": 679.02
-  },
-  "priceChange": {
-   "m5": -0.33,
-   "h1": -0.9,
-   "h6": -2.25,
-   "h24": -4.59
-  },
-  "liquidity": {
-   "base": 50364217,
-   "quote": 7173.2189,
-   "usd": 1001375.08
-  },
-  "fdv": 9929829,
-  "marketCap": 9929829,
-  "pairCreatedAt": 1728595144000,
-  "info": {
-   "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
-   "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
-   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
-   "websites": [
-    {
-     "url": "https://goatchan.xyz/",
-     "label": "Website"
-    }
-   ],
-   "socials": [
-    {
-     "url": "https://x.com/truth_terminal",
-     "type": "twitter"
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/9tb2ohu5p16bpbarqd3n27wnkf51ukfs8z1gzzldxvzw",
+    "pairAddress": "9Tb2ohu5P16BpBarqd3N27WnkF51Ukfs8Z1GzzLDxVZW",
+    "baseToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
     },
-    {
-     "url": "https://t.me/GoatseusMaximusSolanaPortal",
-     "type": "telegram"
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.0001420",
+    "priceUsd": "0.009929",
+    "txns": {
+      "m5": {
+        "buys": 2,
+        "sells": 7
+      },
+      "h1": {
+        "buys": 6,
+        "sells": 37
+      },
+      "h6": {
+        "buys": 89,
+        "sells": 117
+      },
+      "h24": {
+        "buys": 347,
+        "sells": 444
+      }
+    },
+    "volume": {
+      "h24": 42718.19,
+      "h6": 11960.74,
+      "h1": 2278.26,
+      "m5": 679.02
+    },
+    "priceChange": {
+      "m5": -0.33,
+      "h1": -0.9,
+      "h6": -2.25,
+      "h24": -4.59
+    },
+    "liquidity": {
+      "base": 50364217,
+      "quote": 7173.2189,
+      "usd": 1001375.08
+    },
+    "fdv": 9929829,
+    "marketCap": 9929829,
+    "pairCreatedAt": 1728595144000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://goatchan.xyz/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/truth_terminal",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/GoatseusMaximusSolanaPortal",
+          "type": "telegram"
+        }
+      ]
     }
-   ]
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "url": "https://dexscreener.com/solana/4kkfykzkvqe5wbbgj6o8ddnj5tma6uqgxjlyzaasgkdd",
+    "pairAddress": "4kKFykZkVqE5wbBgj6o8ddnj5TmA6UQgXJLYzAasgKdD",
+    "labels": ["wp"],
+    "baseToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.0001423",
+    "priceUsd": "0.009944",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h1": {
+        "buys": 1,
+        "sells": 8
+      },
+      "h6": {
+        "buys": 4,
+        "sells": 19
+      },
+      "h24": {
+        "buys": 27,
+        "sells": 52
+      }
+    },
+    "volume": {
+      "h24": 391.76,
+      "h6": 109.05,
+      "h1": 16.53,
+      "m5": 8.31
+    },
+    "priceChange": {
+      "m5": -0.2,
+      "h1": 0.31,
+      "h6": -1.38,
+      "h24": -4.64
+    },
+    "liquidity": {
+      "base": 887347,
+      "quote": 106.379,
+      "usd": 16258.11
+    },
+    "fdv": 9944595,
+    "marketCap": 9944595,
+    "pairCreatedAt": 1729064329000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://goatchan.xyz/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/truth_terminal",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/GoatseusMaximusSolanaPortal",
+          "type": "telegram"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/44ybnjstkgxhpw8zpybfpfgb1tnp6epzi83spf2wcbnl",
+    "pairAddress": "44YBnjSTkGxhPW8ZpYBFpfGb1tNP6Epzi83SpF2WcbnL",
+    "labels": ["CLMM"],
+    "baseToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.0001445",
+    "priceUsd": "0.01002",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 5
+      },
+      "h24": {
+        "buys": 11,
+        "sells": 12
+      }
+    },
+    "volume": {
+      "h24": 4.3,
+      "h6": 0.91
+    },
+    "priceChange": {
+      "h6": -0.79,
+      "h24": -2.84
+    },
+    "liquidity": {
+      "base": 1048611,
+      "quote": 5.01522,
+      "usd": 10862.47
+    },
+    "fdv": 10027126,
+    "marketCap": 10027126,
+    "pairCreatedAt": 1728643202000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://goatchan.xyz/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/truth_terminal",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/GoatseusMaximusSolanaPortal",
+          "type": "telegram"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/3bfclcacvhrtnkffwdmte3txkrbvuutsui8xeqfqhrd5",
+    "pairAddress": "3BFCLCACvhRTnkffWDmtE3txKrBVUUTSUi8xEqfqHrD5",
+    "labels": ["DLMM"],
+    "baseToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "quoteToken": {
+      "address": "8x5VqbHA8D7NkD52uNuS5nnt3PwA8pLD34ymskeSo2Wn",
+      "name": "zerebro",
+      "symbol": "ZEREBRO"
+    },
+    "priceNative": "0.4986",
+    "priceUsd": "0.01034",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 9,
+        "sells": 0
+      }
+    },
+    "volume": {
+      "h24": 14.64
+    },
+    "priceChange": {
+      "h24": -1.57
+    },
+    "liquidity": {
+      "base": 118989,
+      "quote": 53872,
+      "usd": 2347.67
+    },
+    "fdv": 10340570,
+    "marketCap": 10340570,
+    "pairCreatedAt": 1734050396000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://goatchan.xyz/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/truth_terminal",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/GoatseusMaximusSolanaPortal",
+          "type": "telegram"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "url": "https://dexscreener.com/solana/fsdtxzhxaui5qd5vvua8tnzjy6tyxv7tfytgber66fyh",
+    "pairAddress": "FsDTxzhXaUi5qD5vVUa8tNZJY6TYXv7TFYTgBEr66fYh",
+    "labels": ["wp"],
+    "baseToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.0001429",
+    "priceUsd": "0.009993",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h6": {
+        "buys": 1,
+        "sells": 8
+      },
+      "h24": {
+        "buys": 8,
+        "sells": 12
+      }
+    },
+    "volume": {
+      "h24": 1.51,
+      "h6": 0.6,
+      "h1": 0.06
+    },
+    "priceChange": {
+      "h1": 0.37,
+      "h6": -2.36,
+      "h24": -4.43
+    },
+    "liquidity": {
+      "base": 135912,
+      "quote": 0.5389,
+      "usd": 1395.96
+    },
+    "fdv": 9993851,
+    "marketCap": 9993851,
+    "pairCreatedAt": 1730416594000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://goatchan.xyz/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/truth_terminal",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/GoatseusMaximusSolanaPortal",
+          "type": "telegram"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "url": "https://dexscreener.com/solana/f8uvydc6fexhrfzwrdekkstbm39kb4sdmjmzxb7rcgrb",
+    "pairAddress": "F8UVYdc6FexhRFZwrDEKKSTBm39Kb4SdmjMZXb7rcgrb",
+    "labels": ["wp"],
+    "baseToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "quoteToken": {
+      "address": "7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr",
+      "name": "Popcat",
+      "symbol": "POPCAT"
+    },
+    "priceNative": "0.4041",
+    "priceUsd": "0.009937",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 2
+      },
+      "h24": {
+        "buys": 7,
+        "sells": 2
+      }
+    },
+    "volume": {
+      "h24": 2.05,
+      "h6": 0.38
+    },
+    "priceChange": {
+      "h6": -2.21,
+      "h24": -6.66
+    },
+    "liquidity": {
+      "base": 18942,
+      "quote": 8953.6717,
+      "usd": 408.4
+    },
+    "fdv": 9937902,
+    "marketCap": 9937902,
+    "pairCreatedAt": 1729032893000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://goatchan.xyz/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/truth_terminal",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/GoatseusMaximusSolanaPortal",
+          "type": "telegram"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "url": "https://dexscreener.com/solana/g1kbftj2pqqgwewghtqngjuxkssgw3z71bz9okcg8vpv",
+    "pairAddress": "G1KBFtj2pqQgWEwGHTQNGjuXkSSGW3z71Bz9oKCg8VPV",
+    "labels": ["wp"],
+    "baseToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "quoteToken": {
+      "address": "63LfDmNb3MQ8mw9MtZ2To9bEA2M71kZUUGq5tiJxcqj9",
+      "name": "GIGACHAD",
+      "symbol": "GIGA"
+    },
+    "priceNative": "7.3851",
+    "priceUsd": "0.01004",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h24": {
+        "buys": 13,
+        "sells": 4
+      }
+    },
+    "volume": {
+      "h24": 3.21,
+      "h6": 0.22
+    },
+    "priceChange": {
+      "h6": -1.37,
+      "h24": -2.96
+    },
+    "liquidity": {
+      "base": 5356.1698,
+      "quote": 35586,
+      "usd": 102.18
+    },
+    "fdv": 10043109,
+    "marketCap": 10043109,
+    "pairCreatedAt": 1730882296000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://goatchan.xyz/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/truth_terminal",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/GoatseusMaximusSolanaPortal",
+          "type": "telegram"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "url": "https://dexscreener.com/solana/2rxuayumqjkgqqgrhp8tcnjgfmzjwwceqsutvqcplajb",
+    "pairAddress": "2RXUayuMQjkGQqGrhp8tCNJgFmZJWwCeQSUtvqCpLAJb",
+    "labels": ["wp"],
+    "baseToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "0.01001",
+    "priceUsd": "0.01001",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 3
+      },
+      "h24": {
+        "buys": 1,
+        "sells": 7
+      }
+    },
+    "volume": {
+      "h24": 0.08,
+      "h6": 0.01
+    },
+    "priceChange": {
+      "h6": -2.62,
+      "h24": -3.25
+    },
+    "liquidity": {
+      "base": 3005.3688,
+      "quote": 252.8644,
+      "usd": 282.97
+    },
+    "fdv": 10018721,
+    "marketCap": 10018721,
+    "pairCreatedAt": 1729267965000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://goatchan.xyz/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/truth_terminal",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/GoatseusMaximusSolanaPortal",
+          "type": "telegram"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/hztqfyhwv2a6zzuftg8ad1zaw1xrtsubadrnrcvrmdhz",
+    "pairAddress": "HzTqFyhWV2a6zzUfTG8AD1zaW1xrtsuBADrnrCVRmDhz",
+    "labels": ["DLMM"],
+    "baseToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "quoteToken": {
+      "address": "8x5VqbHA8D7NkD52uNuS5nnt3PwA8pLD34ymskeSo2Wn",
+      "name": "zerebro",
+      "symbol": "ZEREBRO"
+    },
+    "priceNative": "0.5002",
+    "priceUsd": "0.01015",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 1,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 1,
+        "sells": 0
+      }
+    },
+    "volume": {
+      "h24": 2.54,
+      "h6": 2.54
+    },
+    "priceChange": {},
+    "liquidity": {
+      "base": 6506.3039,
+      "quote": 8352.08042,
+      "usd": 235.67
+    },
+    "fdv": 10157024,
+    "marketCap": 10157024,
+    "pairCreatedAt": 1732572507000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://goatchan.xyz/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/truth_terminal",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/GoatseusMaximusSolanaPortal",
+          "type": "telegram"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "url": "https://dexscreener.com/solana/4stbffr2svck7encmq3y3377eopx2bwyrpvrwahtju3b",
+    "pairAddress": "4StBFFr2SVCK7ENCmq3y3377eopx2BWYrpvrwAhTJU3B",
+    "labels": ["wp"],
+    "baseToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.0001430",
+    "priceUsd": "0.009916",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 3
+      },
+      "h24": {
+        "buys": 5,
+        "sells": 3
+      }
+    },
+    "volume": {
+      "h24": 0.66,
+      "h6": 0.29
+    },
+    "priceChange": {
+      "h6": -6.28,
+      "h24": -4.83
+    },
+    "liquidity": {
+      "base": 2896.1848,
+      "quote": 0.4254,
+      "usd": 58.21
+    },
+    "fdv": 9916015,
+    "marketCap": 9916015,
+    "pairCreatedAt": 1728867945000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://goatchan.xyz/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/truth_terminal",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/GoatseusMaximusSolanaPortal",
+          "type": "telegram"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/fqnaq2k4vzbnqa6my73rgprmy9rvfctrbhzqqryfiah9",
+    "pairAddress": "FqNaQ2K4VZbNQa6mY73RgPRMy9rVFcTRbhzqqRYFiAh9",
+    "labels": ["DYN"],
+    "baseToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "quoteToken": {
+      "address": "9xbgwwXdzJYv8sLmVCFsRSNKwzCCNQWiEhWVGNhWCNGE",
+      "name": "Pawel",
+      "symbol": "Pawel"
+    },
+    "priceNative": "647.7224",
+    "priceUsd": "0.01003",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 2
+      },
+      "h24": {
+        "buys": 1,
+        "sells": 2
+      }
+    },
+    "volume": {
+      "h24": 0.22,
+      "h6": 0.16
+    },
+    "priceChange": {
+      "h6": -5.38,
+      "h24": -5.38
+    },
+    "liquidity": {
+      "base": 2782.4678,
+      "quote": 1809553,
+      "usd": 55.95
+    },
+    "fdv": 10033608,
+    "marketCap": 10033608,
+    "pairCreatedAt": 1734292998000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://goatchan.xyz/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/truth_terminal",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/GoatseusMaximusSolanaPortal",
+          "type": "telegram"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "url": "https://dexscreener.com/solana/96vcwdaaap1vulvpw2y7turpkwcthazvwmutj1segdam",
+    "pairAddress": "96vcwdaaaP1vuLVPw2Y7TuRPkwCthaZvwmuTJ1sEGdam",
+    "labels": ["wp"],
+    "baseToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "quoteToken": {
+      "address": "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump",
+      "name": "Fartcoin ",
+      "symbol": "Fartcoin "
+    },
+    "priceNative": "0.1292",
+    "priceUsd": "0.01005",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 2,
+        "sells": 0
+      }
+    },
+    "volume": {
+      "h24": 0.36
+    },
+    "priceChange": {
+      "h24": -4.42
+    },
+    "liquidity": {
+      "base": 3629.4865,
+      "quote": 485.6509,
+      "usd": 74.24
+    },
+    "fdv": 10050534,
+    "marketCap": 10050534,
+    "pairCreatedAt": 1729781919000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://goatchan.xyz/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/truth_terminal",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/GoatseusMaximusSolanaPortal",
+          "type": "telegram"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/clbvqdli76grkihkqfjvbcpcktnjzmu6vmp6hn7rxhnu",
+    "pairAddress": "CLbvqDLi76grKihkqfJvbcPckTNJZmU6Vmp6hn7RxHNU",
+    "labels": ["DYN2"],
+    "baseToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "quoteToken": {
+      "address": "9xzmB67zWX8PJiGpQFbWuNBXTqyPpu2qV3mxQfhqUREV",
+      "name": "Celestial SOL Router",
+      "symbol": "CSR"
+    },
+    "priceNative": "272.7835",
+    "priceUsd": "0.009906",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 1,
+        "sells": 7
+      },
+      "h24": {
+        "buys": 4,
+        "sells": 9
+      }
+    },
+    "volume": {
+      "h24": 1.19,
+      "h6": 0.81
+    },
+    "priceChange": {
+      "h6": -0.89,
+      "h24": -6.01
+    },
+    "liquidity": {
+      "base": 1664.7745,
+      "quote": 456425,
+      "usd": 33.06
+    },
+    "fdv": 9906059,
+    "marketCap": 9906059,
+    "pairCreatedAt": 1783369852000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://goatchan.xyz/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/truth_terminal",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/GoatseusMaximusSolanaPortal",
+          "type": "telegram"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "pumpswap",
+    "url": "https://dexscreener.com/solana/98xgdsrzxoy46nukxfkcufjmf77jewojen3uxs6b7chc",
+    "pairAddress": "98XgdsRZXoY46nUkxFkcuFjmF77jEwojeN3uxS6B7chc",
+    "baseToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.0001431",
+    "priceUsd": "0.01000",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 5
+      },
+      "h24": {
+        "buys": 1,
+        "sells": 5
+      }
+    },
+    "volume": {
+      "h24": 0.01
+    },
+    "priceChange": {
+      "h1": 0.39,
+      "h6": -1.97,
+      "h24": -1.97
+    },
+    "liquidity": {
+      "base": 32.412,
+      "quote": 0.004636,
+      "usd": 0.64
+    },
+    "fdv": 10001895,
+    "marketCap": 10001895,
+    "pairCreatedAt": 1745244758000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://goatchan.xyz/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/truth_terminal",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/GoatseusMaximusSolanaPortal",
+          "type": "telegram"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "url": "https://dexscreener.com/solana/4f7vgaj4pvuxvfbcxwcz7sxzszbpwbrajxcmwis9e85u",
+    "pairAddress": "4F7VGAj4pVUxVFBcxWCz7sxzsZbPwbrAJXCmwis9e85U",
+    "labels": ["wp"],
+    "baseToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "quoteToken": {
+      "address": "GJAFwWjJ3vnTsrQVabjBVK2TYB1YtRCQXRDfDgUnpump",
+      "name": "Act I : The AI Prophecy",
+      "symbol": "ACT"
+    },
+    "priceNative": "1.1553",
+    "priceUsd": "0.01000",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h24": {
+        "buys": 0,
+        "sells": 5
+      }
+    },
+    "volume": {
+      "h24": 0.53,
+      "h6": 0.11
+    },
+    "priceChange": {
+      "h6": -4.59,
+      "h24": -4.49
+    },
+    "liquidity": {
+      "base": 1520.9623,
+      "quote": 1552.09915,
+      "usd": 28.66
+    },
+    "fdv": 10007025,
+    "marketCap": 10007025,
+    "pairCreatedAt": 1729351385000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://goatchan.xyz/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/truth_terminal",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/GoatseusMaximusSolanaPortal",
+          "type": "telegram"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/ai5w7yor3wxwygqxgdczxlnzuzxjase5zyjqjfnrbngz",
+    "pairAddress": "Ai5w7YoR3wxwYGqxGdCZXLnzuZXJAsE5zyJqJfNrbNGz",
+    "labels": ["DYN2"],
+    "baseToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "quoteToken": {
+      "address": "3v39wuiJ4kGzsmd1w4DCFDWfGC2ScaJ9mXfZJaXvoREV",
+      "name": "Elysian Solana Router",
+      "symbol": "ESR"
+    },
+    "priceNative": "778.1578",
+    "priceUsd": "0.01017",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 2
+      },
+      "h24": {
+        "buys": 2,
+        "sells": 3
+      }
+    },
+    "volume": {
+      "h24": 0.18,
+      "h6": 0.08
+    },
+    "priceChange": {
+      "h6": -2.52,
+      "h24": -3.55
+    },
+    "liquidity": {
+      "base": 475.7333,
+      "quote": 367237,
+      "usd": 9.64
+    },
+    "fdv": 10178529,
+    "marketCap": 10178529,
+    "pairCreatedAt": 1785266183000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://goatchan.xyz/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/truth_terminal",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/GoatseusMaximusSolanaPortal",
+          "type": "telegram"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "url": "https://dexscreener.com/solana/db6d1udjcwswbcf5xnuxjnjfxxtspwmhil9dt7ccezfx",
+    "pairAddress": "Db6d1UDjcWSWbcf5XnuXjnjfxxTspWmhiL9Dt7cCezFX",
+    "labels": ["wp"],
+    "baseToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "quoteToken": {
+      "address": "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump",
+      "name": "Fartcoin ",
+      "symbol": "Fartcoin "
+    },
+    "priceNative": "0.1284",
+    "priceUsd": "0.009983",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 3,
+        "sells": 0
+      }
+    },
+    "volume": {
+      "h24": 0.01
+    },
+    "priceChange": {
+      "h24": -4.37
+    },
+    "liquidity": {
+      "base": 235.7605,
+      "quote": 30.2154,
+      "usd": 4.7
+    },
+    "fdv": 9983640,
+    "marketCap": 9983640,
+    "pairCreatedAt": 1729443545000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://goatchan.xyz/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/truth_terminal",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/GoatseusMaximusSolanaPortal",
+          "type": "telegram"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "url": "https://dexscreener.com/solana/5nt7b5oxaegdryvxocoskf5ziyt9wyopo69z7bawehsf",
+    "pairAddress": "5NT7b5oXAEGdRYVxoCosKf5ZiYt9wYoPo69Z7BaWEhsF",
+    "labels": ["wp"],
+    "baseToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "0.01023",
+    "priceUsd": "0.01023",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h24": {
+        "buys": 0,
+        "sells": 3
+      }
+    },
+    "volume": {},
+    "priceChange": {
+      "h6": -2.23,
+      "h24": -3.38
+    },
+    "liquidity": {
+      "base": 125.07029,
+      "quote": 0.9268,
+      "usd": 2.2
+    },
+    "fdv": 10232291,
+    "marketCap": 10232291,
+    "pairCreatedAt": 1729222794000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://goatchan.xyz/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/truth_terminal",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/GoatseusMaximusSolanaPortal",
+          "type": "telegram"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/asfogtyzjdgjq9sqbcnr5nxvxwc1ov8571rbfjsr4uie",
+    "pairAddress": "ASfoGTyZJDgjQ9sqBCnr5nXvxWc1oV8571Rbfjsr4uie",
+    "labels": ["CPMM"],
+    "baseToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "quoteToken": {
+      "address": "J3NKxxXZcnNiMjKw9hYb2K4LUxgwB6t1FtPtQVsv3KFr",
+      "name": "SPX6900 (Wormhole)",
+      "symbol": "SPX"
+    },
+    "priceNative": "0.03847",
+    "priceUsd": "0.01048",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h24": {
+        "buys": 1,
+        "sells": 1
+      }
+    },
+    "volume": {
+      "h24": 0.19,
+      "h6": 0.09,
+      "h1": 0.09,
+      "m5": 0.09
+    },
+    "priceChange": {
+      "m5": 0.21,
+      "h1": 0.21,
+      "h6": 0.21,
+      "h24": 0.21
+    },
+    "liquidity": {
+      "base": 1999.6324,
+      "quote": 76.9429,
+      "usd": 41.91
+    },
+    "fdv": 10480472,
+    "marketCap": 10480472,
+    "pairCreatedAt": 1729573652000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://goatchan.xyz/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/truth_terminal",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/GoatseusMaximusSolanaPortal",
+          "type": "telegram"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/7yd7gephm3s1cihcqsg1gzwmcx8ymtwzq6ykivirntnq",
+    "pairAddress": "7yd7gEpHM3s1ciHCQsg1gZWmcX8ymTwzQ6YkiVirnTNq",
+    "labels": ["CLMM"],
+    "baseToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "quoteToken": {
+      "address": "6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN",
+      "name": "OFFICIAL TRUMP",
+      "symbol": "TRUMP"
+    },
+    "priceNative": "0.01208",
+    "priceUsd": "0.01010",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 2,
+        "sells": 0
+      }
+    },
+    "volume": {
+      "h24": 0.09
+    },
+    "priceChange": {
+      "h24": -2.65
+    },
+    "liquidity": {
+      "base": 641.2301,
+      "quote": 7.2116,
+      "usd": 12.51
+    },
+    "fdv": 10109469,
+    "marketCap": 10109469,
+    "pairCreatedAt": 1737505486000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://goatchan.xyz/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/truth_terminal",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/GoatseusMaximusSolanaPortal",
+          "type": "telegram"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/hd4pe8xikr5tmkhy4gxrhpspy2sasy8btebuywckhn1r",
+    "pairAddress": "Hd4pE8xiKr5tmKHy4gxrHpSPY2sASY8BTEBUYWckhN1r",
+    "labels": ["CLMM"],
+    "baseToken": {
+      "address": "CxN4zmEB6unBKAfz6jHgoQ5BWHiCeWDTT8wkr3K2YHRt",
+      "name": "Armenian Crypto Project",
+      "symbol": "ARMCP"
+    },
+    "quoteToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "priceNative": "113.8887",
+    "priceUsd": "1.13",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 2,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 4,
+        "sells": 4
+      }
+    },
+    "volume": {
+      "h24": 0.82,
+      "h6": 0.23
+    },
+    "priceChange": {
+      "h6": -1.48,
+      "h24": -4.34
+    },
+    "liquidity": {
+      "base": 42.8354,
+      "quote": 4832.3959,
+      "usd": 96.44
+    },
+    "fdv": 23753709,
+    "marketCap": 23753709,
+    "pairCreatedAt": 1753218382000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/cba6a463a4baae56218fabfc3e664e01426f8b5bdcea932e4146d1e0da4eb2eb?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/a6ca315c2d1a0bbdf357a8a358fe3c6f195f54d191ed14d1a7acce2739a13180?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CxN4zmEB6unBKAfz6jHgoQ5BWHiCeWDTT8wkr3K2YHRt?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://www.armcp.net/",
+          "label": "Website"
+        },
+        {
+          "url": "https://token.armcp.net/Whitepaper.pdf",
+          "label": "Docs"
+        },
+        {
+          "url": "https://www.facebook.com/Musheg88",
+          "label": "Facebook"
+        },
+        {
+          "url": "https://www.instagram.com/musheg88/",
+          "label": "Instagram"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/MushManuk88",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/ARMCP_Channel",
+          "type": "telegram"
+        },
+        {
+          "url": "https://discord.gg/7xwgc4Wk",
+          "type": "discord"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/eo1fcnq5aeg2vrbvnw7nteprkkhttxb6a6ces2fmmcfb",
+    "pairAddress": "Eo1FCnq5aEg2VrBVNW7NtePRkKhttXb6a6CeS2fMMcfB",
+    "labels": ["DYN"],
+    "baseToken": {
+      "address": "GJAFwWjJ3vnTsrQVabjBVK2TYB1YtRCQXRDfDgUnpump",
+      "name": "Act I : The AI Prophecy",
+      "symbol": "ACT"
+    },
+    "quoteToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "priceNative": "0.8607",
+    "priceUsd": "0.009580",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 1,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 6,
+        "sells": 0
+      }
+    },
+    "volume": {
+      "h24": 1.03,
+      "h6": 0.19
+    },
+    "priceChange": {
+      "h6": 0.54,
+      "h24": 2.61
+    },
+    "liquidity": {
+      "base": 6946.1289,
+      "quote": 5948.7463,
+      "usd": 132.75
+    },
+    "fdv": 9084299,
+    "marketCap": 9084299,
+    "pairCreatedAt": 1734099292000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/14201087ebafd2b8ca5c3242ddfd4e6cb0824b539ad0736ebea5ec03edefd214?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/51115d2ac89bb2617f487db815df0ac640f035800e07ebb2f7d5a119ad2d9c64?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/GJAFwWjJ3vnTsrQVabjBVK2TYB1YtRCQXRDfDgUnpump?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://actsol.xyz/",
+          "label": "Website"
+        },
+        {
+          "url": "https://www.reddit.com/r/ACT1/",
+          "label": "Reddit"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/ACTICOMMUNITY",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/actportal",
+          "type": "telegram"
+        },
+        {
+          "url": "https://discord.gg/act-1-the-prophecy",
+          "type": "discord"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/hzrr7gw6fxhdgqppfd6esyyz66myquuh6bkrxnyx4nti",
+    "pairAddress": "HzRR7gW6fXhDGqppfd6eSYyZ66MyqUUh6bkrxNYX4nTi",
+    "labels": ["DLMM"],
+    "baseToken": {
+      "address": "BoAQaykj3LtkM2Brevc7cQcRAzpqcsP47nJ2rkyopump",
+      "name": "FOREST",
+      "symbol": "FOREST"
+    },
+    "quoteToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "priceNative": "0.007944",
+    "priceUsd": "0.00008364",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 0,
+        "sells": 2
+      }
+    },
+    "volume": {
+      "h24": 1.1
+    },
+    "priceChange": {
+      "h24": 0.23
+    },
+    "liquidity": {
+      "base": 555955,
+      "quote": 1708.6333,
+      "usd": 64.49
+    },
+    "fdv": 83642,
+    "marketCap": 83642,
+    "pairCreatedAt": 1733139965000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/b8822c1a6147458932fa549317cfe9c81a0c84e95f6c2f2c2a56acdb5386d4d7?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/44673739a83bf723d12dc425657765c9187e22571489a0249ecad5f160ebeca1?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/BoAQaykj3LtkM2Brevc7cQcRAzpqcsP47nJ2rkyopump?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://www.sansforest.com/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/MycelialOracle",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/forestAISOL",
+          "type": "telegram"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/ajfoivvbdaxilbusrbpwdunvxsonazu99htc9y38i3pg",
+    "pairAddress": "AjFoivvbDAXiLBUSRBpWdUnvxSonaZu99htc9y38i3pG",
+    "labels": ["CPMM"],
+    "baseToken": {
+      "address": "2TYhhwG6zCYMue6QHmcxEHnt8tMhnyq8hbXNUbdrpump",
+      "name": "TRUTH TOKEN",
+      "symbol": "FREE"
+    },
+    "quoteToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "priceNative": "0.0003013",
+    "priceUsd": "0.000003012",
+    "txns": {
+      "m5": {
+        "buys": 1,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 2,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 7,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 9,
+        "sells": 11
+      }
+    },
+    "volume": {
+      "h24": 6.57,
+      "h6": 2.44,
+      "h1": 0.58,
+      "m5": 0.34
+    },
+    "priceChange": {
+      "m5": 0.03,
+      "h1": 0.99,
+      "h6": 0.05,
+      "h24": -3.79
+    },
+    "liquidity": {
+      "base": 86563525,
+      "quote": 26083,
+      "usd": 521.51
+    },
+    "fdv": 3012,
+    "marketCap": 3012,
+    "pairCreatedAt": 1729077091000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/3b344ca62e294f8bb6d1a6b9d108b9511243af2b846288820fa0239a78e14b68?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/dfc7b07e1256af3f6fa79ad2fbeecba654c6dda3e7aeb3828c222ea5c4ee044d?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/2TYhhwG6zCYMue6QHmcxEHnt8tMhnyq8hbXNUbdrpump?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://truthtoken.ai/",
+          "label": "Website"
+        },
+        {
+          "url": "https://dreams-of-an-electric-mind.webflow.io/",
+          "label": "Infinite Backrooms"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/terminal_free",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/freeterminal",
+          "type": "telegram"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/gyfnmzu5fwpbgrnk5hdfmpfpc9hv1lnexvx96wayio6y",
+    "pairAddress": "GyfnMzu5FWPBGrnK5hDFmPfPC9hV1LnExvx96wAYio6Y",
+    "labels": ["CPMM"],
+    "baseToken": {
+      "address": "AD6StJzK8sFJWUetQdsnfHWrmmEs1dtSYuuZLrYkQUy8",
+      "name": "Null (Wormhole)",
+      "symbol": "NULL"
+    },
+    "quoteToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "priceNative": "208.1401",
+    "priceUsd": "2.083",
+    "txns": {
+      "m5": {
+        "buys": 1,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 1,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 1,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 1,
+        "sells": 0
+      }
+    },
+    "volume": {
+      "h24": 0.15,
+      "h6": 0.15,
+      "h1": 0.15,
+      "m5": 0.15
+    },
+    "priceChange": {},
+    "liquidity": {
+      "base": 30.2565,
+      "quote": 6297.604,
+      "usd": 126.06
+    },
+    "fdv": 593,
+    "marketCap": 593,
+    "pairCreatedAt": 1729887248000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/d19e56dcbe183c0f7131dab32341a06e8fa74ae3d6b018d405784aebf339c81f?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/fe8651006599c19c8dd1613f02b48766c82fb79f1de3cdb720ac39a16b2531d3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/AD6StJzK8sFJWUetQdsnfHWrmmEs1dtSYuuZLrYkQUy8?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://dune.com/nullmatrix/dashboard",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/_NULLCODE_",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/NULL_PORTAL",
+          "type": "telegram"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/hthoxb368rsxkucag9sfzer3vx3vezudf6mbavwzlz6x",
+    "pairAddress": "Hthoxb368RsxKUCaG9SFZer3vx3VEzUDf6MbAVwzLZ6x",
+    "labels": ["CPMM"],
+    "baseToken": {
+      "address": "3f7wfg9yHLtGKvy75MmqsVT1ueTFoqyySQbusrX1YAQ4",
+      "name": "Pixel by Pixel",
+      "symbol": "PbP"
+    },
+    "quoteToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "priceNative": "0.02861",
+    "priceUsd": "0.0002861",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 1,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 2,
+        "sells": 9
+      }
+    },
+    "volume": {
+      "h24": 0.18,
+      "h6": 0.05
+    },
+    "priceChange": {
+      "h6": -4.21,
+      "h24": -5.03
+    },
+    "liquidity": {
+      "base": 28817,
+      "quote": 824.5198,
+      "usd": 16.49
+    },
+    "fdv": 277762,
+    "marketCap": 277762,
+    "pairCreatedAt": 1729630041000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "url": "https://dexscreener.com/solana/gsust7m67gotoegtsavnjye1hzsa4luewcsvfp5ozuna",
+    "pairAddress": "Gsust7m67GoToEgtsaVNjYe1HZsa4LuEwcsvfP5oZuNA",
+    "labels": ["wp"],
+    "baseToken": {
+      "address": "5uZ4wBqvHPRB6wVhNB2AkMmj5FD8HoxRMSYfDWCmiD4P",
+      "name": "Ivanium",
+      "symbol": "IVAN"
+    },
+    "quoteToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "priceNative": "0.003464",
+    "priceUsd": "0.00003482",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 1,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 2,
+        "sells": 0
+      }
+    },
+    "volume": {
+      "h24": 0.16,
+      "h6": 0.07
+    },
+    "priceChange": {
+      "h6": 0.06,
+      "h24": 0.06
+    },
+    "liquidity": {
+      "base": 540107,
+      "quote": 1280.02521,
+      "usd": 31.67
+    },
+    "fdv": 3482456,
+    "marketCap": 3482456,
+    "pairCreatedAt": 1731479894000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "url": "https://dexscreener.com/solana/dstp6hwxwwwtzxijyry76frygbraa883jxs88hsknv9",
+    "pairAddress": "Dstp6hwXWwWtzXijyRy76FRYGbRaa883jxs88hsknv9",
+    "labels": ["wp"],
+    "baseToken": {
+      "address": "F5DxM11fK1PAkQRRooCRsox9fKFjgdUdgkzvZHz1f5ho",
+      "name": "Leave The Goats Alone",
+      "symbol": "LTGA"
+    },
+    "quoteToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "priceNative": "0.0004565",
+    "priceUsd": "0.000004544",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 1,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 1,
+        "sells": 1
+      }
+    },
+    "volume": {
+      "h24": 0.2,
+      "h6": 0.09
+    },
+    "priceChange": {
+      "h6": -4.04,
+      "h24": -4.04
+    },
+    "liquidity": {
+      "base": 4824506,
+      "quote": 2197.7867,
+      "usd": 43.79
+    },
+    "fdv": 54946,
+    "marketCap": 54946,
+    "pairCreatedAt": 1777361461000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/eyzkznbfqgclb6amej2pkjf4ifyiejhwhogkmhawfcyo",
+    "pairAddress": "EYzkZnBFQgcLb6AMej2pKjf4iFyiEJHWHogkMHaWFCYo",
+    "labels": ["CPMM"],
+    "baseToken": {
+      "address": "5qAWPGkRqb9aV7Yox4gfbJTbm1a9msaswKxyCirwpump",
+      "name": "SpacePussy",
+      "symbol": "PUSSY"
+    },
+    "quoteToken": {
+      "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "name": "Goatseus Maximus",
+      "symbol": "GOAT"
+    },
+    "priceNative": "0.0003241",
+    "priceUsd": "0.000003229",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 1,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 1,
+        "sells": 3
+      }
+    },
+    "volume": {
+      "h24": 0.1,
+      "h6": 0.04
+    },
+    "priceChange": {
+      "h6": -4.44,
+      "h24": -4.4
+    },
+    "liquidity": {
+      "base": 1646648,
+      "quote": 533.8373,
+      "usd": 10.63
+    },
+    "fdv": 3225,
+    "marketCap": 3225,
+    "pairCreatedAt": 1731120067000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/b499652460ce591d6b45074a8e73ddf8e38b94455ac5f5d472102ff2e011e802?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/a9be5f08c99cfb8d20a107d5ff0cccb0ba00de982a47349af9bcda9025bae762?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/5qAWPGkRqb9aV7Yox4gfbJTbm1a9msaswKxyCirwpump?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://pussy.meme",
+          "label": "Website"
+        },
+        {
+          "url": "https://cyber.page/#/page/space%20pussy",
+          "label": "Docs"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/SpacePussy_ai",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/spacepussylink",
+          "type": "telegram"
+        }
+      ]
+    }
   }
- },
- {
-  "chainId": "solana",
-  "dexId": "orca",
-  "url": "https://dexscreener.com/solana/4kkfykzkvqe5wbbgj6o8ddnj5tma6uqgxjlyzaasgkdd",
-  "pairAddress": "4kKFykZkVqE5wbBgj6o8ddnj5TmA6UQgXJLYzAasgKdD",
-  "labels": [
-   "wp"
-  ],
-  "baseToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "quoteToken": {
-   "address": "So11111111111111111111111111111111111111112",
-   "name": "Wrapped SOL",
-   "symbol": "SOL"
-  },
-  "priceNative": "0.0001423",
-  "priceUsd": "0.009944",
-  "txns": {
-   "m5": {
-    "buys": 0,
-    "sells": 1
-   },
-   "h1": {
-    "buys": 1,
-    "sells": 8
-   },
-   "h6": {
-    "buys": 4,
-    "sells": 19
-   },
-   "h24": {
-    "buys": 27,
-    "sells": 52
-   }
-  },
-  "volume": {
-   "h24": 391.76,
-   "h6": 109.05,
-   "h1": 16.53,
-   "m5": 8.31
-  },
-  "priceChange": {
-   "m5": -0.2,
-   "h1": 0.31,
-   "h6": -1.38,
-   "h24": -4.64
-  },
-  "liquidity": {
-   "base": 887347,
-   "quote": 106.379,
-   "usd": 16258.11
-  },
-  "fdv": 9944595,
-  "marketCap": 9944595,
-  "pairCreatedAt": 1729064329000,
-  "info": {
-   "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
-   "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
-   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
-   "websites": [
-    {
-     "url": "https://goatchan.xyz/",
-     "label": "Website"
-    }
-   ],
-   "socials": [
-    {
-     "url": "https://x.com/truth_terminal",
-     "type": "twitter"
-    },
-    {
-     "url": "https://t.me/GoatseusMaximusSolanaPortal",
-     "type": "telegram"
-    }
-   ]
-  }
- },
- {
-  "chainId": "solana",
-  "dexId": "raydium",
-  "url": "https://dexscreener.com/solana/44ybnjstkgxhpw8zpybfpfgb1tnp6epzi83spf2wcbnl",
-  "pairAddress": "44YBnjSTkGxhPW8ZpYBFpfGb1tNP6Epzi83SpF2WcbnL",
-  "labels": [
-   "CLMM"
-  ],
-  "baseToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "quoteToken": {
-   "address": "So11111111111111111111111111111111111111112",
-   "name": "Wrapped SOL",
-   "symbol": "SOL"
-  },
-  "priceNative": "0.0001445",
-  "priceUsd": "0.01002",
-  "txns": {
-   "m5": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h1": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h6": {
-    "buys": 0,
-    "sells": 5
-   },
-   "h24": {
-    "buys": 11,
-    "sells": 12
-   }
-  },
-  "volume": {
-   "h24": 4.3,
-   "h6": 0.91
-  },
-  "priceChange": {
-   "h6": -0.79,
-   "h24": -2.84
-  },
-  "liquidity": {
-   "base": 1048611,
-   "quote": 5.01522,
-   "usd": 10862.47
-  },
-  "fdv": 10027126,
-  "marketCap": 10027126,
-  "pairCreatedAt": 1728643202000,
-  "info": {
-   "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
-   "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
-   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
-   "websites": [
-    {
-     "url": "https://goatchan.xyz/",
-     "label": "Website"
-    }
-   ],
-   "socials": [
-    {
-     "url": "https://x.com/truth_terminal",
-     "type": "twitter"
-    },
-    {
-     "url": "https://t.me/GoatseusMaximusSolanaPortal",
-     "type": "telegram"
-    }
-   ]
-  }
- },
- {
-  "chainId": "solana",
-  "dexId": "meteora",
-  "url": "https://dexscreener.com/solana/3bfclcacvhrtnkffwdmte3txkrbvuutsui8xeqfqhrd5",
-  "pairAddress": "3BFCLCACvhRTnkffWDmtE3txKrBVUUTSUi8xEqfqHrD5",
-  "labels": [
-   "DLMM"
-  ],
-  "baseToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "quoteToken": {
-   "address": "8x5VqbHA8D7NkD52uNuS5nnt3PwA8pLD34ymskeSo2Wn",
-   "name": "zerebro",
-   "symbol": "ZEREBRO"
-  },
-  "priceNative": "0.4986",
-  "priceUsd": "0.01034",
-  "txns": {
-   "m5": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h1": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h6": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h24": {
-    "buys": 9,
-    "sells": 0
-   }
-  },
-  "volume": {
-   "h24": 14.64
-  },
-  "priceChange": {
-   "h24": -1.57
-  },
-  "liquidity": {
-   "base": 118989,
-   "quote": 53872,
-   "usd": 2347.67
-  },
-  "fdv": 10340570,
-  "marketCap": 10340570,
-  "pairCreatedAt": 1734050396000,
-  "info": {
-   "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
-   "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
-   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
-   "websites": [
-    {
-     "url": "https://goatchan.xyz/",
-     "label": "Website"
-    }
-   ],
-   "socials": [
-    {
-     "url": "https://x.com/truth_terminal",
-     "type": "twitter"
-    },
-    {
-     "url": "https://t.me/GoatseusMaximusSolanaPortal",
-     "type": "telegram"
-    }
-   ]
-  }
- },
- {
-  "chainId": "solana",
-  "dexId": "orca",
-  "url": "https://dexscreener.com/solana/fsdtxzhxaui5qd5vvua8tnzjy6tyxv7tfytgber66fyh",
-  "pairAddress": "FsDTxzhXaUi5qD5vVUa8tNZJY6TYXv7TFYTgBEr66fYh",
-  "labels": [
-   "wp"
-  ],
-  "baseToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "quoteToken": {
-   "address": "So11111111111111111111111111111111111111112",
-   "name": "Wrapped SOL",
-   "symbol": "SOL"
-  },
-  "priceNative": "0.0001429",
-  "priceUsd": "0.009993",
-  "txns": {
-   "m5": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h1": {
-    "buys": 0,
-    "sells": 1
-   },
-   "h6": {
-    "buys": 1,
-    "sells": 8
-   },
-   "h24": {
-    "buys": 8,
-    "sells": 12
-   }
-  },
-  "volume": {
-   "h24": 1.51,
-   "h6": 0.6,
-   "h1": 0.06
-  },
-  "priceChange": {
-   "h1": 0.37,
-   "h6": -2.36,
-   "h24": -4.43
-  },
-  "liquidity": {
-   "base": 135912,
-   "quote": 0.5389,
-   "usd": 1395.96
-  },
-  "fdv": 9993851,
-  "marketCap": 9993851,
-  "pairCreatedAt": 1730416594000,
-  "info": {
-   "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
-   "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
-   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
-   "websites": [
-    {
-     "url": "https://goatchan.xyz/",
-     "label": "Website"
-    }
-   ],
-   "socials": [
-    {
-     "url": "https://x.com/truth_terminal",
-     "type": "twitter"
-    },
-    {
-     "url": "https://t.me/GoatseusMaximusSolanaPortal",
-     "type": "telegram"
-    }
-   ]
-  }
- },
- {
-  "chainId": "solana",
-  "dexId": "orca",
-  "url": "https://dexscreener.com/solana/f8uvydc6fexhrfzwrdekkstbm39kb4sdmjmzxb7rcgrb",
-  "pairAddress": "F8UVYdc6FexhRFZwrDEKKSTBm39Kb4SdmjMZXb7rcgrb",
-  "labels": [
-   "wp"
-  ],
-  "baseToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "quoteToken": {
-   "address": "7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr",
-   "name": "Popcat",
-   "symbol": "POPCAT"
-  },
-  "priceNative": "0.4041",
-  "priceUsd": "0.009937",
-  "txns": {
-   "m5": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h1": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h6": {
-    "buys": 0,
-    "sells": 2
-   },
-   "h24": {
-    "buys": 7,
-    "sells": 2
-   }
-  },
-  "volume": {
-   "h24": 2.05,
-   "h6": 0.38
-  },
-  "priceChange": {
-   "h6": -2.21,
-   "h24": -6.66
-  },
-  "liquidity": {
-   "base": 18942,
-   "quote": 8953.6717,
-   "usd": 408.4
-  },
-  "fdv": 9937902,
-  "marketCap": 9937902,
-  "pairCreatedAt": 1729032893000,
-  "info": {
-   "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
-   "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
-   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
-   "websites": [
-    {
-     "url": "https://goatchan.xyz/",
-     "label": "Website"
-    }
-   ],
-   "socials": [
-    {
-     "url": "https://x.com/truth_terminal",
-     "type": "twitter"
-    },
-    {
-     "url": "https://t.me/GoatseusMaximusSolanaPortal",
-     "type": "telegram"
-    }
-   ]
-  }
- },
- {
-  "chainId": "solana",
-  "dexId": "orca",
-  "url": "https://dexscreener.com/solana/g1kbftj2pqqgwewghtqngjuxkssgw3z71bz9okcg8vpv",
-  "pairAddress": "G1KBFtj2pqQgWEwGHTQNGjuXkSSGW3z71Bz9oKCg8VPV",
-  "labels": [
-   "wp"
-  ],
-  "baseToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "quoteToken": {
-   "address": "63LfDmNb3MQ8mw9MtZ2To9bEA2M71kZUUGq5tiJxcqj9",
-   "name": "GIGACHAD",
-   "symbol": "GIGA"
-  },
-  "priceNative": "7.3851",
-  "priceUsd": "0.01004",
-  "txns": {
-   "m5": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h1": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h6": {
-    "buys": 0,
-    "sells": 1
-   },
-   "h24": {
-    "buys": 13,
-    "sells": 4
-   }
-  },
-  "volume": {
-   "h24": 3.21,
-   "h6": 0.22
-  },
-  "priceChange": {
-   "h6": -1.37,
-   "h24": -2.96
-  },
-  "liquidity": {
-   "base": 5356.1698,
-   "quote": 35586,
-   "usd": 102.18
-  },
-  "fdv": 10043109,
-  "marketCap": 10043109,
-  "pairCreatedAt": 1730882296000,
-  "info": {
-   "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
-   "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
-   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
-   "websites": [
-    {
-     "url": "https://goatchan.xyz/",
-     "label": "Website"
-    }
-   ],
-   "socials": [
-    {
-     "url": "https://x.com/truth_terminal",
-     "type": "twitter"
-    },
-    {
-     "url": "https://t.me/GoatseusMaximusSolanaPortal",
-     "type": "telegram"
-    }
-   ]
-  }
- },
- {
-  "chainId": "solana",
-  "dexId": "orca",
-  "url": "https://dexscreener.com/solana/2rxuayumqjkgqqgrhp8tcnjgfmzjwwceqsutvqcplajb",
-  "pairAddress": "2RXUayuMQjkGQqGrhp8tCNJgFmZJWwCeQSUtvqCpLAJb",
-  "labels": [
-   "wp"
-  ],
-  "baseToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "quoteToken": {
-   "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-   "name": "USD Coin",
-   "symbol": "USDC"
-  },
-  "priceNative": "0.01001",
-  "priceUsd": "0.01001",
-  "txns": {
-   "m5": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h1": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h6": {
-    "buys": 0,
-    "sells": 3
-   },
-   "h24": {
-    "buys": 1,
-    "sells": 7
-   }
-  },
-  "volume": {
-   "h24": 0.08,
-   "h6": 0.01
-  },
-  "priceChange": {
-   "h6": -2.62,
-   "h24": -3.25
-  },
-  "liquidity": {
-   "base": 3005.3688,
-   "quote": 252.8644,
-   "usd": 282.97
-  },
-  "fdv": 10018721,
-  "marketCap": 10018721,
-  "pairCreatedAt": 1729267965000,
-  "info": {
-   "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
-   "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
-   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
-   "websites": [
-    {
-     "url": "https://goatchan.xyz/",
-     "label": "Website"
-    }
-   ],
-   "socials": [
-    {
-     "url": "https://x.com/truth_terminal",
-     "type": "twitter"
-    },
-    {
-     "url": "https://t.me/GoatseusMaximusSolanaPortal",
-     "type": "telegram"
-    }
-   ]
-  }
- },
- {
-  "chainId": "solana",
-  "dexId": "meteora",
-  "url": "https://dexscreener.com/solana/hztqfyhwv2a6zzuftg8ad1zaw1xrtsubadrnrcvrmdhz",
-  "pairAddress": "HzTqFyhWV2a6zzUfTG8AD1zaW1xrtsuBADrnrCVRmDhz",
-  "labels": [
-   "DLMM"
-  ],
-  "baseToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "quoteToken": {
-   "address": "8x5VqbHA8D7NkD52uNuS5nnt3PwA8pLD34ymskeSo2Wn",
-   "name": "zerebro",
-   "symbol": "ZEREBRO"
-  },
-  "priceNative": "0.5002",
-  "priceUsd": "0.01015",
-  "txns": {
-   "m5": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h1": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h6": {
-    "buys": 1,
-    "sells": 0
-   },
-   "h24": {
-    "buys": 1,
-    "sells": 0
-   }
-  },
-  "volume": {
-   "h24": 2.54,
-   "h6": 2.54
-  },
-  "priceChange": {},
-  "liquidity": {
-   "base": 6506.3039,
-   "quote": 8352.08042,
-   "usd": 235.67
-  },
-  "fdv": 10157024,
-  "marketCap": 10157024,
-  "pairCreatedAt": 1732572507000,
-  "info": {
-   "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
-   "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
-   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
-   "websites": [
-    {
-     "url": "https://goatchan.xyz/",
-     "label": "Website"
-    }
-   ],
-   "socials": [
-    {
-     "url": "https://x.com/truth_terminal",
-     "type": "twitter"
-    },
-    {
-     "url": "https://t.me/GoatseusMaximusSolanaPortal",
-     "type": "telegram"
-    }
-   ]
-  }
- },
- {
-  "chainId": "solana",
-  "dexId": "orca",
-  "url": "https://dexscreener.com/solana/4stbffr2svck7encmq3y3377eopx2bwyrpvrwahtju3b",
-  "pairAddress": "4StBFFr2SVCK7ENCmq3y3377eopx2BWYrpvrwAhTJU3B",
-  "labels": [
-   "wp"
-  ],
-  "baseToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "quoteToken": {
-   "address": "So11111111111111111111111111111111111111112",
-   "name": "Wrapped SOL",
-   "symbol": "SOL"
-  },
-  "priceNative": "0.0001430",
-  "priceUsd": "0.009916",
-  "txns": {
-   "m5": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h1": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h6": {
-    "buys": 0,
-    "sells": 3
-   },
-   "h24": {
-    "buys": 5,
-    "sells": 3
-   }
-  },
-  "volume": {
-   "h24": 0.66,
-   "h6": 0.29
-  },
-  "priceChange": {
-   "h6": -6.28,
-   "h24": -4.83
-  },
-  "liquidity": {
-   "base": 2896.1848,
-   "quote": 0.4254,
-   "usd": 58.21
-  },
-  "fdv": 9916015,
-  "marketCap": 9916015,
-  "pairCreatedAt": 1728867945000,
-  "info": {
-   "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
-   "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
-   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
-   "websites": [
-    {
-     "url": "https://goatchan.xyz/",
-     "label": "Website"
-    }
-   ],
-   "socials": [
-    {
-     "url": "https://x.com/truth_terminal",
-     "type": "twitter"
-    },
-    {
-     "url": "https://t.me/GoatseusMaximusSolanaPortal",
-     "type": "telegram"
-    }
-   ]
-  }
- },
- {
-  "chainId": "solana",
-  "dexId": "meteora",
-  "url": "https://dexscreener.com/solana/fqnaq2k4vzbnqa6my73rgprmy9rvfctrbhzqqryfiah9",
-  "pairAddress": "FqNaQ2K4VZbNQa6mY73RgPRMy9rVFcTRbhzqqRYFiAh9",
-  "labels": [
-   "DYN"
-  ],
-  "baseToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "quoteToken": {
-   "address": "9xbgwwXdzJYv8sLmVCFsRSNKwzCCNQWiEhWVGNhWCNGE",
-   "name": "Pawel",
-   "symbol": "Pawel"
-  },
-  "priceNative": "647.7224",
-  "priceUsd": "0.01003",
-  "txns": {
-   "m5": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h1": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h6": {
-    "buys": 0,
-    "sells": 2
-   },
-   "h24": {
-    "buys": 1,
-    "sells": 2
-   }
-  },
-  "volume": {
-   "h24": 0.22,
-   "h6": 0.16
-  },
-  "priceChange": {
-   "h6": -5.38,
-   "h24": -5.38
-  },
-  "liquidity": {
-   "base": 2782.4678,
-   "quote": 1809553,
-   "usd": 55.95
-  },
-  "fdv": 10033608,
-  "marketCap": 10033608,
-  "pairCreatedAt": 1734292998000,
-  "info": {
-   "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
-   "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
-   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
-   "websites": [
-    {
-     "url": "https://goatchan.xyz/",
-     "label": "Website"
-    }
-   ],
-   "socials": [
-    {
-     "url": "https://x.com/truth_terminal",
-     "type": "twitter"
-    },
-    {
-     "url": "https://t.me/GoatseusMaximusSolanaPortal",
-     "type": "telegram"
-    }
-   ]
-  }
- },
- {
-  "chainId": "solana",
-  "dexId": "orca",
-  "url": "https://dexscreener.com/solana/96vcwdaaap1vulvpw2y7turpkwcthazvwmutj1segdam",
-  "pairAddress": "96vcwdaaaP1vuLVPw2Y7TuRPkwCthaZvwmuTJ1sEGdam",
-  "labels": [
-   "wp"
-  ],
-  "baseToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "quoteToken": {
-   "address": "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump",
-   "name": "Fartcoin ",
-   "symbol": "Fartcoin "
-  },
-  "priceNative": "0.1292",
-  "priceUsd": "0.01005",
-  "txns": {
-   "m5": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h1": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h6": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h24": {
-    "buys": 2,
-    "sells": 0
-   }
-  },
-  "volume": {
-   "h24": 0.36
-  },
-  "priceChange": {
-   "h24": -4.42
-  },
-  "liquidity": {
-   "base": 3629.4865,
-   "quote": 485.6509,
-   "usd": 74.24
-  },
-  "fdv": 10050534,
-  "marketCap": 10050534,
-  "pairCreatedAt": 1729781919000,
-  "info": {
-   "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
-   "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
-   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
-   "websites": [
-    {
-     "url": "https://goatchan.xyz/",
-     "label": "Website"
-    }
-   ],
-   "socials": [
-    {
-     "url": "https://x.com/truth_terminal",
-     "type": "twitter"
-    },
-    {
-     "url": "https://t.me/GoatseusMaximusSolanaPortal",
-     "type": "telegram"
-    }
-   ]
-  }
- },
- {
-  "chainId": "solana",
-  "dexId": "meteora",
-  "url": "https://dexscreener.com/solana/clbvqdli76grkihkqfjvbcpcktnjzmu6vmp6hn7rxhnu",
-  "pairAddress": "CLbvqDLi76grKihkqfJvbcPckTNJZmU6Vmp6hn7RxHNU",
-  "labels": [
-   "DYN2"
-  ],
-  "baseToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "quoteToken": {
-   "address": "9xzmB67zWX8PJiGpQFbWuNBXTqyPpu2qV3mxQfhqUREV",
-   "name": "Celestial SOL Router",
-   "symbol": "CSR"
-  },
-  "priceNative": "272.7835",
-  "priceUsd": "0.009906",
-  "txns": {
-   "m5": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h1": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h6": {
-    "buys": 1,
-    "sells": 7
-   },
-   "h24": {
-    "buys": 4,
-    "sells": 9
-   }
-  },
-  "volume": {
-   "h24": 1.19,
-   "h6": 0.81
-  },
-  "priceChange": {
-   "h6": -0.89,
-   "h24": -6.01
-  },
-  "liquidity": {
-   "base": 1664.7745,
-   "quote": 456425,
-   "usd": 33.06
-  },
-  "fdv": 9906059,
-  "marketCap": 9906059,
-  "pairCreatedAt": 1783369852000,
-  "info": {
-   "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
-   "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
-   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
-   "websites": [
-    {
-     "url": "https://goatchan.xyz/",
-     "label": "Website"
-    }
-   ],
-   "socials": [
-    {
-     "url": "https://x.com/truth_terminal",
-     "type": "twitter"
-    },
-    {
-     "url": "https://t.me/GoatseusMaximusSolanaPortal",
-     "type": "telegram"
-    }
-   ]
-  }
- },
- {
-  "chainId": "solana",
-  "dexId": "pumpswap",
-  "url": "https://dexscreener.com/solana/98xgdsrzxoy46nukxfkcufjmf77jewojen3uxs6b7chc",
-  "pairAddress": "98XgdsRZXoY46nUkxFkcuFjmF77jEwojeN3uxS6B7chc",
-  "baseToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "quoteToken": {
-   "address": "So11111111111111111111111111111111111111112",
-   "name": "Wrapped SOL",
-   "symbol": "SOL"
-  },
-  "priceNative": "0.0001431",
-  "priceUsd": "0.01000",
-  "txns": {
-   "m5": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h1": {
-    "buys": 0,
-    "sells": 1
-   },
-   "h6": {
-    "buys": 0,
-    "sells": 5
-   },
-   "h24": {
-    "buys": 1,
-    "sells": 5
-   }
-  },
-  "volume": {
-   "h24": 0.01
-  },
-  "priceChange": {
-   "h1": 0.39,
-   "h6": -1.97,
-   "h24": -1.97
-  },
-  "liquidity": {
-   "base": 32.412,
-   "quote": 0.004636,
-   "usd": 0.64
-  },
-  "fdv": 10001895,
-  "marketCap": 10001895,
-  "pairCreatedAt": 1745244758000,
-  "info": {
-   "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
-   "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
-   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
-   "websites": [
-    {
-     "url": "https://goatchan.xyz/",
-     "label": "Website"
-    }
-   ],
-   "socials": [
-    {
-     "url": "https://x.com/truth_terminal",
-     "type": "twitter"
-    },
-    {
-     "url": "https://t.me/GoatseusMaximusSolanaPortal",
-     "type": "telegram"
-    }
-   ]
-  }
- },
- {
-  "chainId": "solana",
-  "dexId": "orca",
-  "url": "https://dexscreener.com/solana/4f7vgaj4pvuxvfbcxwcz7sxzszbpwbrajxcmwis9e85u",
-  "pairAddress": "4F7VGAj4pVUxVFBcxWCz7sxzsZbPwbrAJXCmwis9e85U",
-  "labels": [
-   "wp"
-  ],
-  "baseToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "quoteToken": {
-   "address": "GJAFwWjJ3vnTsrQVabjBVK2TYB1YtRCQXRDfDgUnpump",
-   "name": "Act I : The AI Prophecy",
-   "symbol": "ACT"
-  },
-  "priceNative": "1.1553",
-  "priceUsd": "0.01000",
-  "txns": {
-   "m5": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h1": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h6": {
-    "buys": 0,
-    "sells": 1
-   },
-   "h24": {
-    "buys": 0,
-    "sells": 5
-   }
-  },
-  "volume": {
-   "h24": 0.53,
-   "h6": 0.11
-  },
-  "priceChange": {
-   "h6": -4.59,
-   "h24": -4.49
-  },
-  "liquidity": {
-   "base": 1520.9623,
-   "quote": 1552.09915,
-   "usd": 28.66
-  },
-  "fdv": 10007025,
-  "marketCap": 10007025,
-  "pairCreatedAt": 1729351385000,
-  "info": {
-   "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
-   "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
-   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
-   "websites": [
-    {
-     "url": "https://goatchan.xyz/",
-     "label": "Website"
-    }
-   ],
-   "socials": [
-    {
-     "url": "https://x.com/truth_terminal",
-     "type": "twitter"
-    },
-    {
-     "url": "https://t.me/GoatseusMaximusSolanaPortal",
-     "type": "telegram"
-    }
-   ]
-  }
- },
- {
-  "chainId": "solana",
-  "dexId": "meteora",
-  "url": "https://dexscreener.com/solana/ai5w7yor3wxwygqxgdczxlnzuzxjase5zyjqjfnrbngz",
-  "pairAddress": "Ai5w7YoR3wxwYGqxGdCZXLnzuZXJAsE5zyJqJfNrbNGz",
-  "labels": [
-   "DYN2"
-  ],
-  "baseToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "quoteToken": {
-   "address": "3v39wuiJ4kGzsmd1w4DCFDWfGC2ScaJ9mXfZJaXvoREV",
-   "name": "Elysian Solana Router",
-   "symbol": "ESR"
-  },
-  "priceNative": "778.1578",
-  "priceUsd": "0.01017",
-  "txns": {
-   "m5": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h1": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h6": {
-    "buys": 0,
-    "sells": 2
-   },
-   "h24": {
-    "buys": 2,
-    "sells": 3
-   }
-  },
-  "volume": {
-   "h24": 0.18,
-   "h6": 0.08
-  },
-  "priceChange": {
-   "h6": -2.52,
-   "h24": -3.55
-  },
-  "liquidity": {
-   "base": 475.7333,
-   "quote": 367237,
-   "usd": 9.64
-  },
-  "fdv": 10178529,
-  "marketCap": 10178529,
-  "pairCreatedAt": 1785266183000,
-  "info": {
-   "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
-   "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
-   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
-   "websites": [
-    {
-     "url": "https://goatchan.xyz/",
-     "label": "Website"
-    }
-   ],
-   "socials": [
-    {
-     "url": "https://x.com/truth_terminal",
-     "type": "twitter"
-    },
-    {
-     "url": "https://t.me/GoatseusMaximusSolanaPortal",
-     "type": "telegram"
-    }
-   ]
-  }
- },
- {
-  "chainId": "solana",
-  "dexId": "orca",
-  "url": "https://dexscreener.com/solana/db6d1udjcwswbcf5xnuxjnjfxxtspwmhil9dt7ccezfx",
-  "pairAddress": "Db6d1UDjcWSWbcf5XnuXjnjfxxTspWmhiL9Dt7cCezFX",
-  "labels": [
-   "wp"
-  ],
-  "baseToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "quoteToken": {
-   "address": "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump",
-   "name": "Fartcoin ",
-   "symbol": "Fartcoin "
-  },
-  "priceNative": "0.1284",
-  "priceUsd": "0.009983",
-  "txns": {
-   "m5": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h1": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h6": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h24": {
-    "buys": 3,
-    "sells": 0
-   }
-  },
-  "volume": {
-   "h24": 0.01
-  },
-  "priceChange": {
-   "h24": -4.37
-  },
-  "liquidity": {
-   "base": 235.7605,
-   "quote": 30.2154,
-   "usd": 4.7
-  },
-  "fdv": 9983640,
-  "marketCap": 9983640,
-  "pairCreatedAt": 1729443545000,
-  "info": {
-   "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
-   "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
-   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
-   "websites": [
-    {
-     "url": "https://goatchan.xyz/",
-     "label": "Website"
-    }
-   ],
-   "socials": [
-    {
-     "url": "https://x.com/truth_terminal",
-     "type": "twitter"
-    },
-    {
-     "url": "https://t.me/GoatseusMaximusSolanaPortal",
-     "type": "telegram"
-    }
-   ]
-  }
- },
- {
-  "chainId": "solana",
-  "dexId": "orca",
-  "url": "https://dexscreener.com/solana/5nt7b5oxaegdryvxocoskf5ziyt9wyopo69z7bawehsf",
-  "pairAddress": "5NT7b5oXAEGdRYVxoCosKf5ZiYt9wYoPo69Z7BaWEhsF",
-  "labels": [
-   "wp"
-  ],
-  "baseToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "quoteToken": {
-   "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-   "name": "USD Coin",
-   "symbol": "USDC"
-  },
-  "priceNative": "0.01023",
-  "priceUsd": "0.01023",
-  "txns": {
-   "m5": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h1": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h6": {
-    "buys": 0,
-    "sells": 1
-   },
-   "h24": {
-    "buys": 0,
-    "sells": 3
-   }
-  },
-  "volume": {},
-  "priceChange": {
-   "h6": -2.23,
-   "h24": -3.38
-  },
-  "liquidity": {
-   "base": 125.07029,
-   "quote": 0.9268,
-   "usd": 2.2
-  },
-  "fdv": 10232291,
-  "marketCap": 10232291,
-  "pairCreatedAt": 1729222794000,
-  "info": {
-   "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
-   "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
-   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
-   "websites": [
-    {
-     "url": "https://goatchan.xyz/",
-     "label": "Website"
-    }
-   ],
-   "socials": [
-    {
-     "url": "https://x.com/truth_terminal",
-     "type": "twitter"
-    },
-    {
-     "url": "https://t.me/GoatseusMaximusSolanaPortal",
-     "type": "telegram"
-    }
-   ]
-  }
- },
- {
-  "chainId": "solana",
-  "dexId": "raydium",
-  "url": "https://dexscreener.com/solana/asfogtyzjdgjq9sqbcnr5nxvxwc1ov8571rbfjsr4uie",
-  "pairAddress": "ASfoGTyZJDgjQ9sqBCnr5nXvxWc1oV8571Rbfjsr4uie",
-  "labels": [
-   "CPMM"
-  ],
-  "baseToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "quoteToken": {
-   "address": "J3NKxxXZcnNiMjKw9hYb2K4LUxgwB6t1FtPtQVsv3KFr",
-   "name": "SPX6900 (Wormhole)",
-   "symbol": "SPX"
-  },
-  "priceNative": "0.03847",
-  "priceUsd": "0.01048",
-  "txns": {
-   "m5": {
-    "buys": 0,
-    "sells": 1
-   },
-   "h1": {
-    "buys": 0,
-    "sells": 1
-   },
-   "h6": {
-    "buys": 0,
-    "sells": 1
-   },
-   "h24": {
-    "buys": 1,
-    "sells": 1
-   }
-  },
-  "volume": {
-   "h24": 0.19,
-   "h6": 0.09,
-   "h1": 0.09,
-   "m5": 0.09
-  },
-  "priceChange": {
-   "m5": 0.21,
-   "h1": 0.21,
-   "h6": 0.21,
-   "h24": 0.21
-  },
-  "liquidity": {
-   "base": 1999.6324,
-   "quote": 76.9429,
-   "usd": 41.91
-  },
-  "fdv": 10480472,
-  "marketCap": 10480472,
-  "pairCreatedAt": 1729573652000,
-  "info": {
-   "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
-   "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
-   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
-   "websites": [
-    {
-     "url": "https://goatchan.xyz/",
-     "label": "Website"
-    }
-   ],
-   "socials": [
-    {
-     "url": "https://x.com/truth_terminal",
-     "type": "twitter"
-    },
-    {
-     "url": "https://t.me/GoatseusMaximusSolanaPortal",
-     "type": "telegram"
-    }
-   ]
-  }
- },
- {
-  "chainId": "solana",
-  "dexId": "raydium",
-  "url": "https://dexscreener.com/solana/7yd7gephm3s1cihcqsg1gzwmcx8ymtwzq6ykivirntnq",
-  "pairAddress": "7yd7gEpHM3s1ciHCQsg1gZWmcX8ymTwzQ6YkiVirnTNq",
-  "labels": [
-   "CLMM"
-  ],
-  "baseToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "quoteToken": {
-   "address": "6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN",
-   "name": "OFFICIAL TRUMP",
-   "symbol": "TRUMP"
-  },
-  "priceNative": "0.01208",
-  "priceUsd": "0.01010",
-  "txns": {
-   "m5": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h1": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h6": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h24": {
-    "buys": 2,
-    "sells": 0
-   }
-  },
-  "volume": {
-   "h24": 0.09
-  },
-  "priceChange": {
-   "h24": -2.65
-  },
-  "liquidity": {
-   "base": 641.2301,
-   "quote": 7.2116,
-   "usd": 12.51
-  },
-  "fdv": 10109469,
-  "marketCap": 10109469,
-  "pairCreatedAt": 1737505486000,
-  "info": {
-   "imageUrl": "https://cdn.dexscreener.com/cms/images/e857505d98436d21d13451a83c93ff4db36d0b53829af8070ddae75845d9b459?width=800&height=800&quality=95&format=auto",
-   "header": "https://cdn.dexscreener.com/cms/images/10b541bd45a02adfb2b90aaa4dd2e9f68097bdbfa5d208e491e6d8cf81c0b434?width=1500&height=500&quality=95&format=auto",
-   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump?timestamp=1795561800000",
-   "websites": [
-    {
-     "url": "https://goatchan.xyz/",
-     "label": "Website"
-    }
-   ],
-   "socials": [
-    {
-     "url": "https://x.com/truth_terminal",
-     "type": "twitter"
-    },
-    {
-     "url": "https://t.me/GoatseusMaximusSolanaPortal",
-     "type": "telegram"
-    }
-   ]
-  }
- },
- {
-  "chainId": "solana",
-  "dexId": "raydium",
-  "url": "https://dexscreener.com/solana/hd4pe8xikr5tmkhy4gxrhpspy2sasy8btebuywckhn1r",
-  "pairAddress": "Hd4pE8xiKr5tmKHy4gxrHpSPY2sASY8BTEBUYWckhN1r",
-  "labels": [
-   "CLMM"
-  ],
-  "baseToken": {
-   "address": "CxN4zmEB6unBKAfz6jHgoQ5BWHiCeWDTT8wkr3K2YHRt",
-   "name": "Armenian Crypto Project",
-   "symbol": "ARMCP"
-  },
-  "quoteToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "priceNative": "113.8887",
-  "priceUsd": "1.13",
-  "txns": {
-   "m5": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h1": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h6": {
-    "buys": 2,
-    "sells": 0
-   },
-   "h24": {
-    "buys": 4,
-    "sells": 4
-   }
-  },
-  "volume": {
-   "h24": 0.82,
-   "h6": 0.23
-  },
-  "priceChange": {
-   "h6": -1.48,
-   "h24": -4.34
-  },
-  "liquidity": {
-   "base": 42.8354,
-   "quote": 4832.3959,
-   "usd": 96.44
-  },
-  "fdv": 23753709,
-  "marketCap": 23753709,
-  "pairCreatedAt": 1753218382000,
-  "info": {
-   "imageUrl": "https://cdn.dexscreener.com/cms/images/cba6a463a4baae56218fabfc3e664e01426f8b5bdcea932e4146d1e0da4eb2eb?width=800&height=800&quality=95&format=auto",
-   "header": "https://cdn.dexscreener.com/cms/images/a6ca315c2d1a0bbdf357a8a358fe3c6f195f54d191ed14d1a7acce2739a13180?width=1500&height=500&quality=95&format=auto",
-   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CxN4zmEB6unBKAfz6jHgoQ5BWHiCeWDTT8wkr3K2YHRt?timestamp=1795561800000",
-   "websites": [
-    {
-     "url": "https://www.armcp.net/",
-     "label": "Website"
-    },
-    {
-     "url": "https://token.armcp.net/Whitepaper.pdf",
-     "label": "Docs"
-    },
-    {
-     "url": "https://www.facebook.com/Musheg88",
-     "label": "Facebook"
-    },
-    {
-     "url": "https://www.instagram.com/musheg88/",
-     "label": "Instagram"
-    }
-   ],
-   "socials": [
-    {
-     "url": "https://x.com/MushManuk88",
-     "type": "twitter"
-    },
-    {
-     "url": "https://t.me/ARMCP_Channel",
-     "type": "telegram"
-    },
-    {
-     "url": "https://discord.gg/7xwgc4Wk",
-     "type": "discord"
-    }
-   ]
-  }
- },
- {
-  "chainId": "solana",
-  "dexId": "meteora",
-  "url": "https://dexscreener.com/solana/eo1fcnq5aeg2vrbvnw7nteprkkhttxb6a6ces2fmmcfb",
-  "pairAddress": "Eo1FCnq5aEg2VrBVNW7NtePRkKhttXb6a6CeS2fMMcfB",
-  "labels": [
-   "DYN"
-  ],
-  "baseToken": {
-   "address": "GJAFwWjJ3vnTsrQVabjBVK2TYB1YtRCQXRDfDgUnpump",
-   "name": "Act I : The AI Prophecy",
-   "symbol": "ACT"
-  },
-  "quoteToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "priceNative": "0.8607",
-  "priceUsd": "0.009580",
-  "txns": {
-   "m5": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h1": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h6": {
-    "buys": 1,
-    "sells": 0
-   },
-   "h24": {
-    "buys": 6,
-    "sells": 0
-   }
-  },
-  "volume": {
-   "h24": 1.03,
-   "h6": 0.19
-  },
-  "priceChange": {
-   "h6": 0.54,
-   "h24": 2.61
-  },
-  "liquidity": {
-   "base": 6946.1289,
-   "quote": 5948.7463,
-   "usd": 132.75
-  },
-  "fdv": 9084299,
-  "marketCap": 9084299,
-  "pairCreatedAt": 1734099292000,
-  "info": {
-   "imageUrl": "https://cdn.dexscreener.com/cms/images/14201087ebafd2b8ca5c3242ddfd4e6cb0824b539ad0736ebea5ec03edefd214?width=800&height=800&quality=95&format=auto",
-   "header": "https://cdn.dexscreener.com/cms/images/51115d2ac89bb2617f487db815df0ac640f035800e07ebb2f7d5a119ad2d9c64?width=1500&height=500&quality=95&format=auto",
-   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/GJAFwWjJ3vnTsrQVabjBVK2TYB1YtRCQXRDfDgUnpump?timestamp=1795561800000",
-   "websites": [
-    {
-     "url": "https://actsol.xyz/",
-     "label": "Website"
-    },
-    {
-     "url": "https://www.reddit.com/r/ACT1/",
-     "label": "Reddit"
-    }
-   ],
-   "socials": [
-    {
-     "url": "https://x.com/ACTICOMMUNITY",
-     "type": "twitter"
-    },
-    {
-     "url": "https://t.me/actportal",
-     "type": "telegram"
-    },
-    {
-     "url": "https://discord.gg/act-1-the-prophecy",
-     "type": "discord"
-    }
-   ]
-  }
- },
- {
-  "chainId": "solana",
-  "dexId": "meteora",
-  "url": "https://dexscreener.com/solana/hzrr7gw6fxhdgqppfd6esyyz66myquuh6bkrxnyx4nti",
-  "pairAddress": "HzRR7gW6fXhDGqppfd6eSYyZ66MyqUUh6bkrxNYX4nTi",
-  "labels": [
-   "DLMM"
-  ],
-  "baseToken": {
-   "address": "BoAQaykj3LtkM2Brevc7cQcRAzpqcsP47nJ2rkyopump",
-   "name": "FOREST",
-   "symbol": "FOREST"
-  },
-  "quoteToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "priceNative": "0.007944",
-  "priceUsd": "0.00008364",
-  "txns": {
-   "m5": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h1": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h6": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h24": {
-    "buys": 0,
-    "sells": 2
-   }
-  },
-  "volume": {
-   "h24": 1.1
-  },
-  "priceChange": {
-   "h24": 0.23
-  },
-  "liquidity": {
-   "base": 555955,
-   "quote": 1708.6333,
-   "usd": 64.49
-  },
-  "fdv": 83642,
-  "marketCap": 83642,
-  "pairCreatedAt": 1733139965000,
-  "info": {
-   "imageUrl": "https://cdn.dexscreener.com/cms/images/b8822c1a6147458932fa549317cfe9c81a0c84e95f6c2f2c2a56acdb5386d4d7?width=800&height=800&quality=95&format=auto",
-   "header": "https://cdn.dexscreener.com/cms/images/44673739a83bf723d12dc425657765c9187e22571489a0249ecad5f160ebeca1?width=1500&height=500&quality=95&format=auto",
-   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/BoAQaykj3LtkM2Brevc7cQcRAzpqcsP47nJ2rkyopump?timestamp=1795561800000",
-   "websites": [
-    {
-     "url": "https://www.sansforest.com/",
-     "label": "Website"
-    }
-   ],
-   "socials": [
-    {
-     "url": "https://x.com/MycelialOracle",
-     "type": "twitter"
-    },
-    {
-     "url": "https://t.me/forestAISOL",
-     "type": "telegram"
-    }
-   ]
-  }
- },
- {
-  "chainId": "solana",
-  "dexId": "raydium",
-  "url": "https://dexscreener.com/solana/ajfoivvbdaxilbusrbpwdunvxsonazu99htc9y38i3pg",
-  "pairAddress": "AjFoivvbDAXiLBUSRBpWdUnvxSonaZu99htc9y38i3pG",
-  "labels": [
-   "CPMM"
-  ],
-  "baseToken": {
-   "address": "2TYhhwG6zCYMue6QHmcxEHnt8tMhnyq8hbXNUbdrpump",
-   "name": "TRUTH TOKEN",
-   "symbol": "FREE"
-  },
-  "quoteToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "priceNative": "0.0003013",
-  "priceUsd": "0.000003012",
-  "txns": {
-   "m5": {
-    "buys": 1,
-    "sells": 0
-   },
-   "h1": {
-    "buys": 2,
-    "sells": 0
-   },
-   "h6": {
-    "buys": 7,
-    "sells": 0
-   },
-   "h24": {
-    "buys": 9,
-    "sells": 11
-   }
-  },
-  "volume": {
-   "h24": 6.57,
-   "h6": 2.44,
-   "h1": 0.58,
-   "m5": 0.34
-  },
-  "priceChange": {
-   "m5": 0.03,
-   "h1": 0.99,
-   "h6": 0.05,
-   "h24": -3.79
-  },
-  "liquidity": {
-   "base": 86563525,
-   "quote": 26083,
-   "usd": 521.51
-  },
-  "fdv": 3012,
-  "marketCap": 3012,
-  "pairCreatedAt": 1729077091000,
-  "info": {
-   "imageUrl": "https://cdn.dexscreener.com/cms/images/3b344ca62e294f8bb6d1a6b9d108b9511243af2b846288820fa0239a78e14b68?width=800&height=800&quality=95&format=auto",
-   "header": "https://cdn.dexscreener.com/cms/images/dfc7b07e1256af3f6fa79ad2fbeecba654c6dda3e7aeb3828c222ea5c4ee044d?width=1500&height=500&quality=95&format=auto",
-   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/2TYhhwG6zCYMue6QHmcxEHnt8tMhnyq8hbXNUbdrpump?timestamp=1795561800000",
-   "websites": [
-    {
-     "url": "https://truthtoken.ai/",
-     "label": "Website"
-    },
-    {
-     "url": "https://dreams-of-an-electric-mind.webflow.io/",
-     "label": "Infinite Backrooms"
-    }
-   ],
-   "socials": [
-    {
-     "url": "https://x.com/terminal_free",
-     "type": "twitter"
-    },
-    {
-     "url": "https://t.me/freeterminal",
-     "type": "telegram"
-    }
-   ]
-  }
- },
- {
-  "chainId": "solana",
-  "dexId": "raydium",
-  "url": "https://dexscreener.com/solana/gyfnmzu5fwpbgrnk5hdfmpfpc9hv1lnexvx96wayio6y",
-  "pairAddress": "GyfnMzu5FWPBGrnK5hDFmPfPC9hV1LnExvx96wAYio6Y",
-  "labels": [
-   "CPMM"
-  ],
-  "baseToken": {
-   "address": "AD6StJzK8sFJWUetQdsnfHWrmmEs1dtSYuuZLrYkQUy8",
-   "name": "Null (Wormhole)",
-   "symbol": "NULL"
-  },
-  "quoteToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "priceNative": "208.1401",
-  "priceUsd": "2.083",
-  "txns": {
-   "m5": {
-    "buys": 1,
-    "sells": 0
-   },
-   "h1": {
-    "buys": 1,
-    "sells": 0
-   },
-   "h6": {
-    "buys": 1,
-    "sells": 0
-   },
-   "h24": {
-    "buys": 1,
-    "sells": 0
-   }
-  },
-  "volume": {
-   "h24": 0.15,
-   "h6": 0.15,
-   "h1": 0.15,
-   "m5": 0.15
-  },
-  "priceChange": {},
-  "liquidity": {
-   "base": 30.2565,
-   "quote": 6297.604,
-   "usd": 126.06
-  },
-  "fdv": 593,
-  "marketCap": 593,
-  "pairCreatedAt": 1729887248000,
-  "info": {
-   "imageUrl": "https://cdn.dexscreener.com/cms/images/d19e56dcbe183c0f7131dab32341a06e8fa74ae3d6b018d405784aebf339c81f?width=800&height=800&quality=95&format=auto",
-   "header": "https://cdn.dexscreener.com/cms/images/fe8651006599c19c8dd1613f02b48766c82fb79f1de3cdb720ac39a16b2531d3?width=1500&height=500&quality=95&format=auto",
-   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/AD6StJzK8sFJWUetQdsnfHWrmmEs1dtSYuuZLrYkQUy8?timestamp=1795561800000",
-   "websites": [
-    {
-     "url": "https://dune.com/nullmatrix/dashboard",
-     "label": "Website"
-    }
-   ],
-   "socials": [
-    {
-     "url": "https://x.com/_NULLCODE_",
-     "type": "twitter"
-    },
-    {
-     "url": "https://t.me/NULL_PORTAL",
-     "type": "telegram"
-    }
-   ]
-  }
- },
- {
-  "chainId": "solana",
-  "dexId": "raydium",
-  "url": "https://dexscreener.com/solana/hthoxb368rsxkucag9sfzer3vx3vezudf6mbavwzlz6x",
-  "pairAddress": "Hthoxb368RsxKUCaG9SFZer3vx3VEzUDf6MbAVwzLZ6x",
-  "labels": [
-   "CPMM"
-  ],
-  "baseToken": {
-   "address": "3f7wfg9yHLtGKvy75MmqsVT1ueTFoqyySQbusrX1YAQ4",
-   "name": "Pixel by Pixel",
-   "symbol": "PbP"
-  },
-  "quoteToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "priceNative": "0.02861",
-  "priceUsd": "0.0002861",
-  "txns": {
-   "m5": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h1": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h6": {
-    "buys": 1,
-    "sells": 0
-   },
-   "h24": {
-    "buys": 2,
-    "sells": 9
-   }
-  },
-  "volume": {
-   "h24": 0.18,
-   "h6": 0.05
-  },
-  "priceChange": {
-   "h6": -4.21,
-   "h24": -5.03
-  },
-  "liquidity": {
-   "base": 28817,
-   "quote": 824.5198,
-   "usd": 16.49
-  },
-  "fdv": 277762,
-  "marketCap": 277762,
-  "pairCreatedAt": 1729630041000
- },
- {
-  "chainId": "solana",
-  "dexId": "orca",
-  "url": "https://dexscreener.com/solana/gsust7m67gotoegtsavnjye1hzsa4luewcsvfp5ozuna",
-  "pairAddress": "Gsust7m67GoToEgtsaVNjYe1HZsa4LuEwcsvfP5oZuNA",
-  "labels": [
-   "wp"
-  ],
-  "baseToken": {
-   "address": "5uZ4wBqvHPRB6wVhNB2AkMmj5FD8HoxRMSYfDWCmiD4P",
-   "name": "Ivanium",
-   "symbol": "IVAN"
-  },
-  "quoteToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "priceNative": "0.003464",
-  "priceUsd": "0.00003482",
-  "txns": {
-   "m5": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h1": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h6": {
-    "buys": 1,
-    "sells": 0
-   },
-   "h24": {
-    "buys": 2,
-    "sells": 0
-   }
-  },
-  "volume": {
-   "h24": 0.16,
-   "h6": 0.07
-  },
-  "priceChange": {
-   "h6": 0.06,
-   "h24": 0.06
-  },
-  "liquidity": {
-   "base": 540107,
-   "quote": 1280.02521,
-   "usd": 31.67
-  },
-  "fdv": 3482456,
-  "marketCap": 3482456,
-  "pairCreatedAt": 1731479894000
- },
- {
-  "chainId": "solana",
-  "dexId": "orca",
-  "url": "https://dexscreener.com/solana/dstp6hwxwwwtzxijyry76frygbraa883jxs88hsknv9",
-  "pairAddress": "Dstp6hwXWwWtzXijyRy76FRYGbRaa883jxs88hsknv9",
-  "labels": [
-   "wp"
-  ],
-  "baseToken": {
-   "address": "F5DxM11fK1PAkQRRooCRsox9fKFjgdUdgkzvZHz1f5ho",
-   "name": "Leave The Goats Alone",
-   "symbol": "LTGA"
-  },
-  "quoteToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "priceNative": "0.0004565",
-  "priceUsd": "0.000004544",
-  "txns": {
-   "m5": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h1": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h6": {
-    "buys": 1,
-    "sells": 0
-   },
-   "h24": {
-    "buys": 1,
-    "sells": 1
-   }
-  },
-  "volume": {
-   "h24": 0.2,
-   "h6": 0.09
-  },
-  "priceChange": {
-   "h6": -4.04,
-   "h24": -4.04
-  },
-  "liquidity": {
-   "base": 4824506,
-   "quote": 2197.7867,
-   "usd": 43.79
-  },
-  "fdv": 54946,
-  "marketCap": 54946,
-  "pairCreatedAt": 1777361461000
- },
- {
-  "chainId": "solana",
-  "dexId": "raydium",
-  "url": "https://dexscreener.com/solana/eyzkznbfqgclb6amej2pkjf4ifyiejhwhogkmhawfcyo",
-  "pairAddress": "EYzkZnBFQgcLb6AMej2pKjf4iFyiEJHWHogkMHaWFCYo",
-  "labels": [
-   "CPMM"
-  ],
-  "baseToken": {
-   "address": "5qAWPGkRqb9aV7Yox4gfbJTbm1a9msaswKxyCirwpump",
-   "name": "SpacePussy",
-   "symbol": "PUSSY"
-  },
-  "quoteToken": {
-   "address": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
-   "name": "Goatseus Maximus",
-   "symbol": "GOAT"
-  },
-  "priceNative": "0.0003241",
-  "priceUsd": "0.000003229",
-  "txns": {
-   "m5": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h1": {
-    "buys": 0,
-    "sells": 0
-   },
-   "h6": {
-    "buys": 1,
-    "sells": 0
-   },
-   "h24": {
-    "buys": 1,
-    "sells": 3
-   }
-  },
-  "volume": {
-   "h24": 0.1,
-   "h6": 0.04
-  },
-  "priceChange": {
-   "h6": -4.44,
-   "h24": -4.4
-  },
-  "liquidity": {
-   "base": 1646648,
-   "quote": 533.8373,
-   "usd": 10.63
-  },
-  "fdv": 3225,
-  "marketCap": 3225,
-  "pairCreatedAt": 1731120067000,
-  "info": {
-   "imageUrl": "https://cdn.dexscreener.com/cms/images/b499652460ce591d6b45074a8e73ddf8e38b94455ac5f5d472102ff2e011e802?width=800&height=800&quality=95&format=auto",
-   "header": "https://cdn.dexscreener.com/cms/images/a9be5f08c99cfb8d20a107d5ff0cccb0ba00de982a47349af9bcda9025bae762?width=1500&height=500&quality=95&format=auto",
-   "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/5qAWPGkRqb9aV7Yox4gfbJTbm1a9msaswKxyCirwpump?timestamp=1795561800000",
-   "websites": [
-    {
-     "url": "https://pussy.meme",
-     "label": "Website"
-    },
-    {
-     "url": "https://cyber.page/#/page/space%20pussy",
-     "label": "Docs"
-    }
-   ],
-   "socials": [
-    {
-     "url": "https://x.com/SpacePussy_ai",
-     "type": "twitter"
-    },
-    {
-     "url": "https://t.me/spacepussylink",
-     "type": "telegram"
-    }
-   ]
-  }
- }
 ]
