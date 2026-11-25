@@ -1,5 +1,3 @@
-import type { Sourced } from './completeness';
-
 export type TxnCounts = { buys: number; sells: number };
 
 /** One of the token's listed pools, as DexScreener lists it. */
@@ -37,5 +35,3 @@ export type MarketStateData = {
   /** The token's listed pools, the most liquid first, the main one (`pair`) among them. */
   pools?: ListedPool[];
 };
-
-export type MarketState = Sourced<MarketStateData>;

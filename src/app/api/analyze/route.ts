@@ -250,6 +250,9 @@ async function analyze(request: Request, started: number): Promise<Response> {
         model: Date.now() - started - answeredMs,
       },
       costUsd: explanation.cost.costUsd,
+      // Why a text came offline is in the lines above; these say that it did.
+      offline: explanation.offline,
+      ...(explanation.rejected ? { rejected: true } : {}),
     });
     return NextResponse.json(body);
   } catch (error) {

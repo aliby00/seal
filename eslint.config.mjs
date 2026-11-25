@@ -17,7 +17,7 @@ export default tseslint.config(
   },
   {
     // Scripts et configuration : contexte Node, pas navigateur.
-    files: ['scripts/**/*.mjs', '*.config.{ts,mjs}', 'indexer/**/*.ts'],
+    files: ['scripts/**/*.mjs', '*.config.{ts,mjs}'],
     languageOptions: { globals: globals.node },
   },
   {

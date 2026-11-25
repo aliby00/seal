@@ -23,8 +23,7 @@ import { buildSupplyFlow, type SupplyFlow } from './supply-flow';
  * TODO-SOLANA: this is the screen's shape from the Robinhood Chain reports,
  * kept so the UI compiles while it is rewritten for Solana. `toFacts` fills
  * it from the Solana report; the fields only EVM reads had (v4 fees, the
- * indexer's pool activity, the ETH graduation threshold, pons origins) stay
- * absent or null. The new UI should read the TokenReport blocks instead.
+ * ETH graduation threshold, pons origins) stay absent or null. The new UI should read the TokenReport blocks instead.
  */
 export type ReportFacts = {
   /**
@@ -183,20 +182,6 @@ export type ReportFacts = {
     staleLiquidity?: { listedUsd: number; poolsShare: number };
     /** No trade in the last this many hours; null when trades are recent; absent when unknown. */
     quietHours?: number | null;
-    /**
-     * Trades counted by the SEAL indexer from the launch pool's own swaps, when
-     * no listed pair gives them. No price: counts, and volume in ETH.
-     */
-    poolActivity?: {
-      buys24h: number;
-      sells24h: number;
-      traders24h: number;
-      /** In ETH when the pool trades against WETH, else `null`. */
-      volume24hEth: number | null;
-      lastTradeAt: string | null;
-      /** Swaps are counted from this time on (the launch, when every swap is counted). */
-      coveredFrom: string | null;
-    };
   };
 };
 

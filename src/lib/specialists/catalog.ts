@@ -841,7 +841,7 @@ const volumeReality: Specialist = {
       launch.summary?.roundTrips?.wallets ?? (launch.creation ? launch.roundTrips.length : null);
     if (trips !== null && trips >= ROUND_TRIPS_MIN) {
       facts.push(
-        `In the first ${launch.windowSeconds} seconds read, ${count(trips, 'address', 'addresses')} bought and then sold back.`,
+        `In the first ${durationWords(launch.windowSeconds)} read, ${count(trips, 'address', 'addresses')} bought and then sold back.`,
       );
       signals.push('observation');
     }

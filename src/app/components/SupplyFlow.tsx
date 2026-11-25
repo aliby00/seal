@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import {
   flowDate,
   flowPct,
+  flowSpan,
   lockWords,
   type FlowNode,
   type FlowNodeKind,
@@ -74,7 +75,7 @@ function today(node: FlowNode, creator: string | null, graduatedAt?: string | nu
   if (node.heldNow === null) return 'What it holds today could not be read';
   if (node.children.length > 0 && node.heldNow === 0) {
     const last = Math.max(...node.children.map((c) => c.at));
-    return `Passed it all on within ${last < 90 ? `${Math.round(last)} seconds` : `${Math.round(last / 60)} minutes`}`;
+    return `Passed it all on within ${flowSpan(last)}`;
   }
   if (node.heldNow === 0) return 'Holds none of it today';
   if (Math.abs(node.heldNow - node.received) < 0.0005) return 'Still holds it all';
@@ -176,7 +177,7 @@ export function SupplyFlow({
   index?: string;
 }) {
   const parts = segments(flow.roots);
-  const minutes = Math.max(1, Math.round(flow.windowSeconds / 60));
+  const firstSpan = flow.windowSeconds < 90 ? 'minute' : flowSpan(flow.windowSeconds);
   const label = parts.map((p) => `${capital(p.node.name)}: ${flowPct(p.share)}`).join('; ');
   return (
     <section className="supply-flow" id="supply-flow" aria-labelledby="supply-flow-title">
@@ -232,8 +233,7 @@ export function SupplyFlow({
       </div>
       {flow.buys === 0 && (
         <p className="story-note">
-          Nobody bought in the first {minutes === 1 ? 'minute' : `${minutes} minutes`}: the supply
-          was only handed out, as drawn here.
+          Nobody bought in the first {firstSpan}: the supply was only handed out, as drawn here.
         </p>
       )}
     </section>

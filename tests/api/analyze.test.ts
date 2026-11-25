@@ -227,7 +227,7 @@ describe('configuration', () => {
 });
 
 describe('a partial report (fourth audit)', () => {
-  // AI, 18/10/2026: served and cached with "no other launch" while the indexer had not answered.
+  // AI, 18/10/2026: served and cached with "no other launch" while a read had not answered.
   it('is never cached when a read failed, even without a source note saying so', async () => {
     collect.mockResolvedValue({
       ...report,
@@ -278,7 +278,7 @@ describe('questions out of time (fifth audit)', () => {
 });
 
 describe('a question answered from less than it asked (sixth audit)', () => {
-  // AML, 18/10/2026: the indexer's count of Doppler's hook did not answer,
+  // AML, 18/10/2026: a chain-wide count did not answer,
   // and "14 other markets" of a 50-minute window was served as clean.
   it('makes the report partial and keeps it out of the cache', async () => {
     collect.mockResolvedValue(structuredClone(report));
