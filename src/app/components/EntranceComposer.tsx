@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ADDRESS_HINT, EXAMPLE_TOKEN, isTokenAddress, requestAnalysis } from './analyze-request';
+import { addressHint, EXAMPLE_TOKEN, isTokenAddress, requestAnalysis } from './analyze-request';
 
 /**
  * The address field, on the first screen. It does not run the analysis
@@ -15,7 +15,7 @@ export function EntranceComposer() {
 
   function start(address: string) {
     if (!isTokenAddress(address)) {
-      setError(ADDRESS_HINT);
+      setError(addressHint(address));
       return;
     }
     setError('');
