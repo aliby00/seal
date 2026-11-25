@@ -67,11 +67,23 @@ describe('GET /api/health', () => {
     vi.stubEnv('SOLANA_RPC_URL', '');
     vi.stubEnv('RPC_URL', '');
     solanaNode(() => new Response('busy', { status: 503 }));
-    const body = await (await GET()).json();
+    const res = await GET();
+    const body = await res.json();
     expect(body.config.solanaNode).toBe('public');
     expect(body.solana).toMatchObject({ node: 'public', slotOk: false });
     expect(body.solana.error).toEqual(expect.any(String));
-    expect(body.status).toBe('ok');
+    // The site runs, but it cannot read the chain: the probe says so, in its
+    // status and in its HTTP code, so the smoke tests and the uptime check fail.
+    expect(body.status).toBe('degraded');
+    expect(res.status).toBe(503);
+    expect(body.config.chain).toBe('solana');
+    expect(body.env).toEqual(expect.any(String));
+  });
+
+  it('answers 200 and ok when the node answers its getSlot', async () => {
+    const res = await GET();
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ status: 'ok', solana: { slotOk: true, slot: 1 } });
   });
 
   it('reports offline when no provider key is set', async () => {

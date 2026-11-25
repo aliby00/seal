@@ -595,6 +595,24 @@ describe('creatorOnToken', () => {
     expect(read.data.moves.slice(2).map((m) => transaction(m.signature).version)).toEqual([1, 1]);
   });
 
+  it('prices in SOL only the buys SOL paid for: the launch buy was paid in SPCX', async () => {
+    // Staging (25/11/2026) said "bought 2.8% for 1.01 SOL": 2.1 % of it was the
+    // launch buy M49A3kmy…, paid 531,745 SPCX, its SOL change rent and fees.
+    const { rpc, now } = creatorCase('pump-bundled');
+    const read = await creatorOnToken(BUNDLED_CREATOR, BUNDLED, rpc, { now });
+    const [, , first, second] = read.data.moves;
+    expect(read.data.boughtForSol).toBe(String(3302385368521n + 3647348584033n));
+    expect(read.data.solSpent).toBe(String(-(BigInt(first!.sol) + BigInt(second!.sol))));
+    expect(BigInt(read.data.solSpent)).toBeLessThan(1_010_000_000n);
+  });
+
+  it('leaves boughtForSol out when every buy was paid in SOL', async () => {
+    const { rpc, now } = creatorCase('pump-creator-sold');
+    const read = await creatorOnToken(SOLD_CREATOR, SOLD, rpc, { now });
+    expect(read.data).not.toHaveProperty('boughtForSol');
+    expect(read.data.solSpent).toBe('3800595724');
+  });
+
   it('adds up every recipient it is given, listing the largest 25', () => {
     const counterparties = Array.from({ length: 30 }, (_, i) => ({
       address: `r${i}`,

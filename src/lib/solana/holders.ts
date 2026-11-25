@@ -11,13 +11,22 @@ import type {
 import { SealError } from '../errors';
 import { BudgetExhaustedError } from '../http';
 import { encodeBase58, isSolanaAddress } from './address';
-import { STREAMFLOW_PROGRAM, TOKEN_2022_PROGRAM, TOKEN_PROGRAM } from './programs';
+import {
+  FLUXBEAM_PROGRAM,
+  STREAMFLOW_PROGRAM,
+  TOKEN_2022_PROGRAM,
+  TOKEN_PROGRAM,
+} from './programs';
 import {
   isSelfOwnedTokenAccount,
   roleFromAccount,
   roleWithoutAccount,
   STREAMFLOW_ESCROW_OFFSET,
   STREAMFLOW_MINT_OFFSET,
+  TOKEN_SWAP_MINT_OFFSETS,
+  TOKEN_SWAP_POOL_SIZE,
+  TOKEN_SWAP_READ,
+  tokenSwapAuthority,
   type OwnerAccount,
   type OwnerRole,
 } from './roles';
@@ -127,7 +136,8 @@ const STREAMFLOW_CONTRACT_SIZE = 1104;
 /**
  * Calls one holders read may spend, and how long it may take. The most a read
  * spends: mint 1, largest accounts 1, two samples, the full read 1, owners 10,
- * Streamflow 3, the wallet asked about 1.
+ * Streamflow 3, FluxBeam pools 2 (while a call is left), the wallet asked
+ * about 1.
  */
 export const DEFAULT_MAX_CALLS = 20;
 export const DEFAULT_TIMEOUT_MS = 12_000;
@@ -172,7 +182,10 @@ export type SolanaHoldersData = HolderDistributionData & {
   top: SolanaHolder[];
   /**
    * Parts of the whole supply, 0 to 1; `null` when no list was read. From
-   * the largest accounts only, each is what those accounts show: a floor.
+   * the largest accounts only, each is what those accounts show: a floor,
+   * and a pool, curve, lock or burn none of them is stays `null` (not seen),
+   * never 0: USDC's 20 largest accounts held no pool while two of its listed
+   * pools held 268,000 USDC (25/11/2026).
    */
   ofSupply: {
     largestWallet: number | null;
@@ -457,7 +470,7 @@ export async function readHolders(
   const owners = groupByOwner(accounts);
 
   // 4. What each owner is.
-  const roles = await classifyOwners(rpc, budget, mint, owners, notes);
+  const roles = await classifyOwners(rpc, budget, mint, owners, notes, options.topN ?? DEFAULT_TOP);
 
   // 5. The wallet asked about.
   let creator: { address: string; amount: bigint; accounts: number } | null = null;
@@ -607,6 +620,7 @@ async function classifyOwners(
   mint: string,
   owners: readonly OwnerTotal[],
   notes: string[],
+  top: number,
 ): Promise<Map<string, OwnerRole>> {
   const roles = new Map<string, OwnerRole>();
   const toRead: string[] = [];
@@ -684,7 +698,64 @@ async function classifyOwners(
   } else if (toRead.length > 0 && looked.length === 0) {
     notes.push(`${toRead.length} off-curve owners not looked up (call allowance used up)`);
   }
+
+  // A FluxBeam pool's vault belongs to an authority with no account, derived
+  // from the pool: the owner alone says nothing, the pool naming the mint and
+  // the vault does (BERN's reserve counted as its largest holder, 25/11/2026).
+  // Looked up only when such an owner is among the largest shown.
+  const ownerless = owners.slice(0, top).filter((o) => {
+    const i = looked.indexOf(o.owner);
+    return i >= 0 && i < accounts.length && accounts[i] === null;
+  });
+  if (ownerless.length > 0) await findTokenSwapPools(rpc, budget, mint, ownerless, roles, notes);
   return roles;
+}
+
+/**
+ * Owners with no account that are the authority of a FluxBeam pool's vault
+ * of `mint`. The pools naming the mint as their first token, then as their
+ * second while an owner is left: one call each (`dataSize` and `memcmp`
+ * filters, the first bytes only), and only while a call is left for the
+ * wallet asked about. The role is given only when the vault the pool names
+ * is one of the owner's accounts.
+ */
+async function findTokenSwapPools(
+  rpc: SolanaRpc,
+  budget: Allowance,
+  mint: string,
+  ownerless: readonly OwnerTotal[],
+  roles: Map<string, OwnerRole>,
+  notes: string[],
+): Promise<void> {
+  const left = new Map(ownerless.map((o) => [o.owner, o]));
+  for (const offset of TOKEN_SWAP_MINT_OFFSETS) {
+    if (left.size === 0 || budget.left() <= 1) return;
+    let pools: ProgramAccount[];
+    try {
+      pools = await budget.run(1, () =>
+        rpc.getProgramAccounts(FLUXBEAM_PROGRAM, {
+          encoding: 'base64',
+          dataSlice: { offset: 0, length: TOKEN_SWAP_READ },
+          filters: [{ dataSize: TOKEN_SWAP_POOL_SIZE }, { memcmp: { offset, bytes: mint } }],
+        }),
+      );
+    } catch (error) {
+      if (!isSourceFailure(error)) throw error;
+      notes.push(`FluxBeam pools not looked up (${why(error)})`);
+      return;
+    }
+    for (const pool of pools) {
+      const data = accountBytes(pool.account);
+      const found = data
+        ? tokenSwapAuthority({ address: pool.pubkey, program: pool.account.owner, data }, mint)
+        : null;
+      const owner = found ? left.get(found.authority) : undefined;
+      if (found && owner?.accounts.includes(found.vault)) {
+        roles.set(owner.owner, found.role);
+        left.delete(owner.owner);
+      }
+    }
+  }
 }
 
 // ── The figures ─────────────────────────────────────────────────────────────
@@ -771,6 +842,12 @@ export function summarize(input: SummaryInput): SolanaHoldersData {
       whole,
     );
   const sumOf = (list: readonly SolanaHolder[]) => list.reduce((s, h) => s + BigInt(h.balance), 0n);
+  // Read on the largest accounts only, a role none of them has may sit in a smaller account.
+  const partOf = (kind: OwnerRole['kind']) => {
+    if (input.method === 'none') return null;
+    const share = byKind(kind);
+    return share === 0 && input.method === 'largest-accounts' ? null : share;
+  };
 
   const setAside: SetAsideHolding[] = holders
     .filter((h) => h.role !== undefined)
@@ -816,10 +893,10 @@ export function summarize(input: SummaryInput): SolanaHoldersData {
     ofSupply: {
       largestWallet: read && wallets[0] ? wallets[0].ofSupply : read ? 0 : null,
       top10Wallets: read ? share6(sumOf(wallets.slice(0, 10)), whole) : null,
-      pools: read ? byKind('pool') : null,
-      curves: read ? byKind('curve') : null,
-      burned: read ? byKind('burn') : null,
-      locked: read ? byKind('lock') : null,
+      pools: partOf('pool'),
+      curves: partOf('curve'),
+      burned: partOf('burn'),
+      locked: partOf('lock'),
     },
     ...(creator ? { creator } : {}),
   };

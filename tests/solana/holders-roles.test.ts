@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { decodeBase58, isOnCurve } from '../../src/lib/solana/address';
 import {
+  FLUXBEAM_PROGRAM,
   INCINERATOR,
   JUPITER_LOCK_PROGRAM,
+  METEORA_DAMM_V1_PROGRAM,
   METEORA_DAMM_V2_PROGRAM,
   METEORA_DBC_PROGRAM,
   METEORA_DLMM_PROGRAM,
+  METEORA_VAULT_PROGRAM,
+  NATIVE_MINT,
   ORCA_WHIRLPOOL_PROGRAM,
   PUMP_FUN_PROGRAM,
   PUMP_SWAP_PROGRAM,
@@ -21,6 +25,8 @@ import {
   poolAuthorities,
   roleFromAccount,
   roleWithoutAccount,
+  TOKEN_SWAP_POOL_SIZE,
+  tokenSwapAuthority,
 } from '../../src/lib/solana/roles';
 import { accountBytes, parsedAccount, type AccountInfo } from '../../src/lib/solana/rpc';
 import { fakeRpcFor } from './fixtures';
@@ -105,6 +111,16 @@ const POOLS = [
     at: 139,
     by: 'pool',
   },
+  {
+    // The vault BONK/SOL pool 278P6iwd… (Meteora DAMM v1) names at byte 104
+    // for its BONK side: the pool's BONK sits in this vault's token account.
+    venue: 'Meteora Dynamic Vault',
+    program: METEORA_VAULT_PROGRAM,
+    pool: 'J9K67PxqqvCRW9tiDHB9bAisgNQSMLU1bvExtexyd7Ve',
+    vault: '66i1ucUah4Qi1sv4KhdonGRsGGr7zmGPeMC3eSzR8Bix',
+    at: 19,
+    by: 'pool',
+  },
 ] as const;
 
 describe('pool roles, checked on real pools', () => {
@@ -167,6 +183,7 @@ describe('roles from the owner itself', () => {
     expect(hex(anchorDiscriminator('Whirlpool'))).toBe('3f95d10ce1806309');
     expect(hex(anchorDiscriminator('LbPair'))).toBe('210b3162b565b10d');
     expect(hex(anchorDiscriminator('VestingEscrow'))).toBe('f477b704497487c3');
+    expect(hex(anchorDiscriminator('Vault'))).toBe('d308e82b02987577');
   });
 
   it('a pump.fun curve is the curve only of its own mint', () => {
@@ -215,5 +232,74 @@ describe('roles from the owner itself', () => {
       kind: 'program-account',
       name: 'program account',
     });
+  });
+});
+
+describe('token-swap pools, whose vaults belong to an address with no account', () => {
+  const rpc = fakeRpcFor('holders', ['pools.json']);
+  // BERN, and the FluxBeam pool DexScreener lists as its main pair (25/11/2026).
+  const BERN = 'CKfatsPMUf8SkiURsDXs7eK6GWb4Jsd6UDbs7twMCWxo';
+  const POOL = 'Ebbpz3PWLaQxj2oyK967RgEPbcPypjQCoZ3tpB4fwLsk';
+  const VAULT = 'Ft1URsGGW7phzUQWwoDL3ijBuBAE46M2AiPguZKLXUWN';
+  const AUTHORITY = 'GZHYAsikiCAAeMzJ6wX2oUx8Z9eh78wKUA9WyabB53tB';
+
+  it('FluxBeam: the pool names its BERN vault, whose owner is the address derived from the pool', async () => {
+    const pool = (await rpc.getAccountInfo(POOL)) as AccountInfo;
+    expect(pool.owner).toBe(FLUXBEAM_PROGRAM);
+    const data = accountBytes(pool) as Uint8Array;
+    expect(data.length).toBe(TOKEN_SWAP_POOL_SIZE);
+    expect(hex(data.subarray(35, 67))).toBe(hex(decodeBase58(VAULT)));
+
+    const vault = (await rpc.getAccountInfo(VAULT, { encoding: 'jsonParsed' })) as AccountInfo;
+    const info = (parsedAccount(vault)?.parsed as { info: { owner: string; mint: string } }).info;
+    expect(info).toMatchObject({ owner: AUTHORITY, mint: BERN });
+    // No account lives at the owner: on its own it says nothing more.
+    expect(roleFromAccount(AUTHORITY, BERN, null).kind).toBe('program-account');
+
+    // Read with its pool, it is the pool's.
+    expect(tokenSwapAuthority({ address: POOL, program: pool.owner, data }, BERN)).toEqual({
+      authority: AUTHORITY,
+      vault: VAULT,
+      role: {
+        kind: 'pool',
+        name: 'FluxBeam pool',
+        program: FLUXBEAM_PROGRAM,
+        evidence: `owner of vault ${VAULT}, which FluxBeam pool ${POOL} names at byte 35; derived from the pool's address`,
+      },
+    });
+    // Its other side, wrapped SOL, has its own vault under the same authority.
+    expect(
+      tokenSwapAuthority({ address: POOL, program: pool.owner, data }, NATIVE_MINT),
+    ).toMatchObject({
+      authority: AUTHORITY,
+      vault: 'DNbwqtq4iKBmnjxGpjw6c1RHfukdeLSnq2LVTfQtAguL',
+    });
+  });
+
+  it('says nothing for another mint, another program, or a pool cut short', async () => {
+    const pool = (await rpc.getAccountInfo(POOL)) as AccountInfo;
+    const data = accountBytes(pool) as Uint8Array;
+    const BONK = 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263';
+    expect(tokenSwapAuthority({ address: POOL, program: FLUXBEAM_PROGRAM, data }, BONK)).toBeNull();
+    expect(
+      tokenSwapAuthority({ address: POOL, program: METEORA_DAMM_V1_PROGRAM, data }, BERN),
+    ).toBeNull();
+    expect(
+      tokenSwapAuthority(
+        { address: POOL, program: FLUXBEAM_PROGRAM, data: data.subarray(0, 100) },
+        BERN,
+      ),
+    ).toBeNull();
+    // The owner comes from the pool's own address: read under another, it is another address.
+    expect(
+      tokenSwapAuthority(
+        {
+          address: 'J9K67PxqqvCRW9tiDHB9bAisgNQSMLU1bvExtexyd7Ve',
+          program: FLUXBEAM_PROGRAM,
+          data,
+        },
+        BERN,
+      )?.authority,
+    ).not.toBe(AUTHORITY);
   });
 });

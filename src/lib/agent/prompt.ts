@@ -1,13 +1,15 @@
 import type { LaunchMove, LaunchReplayData, SourceRef, TokenReport } from '../contracts';
 import { launchView, toFacts, toTimeline } from '../facts';
 import { buildGlance } from '../glance';
+import { dexName, pairsWords } from '../market';
 import { flowDate, flowPct, flowSentence, lockWords, type FlowNode } from '../supply-flow';
 import { roundTripsExcludedWords } from '../launch-story';
 import type { SpecialistAnswer } from '../specialists/brief';
 import { CREATOR_FROM } from '../specialists/catalog';
 import { quoteName } from '../specialists/names';
-import { dayOf, pct, shareOf, solOf, solWords } from '../specialists/words';
+import { dayOf, paidWords, pct, shareOf, solOf, solWords } from '../specialists/words';
 import { READ_WORDS, readFailed } from '../failed-reads';
+import { withLaunchCreation } from '../solana/creator';
 import type { SolanaHolder } from '../solana/holders';
 import type { SolanaLaunchGroup } from '../solana/launch-types';
 
@@ -95,7 +97,7 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
   const m = report.market.data;
   if (m.quiet) {
     lines.push(
-      `No trade for at least ${m.quiet.hours} h: do not say trading is active without saying so.`,
+      `No trade on any pair DexScreener lists for the token for at least ${m.quiet.hours} h: do not say trading is active without saying so.`,
     );
   }
 
@@ -153,6 +155,8 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
   const mint = report.mint.data;
   const supply = mint?.supply ?? report.holders.data.supply ?? null;
   const creator = report.creator.data;
+  // Found by the launch replay when the creator's read did not reach it.
+  const launchCreation = report.launch.data.creation;
   const history = report.creatorHistory;
   const onToken = report.creatorOnToken;
   const linked = report.linkedWallets;
@@ -185,7 +189,7 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
         )
       : ['- Not read.']),
     '',
-    ...block('Creator', report.creator, () =>
+    ...block('Creator', withLaunchCreation(report.creator, launchCreation), () =>
       creator.creator
         ? [
             `Creator: ${creator.creator}, ${creator.from ? CREATOR_FROM[creator.from] : 'source not stated'}.`,
@@ -193,7 +197,11 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
               ? [
                   `Created in transaction ${creator.creation.signature}, slot ${creator.creation.slot}${creator.creation.blockTime ? `, on ${new Date(creator.creation.blockTime * 1000).toISOString()}` : ''}, paid by ${who(creator.creation.feePayer, report)}${creator.creation.launchpad ? `, through ${creator.creation.launchpad}` : ''}.`,
                 ]
-              : ['The creation transaction was not reached.']),
+              : launchCreation
+                ? [
+                    `Created in transaction ${launchCreation.signature}, slot ${launchCreation.slot}${launchCreation.launchedAt ? `, on ${launchCreation.launchedAt}` : ''}, paid by ${who(launchCreation.payer, report)} (found by the launch replay).`,
+                  ]
+                : ['The creation transaction was not reached.']),
           ]
         : ['No curve, creation transaction or metadata authority names a creator.'],
     ),
@@ -215,7 +223,6 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
     }),
     ...block('What the creator did with this token', onToken, () => {
       const d = onToken!.data;
-      const spent = solOf(d.solSpent);
       const got = solOf(d.solReceived);
       // On a partial read a zero is what was seen, not an absence.
       const seen = (raw: string) =>
@@ -225,7 +232,7 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
             : 'none seen in the transactions read (not all of them)'
           : share(raw, supply);
       return [
-        `Bought ${seen(d.bought)}${spent ? ` for ${solWords(spent)}` : ''}; sold ${seen(d.sold)}${d.sold !== '0' && got ? ` for ${solWords(got)}` : ''}; received ${seen(d.received)}; put in a lock ${seen(d.locked)}; burned ${seen(d.burned)}.`,
+        `Bought ${seen(d.bought)}${d.bought === '0' ? '' : paidWords(d, (raw) => share(raw, supply))}; sold ${seen(d.sold)}${d.sold !== '0' && got ? ` for ${solWords(got)}` : ''}; received ${seen(d.received)}; put in a lock ${seen(d.locked)}; burned ${seen(d.burned)}.`,
         `Holds today: ${d.holdsNow === null ? 'not read' : holding(d.holdsNow, supply)}. Sent ${d.sends.distinct === 0 ? (onToken!.completeness === 'full' ? 'nothing' : 'nothing seen') : `${d.sends.total ? share(d.sends.total, supply) : 'some'} to ${d.sends.distinct} other address${d.sends.distinct === 1 ? '' : 'es'}`} outside markets.`,
         `Transactions on its token accounts: ${d.transactions.read} read of ${d.transactions.listed}.`,
       ];
@@ -271,7 +278,10 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
                 ? `Every token account read: ${h.holderCount} holders, curves, pools, locks and the incinerator left out.`
                 : `Every token account read: at least ${h.holdersAtLeast} holders (some owners not identified), curves, pools, locks and the incinerator left out.`
               : `Only the 20 largest token accounts read: at least ${h.holdersAtLeast} holders; shares are floors.`,
-            `Of the whole supply: on bonding curves ${fmt(h.ofSupply.curves)}, in pools ${fmt(h.ofSupply.pools)}, in locks ${fmt(h.ofSupply.locked)}, with the incinerator ${fmt(h.ofSupply.burned)}.`,
+            h.method === 'largest-accounts'
+              ? // A role none of the 20 accounts has is not seen, not absent.
+                `Of the whole supply, in these 20 accounts: on bonding curves ${seen(h.ofSupply.curves)}, in pools ${seen(h.ofSupply.pools)}, in locks ${seen(h.ofSupply.locked)}, with the incinerator ${seen(h.ofSupply.burned)}. Curves, pools and locks outside these 20 accounts are not counted: never write that nothing sits on curves, in pools or in locks, nor that all of it circulates.`
+              : `Of the whole supply: on bonding curves ${fmt(h.ofSupply.curves)}, in pools ${fmt(h.ofSupply.pools)}, in locks ${fmt(h.ofSupply.locked)}, with the incinerator ${fmt(h.ofSupply.burned)}.`,
             `Of what circulates: largest holder ${pct(h.concentration.top1)}, top 10 ${pct(h.concentration.top10)}.`,
             ...(h.creator
               ? [
@@ -292,16 +302,26 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
       ),
     ]),
     ...block('Market (DexScreener)', report.market, () => [
-      `Main pair on ${m.dex ?? 'an unnamed venue'}${m.pairedWith?.symbol ? `, against ${m.pairedWith.symbol}` : ''}${m.pairCreatedAt ? `, created ${m.pairCreatedAt}` : ''}.`,
-      `Price ${m.priceUsd ?? 'not given'} USD; liquidity ${m.liquidityUsd === null ? 'not given' : `${m.liquidityUsd} USD`}; FDV ${m.fdvUsd ?? 'not given'} USD.`,
+      // The paired token's symbol is chosen by whoever made that token: quoted, as every name.
+      `Main pair on ${m.dex ? dexName(m.dex) : 'an unnamed venue'}${m.pairedWith?.symbol ? `, against ${quoteName(m.pairedWith.symbol)}` : ''}${m.pairCreatedAt ? `, created ${m.pairCreatedAt}` : ''}.`,
+      `Price ${m.priceUsd ?? 'not given'} USD; liquidity ${m.liquidityUsd === null ? 'not given' : `${m.liquidityUsd} USD`}; FDV ${m.fdvUsd ?? 'not given'} USD (the main pair's).`,
+      ...((m.pairsCounted ?? 1) > 1
+        ? [
+            `Volume and trades below are added up ${pairsWords(m.pairsCounted)}: the main pair and its pairs against SOL, USDC or USDT. Say so when quoting them; never present them as the main pair's alone.`,
+          ]
+        : m.volumeUsd || m.txns
+          ? [
+              'Volume and trades below are the main pair’s only: say "on its main pair" when quoting them.',
+            ]
+          : []),
       ...(m.volumeUsd
         ? [
-            `Volume, USD: 5 min ${m.volumeUsd.m5}, 1 h ${m.volumeUsd.h1}, 6 h ${m.volumeUsd.h6}, 24 h ${m.volumeUsd.h24}.`,
+            `Volume, USD, ${pairsWords(m.pairsCounted)}: 5 min ${m.volumeUsd.m5}, 1 h ${m.volumeUsd.h1}, 6 h ${m.volumeUsd.h6}, 24 h ${m.volumeUsd.h24}.`,
           ]
         : []),
       ...(m.txns
         ? [
-            `Trades: 1 h ${m.txns.h1.buys} buys and ${m.txns.h1.sells} sells; 24 h ${m.txns.h24.buys} buys and ${m.txns.h24.sells} sells.`,
+            `Trades ${pairsWords(m.pairsCounted)}: 1 h ${m.txns.h1.buys} buys and ${m.txns.h1.sells} sells; 24 h ${m.txns.h24.buys} buys and ${m.txns.h24.sells} sells.`,
           ]
         : []),
     ]),
@@ -354,10 +374,12 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
 }
 
 const fmt = (x: number | null) => (x === null ? 'not read' : pct(x));
+/** A part read on the largest accounts only: `null` is "none among them", a floor otherwise. */
+const seen = (x: number | null) => (x === null ? 'none among them' : `at least ${pct(x)}`);
 
 const MOVE_WORD: Record<LaunchMove['kind'], string> = {
   mint: 'created and handed to',
-  allocation: 'transferred outside any market to',
+  allocation: 'transferred, with no payment read in return, to',
   buy: 'bought by',
   sell: 'sold back by',
   provide: 'provided as liquidity to a pool by',
@@ -385,7 +407,12 @@ export function renderLaunch(
     // The totals of every move read: the list below is only a selection.
     lines.push(
       `Totals over all ${sm.moves} moves of the window (the list further down is only a selection; cite these totals, not a sum of the list):`,
-      `- The creator got ${pc(sm.creatorAtLaunch)} in the creation slot, bought ${pc(sm.creatorBought)} and sold back ${pc(sm.creatorSold)} in the window.`,
+      `- The creator got ${pc(sm.creatorAtLaunch)} in the creation slot, bought ${pc(sm.creatorBought)} and sold back ${pc(sm.creatorSold)} in the window (a sale is counted only when the seller was paid, in SOL or another token).`,
+      ...(sm.creatorSent
+        ? [
+            `- The creator also transferred ${pc(sm.creatorSent)} of the supply to other addresses with no payment read in return${sm.creatorLocked ? `, ${pc(sm.creatorLocked)} of it into or out of a lock or vesting program` : ''}. These are transfers, not sales: never write that the creator sold them.`,
+          ]
+        : []),
       `- Early buyers (the creator left out, in the first ${sm.earlySeconds} seconds): ${sm.early.wallets} address${sm.early.wallets === 1 ? '' : 'es'}; quote this number as it is. They bought ${pc(sm.early.share)} of the supply in all (a sum of purchases, not a holding: do not say they "held" that much); today they still hold ${sm.early.heldNow === null ? 'a share that was not read' : pc(sm.early.heldNow)}${sm.early.unread ? ` (${sm.early.unread} not read)` : ''}.`,
       ...(sm.creatorTx
         ? [
@@ -414,7 +441,7 @@ export function renderLaunch(
         : '';
     const held = m.heldNow === null ? 'unknown' : `${(m.heldNow * 100).toFixed(2)}%`;
     lines.push(
-      `- +${m.seconds} s (slot +${m.block}): ${(m.share * 100).toFixed(3)}% ${MOVE_WORD[m.kind]} ${actor}${from}; holds today ${held}`,
+      `- +${m.seconds} s (slot +${m.block}): ${(m.share * 100).toFixed(3)}% ${MOVE_WORD[m.kind]} ${actor}${from}${m.lock ? `, through ${m.lock} (a lock or vesting program)` : ''}; holds today ${held}`,
     );
   }
   if (d.movesInWindow > d.moves.length) {

@@ -1,6 +1,12 @@
 import { base64 } from '@scure/base';
 import { RateLimitError, SealError, TimeoutError, UpstreamError } from '../errors';
-import { BudgetExhaustedError, createBudget, request, type RequestBudget } from '../http';
+import {
+  backoffDelay,
+  BudgetExhaustedError,
+  createBudget,
+  request,
+  type RequestBudget,
+} from '../http';
 import { log } from '../logger';
 import { throttle } from '../throttle';
 
@@ -65,6 +71,12 @@ export const REFUSED_ASIDE_MS = 10 * 60_000;
 export const HANDOVER_TIMEOUT_MS = 8_000;
 /** After a 429 the public node needs seconds, not the generic 0.4 s backoff. */
 const RATE_LIMIT_WAIT_MS = 1_500;
+/**
+ * More tries the last node gets when its JSON-RPC answer itself says it is
+ * busy or unhealthy (429, -32005, -32004 in the body of an HTTP 200): `request`
+ * only retries what the HTTP status says.
+ */
+const BODY_RETRIES = 2;
 
 export type SolanaNode = {
   url: string;
@@ -633,6 +645,13 @@ function defaultRate(node: SolanaNode): number {
   return Number.isFinite(raw) && raw > 0 ? raw : KEYED_RATE;
 }
 
+/** Rate limits a node said in its JSON-RPC answer, not in its HTTP status. */
+const busyAnswers = new WeakSet<object>();
+const busyAnswer = <E extends object>(error: E): E => {
+  busyAnswers.add(error);
+  return error;
+};
+
 /** Nodes set aside, until when. Shared by the clients of this process. */
 const setAside = new Map<string, number>();
 
@@ -718,13 +737,39 @@ export function createSolanaRpc(options: SolanaRpcOptions = {}): SolanaRpcClient
       );
     }
     if (body.error) {
-      if (body.error.code === 429) throw new RateLimitError('solana-rpc');
+      if (body.error.code === 429) throw busyAnswer(new RateLimitError('solana-rpc'));
       throw new SolanaRpcError(body.error.code, method, body.error.message);
     }
     if (!('result' in body)) {
       throw new UpstreamError('solana-rpc', `${method}: answer without a result`);
     }
     return body;
+  }
+
+  /**
+   * The last node, with nobody to hand over to: an answer saying it is busy
+   * or unhealthy gets a few more tries, after a wait (the rate-limit floor
+   * for a 429). Every try is a call spent.
+   */
+  async function sendLast(
+    node: SolanaNode,
+    method: string,
+    params: readonly unknown[],
+    signal: AbortSignal | undefined,
+  ) {
+    const wait = options.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await send(node, method, params, true, signal);
+      } catch (error) {
+        const busy =
+          busyAnswers.has(error as object) ||
+          (error instanceof SolanaRpcError && error.retryable && !error.aboutRequest);
+        if (!busy || attempt >= BODY_RETRIES || signal?.aborted) throw error;
+        const floor = error instanceof RateLimitError ? RATE_LIMIT_WAIT_MS : 0;
+        await wait(Math.max(floor, backoffDelay(attempt)));
+      }
+    }
   }
 
   const call: SolanaCall = async <T>(
@@ -747,7 +792,9 @@ export function createSolanaRpc(options: SolanaRpcOptions = {}): SolanaRpcClient
     for (const [index, node] of ordered.entries()) {
       const last = index === ordered.length - 1;
       try {
-        const body = await send(node, method, params, last, signal);
+        const body = last
+          ? await sendLast(node, method, params, signal)
+          : await send(node, method, params, false, signal);
         options.record?.({ method, params: [...params], result: body.result });
         return body.result as T;
       } catch (error) {

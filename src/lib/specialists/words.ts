@@ -50,6 +50,22 @@ export function solWords(sol: number): string {
   return `${a.toFixed(a >= 1 ? 2 : a >= 0.01 ? 4 : 6)} SOL`;
 }
 
+/**
+ * What a wallet's buys cost, priced in SOL only for what SOL paid: " for 1.01
+ * SOL"; " (0.69% for 1.00 SOL, the rest paid in another token than SOL)";
+ * " (paid in another token than SOL)". `part` writes a raw amount as a share.
+ */
+export function paidWords(
+  d: { bought: string; boughtForSol?: string; solSpent: string },
+  part: (raw: string) => string,
+): string {
+  const spent = solOf(d.solSpent);
+  const forSol = d.boughtForSol ?? d.bought;
+  if (forSol === d.bought) return spent ? ` for ${solWords(spent)}` : '';
+  if (forSol === '0') return ' (paid in another token than SOL)';
+  return ` (${part(forSol)}${spent ? ` for ${solWords(spent)}` : ' paid in SOL'}, the rest paid in another token than SOL)`;
+}
+
 /** "Nov 25, 2026", in UTC, from Unix seconds. */
 export function dayOf(seconds: number): string {
   return new Date(seconds * 1000).toLocaleDateString('en-US', {

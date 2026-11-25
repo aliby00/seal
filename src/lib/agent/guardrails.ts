@@ -8,7 +8,7 @@
  */
 
 export type Violation = {
-  kind: 'score' | 'advice' | 'verdict';
+  kind: 'score' | 'advice' | 'verdict' | 'link';
   matched: string;
 };
 
@@ -49,6 +49,26 @@ const VERDICT_PATTERNS: RegExp[] = [
   // block", the reader decides what that makes the buyer.
   /\b(?:snip(?:e|er|ers|ed|es|ing)|insiders?|bundl(?:e|es|ed|er|ers|ing))\b/gi,
   /[★☆⭐]/g,
+  // A guarantee said of the token or the people behind it: SEAL reads the
+  // chain, it never vouches. "was not verified" says a limit and passes.
+  /\b(?:token|coin|mint|contract|project|team|creator|developers?|devs?|it|this|pool|liquidity)\s+(?:is|are|was|were|has\s+been|have\s+been|looks|seems|appears)\s+(?:(?:fully|officially|independently|already)\s+)?(?:verified|audited|certified|trusted|guaranteed)\b/gi,
+  /(?<!\b(?:not|never)\s+)\b(?:verified|audited|certified|trusted|guaranteed)\s+(?:tokens?|coins?|mints?|contracts?|projects?|teams?|creators?|developers?|devs?|pools?|liquidity)\b/gi,
+  /(?<!\b(?:not|never)\s+)\b(?:audited|certified|guaranteed)\s+by\b/gi,
+];
+
+/**
+ * Links. SEAL's texts point to nothing: the page links each address to the
+ * Solana Explorer itself, and a link in the wording would come from a name
+ * ("claim at …") or from the model. Venues are named without one ("pump.fun"
+ * is a name, not a link: it has no path and its suffix is not listed here).
+ */
+const LINK_PATTERNS: RegExp[] = [
+  /\bhttps?:\/\/\S+/gi,
+  /\bwww\.\S+/gi,
+  // A bare domain followed by a path: x.com/…, t.me/…
+  /\b[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)*\.[a-z]{2,}\/\S*/gi,
+  // A bare domain under a suffix links are made of.
+  /\b[a-z0-9][a-z0-9-]*\.(?:com|net|org|io|xyz|app|gg|ai|site|online|link|vip|top|lol|cc|live|click|claim|gift|club|biz)\b/gi,
 ];
 
 function collect(text: string, patterns: RegExp[], kind: Violation['kind']): Violation[] {
@@ -67,6 +87,7 @@ export function findViolations(text: string): Violation[] {
     ...collect(text, SCORE_PATTERNS, 'score'),
     ...collect(text, ADVICE_PATTERNS, 'advice'),
     ...collect(text, VERDICT_PATTERNS, 'verdict'),
+    ...collect(text, LINK_PATTERNS, 'link'),
   ];
 }
 

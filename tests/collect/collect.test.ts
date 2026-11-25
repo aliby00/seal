@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { collect } from '../../src/lib/collect';
+import { collect, marketCompleteness } from '../../src/lib/collect';
 import { NotFoundError } from '../../src/lib/errors';
 import { createFakeSolanaRpc } from '../../src/lib/solana/fake-rpc';
 import { solanaRpcFrom, type RecordedCall } from '../../src/lib/solana/rpc';
@@ -75,6 +75,20 @@ describe('collect, what each reference token shows', () => {
     expect(report.graduation).not.toBeNull();
   });
 
+  it('a token still on its curve, read on chain, is not partial for DexScreener’s missing liquidity alone', async () => {
+    // pump.fun (The Poor Bull) and Meteora DBC (CLARYX), recorded on 25/11/2026:
+    // mint, creator and holders read in full; DexScreener gives no liquidity
+    // figure for a curve, whose reserves SEAL read itself.
+    for (const slug of ['pump-creator-sold', 'meteora-dbc']) {
+      const { report } = await replay(slug);
+      expect(report.market.completeness).toBe('partial');
+      expect(report.market.sources[0]?.note).toMatch(/no liquidity figure/);
+      expect(report.graduation?.data.graduated).toBe(false);
+      expect(report.graduation?.data.account).toBe(report.market.data.pair);
+      expect(report.completeness).toBe('full');
+    }
+  });
+
   it('PYUSD: no launchpad, and the powers its Token-2022 extensions give', async () => {
     const { report } = await replay('pyusd');
     expect(report.mint.data?.program).toBe('token-2022');
@@ -84,6 +98,61 @@ describe('collect, what each reference token shows', () => {
     expect(powers.has('permanent-delegate')).toBe(true);
     expect(powers.has('transfer-hook')).toBe(true);
     expect(report.powers.every((p) => p.sentence.length > 0)).toBe(true);
+    // Its creation was not reached and its holders not listed: still partial.
+    expect(report.completeness).toBe('partial');
+  });
+});
+
+describe('the market’s part in the report’s completeness', () => {
+  const CURVE = 'NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2';
+  async function curveMarket() {
+    const { report } = await replay('pump-creator-sold');
+    return {
+      market: report.market,
+      launch: report.launchpad,
+      graduation: report.graduation,
+      liquidity: report.liquidity,
+    };
+  }
+
+  it('counts the curve read on chain in place of DexScreener’s liquidity figure', async () => {
+    const read = await curveMarket();
+    expect(read.market.data.pair).toBe(CURVE);
+    expect(marketCompleteness(read)).toBe('full');
+  });
+
+  it('stays partial when the curve was not read, has graduated, or is not the main pair', async () => {
+    const read = await curveMarket();
+    const graduation = read.graduation!;
+    expect(marketCompleteness({ ...read, graduation: null })).toBe('partial');
+    expect(
+      marketCompleteness({ ...read, graduation: { ...graduation, completeness: 'unavailable' } }),
+    ).toBe('partial');
+    expect(
+      marketCompleteness({
+        ...read,
+        graduation: { ...graduation, data: { ...graduation.data, graduated: true } },
+      }),
+    ).toBe('partial');
+    expect(
+      marketCompleteness({
+        ...read,
+        graduation: { ...graduation, data: { ...graduation.data, raised: null } },
+      }),
+    ).toBe('partial');
+    expect(
+      marketCompleteness({
+        ...read,
+        market: { ...read.market, data: { ...read.market.data, pair: 'OtherPool111' } },
+      }),
+    ).toBe('partial');
+    // A price missing too is not the curve's doing.
+    expect(
+      marketCompleteness({
+        ...read,
+        market: { ...read.market, data: { ...read.market.data, priceUsd: null } },
+      }),
+    ).toBe('partial');
   });
 });
 

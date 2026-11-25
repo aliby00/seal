@@ -3,6 +3,8 @@ name: Surveillance · disponibilité
 # Toutes les 15 minutes, interroge /api/health en prod et en staging.
 # Un site est déclaré indisponible après deux échecs à une minute d'écart :
 # une issue « Site indisponible » est ouverte (ou commentée), puis fermée au retour.
+# Un site qui répond mais dont le nœud Solana ne répond pas (503 « degraded »,
+# solana.slotOk à false, deux fois de suite) ouvre une issue « Nœud Solana en échec ».
 # Aucun environnement protégé ici : les adresses sont publiques.
 
 on:
@@ -37,17 +39,29 @@ jobs:
           URL: ${{ matrix.site.url }}
         run: |
           probe() {
-            body=$(curl -fsS -m 20 "$URL/api/health") && echo "$body" | grep -q '"status":"ok"'
+            # Pas de -f : un nœud Solana en panne donne un 503 dont le corps dit pourquoi.
+            body=$(curl -sS -m 20 "$URL/api/health") && echo "$body" | grep -qE '"status":"(ok|degraded)"'
+          }
+          solana_ok() {
+            ! echo "$body" | grep -q '"slotOk":false'
           }
           report() {
+            echo "up=true" >> "$GITHUB_OUTPUT"
             # Le modèle configuré ne répond plus (clé révoquée, modèle retiré, crédit épuisé) :
             # les lectures partent hors-ligne sans erreur visible, seule la sonde le dit.
             failing=$(echo "$body" | grep -oE '"reasoningFailing":"[a-z]+"' | cut -d'"' -f4 || true)
             echo "model=${failing:-ok}" >> "$GITHUB_OUTPUT"
+            # Le nœud Solana ne répond pas : le site tourne, mais aucune lecture n'aboutit.
+            if solana_ok; then
+              echo "solana=ok" >> "$GITHUB_OUTPUT"
+            else
+              error=$(echo "$body" | grep -oE '"error":"[^"]+"' | head -n 1 | cut -d'"' -f4 || true)
+              echo "solana=${error:-failing}" >> "$GITHUB_OUTPUT"
+            fi
           }
-          if probe; then echo "up=true" >> "$GITHUB_OUTPUT"; report; exit 0; fi
+          if probe && solana_ok; then report; exit 0; fi
           sleep 60
-          if probe; then echo "up=true" >> "$GITHUB_OUTPUT"; report; else echo "up=false" >> "$GITHUB_OUTPUT"; fi
+          if probe; then report; else echo "up=false" >> "$GITHUB_OUTPUT"; fi
 
       - name: Ouvrir ou fermer l'issue
         env:
@@ -92,4 +106,28 @@ jobs:
           elif [ -z "$open" ]; then
             gh issue create --title "$title" \
               --body "$URL/api/health signale un échec durable du modèle (« $MODEL », $now) : les lectures sont servies hors-ligne. auth = clé invalide ou révoquée ; model = identifiant de modèle inconnu ; billing = crédit épuisé. Cette issue se ferme seule quand le modèle répond."
+          fi
+
+      - name: Ouvrir ou fermer l'issue du nœud Solana
+        if: steps.probe.outputs.up == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SITE: ${{ matrix.site.name }}
+          URL: ${{ matrix.site.url }}
+          SOLANA: ${{ steps.probe.outputs.solana }}
+        run: |
+          title="Nœud Solana en échec · $SITE"
+          open=$(gh issue list --state open --search "\"$title\" in:title" --json number,title \
+            --jq "map(select(.title == \"$title\")) | .[0].number // empty")
+          now=$(date -u +'%Y-%m-%d %H:%M UTC')
+          if [ "$SOLANA" = "ok" ] || [ -z "$SOLANA" ]; then
+            if [ -n "$open" ]; then
+              gh issue close "$open" --comment "Le nœud Solana répond de nouveau ($now)."
+            fi
+          elif [ -n "$open" ]; then
+            gh issue comment "$open" --body "Toujours en échec à $now (« $SOLANA »)."
+          else
+            gh issue create --title "$title" \
+              --body "$URL/api/health répond, mais le nœud Solana ne répond pas à un getSlot (« $SOLANA », deux essais à une minute d'écart, $now) : aucune analyse n'aboutit. refused:403:network = réseau Solana non activé sur l'app Alchemy ; refused:401 ou :key = clé refusée ; timeout ou rate-limit = nœud lent ou saturé. Cette issue se ferme seule au retour."
           fi

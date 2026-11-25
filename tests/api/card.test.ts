@@ -88,4 +88,21 @@ describe('share card', () => {
     expect(response.headers.get('cache-control')).toBe('public, max-age=600, s-maxage=600');
     expect((await response.arrayBuffer()).byteLength).toBeGreaterThan(10_000);
   });
+
+  it('an empty card served to one caller past its limit is kept out of the shared cache', async () => {
+    setSharedRedis(null);
+    await rememberCard(analysis(false));
+    const ask = () =>
+      GET(
+        new Request(`http://localhost/api/card?token=${TOKEN}`, {
+          headers: { 'x-forwarded-for': '203.0.113.7' },
+        }),
+      );
+    let response = await ask();
+    for (let i = 0; i < 30 && response.headers.get('cache-control')?.startsWith('public'); i++) {
+      response = await ask();
+    }
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
+  }, 60_000);
 });

@@ -334,6 +334,9 @@ describe('readHolders on a node that lists the largest accounts', () => {
       top10Wallets: 0.448981,
       pools: 0.050304,
     });
+    // A curve, lock or burn none of the 20 accounts is stays unseen, never 0:
+    // a smaller account may be one (USDC's pools, 25/11/2026).
+    expect(result.data.ofSupply).toMatchObject({ curves: null, locked: null, burned: null });
     expect(result.data.setAside).toEqual([
       {
         address: '5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1',
@@ -531,5 +534,57 @@ describe('readHolders when owners cannot all be named', () => {
     const result = await readHolders(MINTS.pumpCurve, rpc, { now: NOW, maxCalls: 5 });
     expect(result.completeness).toBe('full');
     expect(result.data.holderCount).toBe(13);
+  });
+});
+
+describe('BERN: a FluxBeam pool’s vault, owned by an address with no account', () => {
+  const BERN = 'CKfatsPMUf8SkiURsDXs7eK6GWb4Jsd6UDbs7twMCWxo';
+  const AUTHORITY = 'GZHYAsikiCAAeMzJ6wX2oUx8Z9eh78wKUA9WyabB53tB';
+  const FLUXBEAM = 'FLUXubRmkEi2q6K3Y9kBPg9248ggaZVsoSFhtJHSrm1X';
+  const recorded = loadRecordings('holders', ['bern-largest-derived.json', 'bern.json']);
+  const isPoolLookup = (e: { method: string; params?: readonly unknown[] }) =>
+    e.method === 'getProgramAccounts' && e.params?.[0] === FLUXBEAM;
+
+  it('is the FluxBeam pool, set aside, no longer the largest holder', async () => {
+    const rpc = createFakeSolanaRpc(recorded);
+    const result = await readHolders(BERN, rpc, { now: NOW });
+    expect(result.data.setAside).toEqual([
+      { address: AUTHORITY, role: 'pool', share: 0.186711, name: 'FluxBeam pool' },
+    ]);
+    expect(result.data.top.find((h) => h.address === AUTHORITY)).toMatchObject({
+      owner: { kind: 'pool', name: 'FluxBeam pool', program: FLUXBEAM },
+    });
+    // Before: the pool's 18.67 % was the largest holder's share.
+    expect(result.data.concentration.top1).toBe(0.076625);
+    // One lookup: BERN is the pool's first token.
+    expect(rpc.calls.filter(isPoolLookup)).toHaveLength(1);
+  });
+
+  it('stays a program account when no FluxBeam pool names its vault, after one lookup per side', async () => {
+    const lookup = recorded.find(isPoolLookup) as RecordedCall;
+    const [program, config] = lookup.params as [string, Record<string, unknown>];
+    const none = (offset: number): RecordedCall => ({
+      method: 'getProgramAccounts',
+      params: [
+        program,
+        { ...config, filters: [{ dataSize: 324 }, { memcmp: { offset, bytes: BERN } }] },
+      ],
+      result: [],
+    });
+    const rpc = createFakeSolanaRpc([
+      ...recorded.filter((e) => !isPoolLookup(e)),
+      none(131),
+      none(163),
+    ]);
+    const result = await readHolders(BERN, rpc, { now: NOW });
+    expect(result.data.setAside).toEqual([]);
+    expect(result.data.top[0]?.address).toBe(AUTHORITY);
+    expect(result.data.top[0]?.kind).toBe('contract');
+    expect(rpc.calls.filter(isPoolLookup)).toHaveLength(2);
+  });
+
+  it('is not looked up when no owner without an account is among the largest', async () => {
+    const { rpc } = await read('pump-curve.json', MINTS.pumpCurve);
+    expect(rpc.calls.filter(isPoolLookup)).toEqual([]);
   });
 });

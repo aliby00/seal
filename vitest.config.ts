@@ -13,11 +13,10 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/**/*.test.ts', 'indexer/test/**/*.test.ts'],
     // Mocked nodes have no rate limit: pacing would only slow the suite down.
-    // The pacing itself is tested with an injected clock.
+    // The pacing itself is tested with an injected clock. The keyed node's
+    // rate is the one variable that sets it (solana/rpc.ts); the public node
+    // keeps its measured rate, and the tests inject their own.
     // Live runs (SEAL_LIVE=1) keep the real pacing: they talk to the real node.
-    env:
-      process.env.SEAL_LIVE === '1'
-        ? {}
-        : { SEAL_RPC_RATE: '1000000', SEAL_PUBLIC_RPC_RATE: '1000000' },
+    env: process.env.SEAL_LIVE === '1' ? {} : { SEAL_SOLANA_RPC_RATE: '1000000' },
   },
 });

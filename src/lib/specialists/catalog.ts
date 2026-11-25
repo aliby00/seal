@@ -1,11 +1,12 @@
 import type { TokenReport } from '../contracts';
-import { volumePerTrade } from '../market';
+import { pairsWords, volumePerTrade } from '../market';
 import { sourcesFailed } from '../failed-reads';
 import { readableNote } from '../plain-note';
+import { shortAddress } from '../solana/address';
 import type { SolanaHolder } from '../solana/holders';
 import { NATIVE_MINT } from '../solana/programs';
 import type { TokenPower, TokenPowerKind } from '../solana/token-types';
-import { addressesSoftware, imitatedName, normalizeName, quoteName } from './names';
+import { addressesSoftware, imitatedName, normalizeName, quoteName, WATCHED_TOKENS } from './names';
 import {
   BUYS_WITHOUT_SALE,
   CREATOR_HOLDS_SHARE,
@@ -36,6 +37,7 @@ import {
   curveName,
   dayOf,
   durationWords,
+  paidWords,
   pct,
   shareOf,
   short,
@@ -415,11 +417,20 @@ export const CREATOR_FROM: Record<NonNullable<TokenReport['creator']['data']['fr
 const NO_CREATOR =
   'no creator is named on the chain (no pump.fun curve, creation transaction or metadata authority names one)';
 
+/** No creator named, and the creation the launch replay found: who paid for it, never "the creator". */
+const noCreatorNamed = (found: { signature: string; payer: string }) =>
+  `no creator is named on the chain (no pump.fun curve or metadata authority names one); ${shortAddress(found.payer)} paid for the creation (transaction ${shortAddress(found.signature)})`;
+
 /**
  * A question about the creator, with no creator to ask about: "nobody is
- * named" only when the creator read answered; a failed read says so.
+ * named" only when the creator read answered; a failed read says so. When
+ * the launch replay found the creation the creator read did not reach (JUP,
+ * GOAT on staging, 25/11/2026), "no creation transaction names one" would
+ * contradict it: its payer is said instead, as the offline text does.
  */
 function withoutCreator(id: SpecialistId, report: TokenReport): Finding {
+  const found = report.launch.data.creation;
+  if (found && !sourcesFailed(report.creator.sources)) return unknown(id, [noCreatorNamed(found)]);
   return report.creator.completeness === 'unavailable'
     ? unknown(id, [unread('the creator', report.creator)])
     : unknown(id, [NO_CREATOR]);
@@ -481,7 +492,6 @@ const creatorHistory: Specialist = {
       const sold = creatorSold(report);
       const bought = shareOf(d.bought, supply);
       const soldShare = shareOf(d.sold, supply);
-      const spent = solOf(d.solSpent);
       const got = solOf(d.solReceived);
       const parts: string[] = [];
       // A move read is said even when the supply is not known: "some", never left out.
@@ -491,7 +501,7 @@ const creatorHistory: Specialist = {
       };
       if (d.bought !== '0') {
         parts.push(
-          `bought ${part(d.bought)}${bought !== null ? ' of the supply' : ''}${spent ? ` for ${solWords(spent)}` : ''}`,
+          `bought ${part(d.bought)}${bought !== null ? ' of the supply' : ''}${paidWords(d, part)}`,
         );
       }
       if (d.received !== '0') parts.push(`received ${part(d.received)} from other addresses`);
@@ -812,7 +822,7 @@ const volumeReality: Specialist = {
       const holders =
         h.completeness !== 'unavailable' && h.data.holderCount !== null ? h.data.holderCount : null;
       facts.push(
-        `${count(trades, 'trade')} in the last 24 hours on its listed pairs (${txns.h24.buys} buys, ${txns.h24.sells} sells)${perTrade !== null ? `, ${usd(perTrade)} per trade on average` : ''}${holders !== null ? `, while ${count(holders, 'wallet')} ${holders === 1 ? 'holds' : 'hold'} it today, curves and pools left out` : ''}.`,
+        `${count(trades, 'trade')} in the last 24 hours ${pairsWords(market.data.pairsCounted)} (${count(txns.h24.buys, 'buy')}, ${count(txns.h24.sells, 'sell')})${perTrade !== null ? `, ${usd(perTrade)} per trade on average` : ''}${holders !== null ? `, while ${count(holders, 'wallet')} ${holders === 1 ? 'holds' : 'hold'} it today, curves and pools left out` : ''}.`,
       );
       if (
         holders !== null &&
@@ -903,15 +913,15 @@ const sellPath: Specialist = {
       const { buys, sells } = txns.h24;
       if (sells > 0) {
         facts.push(
-          `${count(sells, 'sale')} went through in the last 24 hours on its listed pairs.`,
+          `${count(sells, 'sale')} went through in the last 24 hours ${pairsWords(market.data.pairsCounted)}.`,
         );
       } else if (buys >= BUYS_WITHOUT_SALE) {
         lead.push(
-          `${count(buys, 'buy', 'buys')} and no sale in the last 24 hours on its listed pairs.`,
+          `${count(buys, 'buy', 'buys')} and no sale in the last 24 hours ${pairsWords(market.data.pairsCounted)}.`,
         );
         signals.push('concern');
       } else {
-        facts.push('No sale in the last 24 hours on its listed pairs.');
+        facts.push(`No sale in the last 24 hours ${pairsWords(market.data.pairsCounted)}.`);
       }
     } else {
       limits.push(unread('its recent trades', market));
@@ -928,6 +938,8 @@ const sellPath: Specialist = {
         'freeze',
         'permanent-delegate',
         'transfer-hook',
+        // A fee someone can raise up to 100% can take a whole sale (CKfat…, 25/11/2026).
+        'transfer-fee-change',
       ] as const) {
         const p = power(kind);
         if (!p || p.status === 'none') continue;
@@ -1091,10 +1103,17 @@ const nameClone: Specialist = {
     }
     const facts: string[] = [];
     const signals: Signal[] = [];
+    // The token may be one of the well-known mints itself: its name is then its own.
+    const itself = WATCHED_TOKENS.find((t) => t.mint === token);
+    if (itself) {
+      facts.push(
+        `This is the mint of ${itself.label} itself, one of the well-known tokens SEAL compares names with.`,
+      );
+    }
     const bySymbol = imitatedName(meta.symbol);
     const byName = imitatedName(meta.name);
-    const borrowed = bySymbol ?? byName;
-    if (borrowed && borrowed.mint !== token) {
+    const borrowed = [bySymbol, byName].find((t) => t && t.mint !== token) ?? null;
+    if (borrowed) {
       const which =
         bySymbol === borrowed && byName === borrowed
           ? `Its name ${quoteName(meta.name)} and symbol ${quoteName(meta.symbol)} use those of`
@@ -1144,7 +1163,12 @@ const nameClone: Specialist = {
       signal: strongest(signals, 'quiet'),
       facts,
       limits: [
-        'names are compared with a short list of well-known Solana tokens and the creator’s own launches only',
+        // The well-known mint itself was recognised by its address: no list to qualify.
+        ...(itself
+          ? []
+          : [
+              'names are compared with a short list of well-known Solana tokens and the creator’s own launches only',
+            ]),
         ...(historyRead
           ? []
           : [

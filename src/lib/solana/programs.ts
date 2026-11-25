@@ -54,6 +54,19 @@ export const METEORA_DAMM_V2_PROGRAM = 'cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1
 export const METEORA_DAMM_V1_PROGRAM = 'Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB';
 /** Meteora DLMM (lb_clmm). https://docs.meteora.ag/developer-guides/dlmm */
 export const METEORA_DLMM_PROGRAM = 'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo';
+/**
+ * Meteora Dynamic Vault: where DAMM v1 pools keep their tokens (and lend
+ * them out). Owner of vault J9K67Pxq…, which the BONK/SOL DAMM v1 pool
+ * 278P6iwd… names at byte 104 for its BONK side (read 25/11/2026).
+ */
+export const METEORA_VAULT_PROGRAM = '24Uqj9JCLxUeoC3hGfh5W3s9FM9uCHDS2SG3LYwBpyTi';
+
+/**
+ * FluxBeam AMM, built on the SPL token-swap layout. Owner of pool
+ * Ebbpz3PW…, which DexScreener lists as BERN's main pair under "fluxbeam"
+ * (read 25/11/2026).
+ */
+export const FLUXBEAM_PROGRAM = 'FLUXubRmkEi2q6K3Y9kBPg9248ggaZVsoSFhtJHSrm1X';
 
 /** Orca Whirlpool. https://github.com/orca-so/whirlpools (README, "official deployment"). */
 export const ORCA_WHIRLPOOL_PROGRAM = 'whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc';
@@ -74,7 +87,8 @@ export const INCINERATOR = '1nc1nerator11111111111111111111111111111111';
 /** Wrapped SOL mint (SPL Token, 9 decimals; read 24/11/2026). */
 export const NATIVE_MINT = 'So11111111111111111111111111111111111111112';
 
-export type ProgramKind = 'core' | 'token' | 'metadata' | 'launchpad' | 'amm' | 'lock';
+/** `vault`: holds a venue's tokens for it, without trading itself (Meteora Dynamic Vault). */
+export type ProgramKind = 'core' | 'token' | 'metadata' | 'launchpad' | 'amm' | 'lock' | 'vault';
 
 export type KnownProgram = { address: string; name: string; kind: ProgramKind };
 
@@ -96,6 +110,8 @@ export const KNOWN_PROGRAMS: readonly KnownProgram[] = [
   { address: METEORA_DAMM_V2_PROGRAM, name: 'Meteora DAMM v2', kind: 'amm' },
   { address: METEORA_DAMM_V1_PROGRAM, name: 'Meteora DAMM v1', kind: 'amm' },
   { address: METEORA_DLMM_PROGRAM, name: 'Meteora DLMM', kind: 'amm' },
+  { address: METEORA_VAULT_PROGRAM, name: 'Meteora Dynamic Vault', kind: 'vault' },
+  { address: FLUXBEAM_PROGRAM, name: 'FluxBeam', kind: 'amm' },
   { address: ORCA_WHIRLPOOL_PROGRAM, name: 'Orca Whirlpool', kind: 'amm' },
   { address: STREAMFLOW_PROGRAM, name: 'Streamflow', kind: 'lock' },
   { address: JUPITER_LOCK_PROGRAM, name: 'Jupiter Lock', kind: 'lock' },

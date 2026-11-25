@@ -3,13 +3,14 @@ import { CREATOR_SENDS_LISTED, type CreatorSends } from '../contracts/creator';
 import { SealError, UpstreamError } from '../errors';
 import { BudgetExhaustedError, requestJson } from '../http';
 import type { DexScreenerPair } from '../market/dexscreener';
-import { decodeBase58, encodeBase58, isOnCurve, isSolanaAddress } from './address';
+import { decodeBase58, encodeBase58, isOnCurve, isSolanaAddress, shortAddress } from './address';
 import { recordingKey } from './fake-rpc';
 import {
   associatedTokenAddress,
   INCINERATOR,
   KNOWN_PROGRAMS,
   knownProgram,
+  NATIVE_MINT,
   metadataAddress,
   PUMP_FUN_PROGRAM,
   pumpBondingCurveAddress,
@@ -46,6 +47,7 @@ import type {
   SolanaTokenOutcome,
   SolanaWalletOnToken,
 } from './creator-types';
+import type { SolanaLaunchCreation } from './launch-types';
 
 /**
  * The creator of a Solana token: who it is, what else it launched and what
@@ -1172,6 +1174,49 @@ export async function creatorHistory(
   };
 }
 
+// ── The creation the launch replay found ────────────────────────────────────
+
+/** findCreation's note when the mint's signatures ran out before its first. */
+const CREATION_NOT_REACHED =
+  /^the mint has more than \d+ transactions: its creation was not reached$/;
+const NOTHING_NAMES_A_CREATOR =
+  'no curve, creation transaction or metadata authority names a creator';
+
+/**
+ * The creator read, squared with the creation the launch replay found. The
+ * creator is read first, from the mint's latest 3,000 signatures at most;
+ * the replay then looks from the creation time DexScreener gives, and can
+ * reach the creation that read missed. On staging (25/11/2026) BONK, JUP and
+ * GOAT said "its creation was not reached" next to the creation transaction
+ * the replay showed. The note then says where the creation was found and
+ * who paid for it.
+ *
+ * The fee payer is not made the creator: the creator's other reads (its
+ * tokens, its sales, the wallets it funded) ran before, without it, and a
+ * creator named here would come with none of them. It is named for what the
+ * transaction shows: the address that paid for the creation.
+ */
+export function withLaunchCreation(
+  creator: SolanaCreator,
+  found: Pick<SolanaLaunchCreation, 'signature' | 'payer'> | null | undefined,
+): SolanaCreator {
+  const [first, ...rest] = creator.sources;
+  const notes = first?.note ? first.note.split('; ') : [];
+  if (!found || !first || creator.data.creation || !notes.some((n) => CREATION_NOT_REACHED.test(n)))
+    return creator;
+  const transaction = shortAddress(found.signature);
+  const kept = notes
+    .filter((n) => !CREATION_NOT_REACHED.test(n))
+    .map((n) =>
+      n === NOTHING_NAMES_A_CREATOR ? 'no curve or metadata authority names a creator' : n,
+    );
+  const said =
+    creator.data.creator === null
+      ? `the creation transaction ${transaction}, found by the launch replay, was paid for by ${found.payer}`
+      : `its creation was found by the launch replay: transaction ${transaction}, paid for by ${found.payer}`;
+  return { ...creator, sources: [{ ...first, note: [...kept, said].join('; ') }, ...rest] };
+}
+
 // ── A wallet's moves on a token ─────────────────────────────────────────────
 
 /** Transactions of the creator's token accounts read, oldest first. */
@@ -1321,10 +1366,17 @@ export async function readWalletOnToken(
   }
   const sum = (kind: SolanaTokenMove['kind']) =>
     moves.filter((m) => m.kind === kind).reduce((n, m) => n + BigInt(m.amount), 0n);
+  // A buy paid in another token than SOL: its SOL change is rent and fees
+  // only, and adding it would price in SOL tokens SOL did not pay for.
+  const paidInSol = (m: SolanaTokenMove) =>
+    !m.otherTokens.some((t) => t.mint !== NATIVE_MINT && BigInt(t.change) < 0n);
+  const buys = moves.filter((m) => m.kind === 'buy');
+  const solBuys = buys.filter(paidInSol);
   const sol = (kind: 'buy' | 'sell') =>
-    moves
-      .filter((m) => m.kind === kind)
-      .reduce((n, m) => n + (kind === 'buy' ? -BigInt(m.sol) : BigInt(m.sol)), 0n);
+    (kind === 'buy' ? solBuys : moves.filter((m) => m.kind === kind)).reduce(
+      (n, m) => n + (kind === 'buy' ? -BigInt(m.sol) : BigInt(m.sol)),
+      0n,
+    );
   const holds = held.ok ? held.value.reduce((n, a) => n + a.amount, 0n) : null;
   return {
     wallet,
@@ -1336,6 +1388,9 @@ export async function readWalletOnToken(
     locked: sum('locked').toString(),
     unlocked: sum('unlocked').toString(),
     solSpent: sol('buy').toString(),
+    ...(solBuys.length < buys.length
+      ? { boughtForSol: solBuys.reduce((n, m) => n + BigInt(m.amount), 0n).toString() }
+      : {}),
     solReceived: sol('sell').toString(),
     holdsNow: holds === null ? null : holds.toString(),
     holdsNowShare: holds === null ? null : share6(holds, supply),

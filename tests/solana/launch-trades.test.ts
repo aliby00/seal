@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { isOnCurve } from '../../src/lib/solana/address';
-import { INCINERATOR, PUMP_FUN_PROGRAM, TOKEN_2022_PROGRAM } from '../../src/lib/solana/programs';
+import {
+  INCINERATOR,
+  PUMP_FUN_PROGRAM,
+  RAYDIUM_AMM_V4_PROGRAM,
+  STREAMFLOW_PROGRAM,
+  TOKEN_2022_PROGRAM,
+  TOKEN_PROGRAM,
+} from '../../src/lib/solana/programs';
 import type { SolanaTransaction } from '../../src/lib/solana/rpc';
-import { movesOf, ownerKind, readFlows } from '../../src/lib/solana/trades';
+import { movesOf, ownerKind, readFlows, type DraftMove } from '../../src/lib/solana/trades';
 import { loadRecordings } from './fixtures';
 
 /**
@@ -268,4 +275,76 @@ describe('hand check against the transfer instructions', () => {
       expect(transfer.authority).toBe(c.kind === 'buy' ? market : move?.actor);
     });
   }
+});
+
+describe('movesOf: tokens that only changed hands are no trade', () => {
+  // Recorded on mainnet (tests/fixtures/solana/launch/transfers.json,
+  // 25/11/2026): BONK's creator passing its supply on, and JUP's first
+  // holder. On staging the 24 moves of BONK's creator read as 20.08 % of the
+  // supply "sold back", none of them paid.
+  const BONK = 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263';
+  const BONK_CREATOR = '9AhKqLR67hwapvG8SA2JFXaCshXc9nALJjpKaHZrsbkw';
+  const JUP = 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN';
+  const JUP_PAYER = 'JUPhop9E8ZfdJ5FNHhxQt4uAih822Vs4QpqsWcewFbq';
+  const trades = (moves: DraftMove[]) => moves.filter((m) => m.kind === 'buy' || m.kind === 'sell');
+  // Whatever program the node names as the owner of the off-curve accounts, none of them a pool.
+  const programOwners = [undefined, null, STREAMFLOW_PROGRAM, TOKEN_PROGRAM];
+
+  it('3LEjgMEm…: a deposit into a Streamflow escrow, the creator paying fees and rent only', () => {
+    const flows = readFlows(transaction('transfers.json', '3LEjgMEm'), BONK);
+    expect(flows.programs).toContain(STREAMFLOW_PROGRAM);
+    for (const program of programOwners) {
+      const moves = movesOf(flows, (o) => ownerKind(o, program), BONK);
+      expect(trades(moves)).toEqual([]);
+      expect(moves).toEqual([
+        expect.objectContaining({
+          kind: 'allocation',
+          actor: 'AqYCkrLuuVqRjehq58KjZkPgBnxnDmreZo3Dh6w2xmM4',
+          counterparty: BONK_CREATOR,
+          value: 95_476_190_476_195_250n,
+          quote: null,
+          lock: 'Streamflow',
+        }),
+      ]);
+    }
+  });
+
+  it('4t4zSDDL…: a plain transfer to an off-curve address, no lock program run', () => {
+    const flows = readFlows(transaction('transfers.json', '4t4zSDDL'), BONK);
+    for (const program of programOwners) {
+      const moves = movesOf(flows, (o) => ownerKind(o, program), BONK);
+      expect(moves).toEqual([
+        expect.objectContaining({
+          kind: 'allocation',
+          actor: 'ByjcyGru3RTeAheTjoFJi7mL8knNmzHz1twuoqjbjRtF',
+          counterparty: BONK_CREATOR,
+          value: 2_000_000_000_000_000n,
+        }),
+      ]);
+      expect(moves[0]).not.toHaveProperty('lock');
+    }
+  });
+
+  it('4FrAbnEn…: BONK and USDC put into a Raydium AMM v4 pool are liquidity, not a sale', () => {
+    const flows = readFlows(transaction('transfers.json', '4FrAbnEn'), BONK);
+    expect(flows.programs).toContain(RAYDIUM_AMM_V4_PROGRAM);
+    const moves = movesOf(flows, (o) => ownerKind(o, undefined), BONK);
+    expect(moves).toEqual([
+      expect.objectContaining({
+        kind: 'provide',
+        actor: BONK_CREATOR,
+        counterparty: '5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1',
+        value: 1_000_000_000_000_000n,
+      }),
+    ]);
+  });
+
+  it('2x92qmm… (JUP): half the supply sent to a program address is no sale', () => {
+    const flows = readFlows(transaction('transfers.json', '2x92qmmb'), JUP);
+    const moves = movesOf(flows, (o) => ownerKind(o, undefined), JUP);
+    expect(trades(moves)).toEqual([]);
+    expect(moves).toEqual([
+      expect.objectContaining({ kind: 'allocation', counterparty: JUP_PAYER }),
+    ]);
+  });
 });

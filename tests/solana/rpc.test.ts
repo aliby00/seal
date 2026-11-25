@@ -172,6 +172,51 @@ describe('failures', () => {
     await expect(rpc.getSlot()).resolves.toBe(9);
   });
 
+  it.each([
+    [-32005, 'Node is unhealthy'],
+    [-32004, 'Block not available for slot 473500000'],
+    [429, 'Too many requests for a specific RPC call'],
+  ])(
+    'retries the last node when its JSON-RPC answer says %i, with a wait',
+    async (code, message) => {
+      const waits: number[] = [];
+      let n = 0;
+      // HTTP 200, the refusal in the body: `request` sees a success.
+      const sent = node(() => (n++ === 0 ? rpcError(code, message) : ok(11)));
+      const rpc = createSolanaRpc({
+        nodes: [PUBLIC],
+        rate: () => 1e6,
+        sleep: async (ms) => {
+          waits.push(ms);
+        },
+      });
+      await expect(rpc.getSlot()).resolves.toBe(11);
+      expect(sent).toHaveLength(2);
+      expect(waits.length).toBeGreaterThanOrEqual(1);
+      if (code === 429) expect(Math.min(...waits)).toBeGreaterThanOrEqual(1_500);
+      // Each try is a call spent.
+      expect(rpc.usage().spent).toBe(2);
+    },
+  );
+
+  it('gives up on the last node after three answers saying it is unhealthy', async () => {
+    const sent = node(() => rpcError(-32005, 'Node is unhealthy'));
+    const rpc = createSolanaRpc({ nodes: [PUBLIC], ...fast });
+    const error = await rpc.getSlot().catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(SolanaRpcError);
+    expect((error as SolanaRpcError).code).toBe(-32005);
+    expect(sent).toHaveLength(3);
+  });
+
+  it('hands an unhealthy node to the next one at once, without retrying it', async () => {
+    const sent = node(({ url }) =>
+      url === ALCHEMY.url ? rpcError(-32005, 'Node is unhealthy') : ok(5),
+    );
+    const rpc = createSolanaRpc({ nodes: [ALCHEMY, PUBLIC], ...fast });
+    await expect(rpc.getSlot()).resolves.toBe(5);
+    expect(sent.map((s) => s.url)).toEqual([ALCHEMY.url, PUBLIC.url]);
+  });
+
   it('does not hand over an error about the request itself', async () => {
     const sent = node(() => rpcError(-32602, 'Invalid param: WrongSize'));
     const rpc = createSolanaRpc({ nodes: [ALCHEMY, PUBLIC], ...fast });

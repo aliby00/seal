@@ -74,14 +74,38 @@ await check("la page d'accueil répond en 200", async () => {
   if (!html.includes('SEAL')) throw new Error('le corps de la page ne contient pas "SEAL"');
 });
 
-await check('/api/health répond un JSON valide', async () => {
-  const res = await get('/api/health');
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const body = await res.json();
-  if (body.status !== 'ok') throw new Error(`status = ${JSON.stringify(body.status)}`);
+/**
+ * Un nœud Solana qui ne répond pas laisse le site debout mais incapable de
+ * lire quoi que ce soit : la sonde répond alors 503 « degraded ». Un
+ * `getSlot` raté une fois peut être passager : la sonde est relue jusqu'à
+ * trois fois avant d'échouer.
+ */
+const HEALTH_TRIES = 3;
+const HEALTH_RETRY_MS = Number(process.env.SMOKE_HEALTH_RETRY_MS ?? 10_000);
+
+await check('/api/health répond un JSON valide, et le nœud Solana répond', async () => {
+  let body;
+  for (let attempt = 1; ; attempt += 1) {
+    const res = await get('/api/health');
+    // 503 is the probe's own answer for a node down: its body says which and why.
+    if (!res.ok && res.status !== 503) throw new Error(`HTTP ${res.status}`);
+    body = await res.json();
+    if (body.solana?.slotOk === true || attempt >= HEALTH_TRIES) break;
+    await new Promise((resolve) => setTimeout(resolve, HEALTH_RETRY_MS));
+  }
   if (expectedEnv && body.env !== expectedEnv) {
     throw new Error(`env attendu "${expectedEnv}", reçu "${body.env}"`);
   }
+  if (body.config?.chain !== 'solana') {
+    throw new Error(`chaîne attendue "solana", reçue ${JSON.stringify(body.config?.chain)}`);
+  }
+  if (body.solana?.slotOk !== true) {
+    throw new Error(
+      `le nœud Solana « ${body.solana?.node ?? '?'} » ne répond pas ` +
+        `(${body.solana?.error ?? 'aucune raison donnée'}), ${HEALTH_TRIES} essais`,
+    );
+  }
+  if (body.status !== 'ok') throw new Error(`status = ${JSON.stringify(body.status)}`);
 });
 
 await check('une route inexistante renvoie bien 404', async () => {

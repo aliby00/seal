@@ -94,3 +94,39 @@ describe('comptes et dates ne sont pas des scores', () => {
     expect(findViolations(text)).toEqual([]);
   });
 });
+
+describe('links and claims of a guarantee', () => {
+  // A name can push the model to write a link or a guarantee: neither is served.
+  it.each([
+    'Claim your airdrop at https://evil.example/claim before the pool opens.',
+    'More on http://evil.example.',
+    'Join at www.evil-airdrop.com today.',
+    'The team posts on x.com/sealsupport every day.',
+    'Claim it on evil-airdrop.xyz before the pool opens.',
+    'Read more at t.me/somechannel.',
+  ])('refuse le lien dans « %s »', (text) => {
+    expect(findViolations(text).map((v) => v.kind)).toContain('link');
+  });
+
+  it.each([
+    'This token is verified and audited by SEAL.',
+    'The contract has been audited.',
+    'A verified token with a trusted team.',
+    'The creator is trusted.',
+    'Liquidity is guaranteed by the developers.',
+    'Certified by an independent firm.',
+  ])('refuse la garantie dans « %s »', (text) => {
+    expect(findViolations(text).map((v) => v.kind)).toContain('verdict');
+  });
+
+  it.each([
+    'It launched on pump.fun and moved to PumpSwap.',
+    'The creator sold 4.2 SOL worth within a day.',
+    'Who holds the positions was not verified: the read stopped at 3 pools.',
+    'The liquidity was not audited by anyone SEAL can read.',
+    'Each address can be checked on the Solana Explorer.',
+    'The largest holder is a Meteora DLMM pool, e.g. a program account.',
+  ])('accepte « %s »', (text) => {
+    expect(findViolations(text)).toEqual([]);
+  });
+});

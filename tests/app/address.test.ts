@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { EXAMPLES, EXAMPLE_TOKEN, isTokenAddress } from '../../src/app/components/analyze-request';
+import {
+  ADDRESS_HINT,
+  addressHint,
+  EXAMPLES,
+  EXAMPLE_TOKEN,
+  isTokenAddress,
+} from '../../src/app/components/analyze-request';
 import { addressUrl, marketUrl, short, txUrl } from '../../src/app/components/explorer';
 import { isSolanaAddress } from '../../src/lib/solana/address';
 
@@ -25,6 +31,21 @@ describe('the address field', () => {
     ['empty', ''],
   ])('refuses %s', (_what, value) => {
     expect(isTokenAddress(value)).toBe(false);
+  });
+
+  it('says SEAL now reads Solana when the address pasted is an EVM one', () => {
+    // PEPE on Ethereum, as pasted during the audit of 25/11/2026.
+    for (const evm of [
+      '0x6982508145454Ce325dDbE47a25d4ec3d2311933',
+      ' 0x10e848f9d5073d670201b111f1ba3d1c5be6f18b ',
+    ]) {
+      expect(addressHint(evm)).toBe(
+        'SEAL now reads Solana tokens. This looks like an EVM address (0x…): paste the token’s Solana address instead.',
+      );
+    }
+    for (const other of ['bonjour', '0x1234', 'FB5eSv7CAMWJnrH5GvHLivx9y8Qgoo8', '']) {
+      expect(addressHint(other)).toBe(ADDRESS_HINT);
+    }
   });
 
   it('agrees with the server’s own check on every example', () => {

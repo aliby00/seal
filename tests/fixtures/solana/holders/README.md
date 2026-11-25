@@ -20,6 +20,25 @@ around 00:08 UTC. They replay through the fake node
 | `edge.json`                   | —                                              | No account at the incinerator; a PumpSwap pool read as a mint                      |
 | `public-refuses-largest.json` | —                                              | The public node's answer to `getTokenLargestAccounts`: HTTP 429, `Retry-After: 10` |
 
+## Added on 25/11/2026
+
+`pools.json` also holds, read the same way on 25/11/2026 around 11:50 UTC:
+the Meteora Dynamic Vault `J9K67Pxq…` (the BONK side of DAMM v1 pool
+`278P6iwd…`) and its BONK account `66i1ucUa…`; BERN's FluxBeam pool
+`Ebbpz3PW…` and its BERN vault `Ft1URsGG…`, owned by `GZHYAsik…`, an address
+with no account.
+
+BERN (`CKfatsPMUf8SkiURsDXs7eK6GWb4Jsd6UDbs7twMCWxo`, 71,908 token accounts,
+too many for the full read) was read on 25/11/2026 around 12:37 UTC:
+`bern.json` holds the node's answers to `readHolders`, the FluxBeam pools
+naming BERN at byte 131 among them (18 pools, `Ebbpz3PW…` the one whose
+vault `Ft1URsGG…` is among the largest). Its owner `GZHYAsik…` has no
+account: the pool's vault, 18.67 % of the supply, is set aside as the
+FluxBeam pool instead of being the largest holder. The public node refuses
+`getTokenLargestAccounts`: `bern-largest-derived.json` was built like the
+other derived answers below, from every token account of the mint read with
+`getProgramAccounts` (amounts only) at the same time, the 20 largest.
+
 ## Recorded later
 
 The coarser sample (owners whose first two bytes are 0, `memcmp` bytes `11`

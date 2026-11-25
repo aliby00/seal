@@ -266,6 +266,66 @@ test('a recorded Solana reading draws the mint, the supply by role, the launch a
   await board.screenshot({ path: `/tmp/seal-solana-board-${testInfo.project.name}.png` });
 });
 
+/**
+ * The Funding Trace answer staging served for The Poor Bull on 25/11/2026
+ * (~/sol-e2e/1039): the creator's first SOL came from one address, unnamed.
+ */
+const FUNDING_TRACE = {
+  specialist: 'funding-trace',
+  title: 'Funding Trace',
+  question:
+    'Who first sent SOL to the creator, and did wallets the creator funded around the launch trade this token?',
+  signal: 'quiet',
+  facts: [
+    'The creator’s first SOL came from 16hA…6jrY: 5.63 SOL on Nov 19, 2026, when an account was closed to it, in a transaction that address sent.',
+    'Around the launch (Nov 23, 2026 to Nov 24, 2026), the creator sent SOL to no other wallet outside its trades, in the transactions read.',
+  ],
+  limits: [
+    'who is behind the funding address is not read: an exchange, a service or a person',
+    "10 of the creator's 11 transactions around the launch read",
+    'a SOL transfer links the addresses; it does not show who controls them',
+  ],
+  funding: {
+    kind: 'unknown',
+    linkedCreators: 0,
+    launches: null,
+    depth: 1,
+    path: [
+      {
+        address: '16hA8TwtLR1381TD4A6p3V279Dx27ocmiik8tGs6jrY',
+        kind: 'unknown',
+        name: null,
+        txCount: null,
+      },
+    ],
+  },
+};
+
+test('a Solana reading draws the creator’s funding path: who sent the first SOL, not identified', async ({
+  page,
+}) => {
+  await page.route('**/api/analyze', (route) =>
+    route.fulfill({ json: { ...solana, specialists: [FUNDING_TRACE] } }),
+  );
+  await page.goto('/#analysis');
+  await submit(page);
+  const row = page.locator('#question-funding-trace');
+  await row.locator('summary').click();
+  await expect(row.getByRole('heading', { level: 4, name: 'Funding path' })).toBeVisible();
+  const steps = row.locator('.funding-path li');
+  await expect(steps).toHaveCount(1);
+  await expect(steps.first()).toContainText('Creator funded by');
+  await expect(steps.first().locator('code')).toHaveText('16hA…6jrY');
+  await expect(steps.first().locator('code')).toHaveAttribute(
+    'title',
+    '16hA8TwtLR1381TD4A6p3V279Dx27ocmiik8tGs6jrY',
+  );
+  // Nothing more than what was read: the address is not named.
+  await expect(steps.first()).toContainText('not identified');
+  await expect(row).not.toContainText(/linked creators?|other creators/i);
+  await accessible(page);
+});
+
 test('a ?token= link fills the address and starts the analysis', async ({ page }) => {
   const posted: unknown[] = [];
   await page.route('**/api/analyze', (route) => {
@@ -291,7 +351,9 @@ test('the entrance field starts the analysis, and the reading gets a link to sha
   await expect(field).toBeVisible();
   await field.fill('0x10e848f9d5073d670201b111f1ba3d1c5be6f18b');
   await page.getByRole('button', { name: 'Analyze', exact: true }).click();
-  await expect(page.locator('.entrance-error')).toContainText('Enter a Solana token address');
+  await expect(page.locator('.entrance-error')).toContainText(
+    'This looks like an EVM address (0x…): paste the token’s Solana address instead.',
+  );
   expect(posted).toEqual([]);
   await field.fill(token);
   await page.getByRole('button', { name: 'Analyze', exact: true }).click();
@@ -407,7 +469,7 @@ test('loading describes sources; report keeps limits before prose and sources gl
   expect(text.indexOf('In short')).toBeLessThan(text.indexOf('Not measured here'));
   expect(text.indexOf('Not measured here')).toBeLessThan(text.indexOf('The creator launched'));
   await expect(page.locator('.glance-lead')).toContainText(
-    'One wallet holds 31% of the tokens held outside its curve and pools.',
+    'One wallet holds 31% of the tokens held outside any curve, pool or lock.',
   );
   await expect(page.locator('.divergent')).toHaveCount(1);
   await expect(page.getByText('Sources apply to the report as a whole.')).toBeVisible();
@@ -436,7 +498,8 @@ for (const completeness of ['full', 'unavailable']) {
     const article = page.getByRole('article');
     await expect(article).toBeVisible();
     const text = await article.innerText();
-    expect(text.indexOf('Offline mode')).toBeLessThan(text.indexOf('Raw facts.'));
+    expect(text.indexOf('Written from the facts alone')).toBeGreaterThanOrEqual(0);
+    expect(text.indexOf('Written from the facts alone')).toBeLessThan(text.indexOf('Raw facts.'));
     await expect(page.locator('.divergent')).toHaveCount(0);
     await expect(page.locator('.explanation p')).toHaveCount(3);
     // With measured facts the short version stands in for the banner, except when nothing is usable.
@@ -646,4 +709,17 @@ test('legal pages are reachable from the footer, final, and accessible', async (
   await expect(page.getByText('Not financial advice')).toBeVisible();
   await page.goto('/terms');
   await expect(page.getByRole('heading', { name: 'What you may not do' })).toBeVisible();
+});
+
+test('an unknown address gets the site’s own 404, with a way home and one title', async ({
+  page,
+}) => {
+  const response = await page.goto('/this-page-does-not-exist');
+  expect(response?.status()).toBe(404);
+  await expect(page.getByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'SEAL home' })).toHaveAttribute('href', '/');
+  await expect(page.getByRole('link', { name: 'Read a token' })).toHaveAttribute('href', '/');
+  await expect(page).toHaveTitle('Page not found · SEAL');
+  expect(await page.locator('title').count()).toBe(1);
+  await accessible(page);
 });

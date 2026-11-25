@@ -227,9 +227,13 @@ function MintCard({ view }: { view: SolanaView }) {
           )}
           {mint.metadata && (
             <p className="fact-line">
-              Named {mint.metadata.name || 'without a name'}
+              Named{' '}
+              {mint.metadata.name ?? (mint.metadata.withheld ? '(not shown)' : 'without a name')}
               {mint.metadata.symbol ? ` (${mint.metadata.symbol})` : ''} in its{' '}
               {mint.metadata.from === 'metaplex' ? 'Metaplex metadata' : 'Token-2022 metadata'}.
+              {mint.metadata.withheld
+                ? ' A name or symbol it carries reads as a verdict or advice: SEAL does not repeat it.'
+                : ''}
               {mint.metadata.mutable ? (
                 mint.metadata.updateAuthority ? (
                   <>

@@ -11,6 +11,7 @@ import { answerAll } from '../../src/lib/specialists/brief';
 import { CATALOG } from '../../src/lib/specialists/catalog';
 import { shortAnswer } from '../../src/lib/specialists/plain';
 import type { SpecialistId } from '../../src/lib/specialists/types';
+import { loadCollectRecording } from '../collect/recording';
 import { CREATOR, HOLDER, MINT, solanaReport } from '../helpers/solana-report';
 
 /**
@@ -64,6 +65,65 @@ describe('a creator question with no creator', () => {
       expect(failed.limits.join(' ')).not.toMatch(/no creator is named/);
       const none = ask(id, noCreator('full'));
       expect(none.limits.join(' ')).toMatch(/no creator is named on the chain/);
+    }
+  });
+});
+
+describe('a creator question with no creator, the creation found by the launch replay', () => {
+  const PAYER = 'JUPhop9E8ZfdJ5FNHhxQt4uAih822Vs4QpqsWcewFbq';
+  const withCreation = (report: TokenReport): TokenReport => ({
+    ...report,
+    launch: {
+      ...report.launch,
+      data: {
+        ...report.launch.data,
+        creation: {
+          signature:
+            '4h5iBF43PvG9SuKZyJiJ2mEUddsNd71uVW7X7Lz5RYzMJYqPeoPqLyNtz2fH9nd9FWKxqKXhmXtK3F9QqptzbZ',
+          slot: 243989543,
+          launchedAt: '2024-01-25T08:54:00.000Z',
+          payer: PAYER,
+          signers: [PAYER],
+          foundBy: 'creation-time',
+        },
+      },
+    },
+  });
+  // JUP as staging served it (25/11/2026): the creator read answered, without a creator.
+  const jup = withCreation(
+    solanaReport({
+      creator: {
+        completeness: 'unavailable',
+        sources: [
+          {
+            name: 'solana-rpc',
+            fetchedAt: base.collectedAt,
+            note: 'the mint has more than 3000 transactions: its creation was not reached; no curve, creation transaction or metadata authority names a creator',
+          },
+        ],
+        data: { ...base.creator.data, creator: null, from: null },
+      },
+      creatorHistory: null,
+      creatorOnToken: null,
+      linkedWallets: null,
+    }),
+  );
+  const said =
+    'no creator is named on the chain (no pump.fun curve or metadata authority names one); JUPh…wFbq paid for the creation (transaction 4h5i…tzbZ)';
+
+  it('says who paid for the creation, never that no creation transaction names one', () => {
+    for (const id of ['wallet-age', 'funding-trace', 'creator-history'] as const) {
+      for (const report of [jup, withCreation(noCreator('full'))]) {
+        const finding = ask(id, report);
+        expect(finding.signal).toBe('unknown');
+        expect(finding.limits).toEqual([said]);
+        expect(finding.limits.join(' ')).not.toMatch(/creation transaction or metadata/);
+        expect(findViolations(finding.limits.join(' '))).toEqual([]);
+      }
+      // A creator read that failed still says so.
+      expect(ask(id, withCreation(noCreator('unavailable'))).limits.join(' ')).toMatch(
+        /^the creator could not be read/,
+      );
     }
   });
 });
@@ -242,6 +302,33 @@ describe('Name Clone', () => {
     const finding = ask('name-clone', report);
     expect(finding.signal).toBe('unknown');
     expect(finding.facts).toEqual([]);
+  });
+
+  it('says the token is the well-known mint itself, never that its name matches none', () => {
+    // PYUSD, recorded on mainnet (tests/fixtures/solana/collect/pyusd.json.gz).
+    const { report } = loadCollectRecording('pyusd');
+    const finding = ask('name-clone', report);
+    expect(finding.facts[0]).toBe(
+      'This is the mint of PayPal USD (PYUSD) itself, one of the well-known tokens SEAL compares names with.',
+    );
+    expect(finding.facts.join(' ')).not.toMatch(/match(?:es|ed)? none|another mint/);
+    expect(finding.limits.join(' ')).not.toMatch(/short list/);
+    expect(finding.signal).toBe('quiet');
+
+    // The real USDC, named as it is on chain.
+    const usdc = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+    const real = solanaReport({
+      mint: {
+        ...base.mint,
+        data: {
+          ...base.mint.data!,
+          metadata: { ...base.mint.data!.metadata!, name: 'USD Coin', symbol: 'USDC' },
+        },
+      },
+    });
+    const facts = ask('name-clone', { ...real, token: usdc }).facts;
+    expect(facts[0]).toMatch(/^This is the mint of USD Coin \(USDC\) itself/);
+    expect(facts.join(' ')).not.toMatch(/match(?:es|ed)? none|another mint/);
   });
 
   it('does not claim the creator’s launches were compared when they were not read', () => {

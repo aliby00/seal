@@ -9,7 +9,7 @@ import { SourceStudy } from './components/SourceStudy';
 import { AnalysisReport } from './components/AnalysisReport';
 import { Arch } from './components/brand';
 import {
-  ADDRESS_HINT,
+  addressHint,
   ANALYZE_EVENT,
   EXAMPLES,
   isTokenAddress,
@@ -198,7 +198,7 @@ export function AnalyzeForm() {
   async function analyze(value: string = token) {
     const address = value.trim();
     if (!isTokenAddress(address)) {
-      setValidation(ADDRESS_HINT);
+      setValidation(addressHint(address));
       input.current?.focus();
       return;
     }

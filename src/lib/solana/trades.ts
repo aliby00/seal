@@ -47,6 +47,8 @@ export type TransactionFlows = {
   lamports: ReadonlyMap<string, bigint>;
   /** Other tokens each owner gained or lost, by mint (wrapped SOL included). */
   others: ReadonlyMap<string, ReadonlyMap<string, AssetChange>>;
+  /** Every program the transaction ran, its inner instructions included. */
+  programs: string[];
 };
 
 type Side = { owner: string | undefined; amount: bigint };
@@ -109,6 +111,15 @@ export function readFlows(tx: SolanaTransaction, mint: string): TransactionFlows
     byOwner.set(owner, change);
   }
 
+  const programs = [
+    ...new Set(
+      [
+        ...tx.transaction.message.instructions,
+        ...(meta?.innerInstructions ?? []).flatMap((inner) => inner.instructions),
+      ].map((ix) => keys[ix.programIdIndex] ?? ''),
+    ),
+  ].filter((program) => program !== '');
+
   const mintIndex = keys.indexOf(mint);
   const createsMint =
     meta !== null &&
@@ -128,12 +139,18 @@ export function readFlows(tx: SolanaTransaction, mint: string): TransactionFlows
     createsMint,
     lamports,
     others,
+    programs,
   };
 }
 
 /** Programs whose accounts hold a market's tokens: the launchpads' curves and the AMMs' pools. */
 export const MARKET_PROGRAMS: ReadonlySet<string> = new Set(
   KNOWN_PROGRAMS.filter((p) => p.kind === 'launchpad' || p.kind === 'amm').map((p) => p.address),
+);
+
+/** Lock and vesting programs (Streamflow, Jupiter Lock), by address, with their names. */
+const LOCK_PROGRAMS: ReadonlyMap<string, string> = new Map(
+  KNOWN_PROGRAMS.filter((p) => p.kind === 'lock').map((p) => [p.address, p.name]),
 );
 
 /**
@@ -165,6 +182,12 @@ export type DraftMove = {
   transaction: string;
   payer: string;
   quote: { asset: string; amount: bigint; decimals: number } | null;
+  /**
+   * The lock or vesting program the transaction ran (Streamflow, Jupiter
+   * Lock), on a move outside any market: tokens put into or taken out of its
+   * custody. Absent otherwise.
+   */
+  lock?: string;
 };
 
 const abs = (n: bigint) => (n < 0n ? -n : n);
@@ -176,11 +199,21 @@ const abs = (n: bigint) => (n < 0n ? -n : n);
  *   the most (pump.fun mints the whole supply to its curve), else to the
  *   largest gainer: a `mint` move.
  * - When a pool's balance changed (a curve owned by a launchpad, a pool owned
- *   by an AMM), or, without any, an off-curve account's: that is the market.
- *   Every other owner that gained bought from it, every one that lost sold
- *   to it.
- * - Without a market, an owner that gained received the tokens from the
- *   owner that lost the most: an `allocation`.
+ *   by an AMM), that is the market: every other owner that gained bought
+ *   from it, every one that lost sold to it.
+ * - Without a pool, an off-curve account whose balance changed is the market
+ *   only when something was paid for the tokens: a buy cost the buyer SOL or
+ *   another token, a sale brought the seller some. Tokens that only changed
+ *   hands are no trade: on BONK, the creator's deposits into Streamflow
+ *   escrows (3LEjgMEm…, 16/12/2022) and a plain transfer (4t4zSDDL…) cost it
+ *   fees and rent only, and read as 20 % of the supply sold back. Nor is a
+ *   transaction that ran a lock program (Streamflow, Jupiter Lock): its moves
+ *   name that program in `lock`.
+ * - Tokens put into a market's account with another asset, in a transaction
+ *   that ran a known launchpad or AMM and traded nothing, are liquidity: a
+ *   `provide` (BONK's creator added BONK and USDC to Raydium, 4FrAbnEn…).
+ * - Otherwise an owner that gained received the tokens from the owner that
+ *   lost the most: an `allocation`.
  */
 export function movesOf(
   flows: TransactionFlows,
@@ -218,12 +251,17 @@ export function movesOf(
   }
 
   const moved = [...deltas].filter(([, d]) => d !== 0n);
-  const side: ActorKind = moved.some(([o]) => kind.get(o) === 'pool') ? 'pool' : 'contract';
+  const pooled = moved.some(([o]) => kind.get(o) === 'pool');
+  const side: ActorKind = pooled ? 'pool' : 'contract';
   const markets = moved.filter(([o]) => kind.get(o) === side);
+  const lock = pooled
+    ? undefined
+    : flows.programs.map((p) => LOCK_PROGRAMS.get(p)).find((name) => name !== undefined);
 
-  for (const [owner, delta] of moved) {
-    if (kind.get(owner) === side && markets.length > 0) continue;
-    if (markets.length > 0) {
+  const trades: DraftMove[] = [];
+  if (markets.length > 0 && lock === undefined) {
+    for (const [owner, delta] of moved) {
+      if (kind.get(owner) === side) continue;
       const buy = delta > 0n;
       // The market that gave (for a buy) or took (for a sale) the most.
       const counterparty =
@@ -233,7 +271,7 @@ export function movesOf(
         )?.[0] ??
         largest(markets, ([, d]) => abs(d))?.[0] ??
         '';
-      moves.push({
+      trades.push({
         ...base,
         kind: buy ? 'buy' : 'sell',
         actor: owner,
@@ -241,22 +279,58 @@ export function movesOf(
         value: abs(delta),
         quote: quoteOf(flows, owner, counterparty, buy),
       });
-    } else if (delta > 0n) {
-      const giver = largest(
-        moved.filter(([, d]) => d < 0n),
-        ([, d]) => -d,
+    }
+  }
+  if (pooled || trades.some((m) => m.quote !== null)) return [...moves, ...trades];
+
+  // Nothing was traded: liquidity put into a market, or tokens passed on.
+  const provided = new Set<string>();
+  if (flows.programs.some((p) => MARKET_PROGRAMS.has(p))) {
+    for (const [owner, delta] of moved) {
+      if (delta >= 0n) continue;
+      const pool = largest(
+        moved.filter(
+          ([o, d]) => d > 0n && kind.get(o) === 'contract' && pairedInto(flows, owner, o),
+        ),
+        ([, d]) => d,
       )?.[0];
+      if (pool === undefined) continue;
+      provided.add(pool);
       moves.push({
         ...base,
-        kind: 'allocation',
+        kind: 'provide',
         actor: owner,
-        counterparty: giver ?? mint,
-        value: delta,
+        counterparty: pool,
+        value: -delta,
         quote: null,
       });
     }
   }
+  for (const [owner, delta] of moved) {
+    if (delta <= 0n || provided.has(owner)) continue;
+    const giver = largest(
+      moved.filter(([, d]) => d < 0n),
+      ([, d]) => -d,
+    )?.[0];
+    moves.push({
+      ...base,
+      kind: 'allocation',
+      actor: owner,
+      counterparty: giver ?? mint,
+      value: delta,
+      quote: null,
+      ...(lock !== undefined ? { lock } : {}),
+    });
+  }
   return moves;
+}
+
+/** `actor` gave `pool` another asset in the same transaction: a token it lost and the pool gained. */
+function pairedInto(flows: TransactionFlows, actor: string, pool: string): boolean {
+  const given = flows.others.get(actor);
+  const taken = flows.others.get(pool);
+  if (!given || !taken) return false;
+  return [...given].some(([asset, c]) => c.delta < 0n && (taken.get(asset)?.delta ?? 0n) > 0n);
 }
 
 function largest<T>(list: readonly T[], size: (item: T) => bigint): T | undefined {
