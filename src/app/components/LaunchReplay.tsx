@@ -477,7 +477,7 @@ export function LaunchReplay({
                               target="_blank"
                               rel="noreferrer"
                             >
-                              {names?.[move.counterparty.toLowerCase()] ?? short(move.counterparty)}
+                              {names?.[move.counterparty] ?? short(move.counterparty)}
                             </a>
                           </small>
                         )
@@ -493,8 +493,8 @@ export function LaunchReplay({
                       </a>
                       {move.actorIsCreator ? (
                         <span className="launch-flag">creator</span>
-                      ) : names?.[move.actor.toLowerCase()] ? (
-                        <span className="launch-role">{names[move.actor.toLowerCase()]}</span>
+                      ) : names?.[move.actor] ? (
+                        <span className="launch-role">{names[move.actor]}</span>
                       ) : (
                         move.actorKind !== 'wallet' && (
                           <span className="launch-role">{move.actorKind}</span>

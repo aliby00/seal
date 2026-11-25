@@ -114,9 +114,7 @@ export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
           launch={result.launch}
           index={number(3)}
           hasFlow={Boolean(result.facts?.supplyFlow)}
-          names={Object.fromEntries(
-            (result.facts?.roles ?? []).map((r) => [r.address.toLowerCase(), r.name]),
-          )}
+          names={Object.fromEntries((result.facts?.roles ?? []).map((r) => [r.address, r.name]))}
         />
       )}
       {result.specialists && result.specialists.length > 0 && (

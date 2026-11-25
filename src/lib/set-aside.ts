@@ -56,7 +56,7 @@ export function feePayerWords(
     ? [...payers]
     : hooks.map((address) => ({ address, role: 'hook' as const }));
   const words = list.map(({ address, role }) => {
-    const a = address.toLowerCase();
+    const a = address;
     if (role === 'main-hook') return `the trading rules (hook) of its main pool, ${a}`;
     // TODO-SOLANA: EVM wording (hooks); no Solana report fills fee payers.
     if (role === 'pool-hook') return `the trading rules (hook) of another of its pools, ${a}`;

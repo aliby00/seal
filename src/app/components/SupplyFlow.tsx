@@ -148,11 +148,10 @@ function Card({
           {node.lock.schedules.map((s, i) => (
             <li key={i}>
               {flowPct(s.total)}
-              {s.beneficiary && creator && s.beneficiary === creator.toLowerCase()
+              {s.beneficiary && creator && s.beneficiary === creator
                 ? ' for the creator'
-                : ''}
-              : {s.steps > 0 ? `${s.steps} unlocks` : 'continuous unlock'}, {flowDate(s.startsAt)} →{' '}
-              {flowDate(s.endsAt)}
+                : ''}: {s.steps > 0 ? `${s.steps} unlocks` : 'continuous unlock'},{' '}
+              {flowDate(s.startsAt)} → {flowDate(s.endsAt)}
             </li>
           ))}
         </ul>

@@ -415,12 +415,12 @@ function supplyItem(facts: ReportFacts, launch: LaunchReplayData | undefined): G
   // Shares are of the supply outside pools; with the pooled part known, they
   // are restated against the whole supply so 70% does not read as 70% of it.
   const whole = pooled !== null ? largest.share * (1 - pooled) : null;
-  const creator = facts.creator.address?.toLowerCase();
+  const creator = facts.creator.address;
   // A contract is never "one wallet": what kind of address it is, is part of
   // the fact, and what the chain says it is, when it says more (SIRIUS:
   // Virtuals' capital-formation wallet, not "one wallet").
   const who =
-    creator && largest.address.toLowerCase() === creator
+    creator && largest.address === creator
       ? 'The creator'
       : largest.name
         ? capitalized(largest.name)

@@ -35,8 +35,8 @@ export function checkedByLaunchpad(
   data: Pick<CreatorHistoryData, 'tokens' | 'counts' | 'checkedSample' | 'origin'>,
   token: string,
 ): CheckedLaunchpad[] {
-  const own = token.toLowerCase();
-  const others = data.tokens.filter((t) => String(t.address).toLowerCase() !== own);
+  // Solana addresses are case-sensitive: compared as they are, never lowered.
+  const others = data.tokens.filter((t) => String(t.address) !== token);
   const pons = !data.origin || data.origin.source === 'pons';
   const nameOf = (t: (typeof others)[number]) => t.launchpad ?? (pons ? 'pons' : OTHER);
   const groups = new Map<string, typeof others>();

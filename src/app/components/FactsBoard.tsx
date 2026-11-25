@@ -449,7 +449,7 @@ function HoldersCard({
                 <li key={h.address}>
                   <span className="fact-mono">
                     {short(h.address)}
-                    {creator && h.address.toLowerCase() === creator.toLowerCase()
+                    {creator && h.address === creator
                       ? ' · creator'
                       : h.kind === 'contract'
                         ? ' · contract'
