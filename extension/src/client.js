@@ -11,7 +11,7 @@
   const MESSAGES = {
     unreadable: 'SEAL could not read this token right now.',
     busy: 'SEAL is answering many requests. Try again in a minute.',
-    unknown: 'SEAL found nothing for this address on Robinhood Chain.',
+    unknown: 'SEAL found no token at this address on Solana.',
     invalid: 'This is not a token address.',
   };
 
@@ -120,7 +120,8 @@
 
     /** The glance for `{ kind, address }`: `{ ok: true, data }` or `{ ok: false, status, message }`. */
     async function get(query) {
-      const key = `glance:${query.kind}:${String(query.address).toLowerCase()}`;
+      // Solana addresses are case-sensitive: the key keeps the address as given.
+      const key = `glance:${query.kind}:${String(query.address)}`;
       const cached = await store.get(key).catch(() => undefined);
       if (cached && now() - cached.at < ttlMs) return { ok: true, data: cached.data, cached: true };
       if (now() < pausedUntil) return { ok: false, status: 429, message: MESSAGES.busy };
@@ -135,7 +136,7 @@
             // A pair resolved to its token is also known by the token's own address.
             if (result.data.token && query.kind === 'pair') {
               await store
-                .set(`glance:token:${String(result.data.token).toLowerCase()}`, entry)
+                .set(`glance:token:${String(result.data.token)}`, entry)
                 .catch(() => undefined);
             }
           }

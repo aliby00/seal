@@ -14,9 +14,10 @@ import { chromium, expect, test, type BrowserContext, type Worker } from '@playw
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const FIXTURE = path.join(ROOT, 'tests/e2e/fixtures/dexscreener-pair.html');
-const PAIR = '0x7f8271c1a7a6a434f33b0babc15bf2980a0dcb4196848b4f7e789a7fd73a5350';
-const OTHER = '0x2222222222222222222222222222222222222222';
-const TOKEN = '0x10E848F9d5073D670201b111f1ba3D1C5bE6f18B';
+/** FIONA's PumpSwap pool, another pool, and the pump.fun token The Poor Bull (REFERENCE.json). */
+const PAIR = 'DjbLtX1HRGZZrJgJ7CwTX6SN3D7tBLiytkGwomBUwTVB';
+const OTHER = '7NCEXHBRk5mMKpMwVkVJ7Nkpay4kDsaBYxkJuWrBybGd';
+const TOKEN = 'FB5eSv7CAMWJnrH5GvHLivx9y8Qgoo8vpPV3EX5Npump';
 
 function glance(name: string, symbol: string, token = TOKEN) {
   return {
@@ -81,7 +82,7 @@ test.beforeAll(async () => {
         : {};
       const body =
         url.searchParams.get('pair') === OTHER
-          ? glance('Beta', 'BETA', '0x3333333333333333333333333333333333333333')
+          ? glance('Beta', 'BETA', 'D234v6HgjNdTfS8vYa3ZfJAF5sSoTVzrKCDmQ2ypCnQK')
           : glance('Alpha Token', 'ALP');
       res.writeHead(200, { 'content-type': 'application/json', ...cors });
       res.end(JSON.stringify(body));
@@ -99,7 +100,7 @@ test.beforeAll(async () => {
   await cp(path.join(ROOT, 'extension'), extension, { recursive: true });
   const manifestPath = path.join(extension, 'manifest.json');
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
-  manifest.content_scripts[0].matches.push('http://dexscreener.com/robinhood*');
+  manifest.content_scripts[0].matches.push('http://dexscreener.com/solana*');
   await writeFile(manifestPath, JSON.stringify(manifest));
 
   context = await chromium.launchPersistentContext(path.join(dir, 'profile'), {
@@ -141,7 +142,7 @@ test.afterAll(async () => {
 
 test('a token page gets the SEAL pill, which opens the In short card', async () => {
   const page = await context.newPage();
-  await page.goto(`http://dexscreener.com/robinhood/${PAIR}`);
+  await page.goto(`http://dexscreener.com/solana/${PAIR}`);
 
   const pill = page.getByRole('button', { name: /Open the SEAL In short card/ });
   await expect(pill).toBeVisible();
@@ -169,7 +170,7 @@ test('a token page gets the SEAL pill, which opens the In short card', async () 
   // The page stays usable underneath, and its field is left alone.
   await page.locator('#page-button').click();
   await expect(page.locator('#clicked')).toBeVisible();
-  await expect(page.locator('#search')).toHaveValue('0x10e848f9d5073d670201b111f1ba3d1c5be6f18b');
+  await expect(page.locator('#search')).toHaveValue(TOKEN);
 
   await page.screenshot({ path: '/tmp/seal-extension-card.png' });
 
@@ -181,7 +182,7 @@ test('a token page gets the SEAL pill, which opens the In short card', async () 
 
 test('hovering a link to another token shows a compact card after a pause', async () => {
   const page = await context.newPage();
-  await page.goto(`http://dexscreener.com/robinhood/${PAIR}`);
+  await page.goto(`http://dexscreener.com/solana/${PAIR}`);
   await expect(page.getByRole('button', { name: /SEAL In short/ })).toBeVisible();
 
   await page.locator('#tx').hover();
@@ -203,10 +204,10 @@ test('the popup reads a pasted address', async () => {
   const id = new URL(worker.url()).host;
   const page = await context.newPage();
   await page.goto(`chrome-extension://${id}/popup/popup.html`);
-  await page.getByLabel('Token address on Robinhood Chain').fill('not an address');
+  await page.getByLabel('Token address on Solana').fill('not an address');
   await page.getByRole('button', { name: 'Read' }).click();
-  await expect(page.getByRole('alert')).toContainText('40 hexadecimal characters');
-  await page.getByLabel('Token address on Robinhood Chain').fill(TOKEN);
+  await expect(page.getByRole('alert')).toContainText('Enter a Solana token address');
+  await page.getByLabel('Token address on Solana').fill(TOKEN);
   await page.getByRole('button', { name: 'Read' }).click();
   await expect(page.getByRole('dialog', { name: 'Alpha Token · ALP' })).toBeVisible();
   await expect(page.getByText('SEAL appears on DexScreener')).toBeVisible();

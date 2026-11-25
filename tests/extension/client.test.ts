@@ -2,8 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { ext } from './ext';
 import { SAMPLE } from './sample';
 
-const TOKEN = '0x10e848f9d5073d670201b111f1ba3d1c5be6f18b';
-const POOL = `0x${'7f'.repeat(32)}`;
+const TOKEN = 'FB5eSv7CAMWJnrH5GvHLivx9y8Qgoo8vpPV3EX5Npump';
+const POOL = 'DjbLtX1HRGZZrJgJ7CwTX6SN3D7tBLiytkGwomBUwTVB';
+const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
 function setup(responses: (() => Response)[] = [() => Response.json(SAMPLE)]) {
   let clock = 1_000_000;
@@ -40,15 +41,20 @@ describe('the glance client', () => {
     const { client, fetch, advance } = setup();
     await client.get({ kind: 'token', address: TOKEN });
     advance(4 * 60_000);
-    const again = await client.get({
-      kind: 'token',
-      address: TOKEN.toUpperCase().replace('0X', '0x'),
-    });
+    const again = await client.get({ kind: 'token', address: TOKEN });
     expect(again).toMatchObject({ ok: true, cached: true });
     expect(fetch).toHaveBeenCalledTimes(1);
     advance(61_000);
     await client.get({ kind: 'token', address: TOKEN });
     expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps addresses in their own case: another case is another address', async () => {
+    const { client, fetch } = setup();
+    await client.get({ kind: 'token', address: USDC });
+    await client.get({ kind: 'token', address: USDC.toLowerCase() });
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch.mock.calls[0]![0]).toBe(`https://sealauth.dev/api/glance?token=${USDC}`);
   });
 
   it('knows a pair’s answer under its token too', async () => {
@@ -82,7 +88,7 @@ describe('the glance client', () => {
     ]);
     const first = await client.get({ kind: 'token', address: TOKEN });
     expect(first).toMatchObject({ ok: false, status: 429 });
-    const other = await client.get({ kind: 'token', address: `0x${'1'.repeat(40)}` });
+    const other = await client.get({ kind: 'token', address: USDC });
     expect(other).toMatchObject({ ok: false, status: 429 });
     expect(fetch).toHaveBeenCalledTimes(1);
     advance(31_000);
@@ -109,7 +115,9 @@ describe('the glance client', () => {
       message: 'SEAL could not read this token right now.',
     });
     const unknown = await client.get({ kind: 'token', address: TOKEN });
-    expect(unknown.ok ? '' : unknown.message).toMatch(/found nothing/);
+    expect(unknown.ok ? '' : unknown.message).toBe(
+      'SEAL found no token at this address on Solana.',
+    );
     const malformed = await client.get({ kind: 'token', address: TOKEN });
     expect(malformed.ok).toBe(false);
     expect(fetch).toHaveBeenCalledTimes(3);
