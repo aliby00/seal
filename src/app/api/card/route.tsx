@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ImageResponse } from 'next/og';
-import { isSolanaAddress } from '@/lib/solana/address';
+import { isSolanaAddress, shortAddress } from '@/lib/solana/address';
 import { cardCache, glanceOf } from '@/lib/glance-service';
 import type { GlanceItem, GlanceTone } from '@/lib/glance';
 import { allowShared, clientKey, type RateLimit } from '@/lib/guard';
@@ -61,8 +61,6 @@ function loadFonts(): Promise<Font[]> {
     });
   return fonts;
 }
-
-const short = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)}`;
 
 /** Cut at a word, so a long sentence ends cleanly inside its box. */
 function clip(text: string, max: number): string {
@@ -171,7 +169,7 @@ function Card({ data }: { data: CardData }) {
         )}
       </div>
       <div style={{ fontFamily: 'Mono', fontSize: 20, color: FAINT, marginTop: 12 }}>
-        {short(data.token)}
+        {`${shortAddress(data.token)} · Solana`}
       </div>
 
       {lead ? (
@@ -231,7 +229,7 @@ function Card({ data }: { data: CardData }) {
             color: DIM,
           }}
         >
-          Who made it, who holds it, what its market shows.
+          Who made it, who holds it, what its market shows, read on Solana.
         </div>
       )}
 
@@ -246,7 +244,7 @@ function Card({ data }: { data: CardData }) {
         }}
       >
         <div style={{ color: TEXT, fontWeight: 700 }}>sealauth.dev</div>
-        <div style={{ color: FAINT }}>No score. Only what the chain shows.</div>
+        <div style={{ color: FAINT }}>No score. Only what Solana shows.</div>
       </div>
     </div>
   );

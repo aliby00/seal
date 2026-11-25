@@ -10,6 +10,7 @@ import {
   roundTripsExcludedWords,
   type LaunchStory,
 } from '@/lib/launch-story';
+import { addressUrl, short, txUrl } from './explorer';
 
 /**
  * The first minutes of the token, replayed. Every dot is one move read from
@@ -17,8 +18,6 @@ import {
  * it carried, and whether the address still holds today. Nothing is named
  * sniper or insider; the reader sees who moved first and judges.
  */
-
-const EXPLORER = 'https://robinhoodchain.blockscout.com';
 
 const KIND_WORD: Record<LaunchMove['kind'], string> = {
   mint: 'Created for',
@@ -28,8 +27,6 @@ const KIND_WORD: Record<LaunchMove['kind'], string> = {
   provide: 'Liquidity added by',
   withdraw: 'Liquidity removed by',
 };
-
-const short = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)}`;
 
 function pct(value: number): string {
   if (value === 0) return '0%';
@@ -77,7 +74,7 @@ function Story({ story }: { story: LaunchStory }) {
     items.push({
       tone: story.creatorAtLaunch >= 0.05 ? 'attention' : 'neutral',
       figure: pct(story.creatorAtLaunch),
-      label: 'taken by the creator in the launch block itself',
+      label: 'taken by the creator in the creation slot itself',
     });
   }
   // Delivered by the creator's own launch transaction to other addresses:
@@ -316,7 +313,7 @@ function Buyers({ buyers, bundle }: { buyers: Buyer[]; bundle: string | null }) 
           <li key={b.address} data-tone={tone}>
             <span className="buyer-rank">{i + 1}</span>
             <span className="buyer-who">
-              <a href={`${EXPLORER}/address/${b.address}`} target="_blank" rel="noreferrer">
+              <a href={addressUrl(b.address)} target="_blank" rel="noreferrer">
                 {short(b.address)}
               </a>
               {b.isCreator && <span className="launch-flag">creator</span>}
@@ -348,7 +345,7 @@ export function LaunchReplay({
   hasFlow = false,
   names,
 }: {
-  /** What the chain says each address is, by lowercase address. */
+  /** What the chain says each address is, by address (case kept: base58 is case-sensitive). */
   names?: Record<string, string>;
   launch: LaunchReplayData;
   /** The report draws where the supply went: a launch without buyers points to it. */
@@ -374,7 +371,7 @@ export function LaunchReplay({
         </p>
         <h3 id="launch-title">Who got in first, and who is still there.</h3>
         <p className="questions-intro">
-          Read from the token’s own transfers, from the moment it was created.
+          Read from the token’s own balance changes, from the slot it was created in.
         </p>
       </div>
       {noBuys ? (
@@ -463,7 +460,11 @@ export function LaunchReplay({
                 const state = holding(move);
                 return (
                   <tr key={`${move.transaction}-${move.actor}-${move.kind}`} data-kind={move.kind}>
-                    <td>{when(move.seconds)}</td>
+                    <td>
+                      <a href={txUrl(move.transaction)} target="_blank" rel="noreferrer">
+                        {when(move.seconds)}
+                      </a>
+                    </td>
                     <td>
                       <span className="launch-kind">{KIND_WORD[move.kind]}</span>
                       {move.counterpartyIsCreator ? (
@@ -473,7 +474,7 @@ export function LaunchReplay({
                           <small className="launch-from">
                             from{' '}
                             <a
-                              href={`${EXPLORER}/address/${move.counterparty}`}
+                              href={addressUrl(move.counterparty)}
                               target="_blank"
                               rel="noreferrer"
                             >
@@ -484,11 +485,7 @@ export function LaunchReplay({
                       )}
                     </td>
                     <td>
-                      <a
-                        href={`${EXPLORER}/address/${move.actor}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
+                      <a href={addressUrl(move.actor)} target="_blank" rel="noreferrer">
                         {short(move.actor)}
                       </a>
                       {move.actorIsCreator ? (

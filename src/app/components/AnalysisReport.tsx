@@ -2,9 +2,10 @@ import { buildGlance } from '@/lib/glance';
 import type { AnalyzeResponse } from '../api/analyze/route';
 import { AtAGlance } from './AtAGlance';
 import { Explanation } from './Explanation';
-import { FactsBoard, plainNote } from './FactsBoard';
+import { FactsBoard, namesOf, plainNote } from './FactsBoard';
 import { LaunchReplay } from './LaunchReplay';
 import { ReportHeader } from './ReportHeader';
+import { SolanaFacts } from './SolanaFacts';
 import { SpecialistsPanel } from './SpecialistsPanel';
 import { SupplyFlow } from './SupplyFlow';
 
@@ -32,8 +33,19 @@ export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
         !(glance?.partial && /^Partial report:/.test(block.trim())),
     )
     .join('\n\n');
-  // Sections are numbered in reading order; the replay only exists for some tokens.
-  const number = (n: number) => String(n).padStart(2, '0');
+  // Sections are numbered in reading order; the Solana blocks and the replay
+  // only exist for some responses.
+  const sections = [
+    ...(result.facts ? ['facts'] : []),
+    ...(result.solana ? ['solana'] : []),
+    ...(replay ? ['replay'] : []),
+    'questions',
+  ];
+  const number = (section: string) => String(sections.indexOf(section) + 2).padStart(2, '0');
+  const factsIndex = number('facts');
+  const solanaIndex = number('solana');
+  const replayIndex = number('replay');
+  const questionsIndex = number('questions');
   return (
     <article className="report" aria-labelledby="report-title">
       <ReportHeader result={result} headline={glance?.items[0]?.title} />
@@ -71,7 +83,7 @@ export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
       )}
       <section className="reading-section" aria-labelledby="reading-title">
         <div className="report-section-head">
-          <p className="report-kicker">{number(1)} — Reading</p>
+          <p className="report-kicker">01 — Reading</p>
           <h3 id="reading-title">How the facts fit together.</h3>
         </div>
         {/* A note on how the text was made, kept with the text rather than at the top. */}
@@ -107,18 +119,24 @@ export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
         </div>
       </section>
       {result.facts && (
-        <FactsBoard facts={result.facts} timeline={result.timeline} index={number(2)} />
+        <FactsBoard
+          facts={result.facts}
+          timeline={result.timeline}
+          solana={result.solana}
+          index={factsIndex}
+        />
       )}
+      {result.solana && <SolanaFacts view={result.solana} index={solanaIndex} />}
       {replay && result.launch && (
         <LaunchReplay
           launch={result.launch}
-          index={number(3)}
+          index={replayIndex}
           hasFlow={Boolean(result.facts?.supplyFlow)}
-          names={Object.fromEntries((result.facts?.roles ?? []).map((r) => [r.address, r.name]))}
+          names={namesOf(result.solana)}
         />
       )}
       {result.specialists && result.specialists.length > 0 && (
-        <SpecialistsPanel answers={result.specialists} index={number(replay ? 4 : 3)} />
+        <SpecialistsPanel answers={result.specialists} index={questionsIndex} />
       )}
       <footer className="report-footer">
         <p>

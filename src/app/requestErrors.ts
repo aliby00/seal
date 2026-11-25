@@ -10,7 +10,8 @@ const FAILED = 'The analysis could not be completed.';
 const byStatus: Record<number, RequestError> = {
   400: {
     title: FAILED,
-    message: 'Invalid address. Use 0x followed by 40 hexadecimal characters.',
+    message:
+      'Invalid address. Paste a Solana token address: 32 to 44 letters and digits, as the explorer shows it.',
     retry: false,
   },
   403: {
@@ -20,7 +21,8 @@ const byStatus: Record<number, RequestError> = {
   },
   404: {
     title: FAILED,
-    message: 'Token not found. Check its address and that it exists on Robinhood Chain.',
+    message:
+      'No token was found at this address on Solana. Check that it is the token’s own address, not a wallet’s or a pool’s.',
     retry: false,
   },
   413: {

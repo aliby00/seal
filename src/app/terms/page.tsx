@@ -18,10 +18,10 @@ export default function TermsPage() {
 
       <h2>What SEAL does</h2>
       <p>
-        SEAL reads public data about a token on Robinhood Chain — its creator&apos;s past launches,
-        how its supply is held, its market — and shows it with an explanation in plain language. It
-        gives no score and no advice. Read the <a href="/disclaimer">disclaimer</a> before relying
-        on anything shown here.
+        SEAL reads public data about a token on Solana — what its mint allows, its creator&apos;s
+        other tokens, how its supply is held, its market — and shows it with an explanation in plain
+        language. It gives no score and no advice. Read the <a href="/disclaimer">disclaimer</a>{' '}
+        before relying on anything shown here.
       </p>
 
       <h2>Using the service</h2>

@@ -11,8 +11,8 @@ export function Disclaimer() {
           recommend buying or selling, and never assigns a score.
         </p>
         <p>
-          <strong>Not a contract audit.</strong> This analysis examines the creator, holders and
-          market. It does not audit contract bytecode.
+          <strong>Not a code audit.</strong> This analysis examines the mint, the creator, the
+          holders and the market. It does not audit program code.
         </p>
         <p>
           <strong>The agent is not deterministic.</strong> Two readings of the same token may

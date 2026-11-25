@@ -9,6 +9,7 @@ import {
   type TimelineLaunch,
 } from '@/lib/facts';
 import { isSolanaAddress } from '@/lib/solana/address';
+import { toSolanaView, type SolanaView } from '@/app/components/solana-view';
 import { SealError } from '@/lib/errors';
 import { ANALYZE_LIMIT, guardedJson } from '@/lib/guard';
 import { log } from '@/lib/logger';
@@ -51,8 +52,13 @@ const MIN_MODEL_MS = 5_000;
 /** The questions always get a short chance, even after a slow collection. */
 const MIN_SPECIALIST_MS = 1_000;
 
-/** The response body. Its shape is kept with the cache, which stores it as is. */
-export type AnalyzeResponse = CachedAnalysis;
+/**
+ * The response body. Its shape is kept with the cache, which stores it as is.
+ * `solana`: what the report screen draws of the Solana blocks (mint, powers,
+ * holders by role, liquidity by pool, launch, creator); absent from answers
+ * cached before it existed.
+ */
+export type AnalyzeResponse = CachedAnalysis & { solana?: SolanaView };
 
 const PUBLIC_MESSAGE: Record<string, string> = {
   'rate-limit': 'A data source is rate-limiting requests. Try again in a minute.',
@@ -69,6 +75,16 @@ function chartable(
     return toFacts(report, funder ? { funder } : {});
   } catch (error) {
     log.warn('faits non représentables', { error: String(error) });
+    return undefined;
+  }
+}
+
+/** Drawn on top of the text, like the charts: a malformed report must not fail the response. */
+function solanaView(report: Parameters<typeof toSolanaView>[0]): SolanaView | undefined {
+  try {
+    return toSolanaView(report);
+  } catch (error) {
+    log.warn('vue Solana non représentable', { error: String(error) });
     return undefined;
   }
 }
@@ -138,7 +154,7 @@ async function analyze(request: Request, started: number): Promise<Response> {
     log.info('analyse servie depuis le cache', { token, ms: Date.now() - started });
     // The cost is ours to track, never part of what a reader is served: an
     // entry written before it left the response loses it here.
-    const served: AnalyzeResponse & { costUsd?: number } = { ...hit };
+    const served: AnalyzeResponse & { costUsd?: number } = { ...(hit as AnalyzeResponse) };
     delete served.costUsd;
     return NextResponse.json({ ...served, cached: true } satisfies AnalyzeResponse);
   }
@@ -200,6 +216,7 @@ async function analyze(request: Request, started: number): Promise<Response> {
     }
 
     const launch = launchView(report.launch);
+    const solana = solanaView(report);
     const body: AnalyzeResponse = {
       token: report.token,
       explanation: explanation.text,
@@ -215,6 +232,7 @@ async function analyze(request: Request, started: number): Promise<Response> {
       facts: chartable(report, funderOf(brief?.answers)),
       timeline: timeline(report),
       ...(launch ? { launch } : {}),
+      ...(solana ? { solana } : {}),
       ...(brief ? { name: brief.name, symbol: brief.symbol, specialists: brief.answers } : {}),
     };
 

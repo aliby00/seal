@@ -7,6 +7,7 @@ import {
   type FlowNodeKind,
   type SupplyFlow as SupplyFlowData,
 } from '@/lib/supply-flow';
+import { addressUrl, short } from './explorer';
 
 /**
  * Where the supply went at launch, drawn as a tree a person can follow: the
@@ -16,9 +17,6 @@ import {
  * took, what graduation moved to the market. One bar above gives the whole
  * supply split by final recipient. On a phone the tree runs down one rail.
  */
-
-const EXPLORER = 'https://robinhoodchain.blockscout.com';
-const short = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)}`;
 
 /** One colour per role, in a fixed order (validated for colour-vision deficiency on the HUD surface). */
 const ROLE_SLOT: Record<FlowNodeKind, number> = {
@@ -117,7 +115,7 @@ function Card({
         {node.address && (
           <a
             className="flow-address"
-            href={`${EXPLORER}/address/${node.address}`}
+            href={addressUrl(node.address)}
             target="_blank"
             rel="noreferrer"
             aria-label={`${node.name}, ${node.address}, on the explorer`}

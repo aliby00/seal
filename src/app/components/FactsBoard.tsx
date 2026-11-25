@@ -2,6 +2,8 @@ import { readableNote } from '@/lib/plain-note';
 import type { CSSProperties } from 'react';
 import type { ReportFacts, TimelineLaunch } from '@/lib/facts';
 import { whereSetAside } from '@/lib/set-aside';
+import { addressUrl, short } from './explorer';
+import type { SolanaView } from './solana-view';
 
 /**
  * The measured numbers, drawn. Three cards — creator, holders, market — each
@@ -23,14 +25,13 @@ function pct(value: number): string {
  */
 export function plainNote(note: string | undefined): string | undefined {
   if (!note) return undefined;
-  if (/not a pons launch|no launch record found/i.test(note))
-    return 'No launch record names a creator, and the token’s first mint could not be traced.';
+  if (/no launch record found/i.test(note))
+    return 'No launch record names a creator, and the transaction that created the mint was not found.';
   if (/402|no api key/i.test(note)) return 'Not available for this token yet.';
   if (/rate-limit|request limit|could not be read/i.test(note))
     return 'The chain node was busy. Try again in a minute.';
   if (/no pair indexed/i.test(note)) return 'No trading pair listed on DexScreener.';
-  if (/too many transfers/i.test(note))
-    return 'Too much trading history to rebuild here. This token needs the Blockscout source.';
+  if (/too many transfers/i.test(note)) return 'Too much trading history to rebuild here.';
   if (/start of this token/i.test(note)) return 'The start of this token’s history was not found.';
   return readableNote(note, { sentence: true });
 }
@@ -56,8 +57,6 @@ export function usd(value: number | null): string {
     .join('');
   return `$0.0${count}${digits}`;
 }
-
-const short = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)}`;
 
 /** A ring: one or two filled arcs over a track. Values are shares from 0 to 1. */
 function Ring({
@@ -175,11 +174,15 @@ function Donut({ top1, top10, count }: { top1: number; top10: number; count: num
   );
 }
 
+/**
+ * On Solana, `abandoned` is a token launched over a day ago with no trade in
+ * the last 24 hours on any market DexScreener lists: said as such.
+ */
 const OUTCOME_LABEL: Record<TimelineLaunch['outcome'], string> = {
   graduated: 'graduated',
-  active: 'active',
-  abandoned: 'abandoned',
-  undetermined: 'undetermined',
+  active: 'traded in the last 24 h',
+  abandoned: 'no trade in the last 24 h',
+  undetermined: 'not known',
 };
 
 /**
@@ -204,10 +207,7 @@ function Timeline({ launches }: { launches: TimelineLaunch[] }) {
       <ol className="timeline-track">
         {launches.map((l, i) => {
           const x = 2 + ((l.block - first) / span) * 96;
-          const events = [
-            l.sold ? 'creator sold into the pool' : '',
-            l.pulled ? 'liquidity removed' : '',
-          ]
+          const events = [l.sold ? 'the creator sold' : '', l.pulled ? 'liquidity removed' : '']
             .filter(Boolean)
             .join(', ');
           return (
@@ -232,19 +232,16 @@ function Timeline({ launches }: { launches: TimelineLaunch[] }) {
           <i data-outcome="graduated" /> graduated
         </li>
         <li>
-          <i data-outcome="active" /> active
+          <i data-outcome="active" /> traded in the last 24 h
         </li>
         <li>
-          <i data-outcome="undetermined" /> undetermined
+          <i data-outcome="undetermined" /> not known
         </li>
         <li>
-          <i data-outcome="abandoned" /> abandoned
+          <i data-outcome="abandoned" /> no trade in the last 24 h
         </li>
         <li>
           <i className="timeline-sold" /> creator sold
-        </li>
-        <li>
-          <i className="timeline-pulled" /> liquidity removed
         </li>
         <li>
           <i data-current="true" /> this token
@@ -295,27 +292,43 @@ function Missing({ note }: { note?: string }) {
 }
 
 /**
- * How the creator was found, said plainly. A first minter only sent the first
- * mint: that does not prove they wrote the token, and the card says so.
+ * How the creator was found, said plainly. A fee payer only paid for the
+ * transaction that created the mint: that does not prove who made the token,
+ * and the card says so.
  */
 export function creatorOrigin(creator: ReportFacts['creator']): string | null {
-  const via = creator.launchContract ? ` through ${short(creator.launchContract)}` : '';
-  if (creator.source === 'pons') return 'Found from their pons launch record.';
   if (creator.launchpad) {
     return creator.creatorFrom === 'launch-record'
-      ? `Found from their ${creator.launchpad} launch record.`
-      : `Launched the token through ${creator.launchpad}: the sender of that transaction.`;
+      ? `Named as creator by its ${creator.launchpad} launch record.`
+      : `Launched the token through ${creator.launchpad}: the payer of that transaction.`;
+  }
+  if (creator.creatorFrom === 'transaction') {
+    return 'Paid for the transaction that created the mint. This does not prove who made the token.';
   }
   switch (creator.role) {
     case 'deployer':
-      return 'Deployed the token contract.';
+      return 'Created the token.';
     case 'launcher':
-      return `Launched the token${via}.`;
+      return `Launched the token${creator.launchContract ? ` through ${short(creator.launchContract)}` : ''}.`;
     case 'first-minter':
-      return 'Sent the first mint. This does not prove who wrote the token.';
+      return 'Received the first tokens. This does not prove who made the token.';
     default:
       return null;
   }
+}
+
+function Address({ address }: { address: string }) {
+  return (
+    <a
+      className="sol-address"
+      href={addressUrl(address)}
+      target="_blank"
+      rel="noreferrer"
+      title={address}
+    >
+      {short(address)}
+    </a>
+  );
 }
 
 function CreatorCard({
@@ -326,9 +339,6 @@ function CreatorCard({
   timeline?: TimelineLaunch[];
 }) {
   const wide = creator.measured && (timeline?.length ?? 0) >= 2;
-  // A report cached before these counts existed carries only `checked`.
-  const salesChecked = creator.salesChecked ?? creator.checked;
-  const liquidityChecked = creator.liquidityChecked ?? creator.checked;
   return (
     <section className="fact-card" data-wide={wide || undefined} aria-labelledby="fact-creator">
       <h3 id="fact-creator">Creator</h3>
@@ -340,15 +350,15 @@ function CreatorCard({
             {creator.launched}
             <span>
               {' '}
-              launch{creator.launched === 1 ? '' : 'es'} found
+              token{creator.launched === 1 ? '' : 's'} launched, this one included
               {creator.launchesListed === false || (creator.notListed?.length ?? 0) > 0
-                ? ', where launches can be listed'
+                ? ', from what could be listed'
                 : ''}
             </span>
           </p>
           {creator.address && (
             <p className="fact-mono">
-              {short(creator.address)}
+              <Address address={creator.address} />
               {creator.transactionCount != null &&
                 ` · ${creator.transactionCount} transaction${creator.transactionCount === 1 ? '' : 's'} sent`}
             </p>
@@ -356,45 +366,24 @@ function CreatorCard({
           {creatorOrigin(creator) && <p className="fact-line">{creatorOrigin(creator)}</p>}
           {(creator.graduation ?? 'measured') === 'measured' ? (
             <Split
-              label={`Outcomes of ${creator.detailed} launches read in detail`}
+              label={`Outcomes of the ${creator.detailed} other tokens read in detail, and this one`}
               parts={[
                 { value: creator.graduated, tone: 'calm', name: 'graduated' },
-                { value: creator.active, tone: 'neutral', name: 'active' },
-                { value: creator.undetermined, tone: 'faint', name: 'undetermined' },
-                { value: creator.abandoned, tone: 'warm', name: 'abandoned' },
+                { value: creator.active, tone: 'neutral', name: 'traded in 24 h' },
+                { value: creator.undetermined, tone: 'faint', name: 'not known' },
+                { value: creator.abandoned, tone: 'warm', name: 'no trade in 24 h' },
               ]}
             />
           ) : (
             <p className="fact-line">{graduationLine(creator)}</p>
           )}
           {timeline && <Timeline launches={timeline} />}
-          {salesChecked + liquidityChecked > 0 && (
-            <dl className="fact-pairs">
-              <div>
-                <dt>Sold into the pool</dt>
-                <dd>
-                  {salesChecked > 0 ? (
-                    <>
-                      {creator.soldIntoPool} <span>of {salesChecked} checked</span>
-                    </>
-                  ) : (
-                    <span>not measured</span>
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt>Liquidity removed</dt>
-                <dd>
-                  {liquidityChecked > 0 ? (
-                    <>
-                      {creator.liquidityPulled} <span>of {liquidityChecked} checked</span>
-                    </>
-                  ) : (
-                    <span>not measured</span>
-                  )}
-                </dd>
-              </div>
-            </dl>
+          {creator.salesChecked > 0 && (
+            <p className="fact-line">
+              {creator.soldIntoPool > 0
+                ? 'The creator sold some of this token.'
+                : 'The creator sold none of this token, in every move read.'}
+            </p>
           )}
           {(creator.notListed?.length ?? 0) > 0 && (
             <p className="fact-note">Not listed: {creator.notListed?.join(', ')}.</p>
@@ -406,19 +395,22 @@ function CreatorCard({
   );
 }
 
-/** Why there is no graduation split: never read here, or no such step for this token. */
+/** Why there is no graduation split: not read here, or no curve for this token. */
 export function graduationLine(creator: ReportFacts['creator']): string {
   return creator.graduation === 'not-applicable'
-    ? 'Graduation does not apply: this token had no launch curve to leave.'
-    : `Graduation is read for pons and Virtuals launches only: not measured${creator.launchpad ? ` on ${creator.launchpad}` : ' here'}.`;
+    ? 'Graduation does not apply: no launch curve held this token.'
+    : `Graduation is read on pump.fun, Meteora DBC and Raydium LaunchLab curves: not measured${creator.launchpad ? ` on ${creator.launchpad}` : ' here'}.`;
 }
 
 function HoldersCard({
   holders,
   creator,
+  names,
 }: {
   holders: ReportFacts['holders'];
   creator: string | null;
+  /** What the chain names an address, by address (case kept). */
+  names: Record<string, string>;
 }) {
   const largest = holders.top[0]?.share ?? 0;
   return (
@@ -432,14 +424,15 @@ function HoldersCard({
             <p className="fact-pooled">
               <strong>{pct(holders.pooled)}</strong> of the supply sits in{' '}
               {whereSetAside(holders.setAside)}. The shares below split the other{' '}
-              {pct(1 - holders.pooled)}, held in wallets and contracts.
+              {pct(1 - holders.pooled)}, held in wallets and other accounts.
             </p>
           )}
           <Donut top1={holders.top1} top10={holders.top10} count={holders.holderCount} />
           <p className="sr-only">{`Concentration: largest ${pct(holders.top1)} · top 10 ${pct(holders.top10)}`}</p>
           {holders.holderCount !== null && (
             <p className="fact-line">
-              <strong>{holders.holderCount}</strong> holders outside pools and burn addresses
+              <strong>{holders.holderCount}</strong> holders outside curves, pools, locks and burn
+              addresses
             </p>
           )}
           {holders.note && <p className="fact-note">{plainNote(holders.note)}</p>}
@@ -448,12 +441,14 @@ function HoldersCard({
               {holders.top.map((h) => (
                 <li key={h.address}>
                   <span className="fact-mono">
-                    {short(h.address)}
+                    <Address address={h.address} />
                     {creator && h.address === creator
                       ? ' · creator'
-                      : h.kind === 'contract'
-                        ? ' · contract'
-                        : ''}
+                      : names[h.address]
+                        ? ` · ${names[h.address]}`
+                        : h.kind === 'contract'
+                          ? ' · program account'
+                          : ''}
                   </span>
                   <span className="holder-track" aria-hidden="true">
                     <span
@@ -472,77 +467,32 @@ function HoldersCard({
   );
 }
 
-const eth = (value: number | null): string =>
-  value === null
-    ? '—'
-    : `${value >= 100 ? value.toFixed(0) : value.toFixed(value >= 1 ? 2 : 4)} ETH`;
+const BASIS_WORD = {
+  'tokens-sold': 'of the curve’s tokens sold',
+  'quote-raised': 'of the target raised',
+} as const;
 
-/** No listed pair: the launch pool's own trades, counted by the SEAL indexer. No price. */
-function PoolActivity({
-  activity,
-}: {
-  activity: NonNullable<ReportFacts['market']['poolActivity']>;
-}) {
-  const trades = activity.buys24h + activity.sells24h;
-  return (
-    <>
-      <dl className="fact-pairs">
-        <div>
-          <dt>Trades 24h</dt>
-          <dd>{trades}</dd>
-        </div>
-        <div>
-          <dt>Wallets 24h</dt>
-          <dd>{activity.traders24h}</dd>
-        </div>
-        <div>
-          <dt>Volume 24h</dt>
-          <dd>{eth(activity.volume24hEth)}</dd>
-        </div>
-        <div>
-          <dt>Last trade</dt>
-          <dd>
-            {activity.lastTradeAt
-              ? `${activity.lastTradeAt.slice(0, 16).replace('T', ' ')} UTC`
-              : '—'}
-          </dd>
-        </div>
-      </dl>
-      {trades > 0 && (
-        <Split
-          label={`${activity.buys24h} buys and ${activity.sells24h} sells in 24 hours`}
-          parts={[
-            { value: activity.buys24h, tone: 'calm', name: 'buys' },
-            { value: activity.sells24h, tone: 'warm', name: 'sells' },
-          ]}
-        />
-      )}
-      <p className="fact-note">
-        Counted from the launch pool’s own trades
-        {activity.coveredFrom ? ` since ${activity.coveredFrom.slice(0, 10)}` : ''}. There is no
-        price: no trading pair is listed for this token.
-      </p>
-    </>
-  );
-}
-
-function MarketCard({ market }: { market: ReportFacts['market'] }) {
+function MarketCard({ market, solana }: { market: ReportFacts['market']; solana?: SolanaView }) {
   const trades = (market.buys24h ?? 0) + (market.sells24h ?? 0);
+  const graduation = solana?.graduation?.data;
+  const listed = solana?.market.data;
   return (
     <section className="fact-card" aria-labelledby="fact-market">
       <h3 id="fact-market">Market</h3>
-      {market.graduation && (
+      {graduation && (graduation.graduated || graduation.progress !== null) && (
         <Ring
-          value={market.graduation.progress}
-          label={market.graduation.graduated ? 'Graduated' : 'Graduation'}
-          caption={`${pct(market.graduation.progress)} of ${market.graduation.thresholdEth} ETH`}
-          center={pct(market.graduation.progress)}
+          value={graduation.graduated ? 1 : (graduation.progress ?? 0)}
+          label={graduation.graduated ? 'Graduated' : 'On its curve'}
+          caption={
+            graduation.graduated
+              ? `Left its ${solana?.launchpad.data?.name ?? 'launch'} curve${graduation.destination ? ` for ${graduation.destination.name}` : ''}`
+              : `${pct(graduation.progress ?? 0)}${graduation.basis ? ` ${BASIS_WORD[graduation.basis]}` : ''}`
+          }
+          center={graduation.graduated ? '100%' : pct(graduation.progress ?? 0)}
         />
       )}
       {!market.measured ? (
         <Missing note={market.note} />
-      ) : market.poolActivity ? (
-        <PoolActivity activity={market.poolActivity} />
       ) : (
         <>
           <dl className="fact-pairs">
@@ -563,6 +513,13 @@ function MarketCard({ market }: { market: ReportFacts['market'] }) {
               <dd>{usd(market.fdvUsd)}</dd>
             </div>
           </dl>
+          {listed?.pair && (
+            <p className="fact-mono">
+              Main pair{listed.dex ? ` on ${listed.dex}` : ''}
+              {listed.pairedWith ? ` against ${listed.pairedWith}` : ''}:{' '}
+              <Address address={listed.pair} />
+            </p>
+          )}
           {market.staleLiquidity && (
             <p className="fact-note">
               DexScreener lists {usd(market.staleLiquidity.listedUsd)} of liquidity, but the token’s
@@ -591,13 +548,25 @@ function MarketCard({ market }: { market: ReportFacts['market'] }) {
   );
 }
 
+/** What the chain names each address of the reading (curves, pools, locks), by address. */
+export function namesOf(solana: SolanaView | undefined): Record<string, string> {
+  const names: Record<string, string> = {};
+  if (!solana) return names;
+  for (const s of solana.holders.data.setAside) if (s.name) names[s.address] = s.name;
+  for (const h of solana.holders.data.top) if (h.name) names[h.address] = h.name;
+  return names;
+}
+
 export function FactsBoard({
   facts,
   timeline,
+  solana,
   index = '02',
 }: {
   facts: ReportFacts;
   timeline?: TimelineLaunch[];
+  /** The Solana blocks, when the response carries them. */
+  solana?: SolanaView;
   /** Section number in the report. */
   index?: string;
 }) {
@@ -609,8 +578,12 @@ export function FactsBoard({
       </div>
       <div className="facts-board" role="region" aria-label="Measured facts">
         <CreatorCard creator={facts.creator} timeline={timeline} />
-        <HoldersCard holders={facts.holders} creator={facts.creator.address} />
-        <MarketCard market={facts.market} />
+        <HoldersCard
+          holders={facts.holders}
+          creator={facts.creator.address}
+          names={namesOf(solana)}
+        />
+        <MarketCard market={facts.market} solana={solana} />
       </div>
     </section>
   );
