@@ -3,9 +3,7 @@
     "chainId": "solana",
     "dexId": "orca",
     "pairAddress": "C1MgLojNLWBKADvu9BHdtgzz1oZX4dZ5zGdGcgvvW8Wz",
-    "labels": [
-      "wp"
-    ],
+    "labels": ["wp"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -55,9 +53,7 @@
     "chainId": "solana",
     "dexId": "raydium",
     "pairAddress": "EZVkeboWeXygtq8LMyENHyXdF5wpYrtExRNH9UwB1qYw",
-    "labels": [
-      "CLMM"
-    ],
+    "labels": ["CLMM"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -107,9 +103,7 @@
     "chainId": "solana",
     "dexId": "orca",
     "pairAddress": "4Ui9QdDNuUaAGqCPcDSp191QrixLzQiLxJ1Gnqvz3szP",
-    "labels": [
-      "wp"
-    ],
+    "labels": ["wp"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -159,9 +153,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "HfgjZDmexhFVD28Vkb1NbQwWeXP3uDcVTLPjSGHmRHhL",
-    "labels": [
-      "DLMM"
-    ],
+    "labels": ["DLMM"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -210,9 +202,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "6sT1fW2omQZxvUVnfrqSULdrauZ7tGDgdBcZcZF3Fu73",
-    "labels": [
-      "DLMM"
-    ],
+    "labels": ["DLMM"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -261,9 +251,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "HdsFGjjY46twFKjqHqUyT2bnRS4XCo1HaExts5CSNprU",
-    "labels": [
-      "DLMM"
-    ],
+    "labels": ["DLMM"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -312,9 +300,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "AUgbdzNob9S8MiVHm4Qruqz3VsZGoqtMZnSzv45juDbL",
-    "labels": [
-      "DLMM"
-    ],
+    "labels": ["DLMM"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -363,9 +349,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "Eio6hAieGTAmKgfvbEfbnXke6o5kfEd74tqHm2Z9SFjf",
-    "labels": [
-      "DLMM"
-    ],
+    "labels": ["DLMM"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -415,9 +399,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "Hb4ksMUbnsw5ssXdC1ANf3A49djUnxSLd48HxHwjHVNF",
-    "labels": [
-      "DLMM"
-    ],
+    "labels": ["DLMM"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -466,9 +448,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "7qt1qBnQ5CNNpMH1no6jYAzuyazP5QWXsUZB7dot5kga",
-    "labels": [
-      "DLMM"
-    ],
+    "labels": ["DLMM"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -518,9 +498,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "hPkPt9Mvu3f6Bpky38ekfqRb37DSFnHtdjnFpfF86wY",
-    "labels": [
-      "DYN"
-    ],
+    "labels": ["DYN"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -567,9 +545,7 @@
     "chainId": "solana",
     "dexId": "orca",
     "pairAddress": "FgTCR1ufcaTZMwZZYhNRhJm2K3HgMA8V8kXtdqyttm19",
-    "labels": [
-      "wp"
-    ],
+    "labels": ["wp"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -617,9 +593,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "BhQEFZCRnWKQ21LEt4DUby7fKynfmLVJcNjfHNqjEF61",
-    "labels": [
-      "DLMM"
-    ],
+    "labels": ["DLMM"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -669,9 +643,7 @@
     "chainId": "solana",
     "dexId": "orca",
     "pairAddress": "FYmLrqgfrZ6u1Qvfo48wnhGp4HxXeQP7SQB5USQyQCPQ",
-    "labels": [
-      "wp"
-    ],
+    "labels": ["wp"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -721,9 +693,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "HHMcXebyUakhxnZavV9LBspv8SgsphoEbfhCjz8xPGe1",
-    "labels": [
-      "DLMM"
-    ],
+    "labels": ["DLMM"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -771,9 +741,7 @@
     "chainId": "solana",
     "dexId": "raydium",
     "pairAddress": "9ZpFyuMaHjSbM8feuarrWf4VZN2gmLxtwEc3e471n1KN",
-    "labels": [
-      "CLMM"
-    ],
+    "labels": ["CLMM"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -822,9 +790,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "6N1nUDCC9gkbRaA2X2G2feuoZJk3KWFpGzHgqvSMAusq",
-    "labels": [
-      "DLMM"
-    ],
+    "labels": ["DLMM"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -872,9 +838,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "E1nhUcSbuZrg3pcRdM6CeSXD9GJNpWqWYSkLvuip1CFm",
-    "labels": [
-      "DYN"
-    ],
+    "labels": ["DYN"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -924,9 +888,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "C8Gr6AUuq9hEdSYJzoEpNcdjpojPZwqG5MtQbeouNNwg",
-    "labels": [
-      "DLMM"
-    ],
+    "labels": ["DLMM"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -974,9 +936,7 @@
     "chainId": "solana",
     "dexId": "orca",
     "pairAddress": "HrLmpzp8Nu5wkn9SGZYSS9Ms6deTvMgGc6BETp4161ZX",
-    "labels": [
-      "wp"
-    ],
+    "labels": ["wp"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -1026,9 +986,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "HyhMt7jPKJ1LLXQTm5wjf5f4kWqAeTeKQZvMq8TtZnPV",
-    "labels": [
-      "DLMM"
-    ],
+    "labels": ["DLMM"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -1077,9 +1035,7 @@
     "chainId": "solana",
     "dexId": "orca",
     "pairAddress": "4h9SaY7YMVtKfTewpGFq8StWJgGdRN3gVD7XmAGCSbki",
-    "labels": [
-      "wp"
-    ],
+    "labels": ["wp"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -1223,9 +1179,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "6t3kGkKhRQRMMb1sUtG8N5VDg1CkkDwtSNYjiHhqRWq7",
-    "labels": [
-      "DLMM"
-    ],
+    "labels": ["DLMM"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -1272,9 +1226,7 @@
     "chainId": "solana",
     "dexId": "raydium",
     "pairAddress": "7WMCUyZXrDxNjAWjuh2r7g8CdT2guqvrmdUPAnGdLsfG",
-    "labels": [
-      "CLMM"
-    ],
+    "labels": ["CLMM"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -1323,9 +1275,7 @@
     "chainId": "solana",
     "dexId": "raydium",
     "pairAddress": "Fu5uXjR17rGbUur294Ke3UxCH8JF5nWYYCe9wqNjDuFr",
-    "labels": [
-      "CLMM"
-    ],
+    "labels": ["CLMM"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -1375,9 +1325,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "55sEMuXnwNmHQaEmqyP7DHeyTXHcaMJcKZUMFS46W7uL",
-    "labels": [
-      "DLMM"
-    ],
+    "labels": ["DLMM"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -1426,9 +1374,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "F2HNEPsQ4WpQ2M4QRmeZTG8GZLkcj537zCisNCpuZcR4",
-    "labels": [
-      "DYN"
-    ],
+    "labels": ["DYN"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",
@@ -1477,9 +1423,7 @@
     "chainId": "solana",
     "dexId": "raydium",
     "pairAddress": "BakaWqcYAhwR2oGWBw3iHzmSiJqQ3j1uvvBm4DPxg1dU",
-    "labels": [
-      "CPMM"
-    ],
+    "labels": ["CPMM"],
     "baseToken": {
       "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       "name": "Jupiter",

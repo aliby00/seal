@@ -95,9 +95,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "AdmoAEv4VKu2nUwYt8Ps59SoPnF53yFxQgZD6sFwMZF5",
-    "labels": [
-      "DLMM Pro"
-    ],
+    "labels": ["DLMM Pro"],
     "baseToken": {
       "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       "name": "USD Coin",
@@ -145,9 +143,7 @@
     "chainId": "solana",
     "dexId": "raydium",
     "pairAddress": "BZtgQEyS6eXUXicYPHecYQ7PybqodXQMvkjUbP4R8mUU",
-    "labels": [
-      "CLMM"
-    ],
+    "labels": ["CLMM"],
     "baseToken": {
       "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       "name": "USD Coin",
@@ -197,9 +193,7 @@
     "chainId": "solana",
     "dexId": "orca",
     "pairAddress": "4fuUiYxTQ6QCrdSq9ouBYcTM7bqSwYTSyLueGZLTy4T4",
-    "labels": [
-      "wp"
-    ],
+    "labels": ["wp"],
     "baseToken": {
       "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       "name": "USD Coin",
@@ -249,9 +243,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "32D4zRxNc1EssbJieVHfPhZM3rH6CzfUPrWUuWxD9prG",
-    "labels": [
-      "DYN"
-    ],
+    "labels": ["DYN"],
     "baseToken": {
       "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       "name": "USD Coin",
@@ -300,9 +292,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "ARwi1S4DaiTG5DX7S4M4ZsrXqpMD1MrTmbu9ue2tpmEq",
-    "labels": [
-      "DLMM"
-    ],
+    "labels": ["DLMM"],
     "baseToken": {
       "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       "name": "USD Coin",
@@ -351,9 +341,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "Fpr8EzktEQKA2PMw2t4Pbo3iGCJbasUJ516gGpFmNpui",
-    "labels": [
-      "DLMM"
-    ],
+    "labels": ["DLMM"],
     "baseToken": {
       "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       "name": "USD Coin",
@@ -402,9 +390,7 @@
     "chainId": "solana",
     "dexId": "orca",
     "pairAddress": "F13xvvx45jVGd84ynK3c8T89UejQVxjCLtmHfPmAXAHP",
-    "labels": [
-      "v2"
-    ],
+    "labels": ["v2"],
     "baseToken": {
       "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       "name": "USD Coin",
@@ -452,9 +438,7 @@
     "chainId": "solana",
     "dexId": "raydium",
     "pairAddress": "3NeUgARDmFgnKtkJLqUcEUNCfknFCcGsFfMJCtx6bAgx",
-    "labels": [
-      "CLMM"
-    ],
+    "labels": ["CLMM"],
     "baseToken": {
       "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       "name": "USD Coin",
@@ -549,9 +533,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "4YCSViu6q8MQ9YVAptUvNicYaqMB6TsXQi7ET3bJvdsr",
-    "labels": [
-      "DLMM Pro"
-    ],
+    "labels": ["DLMM Pro"],
     "baseToken": {
       "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       "name": "USD Coin",
@@ -599,9 +581,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "4nkJrNo9yEaGXqPKdB8PqJoyRZiVKzgRitqnrkx1Qotc",
-    "labels": [
-      "DLMM"
-    ],
+    "labels": ["DLMM"],
     "baseToken": {
       "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       "name": "USD Coin",
@@ -651,9 +631,7 @@
     "chainId": "solana",
     "dexId": "orca",
     "pairAddress": "FPPHjpjBk98pd5Z3xXQuDcrZdUdqfraCRJU8yvdT1ZKR",
-    "labels": [
-      "wp"
-    ],
+    "labels": ["wp"],
     "baseToken": {
       "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       "name": "USD Coin",
@@ -702,9 +680,7 @@
     "chainId": "solana",
     "dexId": "orca",
     "pairAddress": "CxF3jKhGrauHQjFk8L5XUkLTjmeLFqHUYHLCYYSautMC",
-    "labels": [
-      "wp"
-    ],
+    "labels": ["wp"],
     "baseToken": {
       "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       "name": "USD Coin",
@@ -754,9 +730,7 @@
     "chainId": "solana",
     "dexId": "orca",
     "pairAddress": "ELqXddRqcnRJXQnqZdPwBXEEBpQ6SEbCQrBe12wpHBU",
-    "labels": [
-      "wp"
-    ],
+    "labels": ["wp"],
     "baseToken": {
       "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       "name": "USD Coin",
@@ -803,9 +777,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "FcjjezXg8afwpVWxdVcXALLkqSXAAoGLuWaS6LmtNoZG",
-    "labels": [
-      "DLMM"
-    ],
+    "labels": ["DLMM"],
     "baseToken": {
       "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       "name": "USD Coin",
@@ -853,9 +825,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "8kvGYkeqDnb21b2BnSb9BMS2gJSfqF91EhpvAtzExCfM",
-    "labels": [
-      "DLMM"
-    ],
+    "labels": ["DLMM"],
     "baseToken": {
       "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       "name": "USD Coin",
@@ -900,9 +870,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "4bg8UDLXEm4T6pCyoW7iUizAz9HMoxhTAtMquSXigFZu",
-    "labels": [
-      "DLMM"
-    ],
+    "labels": ["DLMM"],
     "baseToken": {
       "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       "name": "USD Coin",
@@ -994,9 +962,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "uGv7HFB1cKuxoAb36g65BzK8UVorpAR7SfrkwDZRzdJ",
-    "labels": [
-      "DLMM"
-    ],
+    "labels": ["DLMM"],
     "baseToken": {
       "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       "name": "USD Coin",
@@ -1043,9 +1009,7 @@
     "chainId": "solana",
     "dexId": "raydium",
     "pairAddress": "FPfbntAR84nyxfcmATEwYG55joLcPCxgYBC3BTPqB7yR",
-    "labels": [
-      "CLMM"
-    ],
+    "labels": ["CLMM"],
     "baseToken": {
       "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       "name": "USD Coin",
@@ -1135,9 +1099,7 @@
     "chainId": "solana",
     "dexId": "orca",
     "pairAddress": "Es7bSM24764r8RUzoL8eecf9VVjeJmLTjZ6NSbo8MXtL",
-    "labels": [
-      "wp"
-    ],
+    "labels": ["wp"],
     "baseToken": {
       "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       "name": "USD Coin",
@@ -1184,9 +1146,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "HiSk9RZMczoey5rtgrgLpZxhR9QXQ57ac9VaDidunw4Y",
-    "labels": [
-      "DLMM Pro"
-    ],
+    "labels": ["DLMM Pro"],
     "baseToken": {
       "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       "name": "USD Coin",
@@ -1233,9 +1193,7 @@
     "chainId": "solana",
     "dexId": "meteora",
     "pairAddress": "4N41hUkrayX6duXJH8oYzybVpH3mcbG8TzoM14VXmTmh",
-    "labels": [
-      "DLMM"
-    ],
+    "labels": ["DLMM"],
     "baseToken": {
       "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       "name": "USD Coin",
@@ -1381,9 +1339,7 @@
     "chainId": "solana",
     "dexId": "raydium",
     "pairAddress": "HnhpJPJgBG2KwniMTNW8cVBHvk1hFog3RC3kjnyc23tD",
-    "labels": [
-      "CLMM"
-    ],
+    "labels": ["CLMM"],
     "baseToken": {
       "address": "CARDSccUMFKoPRZxt5vt3ksUbxEFEcnZ3H2pd3dKxYjp",
       "name": "Collector Crypt",
