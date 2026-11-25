@@ -264,8 +264,10 @@ export async function GET(request: Request): Promise<Response> {
   const plain: CardData = { token, name: null, symbol: null, items: [] };
   // Short-lived: the next crawler may find the reading done.
   const retry = 'public, max-age=60, s-maxage=60';
+  // One caller past its limit: the CDN must not serve that empty card to everyone.
+  const limited = 'private, no-store';
 
-  if (!(await allowShared(`card:${clientKey(request)}`, CARD_LIMIT))) return render(plain, retry);
+  if (!(await allowShared(`card:${clientKey(request)}`, CARD_LIMIT))) return render(plain, limited);
 
   try {
     const glance =
