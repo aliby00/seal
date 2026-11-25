@@ -1,5 +1,5 @@
 export * from './types';
-export { CATALOG, NOT_PORTED } from './catalog';
+export { CATALOG, NO_REPORT } from './catalog';
 export { AgentSpecSchema, compileAgent, InvalidAgentSpecError } from './compose';
 export type { AgentSpec, Checklist } from './compose';
 export { runAgent, measureDivergence, isFlagged, MAX_LEADS } from './run';

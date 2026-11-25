@@ -19,7 +19,7 @@ import { setSharedRedis } from '../../src/lib/store';
  * own, and said its market held "$0".
  */
 
-const CREATOR = '0x780a6b85d841b0750e91644cce6de349e6fb6cba';
+const CREATOR = 'D234v6HgjNdTfS8vYa3ZfJAF5sSoTVzrKCDmQ2ypCnQK';
 
 function facts(over: Partial<ReportFacts> = {}): ReportFacts {
   return {
@@ -206,17 +206,30 @@ describe('source notes as a reader takes them', () => {
   it('drops the error kind and the source name', () => {
     expect(
       readableNote(
-        'incomplete : robinhood-rpc : incomplete data — the creator’s history did not finish in time this time; try again in a minute',
+        'incomplete : solana-rpc : incomplete data — the creator’s history did not finish in time this time; try again in a minute',
       ),
     ).toBe('the creator’s history did not finish in time this time; try again in a minute');
     expect(
-      readableNote('upstream : dexscreener : network request failed', { sentence: true }),
+      readableNote('upstream : dexscreener-solana : network request failed', { sentence: true }),
     ).toBe('The source did not answer this time; try again in a minute');
   });
 
   it('leaves a note already written for people as it is', () => {
-    expect(readableNote('Not covered: Doppler and direct deploys.')).toBe(
-      'Not covered: Doppler and direct deploys.',
+    expect(readableNote('Not covered: Meteora and direct mints.')).toBe(
+      'Not covered: Meteora and direct mints.',
     );
+  });
+
+  it('says a node’s refusal and a rate limit in plain words, not by method name', () => {
+    expect(
+      readableNote(
+        'too many token accounts to read them all; largest token accounts not read (upstream: solana-rpc : getTokenLargestAccounts: not served by the configured nodes)',
+      ),
+    ).toBe(
+      'too many token accounts to read them all; largest token accounts not read (the Solana node used does not serve this read)',
+    );
+    expect(
+      readableNote('rate-limit : solana-rpc : request limit reached', { sentence: true }),
+    ).toBe('The source limited requests this time; try again in a minute');
   });
 });

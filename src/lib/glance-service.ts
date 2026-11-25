@@ -9,6 +9,7 @@ import { solanaPairsUrl } from './market/dexscreener';
 import { isSolanaAddress } from './solana/address';
 import { SharedCache } from './shared-cache';
 import { TtlCache } from './cache';
+import { answerAll } from './specialists/brief';
 import { displayName } from './specialists/names';
 
 /**
@@ -37,7 +38,8 @@ export const GLANCE_TTL_MS = 4 * 60_000;
 
 /**
  * The prefixes name the chain: `sol1` entries hold Solana readings only, so
- * a reading of Robinhood Chain cached under the old prefixes is never served.
+ * a reading of the chain read before, cached under the old prefixes, is
+ * never served.
  */
 export const glanceCache = new SharedCache<CachedGlance>({
   prefix: 'seal:glance:sol1',
@@ -139,10 +141,15 @@ async function compute(token: string): Promise<CachedGlance> {
   ]);
   const meta = namesOf(report);
   const launch = launchView(report.launch);
+  // The questions read the report alone and call no model: their measures
+  // (the mint's powers, the creator's part, launch groups, the curve) feed
+  // the summary's first lines here as on the report page.
+  const specialists = answerAll({ token, report, creator: report.creator.data.creator });
   const glance = buildGlance({
     facts: facts(report),
     timeline: timeline(report),
     ...(launch ? { launch } : {}),
+    specialists,
   });
   if (!glance) throw new GlanceUnavailableError();
   const body: CachedGlance = {

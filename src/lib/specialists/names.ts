@@ -1,4 +1,5 @@
 import { findViolations } from '../agent/guardrails';
+
 /**
  * Comparaison de noms de token, et neutralisation du texte qu'ils portent.
  *
@@ -7,8 +8,64 @@ import { findViolations } from '../agent/guardrails';
  * retire les caractères de contrôle et l'entoure de guillemets.
  */
 
-/** Ce que les marchés usurpent le plus : 5 des 6 marchés v4 listés le mois dernier. */
-export const WATCHED_NAMES = ['robinhood', 'hood', 'robinhoodchain', 'robinhoodmarkets'] as const;
+/** A well-known Solana token: its mint, and the names another token would borrow from it. */
+export type WatchedToken = {
+  /** How it is named in a sentence: "USD Coin (USDC)". */
+  label: string;
+  mint: string;
+  /**
+   * Its names, normalised (`normalizeName`). One of six letters or more
+   * counts when a name contains it; a shorter one only as a whole word or a
+   * whole symbol, or "Raybot" would borrow Raydium's "RAY".
+   */
+  names: readonly string[];
+};
+
+/**
+ * Tokens whose name and mint were read on mainnet (tests/fixtures/solana/
+ * REFERENCE.json, 24/11/2026; USDC, USDT and wrapped SOL are also the quote
+ * mints the market reader knows, a test holds them equal). Written out here:
+ * the report screen imports this module, and the readers' modules do not
+ * belong in a page. A token using one of these names under another mint
+ * borrows it.
+ */
+export const WATCHED_TOKENS: readonly WatchedToken[] = [
+  {
+    label: 'USD Coin (USDC)',
+    mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+    names: ['usdc', 'usdcoin'],
+  },
+  {
+    label: 'Tether USD (USDT)',
+    mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
+    names: ['usdt', 'tether', 'tetherusd'],
+  },
+  {
+    label: 'PayPal USD (PYUSD)',
+    mint: '2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo',
+    names: ['pyusd', 'paypal', 'paypalusd'],
+  },
+  {
+    label: 'Wrapped SOL',
+    mint: 'So11111111111111111111111111111111111111112',
+    names: ['wsol', 'wrappedsol'],
+  },
+  {
+    label: 'Jupiter (JUP)',
+    mint: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',
+    names: ['jup', 'jupiter'],
+  },
+  {
+    label: 'Bonk (BONK)',
+    mint: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
+    names: ['bonk'],
+  },
+  {
+    label: 'Raydium (RAY)',
+    mint: '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R',
+    names: ['ray', 'raydium'],
+  },
+];
 
 /** Les substitutions visuelles les plus courantes, chiffres et cyrillique compris. */
 const HOMOGLYPHS: Record<string, string> = {
@@ -33,7 +90,7 @@ const HOMOGLYPHS: Record<string, string> = {
 /**
  * Forme canonique : minuscules, homoglyphes ramenés, tout le reste retiré.
  * `one` dit comment lire le chiffre 1, qui passe pour un « l » comme pour un
- * « i » : « R0B1NH00D » ne se reconnaît qu'en le lisant « i ».
+ * « i » : « JUP1TER » ne se reconnaît qu'en le lisant « i ».
  */
 export function normalizeName(raw: string, one: 'l' | 'i' = 'l'): string {
   return [...raw.normalize('NFKC').toLowerCase()]
@@ -61,21 +118,21 @@ export const MAX_DISPLAYED = 64;
 
 /**
  * A creator-chosen name as the report header shows it: invisible and bidi
- * characters removed (a right-to-left override can make "DOOH" read as
- * "HOOD"), cut to a length a header can hold, withheld when it reads as a
+ * characters removed (a right-to-left override can make "PUJ" read as
+ * "JUP"), cut to a length a header can hold, withheld when it reads as a
  * verdict. `null` when nothing is left to show.
  */
 export function displayName(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const clean = raw.replace(INVISIBLE, ' ').replace(/\s+/g, ' ').trim();
   if (!clean || findViolations(clean).length > 0) return null;
-  return clean.length > MAX_DISPLAYED ? `${clean.slice(0, MAX_DISPLAYED)}\u2026` : clean;
+  return clean.length > MAX_DISPLAYED ? `${clean.slice(0, MAX_DISPLAYED)}…` : clean;
 }
 
 export function quoteName(raw: string | null | undefined): string {
   if (raw === null || raw === undefined) return '(unreadable)';
   const clean = raw.replace(INVISIBLE, ' ').trim();
-  const cut = clean.length > MAX_QUOTED ? `${clean.slice(0, MAX_QUOTED)}\u2026` : clean;
+  const cut = clean.length > MAX_QUOTED ? `${clean.slice(0, MAX_QUOTED)}…` : clean;
   // A name is chosen by the creator. Quoting "SAFE 100X" would publish a
   // verdict SEAL never makes — the name is withheld and that is said.
   if (findViolations(cut).length > 0) return '(name withheld: it reads as a verdict or advice)';
@@ -83,54 +140,52 @@ export function quoteName(raw: string | null | undefined): string {
 }
 
 /**
- * Le nom imite-t-il une marque surveillée ?
+ * The well-known token whose name `raw` borrows, if any.
  *
- * Les noms longs comptent par inclusion — « ROBINHOOD INU » compte. Les noms
- * courts comptent seulement comme mot entier : sinon « childhood » et
- * « neighborhood » seraient des usurpations de « hood ».
+ * Long names count by inclusion — "JUPITER INU" counts. Short ones only as a
+ * whole word: otherwise "Raybot" and "Bonkers" would borrow "RAY" and "BONK".
  */
-export function imitatedName(raw: string | null | undefined): string | null {
+export function imitatedName(raw: string | null | undefined): WatchedToken | null {
   if (!raw) return null;
-  // Le plus long d'abord : « robinhoodchain » avant « hood ».
-  const sorted = [...WATCHED_NAMES].sort((a, b) => b.length - a.length);
   for (const one of ['l', 'i'] as const) {
     const whole = normalizeName(raw, one);
     const words = raw
       .split(/[\s_\-./|]+/)
       .map((w) => normalizeName(w, one))
       .filter(Boolean);
-    const hit = sorted.find((watched) =>
-      watched.length >= 6 ? whole.includes(watched) : words.includes(watched),
-    );
-    if (hit) return hit;
+    // The longest name first: "paypalusd" before "paypal".
+    for (const token of WATCHED_TOKENS) {
+      const hit = [...token.names]
+        .sort((a, b) => b.length - a.length)
+        .some((name) => (name.length >= 6 ? whole.includes(name) : words.includes(name)));
+      if (hit) return token;
+    }
   }
   return null;
 }
 
 /**
- * Contract names that say how a contract is built, not what it is: shown raw
- * ("TransparentUpgradeableProxy", "MulticallHandler"), they read as jargon
- * or, worse, as a name the contract chose. Said in plain words instead.
+ * Technical names that say how an account is built, not what it is: said
+ * in plain words instead.
  */
 const TECHNICAL_NAMES: readonly [RegExp, string][] = [
-  [/proxy/i, 'an upgradeable contract'],
-  [/multicall|handler|executor|forwarder/i, 'a routing contract'],
+  [/proxy/i, 'an upgradeable program'],
+  [/multicall|handler|executor|forwarder|router/i, 'a routing program'],
 ];
 
-/** A contract, said for a person: a plain phrase for a technical name, the name quoted otherwise. */
+/** A program or account, said for a person: a plain phrase for a technical name, the name quoted otherwise. */
 export function describeContract(name: string | null | undefined): string {
-  if (!name) return 'an unnamed contract';
+  if (!name) return 'an unnamed account';
   const plain = TECHNICAL_NAMES.find(([pattern]) => pattern.test(name));
-  return plain ? plain[1] : `a contract named ${quoteName(name)}`;
+  return plain ? plain[1] : `an account named ${quoteName(name)}`;
 }
 
-/** At or above this many transactions an address serves the public (funder-kind.ts). */
+/** At or above this many transactions an address serves the public. */
 const HIGH_VOLUME = 50_000;
 
 /**
  * What first funded a wallet, said without overstating: "a high-volume
- * service" only when the count is high, "a contract" otherwise — a contract
- * with 0 transactions sent is not "high-volume".
+ * service" only when the count is high.
  */
 export function describeService(
   name: string | null | undefined,
@@ -140,6 +195,5 @@ export function describeService(
     const what = name ? `${describeContract(name)}, ` : '';
     return `a high-volume service (${what}${txCount.toLocaleString('en-US')} transactions)`;
   }
-  // Below the count, a service is a contract, or an address tagged as an exchange.
-  return name ? describeContract(name) : 'a contract, or an address tagged as an exchange';
+  return name ? describeContract(name) : 'an account, or an address tagged as an exchange';
 }
