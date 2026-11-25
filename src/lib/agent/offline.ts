@@ -199,7 +199,8 @@ export function offlineExplanation(report: TokenReport, specialists?: Specialist
   }
   // Where the supply went at launch, by role, comes first when the launch
   // handed it out beyond its curve: it is what the rest is read against.
-  const flow = toFacts(report).supplyFlow;
+  // Not when the replay failed: "nobody bought" would state an absence it did not read.
+  const flow = readFailed(failedReads, 'launch-replay') ? undefined : toFacts(report).supplyFlow;
   if (flow) parts.push(`Launch: ${flowSentence(flow, report.creator.data.creator)}`);
   const powers = powersAccount(report);
   if (powers) parts.push(powers);

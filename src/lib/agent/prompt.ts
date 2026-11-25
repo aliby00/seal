@@ -7,7 +7,7 @@ import type { SpecialistAnswer } from '../specialists/brief';
 import { CREATOR_FROM } from '../specialists/catalog';
 import { quoteName } from '../specialists/names';
 import { dayOf, pct, shareOf, solOf, solWords } from '../specialists/words';
-import { READ_WORDS } from '../failed-reads';
+import { READ_WORDS, readFailed } from '../failed-reads';
 import type { SolanaHolder } from '../solana/holders';
 import type { SolanaLaunchGroup } from '../solana/launch-types';
 
@@ -545,6 +545,8 @@ export function renderAttention(report: TokenReport, specialists?: SpecialistAns
 
 /** Where the supply went at launch, by role, when the launch handed it out beyond its market. */
 export function renderSupplyFlow(report: TokenReport): string[] {
+  // A replay that failed this time leaves who bought unknown: no flow then.
+  if (readFailed(report.failedReads, 'launch-replay')) return [];
   const flow = toFacts(report).supplyFlow;
   if (!flow) return [];
   const creator = report.creator.data.creator;

@@ -751,7 +751,8 @@ export function buildGlance({ facts, timeline, launch, specialists }: GlanceInpu
   // What the mint still lets someone do to holders leads: no holder or
   // market figure means much beside it. Then a market with next to nothing
   // in it, then where the supply went when the launch handed it out.
-  const flow = flowItem(facts);
+  // A replay that failed says nothing of who bought: no "handed out, nobody bought" line then.
+  const flow = readFailed(failed, 'launch-replay') ? null : flowItem(facts);
   const empty = candidates.find((i) => i.id === 'market' && i.title.startsWith(EMPTY_MARKET_WORDS));
   const lead = [
     ...(powers && powers.tone === 'attention' ? [powers] : []),

@@ -578,3 +578,64 @@ describe('In short, after a launch replay that failed', () => {
     );
   });
 });
+
+describe('the supply handed out at launch, after a replay that failed (JUP on the public node)', () => {
+  const minted = (failed: boolean) =>
+    solanaReport({
+      ...(failed
+        ? {
+            failedReads: [
+              { read: 'launch-replay' as const, note: '59 of 60 transactions could not be read' },
+            ],
+          }
+        : {}),
+      launchpad: { ...base.launchpad, data: { ...base.launchpad.data, launchpad: null } },
+      graduation: null,
+      launch: {
+        ...base.launch,
+        completeness: failed ? 'partial' : 'full',
+        data: {
+          ...base.launch.data,
+          supply: '1000000000000000',
+          launchBlock: 100,
+          moves: [
+            {
+              kind: 'mint',
+              seconds: 0,
+              block: 0,
+              actor: HOLDER,
+              counterparty: '',
+              actorKind: 'wallet',
+              share: 1,
+              actorIsCreator: false,
+              counterpartyIsCreator: false,
+              heldNow: null,
+              transaction: 'x',
+              amount: '1000000000000000',
+              slot: 100,
+              payer: HOLDER,
+              quote: null,
+            },
+          ],
+          movesInWindow: 1,
+        },
+      },
+    });
+
+  it('says the hand-out when the replay answered, outside any market', () => {
+    const glance = glanceOf(minted(false));
+    expect(glance.items.find((i) => i.id === 'flow')?.title).toBe(
+      '100% handed to a wallet at launch, outside any market.',
+    );
+    expect(offlineExplanation(minted(false))).toContain(
+      'No buy was read in the launch window: the supply was only handed out.',
+    );
+  });
+
+  it('says no "nobody bought" when the replay failed', () => {
+    const report = minted(true);
+    expect(glanceOf(report).items.find((i) => i.id === 'flow')).toBeUndefined();
+    expect(offlineExplanation(report)).not.toMatch(/only handed out|No buy was read/);
+    expect(renderReport(report)).not.toContain('## Where the supply went at launch');
+  });
+});

@@ -340,7 +340,7 @@ export function flowSentence(flow: SupplyFlow, creator?: string | null): string 
       ? (parts[0] ?? '')
       : `${parts.slice(0, -1).join(', ')}, and ${parts[parts.length - 1]}`;
   const buys =
-    flow.buys === 0 ? ' Nobody bought in the first minutes: the supply was only handed out.' : '';
+    flow.buys === 0 ? ' No buy was read in the launch window: the supply was only handed out.' : '';
   return `${intro}At launch, ${list.replace(/^(\S+) to /, '$1 of the supply went to ')}.${buys}`;
 }
 
@@ -404,7 +404,7 @@ export function flowHeadline(
     clauses.push({
       rank: 3,
       share,
-      words: `${flowPct(share)} handed to ${n === 1 ? inSentence(out[0]!.name) : `${n} addresses`} at launch, not sold`,
+      words: `${flowPct(share)} handed to ${n === 1 ? inSentence(out[0]!.name) : `${n} addresses`} at launch, outside any market`,
     });
   }
   const top = [...clauses].sort((a, b) => a.rank - b.rank || b.share - a.share).slice(0, 2);
