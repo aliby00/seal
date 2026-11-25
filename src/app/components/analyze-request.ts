@@ -46,6 +46,17 @@ export function isTokenAddress(value: string): boolean {
 export const ADDRESS_HINT =
   'Enter a Solana token address: 32 to 44 letters and digits, as the explorer shows it.';
 
+/** An Ethereum-style address: what SEAL read before it moved to Solana. */
+const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
+
+export const EVM_HINT =
+  'SEAL now reads Solana tokens. This looks like an EVM address (0x…): paste the token’s Solana address instead.';
+
+/** What the field says of a value it refuses: an EVM address gets its own words. */
+export function addressHint(value: string): string {
+  return EVM_ADDRESS.test(value.trim()) ? EVM_HINT : ADDRESS_HINT;
+}
+
 /**
  * Fired by any entry point outside the workspace form (the entrance): the
  * form owns the request, so there is only ever one analysis in flight.

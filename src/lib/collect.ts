@@ -357,7 +357,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
       mint.completeness,
       creator.completeness,
       holders.completeness,
-      market.market.completeness,
+      marketCompleteness(market),
     ]);
 
     log.info('analyse collectée', {
@@ -399,6 +399,32 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
       cut.abort(new TimeoutError('solana-rpc', Date.now() - startedAt));
     }
   }
+}
+
+/**
+ * The market's part in the report's completeness. DexScreener never gives a
+ * liquidity figure for a pair that is still a launchpad curve (pump.fun,
+ * Meteora DBC, LaunchLab): every young token would be partial for it. When
+ * the main pair is the very curve SEAL read on chain, still on it, with what
+ * it holds, the liquidity is known and that gap alone does not make the
+ * market partial. Any other gap still does.
+ */
+export function marketCompleteness(
+  read: Pick<SolanaMarketRead, 'market' | 'launch' | 'graduation'>,
+): Completeness {
+  const { market, launch, graduation } = read;
+  if (market.completeness !== 'partial') return market.completeness;
+  const onlyLiquidityMissing = market.data.priceUsd !== null && market.data.liquidityUsd === null;
+  const pair = market.data.pair;
+  const curveRead =
+    pair !== null &&
+    launch.data.account === pair &&
+    graduation !== null &&
+    graduation.completeness === 'full' &&
+    graduation.data.account === pair &&
+    graduation.data.graduated === false &&
+    graduation.data.raised !== null;
+  return onlyLiquidityMissing && curveRead ? 'full' : 'partial';
 }
 
 // ── Empty blocks, for a reader that failed outright ─────────────────────────
