@@ -7,7 +7,13 @@ import { log } from './logger';
 import { readSolanaMarket, SOLANA_MARKET_DEADLINE_MS } from './market/solana';
 import type { SolanaMarketRead } from './market/solana-types';
 import { isSolanaAddress } from './solana/address';
-import { creatorHistory, creatorOnToken, findCreator, type DexFetch } from './solana/creator';
+import {
+  creatorHistory,
+  creatorOnToken,
+  findCreator,
+  withLaunchCreation,
+  type DexFetch,
+} from './solana/creator';
 import type {
   SolanaCreator,
   SolanaCreatorHistory,
@@ -332,12 +338,16 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
       onTokenRead,
       linkedRead,
     ]);
+    // The creation the launch replay found, when the creator's read did not
+    // reach it: the creator block says so wherever it is read (the facts,
+    // "Sources & limitations", the questions), no longer "not reached".
+    const creatorFound = withLaunchCreation(creator, launchReplay.data.creation);
 
     const failedReads = mergeFailedReads(
       (
         [
           ['token', mint],
-          ['creator', creator],
+          ['creator', creatorFound],
           ['creator-launches', history],
           ['creator-sales', onToken],
           ['linked-wallets', linked],
@@ -355,7 +365,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
 
     const completeness: Completeness = combineCompleteness([
       mint.completeness,
-      creator.completeness,
+      creatorFound.completeness,
       holders.completeness,
       marketCompleteness(market),
     ]);
@@ -376,7 +386,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
       collectedAt,
       mint,
       powers: mint.data ? tokenPowers(mint.data) : [],
-      creator,
+      creator: creatorFound,
       creatorHistory: history,
       creatorOnToken: onToken,
       linkedWallets: linked,
