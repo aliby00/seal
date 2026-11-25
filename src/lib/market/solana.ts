@@ -165,6 +165,10 @@ function addUp(pairs: readonly DexScreenerPair[]): {
       if (v !== null) volume[w] = (volume[w] ?? 0) + v;
     }
   }
+  // To the cent: a sum of floats would show as 396756.51999999996.
+  for (const w of WINDOWS) {
+    if (volume[w] !== undefined) volume[w] = Math.round(volume[w] * 100) / 100;
+  }
   return { txns: txnsSum, volume };
 }
 
