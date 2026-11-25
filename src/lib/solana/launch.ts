@@ -25,6 +25,7 @@ import {
   type SolanaTransaction,
 } from './rpc';
 import {
+  MARKET_PROGRAMS,
   movesOf,
   ownerKind,
   readFlows,
@@ -358,7 +359,7 @@ async function earliestFromTime(
 ): Promise<Earliest | null> {
   const slot = await slotAtTime(rpc, time, currentSlot);
   if (slot === null) {
-    notes.push('no block was found at the creation time given');
+    notes.push('no slot was found at the creation time given');
     return null;
   }
   for (const margin of HINT_MARGIN_SLOTS) {
@@ -370,7 +371,7 @@ async function earliestFromTime(
     if (page.signatures.length === 0) continue;
     if (!page.reached) {
       notes.push(
-        `more than ${(HINT_PAGES * MAX_SIGNATURES_PAGE).toLocaleString('en-US')} transactions came before the block found from the creation time given`,
+        `more than ${(HINT_PAGES * MAX_SIGNATURES_PAGE).toLocaleString('en-US')} transactions came before the slot found from the creation time given`,
       );
       return null;
     }
@@ -381,7 +382,7 @@ async function earliestFromTime(
     };
   }
   notes.push(
-    'no transaction of the token came before the blocks found from the creation time given',
+    'no transaction of the token came before the slots found from the creation time given',
   );
   return null;
 }
@@ -676,7 +677,7 @@ export async function replayLaunch(
         }
         knownUntil = coveredBefore(anchor, creationSlot, creationTime);
       }
-      if (!bounded) failedParts.push('no block after the creation could bound the window');
+      if (!bounded) failedParts.push('no slot after the creation could bound the window');
     } catch (error) {
       if (!absorbed(error)) throw error;
       failedParts.push('the transactions after the creation could not all be listed');
@@ -745,6 +746,9 @@ export async function replayLaunch(
   }
   const kinds = new Map(owners.map((o) => [o, ownerKind(o, programOf.get(o))]));
   const kindOf = (owner: string): ActorKind => kinds.get(owner) ?? ownerKind(owner, undefined);
+  // Pools by the program owning their account, before the other side of a
+  // trade is taken as one below.
+  const knownPools = new Set(owners.filter((o) => kinds.get(o) === 'pool'));
 
   // ── 6. The moves, timed ──
   const timeOf = new Map<string, number>();
@@ -807,6 +811,10 @@ export async function replayLaunch(
   );
   const creatorBuys = creatorMoves.filter((m) => m.kind === 'buy');
   const creatorSales = creatorMoves.filter((m) => m.kind === 'sell');
+  // Passed on by the creator with nothing paid back: transfers, not sales.
+  const creatorSends = moves.filter(
+    (m) => m.kind === 'allocation' && creator !== null && m.counterparty === creator && !own(m),
+  );
 
   const byActor = <T extends Timed>(list: readonly T[]) => {
     const out = new Map<string, bigint>();
@@ -1029,7 +1037,20 @@ export async function replayLaunch(
     creatorSold: share(sum(creatorSales.map((m) => m.value))),
     creatorFirstBuyAt: creatorBuys[0]?.seconds ?? null,
     creatorLastSaleAt: creatorSales.at(-1)?.seconds ?? null,
-    creatorSaleConfirmed: creatorSales.some((m) => kindOf(m.counterparty) === 'pool'),
+    creatorSaleConfirmed: creatorSales.some(
+      (m) =>
+        m.quote !== null &&
+        (knownPools.has(m.counterparty) ||
+          (flows[m.index] as TransactionFlows).programs.some((p) => MARKET_PROGRAMS.has(p))),
+    ),
+    ...(creatorSends.length > 0
+      ? {
+          creatorSent: share(sum(creatorSends.map((m) => m.value))),
+          creatorLocked: share(
+            sum(creatorSends.filter((m) => m.lock !== undefined).map((m) => m.value)),
+          ),
+        }
+      : {}),
     creatorTx:
       creationBought.size > 0
         ? {
@@ -1094,6 +1115,7 @@ export async function replayLaunch(
     quote: m.quote
       ? { asset: m.quote.asset, amount: m.quote.amount.toString(), decimals: m.quote.decimals }
       : null,
+    ...(m.lock !== undefined ? { lock: m.lock } : {}),
   }));
 
   // ── 9. Notes, completeness, story ──
@@ -1165,6 +1187,7 @@ export async function replayLaunch(
     windowSeconds,
     roundTrips,
     creatorSales,
+    creatorSends,
     read: read.length,
     changed,
     lastSlot,
@@ -1273,6 +1296,8 @@ type StoryInput = {
   windowSeconds: number;
   roundTrips: readonly SolanaRoundTrip[];
   creatorSales: readonly Timed[];
+  /** What the creator passed on with no payment read in return. */
+  creatorSends?: readonly Timed[];
   read: number;
   changed: number;
   lastSlot: number;
@@ -1503,6 +1528,27 @@ export function tellStory(input: StoryInput): SolanaLaunchStoryLine[] {
       `The creator sold ${percent(share(sale.value))} of the supply.`,
       8,
       sale.transaction,
+    );
+  }
+
+  const sends = input.creatorSends ?? [];
+  const lastSend = sends[sends.length - 1];
+  if (lastSend) {
+    const locked = sends.filter((m) => m.lock !== undefined);
+    const programs = [...new Set(locked.map((m) => m.lock))].join(' and ');
+    add(
+      lastSend.seconds,
+      lastSend.slot - creation.slot,
+      `The creator transferred ${percent(share(sum(sends.map((m) => m.value))))} of the supply to ${plural(
+        new Set(sends.map((m) => m.actor)).size,
+        'other address',
+        'other addresses',
+      )} with no payment read in return${
+        locked.length > 0
+          ? `, ${percent(share(sum(locked.map((m) => m.value))))} of it into ${programs}`
+          : ''
+      }: transfers, not sales.`,
+      8,
     );
   }
 

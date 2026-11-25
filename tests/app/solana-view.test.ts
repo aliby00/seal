@@ -377,12 +377,12 @@ describe('the launch replay, when no other wallet bought', () => {
   };
 
   it('says none bought only when the whole window was read, and for that window', () => {
-    expect(replay(false)).toMatch(/0 wallets bought in these first/);
+    expect(replay(false)).toMatch(/0 addresses bought in the first 5 seconds/);
     expect(replay(false)).not.toMatch(/first minute /);
   });
 
   it('leaves it unknown when the replay was read in part', () => {
     expect(replay(true)).toMatch(/the window was not read in full/);
-    expect(replay(true)).not.toMatch(/0 wallets bought/);
+    expect(replay(true)).not.toMatch(/0 addresses bought/);
   });
 });

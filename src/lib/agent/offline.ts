@@ -1,9 +1,17 @@
 import { readableNote } from '../plain-note';
 import type { TokenReport } from '../contracts';
 import { isSolanaAddress, shortAddress } from '../solana/address';
+import { withLaunchCreation } from '../solana/creator';
 import type { SpecialistAnswer } from '../specialists/brief';
 import { CREATOR_FROM } from '../specialists/catalog';
-import { curveName, pct as sharePct, shareOf, solOf, solWords } from '../specialists/words';
+import {
+  curveName,
+  paidWords,
+  pct as sharePct,
+  shareOf,
+  solOf,
+  solWords,
+} from '../specialists/words';
 import { volumePerTrade } from '../market';
 import { READ_WORDS, readFailed } from '../failed-reads';
 import { toFacts } from '../facts';
@@ -98,10 +106,8 @@ function creatorAccount(report: TokenReport): string {
     const d = onToken.data;
     const bought = shareOf(d.bought, supply);
     if (d.bought !== '0' && bought !== null) {
-      const spent = solOf(d.solSpent);
-      sentences.push(
-        `It bought ${sharePct(bought)} of the supply${spent ? ` for ${solWords(spent)}` : ''}.`,
-      );
+      const part = (raw: string) => sharePct(shareOf(raw, supply) ?? 0);
+      sentences.push(`It bought ${sharePct(bought)} of the supply${paidWords(d, part)}.`);
     }
     // A sale read is a sale; "did not sell" only when every move was read.
     if (d.sold !== '0') {
@@ -176,8 +182,23 @@ function launchAccount(report: TokenReport): string | null {
   }
   const early = d.summary?.early;
   if (early && early.wallets > 0) {
+    // A sum of purchases, not a holding: some sold back within seconds.
     parts.push(
-      `in the first ${d.summary!.earlySeconds} seconds, ${early.wallets} address${early.wallets === 1 ? '' : 'es'} other than the creator bought ${pct(early.share)} of the supply`,
+      `in the first ${d.summary!.earlySeconds} seconds, ${early.wallets} address${early.wallets === 1 ? '' : 'es'} other than the creator bought a total of ${pct(early.share)} of the supply across their purchases${
+        early.heldNow === null
+          ? ''
+          : `, and hold ${held(early.heldNow)} today${early.unread ? ` (${early.unread} not read)` : ''}`
+      }`,
+    );
+  }
+  // Passed on with nothing paid back: transfers, never sales.
+  const sent = d.summary?.creatorSent ?? 0;
+  if (sent >= 0.001) {
+    const locked = d.summary?.creatorLocked ?? 0;
+    parts.push(
+      `the creator transferred ${pct(sent)} of the supply to other addresses with no payment read in return${
+        locked >= 0.001 ? ` (${pct(locked)} of it into or out of a lock or vesting program)` : ''
+      }: transfers, not sales`,
     );
   }
   if (parts.length === 0) return null;
@@ -205,14 +226,18 @@ export function offlineExplanation(report: TokenReport, specialists?: Specialist
   const powers = powersAccount(report);
   if (powers) parts.push(powers);
   const { creator, holders, market } = report;
-  const rawCreatorNote = creator.sources[0]?.note;
+  // The creation the launch replay found, when the creator's read did not reach it.
+  const found = report.launch.data.creation;
+  const rawCreatorNote = withLaunchCreation(creator, found).sources[0]?.note;
   const creatorNote = rawCreatorNote && readableNote(rawCreatorNote);
   if (creator.data.creator === null) {
     // Say why: "nothing names one" and "the node did not answer" are different facts.
     parts.push(
       readFailed(failedReads, 'creator')
         ? `Creator could not be read${creatorNote ? ` (${creatorNote})` : ''}.`
-        : 'Creator: no curve, creation transaction or metadata authority on the chain names one.',
+        : found
+          ? `Creator: no curve or metadata authority on the chain names one; ${short(found.payer)} paid for the creation (transaction ${shortAddress(found.signature)}).`
+          : 'Creator: no curve, creation transaction or metadata authority on the chain names one.',
     );
   } else {
     parts.push(creatorAccount(report));

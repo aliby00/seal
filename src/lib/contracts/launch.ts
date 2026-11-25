@@ -39,6 +39,12 @@ export type LaunchMove = {
   /** Part of the supply the actor holds today, `null` when it could not be read. */
   heldNow: number | null;
   transaction: string;
+  /**
+   * The lock or vesting program the move's transaction ran (Streamflow,
+   * Jupiter Lock), for a move outside any market: tokens put into or taken
+   * out of its custody. Solana replays only; absent otherwise.
+   */
+  lock?: string;
 };
 
 /** Buys in this many seconds count as "the first buyers". */
@@ -69,8 +75,19 @@ export type LaunchSummary = {
   /** Seconds of the creator's first buy and last sale in the window, when there are some. */
   creatorFirstBuyAt: number | null;
   creatorLastSaleAt: number | null;
-  /** A creator sale in the window whose receipt shows a trade. Absent from older replays. */
+  /**
+   * A creator sale in the window that was paid, to a pool a launchpad or an
+   * AMM owns or through one of their programs. Absent from older replays.
+   */
   creatorSaleConfirmed?: boolean;
+  /**
+   * What the creator passed on to other addresses in the window with no
+   * payment read in return, share of supply: transfers, not sales. Of it,
+   * `creatorLocked` went into or out of a lock or vesting program. Solana
+   * replays; absent when it sent nothing, and from older replays.
+   */
+  creatorSent?: number;
+  creatorLocked?: number;
   /**
    * What the launch block's transactions sent by the creator delivered to
    * other addresses than the creator's (MUT8: 71.4 % to three contracts in

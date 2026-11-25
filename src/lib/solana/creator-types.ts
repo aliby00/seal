@@ -165,8 +165,17 @@ export type SolanaWalletOnToken = {
    * The native SOL its balance fell by in its buys and rose by in its sales,
    * lamports, the network fee given back (`sol` of each move): rent and tips
    * included, payments in another token not (see each move's `otherTokens`).
+   * Only the buys paid in SOL count in `solSpent`: see `boughtForSol`.
    */
   solSpent: string;
+  /**
+   * What its buys paid in SOL got, raw units, when some of its buys were paid
+   * in another token (a curve's quote token): `solSpent` is the price of
+   * these only. Absent when every buy was paid in SOL. On 6qmo…pump the
+   * launch buy, 2.1 % of the supply, was paid 531,745 SPCX; added to two
+   * buys in SOL it read as "2.8 % for 1.01 SOL" (staging, 25/11/2026).
+   */
+  boughtForSol?: string;
   solReceived: string;
   /** Held today across its token accounts of this mint; `null` when not read. */
   holdsNow: string | null;
