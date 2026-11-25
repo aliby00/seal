@@ -296,7 +296,8 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
       ),
     ]),
     ...block('Market (DexScreener)', report.market, () => [
-      `Main pair on ${m.dex ?? 'an unnamed venue'}${m.pairedWith?.symbol ? `, against ${m.pairedWith.symbol}` : ''}${m.pairCreatedAt ? `, created ${m.pairCreatedAt}` : ''}.`,
+      // The paired token's symbol is chosen by whoever made that token: quoted, as every name.
+      `Main pair on ${m.dex ?? 'an unnamed venue'}${m.pairedWith?.symbol ? `, against ${quoteName(m.pairedWith.symbol)}` : ''}${m.pairCreatedAt ? `, created ${m.pairCreatedAt}` : ''}.`,
       `Price ${m.priceUsd ?? 'not given'} USD; liquidity ${m.liquidityUsd === null ? 'not given' : `${m.liquidityUsd} USD`}; FDV ${m.fdvUsd ?? 'not given'} USD (the main pair's).`,
       ...((m.pairsCounted ?? 1) > 1
         ? [

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { findViolations } from '../../src/lib/agent/guardrails';
 import { NotFoundError, UpstreamError } from '../../src/lib/errors';
 import { createBudget } from '../../src/lib/http';
 import {
@@ -175,6 +176,25 @@ describe('toSolanaMarketState on recorded answers', () => {
     expect(state.sources[0]?.note).toBe(
       "the main pair trades against MM, not SOL, USDC or USDT: its USD figures go through that token's price",
     );
+  });
+
+  it('a paired symbol that reads as a verdict is not served: the paired token is named by its address', () => {
+    // Anyone can pair a token against one they named: AskGrok's note read
+    // "trades against SPCX", Bouncer's "against XMR" (staging, 25/11/2026).
+    const pairs = pairsOf('pump-curve-xmr').map((p) => ({
+      ...p,
+      quoteToken: { ...p.quoteToken, symbol: 'SAFE' },
+    }));
+    const state = toSolanaMarketState(MINTS['pump-curve-xmr'], pairs, { now: at });
+    expect(state.sources[0]?.note).toMatch(/trades against WXMR…teJp, not SOL, USDC or USDT/);
+    expect(findViolations(state.sources[0]?.note ?? '')).toEqual([]);
+    const hidden = pairsOf('pump-curve-xmr').map((p) => ({
+      ...p,
+      quoteToken: { ...p.quoteToken, symbol: 'X‮MR' },
+    }));
+    expect(
+      toSolanaMarketState(MINTS['pump-curve-xmr'], hidden, { now: at }).sources[0]?.note,
+    ).toMatch(/trades against X MR,/);
   });
 
   it('a dust pool against SOL is not the market: the most liquid pair is, its quote named', () => {

@@ -1,11 +1,12 @@
 import type { SolanaSourceName, SourceRef, Sourced } from '../contracts';
 import { NotFoundError, SealError, TimeoutError, UpstreamError } from '../errors';
 import { BudgetExhaustedError, requestJson, type RequestBudget } from '../http';
-import { isSolanaAddress } from '../solana/address';
+import { isSolanaAddress, shortAddress } from '../solana/address';
 import { NATIVE_MINT } from '../solana/programs';
 import { readSolanaGraduation } from '../solana/graduation';
 import { findLaunchAccount, readSolanaLaunch, type LaunchAccount } from '../solana/launchpads';
 import { readSolanaLiquidity } from '../solana/liquidity';
+import { displayName } from '../specialists/names';
 import { abortable, eitherSignal, type SolanaRpc } from '../solana/rpc';
 import { solanaTokenPairsUrl, type DexScreenerPair } from './dexscreener';
 import { MAX_LISTED_POOLS, MEANINGFUL_POOL_USD, pickPrimaryPair, quietFor } from './index';
@@ -278,6 +279,9 @@ export function toSolanaMarketState(
     data.liquidityUsd === null ? 'liquidity' : null,
   ].filter((x): x is string => x !== null);
   const quote = pair.quoteToken?.address;
+  // The paired token's symbol is chosen by whoever made that token: the note is
+  // served as is, so it gets the header's filter, and a withheld one its address.
+  const quoteWords = quote ? (displayName(pair.quoteToken?.symbol) ?? shortAddress(quote)) : '';
   const notes = [
     missing.length === 0
       ? null
@@ -285,7 +289,7 @@ export function toSolanaMarketState(
         ? `DexScreener gives no liquidity figure for the main pair (${data.dex ?? 'unknown venue'})`
         : `${missing.join(' and ')} missing from the response`,
     quote && !REFERENCE_QUOTES.has(quote)
-      ? `the main pair trades against ${pair.quoteToken?.symbol ?? quote}, not SOL, USDC or USDT: its USD figures go through that token's price`
+      ? `the main pair trades against ${quoteWords}, not SOL, USDC or USDT: its USD figures go through that token's price`
       : null,
   ].filter((n): n is string => n !== null);
   return {

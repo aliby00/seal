@@ -2,6 +2,7 @@ import { readableNote } from '@/lib/plain-note';
 import type { CSSProperties } from 'react';
 import type { ReportFacts, TimelineLaunch } from '@/lib/facts';
 import { whereSetAside } from '@/lib/set-aside';
+import { displayName } from '@/lib/specialists/names';
 import { creatorFrom } from './creator-from';
 import { addressUrl, short } from './explorer';
 import type { SolanaView } from './solana-view';
@@ -550,8 +551,11 @@ function MarketCard({ market, solana }: { market: ReportFacts['market']; solana?
           {listed?.pair && (
             <p className="fact-mono">
               Main pair{listed.dex ? ` on ${listed.dex}` : ''}
-              {listed.pairedWith ? ` against ${listed.pairedWith}` : ''}:{' '}
-              <Address address={listed.pair} />
+              {/* Chosen by whoever made the paired token: filtered as the header's names. */}
+              {listed.pairedWith
+                ? ` against ${displayName(listed.pairedWith) ?? 'another token'}`
+                : ''}
+              : <Address address={listed.pair} />
               {listed.pair === solana?.launchpad.data?.account ? ', its launch curve' : ''}
             </p>
           )}

@@ -31,6 +31,22 @@ describe('the market block of the model input', () => {
     expect(text).toContain("FDV 41200 USD (the main pair's)");
   });
 
+  it('quotes the paired token’s symbol, chosen on chain by whoever made that token', () => {
+    const text = renderReport(
+      withMarket({
+        pairedWith: { address: 'WXMRyRZhsa19ety5erZhHg4N3xj3EVN92u94422teJp', symbol: 'XMR' },
+      }),
+    );
+    expect(text).toContain('Main pair on pumpfun, against "XMR"');
+    const verdict = renderReport(
+      withMarket({
+        pairedWith: { address: 'WXMRyRZhsa19ety5erZhHg4N3xj3EVN92u94422teJp', symbol: 'SAFE' },
+      }),
+    );
+    expect(verdict).toContain('against (name withheld: it reads as a verdict or advice)');
+    expect(verdict).not.toMatch(/against SAFE/);
+  });
+
   it('says "no trade" of every listed pair', () => {
     const text = renderReport(withMarket({ quiet: { hours: 1 } }));
     expect(text).toContain('No trade on any pair DexScreener lists for the token for at least 1 h');
