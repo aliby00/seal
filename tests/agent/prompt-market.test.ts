@@ -36,3 +36,41 @@ describe('the market block of the model input', () => {
     expect(text).toContain('No trade on any pair DexScreener lists for the token for at least 1 h');
   });
 });
+
+describe('the holders block of the model input', () => {
+  it('read on the 20 largest accounts, a pool none of them is is unseen, not "0%"', () => {
+    // USDC, 25/11/2026: "Nothing sits on curves, in pools, in locks or with the
+    // incinerator, so all of it circulates", from a 0 that meant "not among the 20".
+    const text = renderReport(
+      solanaReport({
+        holders: {
+          ...base.holders,
+          completeness: 'partial',
+          data: {
+            ...base.holders.data,
+            method: 'largest-accounts',
+            holderCount: null,
+            ofSupply: {
+              ...base.holders.data.ofSupply,
+              pools: null,
+              curves: null,
+              burned: null,
+              locked: null,
+            },
+          },
+        },
+      }),
+    );
+    expect(text).toContain(
+      'Of the whole supply, in these 20 accounts: on bonding curves none among them, in pools none among them',
+    );
+    expect(text).toContain('never write that nothing sits on curves, in pools or in locks');
+    expect(text).not.toMatch(/in pools (?:0\.00%|not read)/);
+  });
+
+  it('read on every account, the parts stay as measured', () => {
+    expect(renderReport(base)).toContain(
+      'Of the whole supply: on bonding curves 80.0%, in pools 0.00%',
+    );
+  });
+});

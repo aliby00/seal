@@ -334,6 +334,9 @@ describe('readHolders on a node that lists the largest accounts', () => {
       top10Wallets: 0.448981,
       pools: 0.050304,
     });
+    // A curve, lock or burn none of the 20 accounts is stays unseen, never 0:
+    // a smaller account may be one (USDC's pools, 25/11/2026).
+    expect(result.data.ofSupply).toMatchObject({ curves: null, locked: null, burned: null });
     expect(result.data.setAside).toEqual([
       {
         address: '5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1',

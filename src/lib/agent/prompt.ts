@@ -272,7 +272,10 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
                 ? `Every token account read: ${h.holderCount} holders, curves, pools, locks and the incinerator left out.`
                 : `Every token account read: at least ${h.holdersAtLeast} holders (some owners not identified), curves, pools, locks and the incinerator left out.`
               : `Only the 20 largest token accounts read: at least ${h.holdersAtLeast} holders; shares are floors.`,
-            `Of the whole supply: on bonding curves ${fmt(h.ofSupply.curves)}, in pools ${fmt(h.ofSupply.pools)}, in locks ${fmt(h.ofSupply.locked)}, with the incinerator ${fmt(h.ofSupply.burned)}.`,
+            h.method === 'largest-accounts'
+              ? // A role none of the 20 accounts has is not seen, not absent.
+                `Of the whole supply, in these 20 accounts: on bonding curves ${seen(h.ofSupply.curves)}, in pools ${seen(h.ofSupply.pools)}, in locks ${seen(h.ofSupply.locked)}, with the incinerator ${seen(h.ofSupply.burned)}. Curves, pools and locks outside these 20 accounts are not counted: never write that nothing sits on curves, in pools or in locks, nor that all of it circulates.`
+              : `Of the whole supply: on bonding curves ${fmt(h.ofSupply.curves)}, in pools ${fmt(h.ofSupply.pools)}, in locks ${fmt(h.ofSupply.locked)}, with the incinerator ${fmt(h.ofSupply.burned)}.`,
             `Of what circulates: largest holder ${pct(h.concentration.top1)}, top 10 ${pct(h.concentration.top10)}.`,
             ...(h.creator
               ? [
@@ -364,6 +367,8 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
 }
 
 const fmt = (x: number | null) => (x === null ? 'not read' : pct(x));
+/** A part read on the largest accounts only: `null` is "none among them", a floor otherwise. */
+const seen = (x: number | null) => (x === null ? 'none among them' : `at least ${pct(x)}`);
 
 const MOVE_WORD: Record<LaunchMove['kind'], string> = {
   mint: 'created and handed to',

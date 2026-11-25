@@ -172,7 +172,10 @@ export type SolanaHoldersData = HolderDistributionData & {
   top: SolanaHolder[];
   /**
    * Parts of the whole supply, 0 to 1; `null` when no list was read. From
-   * the largest accounts only, each is what those accounts show: a floor.
+   * the largest accounts only, each is what those accounts show: a floor,
+   * and a pool, curve, lock or burn none of them is stays `null` (not seen),
+   * never 0: USDC's 20 largest accounts held no pool while two of its listed
+   * pools held 268,000 USDC (25/11/2026).
    */
   ofSupply: {
     largestWallet: number | null;
@@ -771,6 +774,12 @@ export function summarize(input: SummaryInput): SolanaHoldersData {
       whole,
     );
   const sumOf = (list: readonly SolanaHolder[]) => list.reduce((s, h) => s + BigInt(h.balance), 0n);
+  // Read on the largest accounts only, a role none of them has may sit in a smaller account.
+  const partOf = (kind: OwnerRole['kind']) => {
+    if (input.method === 'none') return null;
+    const share = byKind(kind);
+    return share === 0 && input.method === 'largest-accounts' ? null : share;
+  };
 
   const setAside: SetAsideHolding[] = holders
     .filter((h) => h.role !== undefined)
@@ -816,10 +825,10 @@ export function summarize(input: SummaryInput): SolanaHoldersData {
     ofSupply: {
       largestWallet: read && wallets[0] ? wallets[0].ofSupply : read ? 0 : null,
       top10Wallets: read ? share6(sumOf(wallets.slice(0, 10)), whole) : null,
-      pools: read ? byKind('pool') : null,
-      curves: read ? byKind('curve') : null,
-      burned: read ? byKind('burn') : null,
-      locked: read ? byKind('lock') : null,
+      pools: partOf('pool'),
+      curves: partOf('curve'),
+      burned: partOf('burn'),
+      locked: partOf('lock'),
     },
     ...(creator ? { creator } : {}),
   };
