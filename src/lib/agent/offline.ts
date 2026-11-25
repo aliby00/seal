@@ -180,6 +180,16 @@ function launchAccount(report: TokenReport): string | null {
       `in the first ${d.summary!.earlySeconds} seconds, ${early.wallets} address${early.wallets === 1 ? '' : 'es'} other than the creator bought ${pct(early.share)} of the supply`,
     );
   }
+  // Passed on with nothing paid back: transfers, never sales.
+  const sent = d.summary?.creatorSent ?? 0;
+  if (sent >= 0.001) {
+    const locked = d.summary?.creatorLocked ?? 0;
+    parts.push(
+      `the creator transferred ${pct(sent)} of the supply to other addresses with no payment read in return${
+        locked >= 0.001 ? ` (${pct(locked)} of it into or out of a lock or vesting program)` : ''
+      }: transfers, not sales`,
+    );
+  }
   if (parts.length === 0) return null;
   return `Launch: ${parts.join('; ')}.`;
 }

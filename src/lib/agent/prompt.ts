@@ -357,7 +357,7 @@ const fmt = (x: number | null) => (x === null ? 'not read' : pct(x));
 
 const MOVE_WORD: Record<LaunchMove['kind'], string> = {
   mint: 'created and handed to',
-  allocation: 'transferred outside any market to',
+  allocation: 'transferred, with no payment read in return, to',
   buy: 'bought by',
   sell: 'sold back by',
   provide: 'provided as liquidity to a pool by',
@@ -385,7 +385,12 @@ export function renderLaunch(
     // The totals of every move read: the list below is only a selection.
     lines.push(
       `Totals over all ${sm.moves} moves of the window (the list further down is only a selection; cite these totals, not a sum of the list):`,
-      `- The creator got ${pc(sm.creatorAtLaunch)} in the creation slot, bought ${pc(sm.creatorBought)} and sold back ${pc(sm.creatorSold)} in the window.`,
+      `- The creator got ${pc(sm.creatorAtLaunch)} in the creation slot, bought ${pc(sm.creatorBought)} and sold back ${pc(sm.creatorSold)} in the window (a sale is counted only when the seller was paid, in SOL or another token).`,
+      ...(sm.creatorSent
+        ? [
+            `- The creator also transferred ${pc(sm.creatorSent)} of the supply to other addresses with no payment read in return${sm.creatorLocked ? `, ${pc(sm.creatorLocked)} of it into or out of a lock or vesting program` : ''}. These are transfers, not sales: never write that the creator sold them.`,
+          ]
+        : []),
       `- Early buyers (the creator left out, in the first ${sm.earlySeconds} seconds): ${sm.early.wallets} address${sm.early.wallets === 1 ? '' : 'es'}; quote this number as it is. They bought ${pc(sm.early.share)} of the supply in all (a sum of purchases, not a holding: do not say they "held" that much); today they still hold ${sm.early.heldNow === null ? 'a share that was not read' : pc(sm.early.heldNow)}${sm.early.unread ? ` (${sm.early.unread} not read)` : ''}.`,
       ...(sm.creatorTx
         ? [
@@ -414,7 +419,7 @@ export function renderLaunch(
         : '';
     const held = m.heldNow === null ? 'unknown' : `${(m.heldNow * 100).toFixed(2)}%`;
     lines.push(
-      `- +${m.seconds} s (slot +${m.block}): ${(m.share * 100).toFixed(3)}% ${MOVE_WORD[m.kind]} ${actor}${from}; holds today ${held}`,
+      `- +${m.seconds} s (slot +${m.block}): ${(m.share * 100).toFixed(3)}% ${MOVE_WORD[m.kind]} ${actor}${from}${m.lock ? `, through ${m.lock} (a lock or vesting program)` : ''}; holds today ${held}`,
     );
   }
   if (d.movesInWindow > d.moves.length) {

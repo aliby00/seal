@@ -507,6 +507,7 @@ export function LaunchReplay({
                           </small>
                         )
                       )}
+                      {move.lock && <span className="launch-role">through {move.lock}</span>}
                     </td>
                     <td>
                       <a href={addressUrl(move.actor)} target="_blank" rel="noreferrer">
