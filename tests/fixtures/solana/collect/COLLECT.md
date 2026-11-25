@@ -20,3 +20,8 @@ the recording is one snapshot whatever the order the readers asked in.
 | `pyusd`             | `2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo` | Token-2022 with nine powers; no launchpad; history too long to reach its creation; holders not listable on the public node |
 
 Young tokens move: a test reads the recording, never the chain.
+
+The report's top-level `completeness` of `pump-creator-sold` and `meteora-dbc`
+was set to `full` by hand on 25/11/2026, when a curve read on chain stopped
+counting DexScreener's missing liquidity figure as a gap (`marketCompleteness`
+in `src/lib/collect.ts`); every other field is as recorded.
