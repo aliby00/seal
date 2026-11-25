@@ -176,8 +176,13 @@ function launchAccount(report: TokenReport): string | null {
   }
   const early = d.summary?.early;
   if (early && early.wallets > 0) {
+    // A sum of purchases, not a holding: some sold back within seconds.
     parts.push(
-      `in the first ${d.summary!.earlySeconds} seconds, ${early.wallets} address${early.wallets === 1 ? '' : 'es'} other than the creator bought ${pct(early.share)} of the supply`,
+      `in the first ${d.summary!.earlySeconds} seconds, ${early.wallets} address${early.wallets === 1 ? '' : 'es'} other than the creator bought a total of ${pct(early.share)} of the supply across their purchases${
+        early.heldNow === null
+          ? ''
+          : `, and hold ${held(early.heldNow)} today${early.unread ? ` (${early.unread} not read)` : ''}`
+      }`,
     );
   }
   // Passed on with nothing paid back: transfers, never sales.

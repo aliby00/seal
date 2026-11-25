@@ -93,3 +93,27 @@ describe('the creator’s transfers are not sales', () => {
     expect(findViolations(out)).toEqual([]);
   });
 });
+
+describe('the first buyers: a sum of purchases, and what they hold today', () => {
+  // AskGrok (6qmo…pump) on staging: 24 addresses, 94.3 % bought in all within 3 s, none of it held today.
+  const early = summary({
+    earlySeconds: 3,
+    creatorAtLaunch: 0.021,
+    early: { wallets: 24, share: 0.94337, within: 3, heldNow: 0, unread: 0, contracts: 0 },
+  });
+
+  it('offline: a total across their purchases, with what they still hold', () => {
+    const out = offlineExplanation(withSummary(early));
+    expect(out).toContain(
+      'in the first 3 seconds, 24 addresses other than the creator bought a total of 94.3 % of the supply across their purchases, and hold none of it today',
+    );
+    expect(out).not.toMatch(/addresses other than the creator bought 94\.3 %/);
+  });
+
+  it('offline: an unread holding is not said', () => {
+    const out = offlineExplanation(
+      withSummary(summary({ early: { ...early.early, heldNow: null, unread: 24 } })),
+    );
+    expect(out).toContain('bought a total of 94.3 % of the supply across their purchases.');
+  });
+});
