@@ -3,6 +3,9 @@
  * Tout est optionnel : l'API omet les champs plutôt que de renvoyer null,
  * et un token fraîchement lancé n'a ni volume ni prix.
  */
+
+import { isSolanaAddress } from '../solana/address';
+
 export type DexScreenerPair = {
   chainId?: string;
   dexId?: string;
@@ -30,12 +33,23 @@ export const DEXSCREENER_BASE = 'https://api.dexscreener.com';
  */
 export const SOLANA_SLUG = 'solana';
 
-/** The mint goes in the path as is: Solana addresses are case-sensitive. */
+/**
+ * A path segment for DexScreener: each address is checked as a Solana address
+ * (base58, 32 bytes) and percent-encoded, so nothing from a request can change
+ * the host or the path. Case is kept: Solana addresses are case-sensitive.
+ */
+export function addressSegment(addresses: readonly string[]): string {
+  for (const address of addresses) {
+    if (!isSolanaAddress(address)) throw new Error('not a Solana address');
+  }
+  return addresses.map((address) => encodeURIComponent(address)).join(',');
+}
+
 export function solanaTokenPairsUrl(mint: string, base = DEXSCREENER_BASE): string {
-  return `${base}/token-pairs/v1/${SOLANA_SLUG}/${mint}`;
+  return `${base}/token-pairs/v1/${SOLANA_SLUG}/${addressSegment([mint])}`;
 }
 
 /** One or more pairs by their address: GET /latest/dex/pairs/{chainId}/{pairAddresses}. */
 export function solanaPairsUrl(pairs: readonly string[], base = DEXSCREENER_BASE): string {
-  return `${base}/latest/dex/pairs/${SOLANA_SLUG}/${pairs.join(',')}`;
+  return `${base}/latest/dex/pairs/${SOLANA_SLUG}/${addressSegment(pairs)}`;
 }

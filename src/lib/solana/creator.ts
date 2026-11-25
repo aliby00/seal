@@ -2,7 +2,7 @@ import type { SourceRef } from '../contracts/completeness';
 import { CREATOR_SENDS_LISTED, type CreatorSends } from '../contracts/creator';
 import { SealError, UpstreamError } from '../errors';
 import { BudgetExhaustedError, requestJson } from '../http';
-import type { DexScreenerPair } from '../market/dexscreener';
+import { addressSegment, type DexScreenerPair } from '../market/dexscreener';
 import { decodeBase58, encodeBase58, isOnCurve, isSolanaAddress, shortAddress } from './address';
 import { recordingKey } from './fake-rpc';
 import {
@@ -763,11 +763,11 @@ export const defaultDexFetch: DexFetch = (url) =>
   requestJson<unknown>(url, { source: 'dexscreener-solana', timeoutMs: 6_000, retries: 1 });
 
 export function dexTokensUrl(mints: readonly string[], base = DEXSCREENER_SOLANA_BASE): string {
-  return `${base}/tokens/v1/solana/${mints.join(',')}`;
+  return `${base}/tokens/v1/solana/${addressSegment(mints)}`;
 }
 
 export function dexPairsUrl(pairs: readonly string[], base = DEXSCREENER_SOLANA_BASE): string {
-  return `${base}/latest/dex/pairs/solana/${pairs.join(',')}`;
+  return `${base}/latest/dex/pairs/solana/${addressSegment(pairs)}`;
 }
 
 function chunks<T>(list: readonly T[], size: number): T[][] {
