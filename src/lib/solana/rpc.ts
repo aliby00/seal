@@ -678,6 +678,9 @@ export function createSolanaRpc(options: SolanaRpcOptions = {}): SolanaRpcClient
       retries: last ? 3 : 0,
       ...(last ? {} : { timeoutMs: HANDOVER_TIMEOUT_MS }),
       minRateLimitWaitMs: RATE_LIMIT_WAIT_MS,
+      // A node refusing the key (Alchemy: network not enabled for the app) is
+      // not busy: waiting would only hide it until the deadline.
+      forbiddenIsAnswer: true,
       budget,
       init: {
         method: 'POST',
@@ -686,6 +689,14 @@ export function createSolanaRpc(options: SolanaRpcOptions = {}): SolanaRpcClient
         ...(signal ? { signal } : {}),
       },
     });
+    if (response.status === 401 || response.status === 403) {
+      // Never its body: it may name the app or the key's network page.
+      throw new UpstreamError(
+        'solana-rpc',
+        `${method}: node refused the request (HTTP ${response.status})`,
+        response.status,
+      );
+    }
     let body: JsonRpcAnswer;
     try {
       body = (await response.json()) as JsonRpcAnswer;

@@ -1,4 +1,4 @@
-import { SealError } from '../errors';
+import { SealError, UpstreamError } from '../errors';
 import { createSolanaRpc, solanaRpcNodes, type SolanaNode } from './rpc';
 
 /** What /api/health says of the Solana node: its label and a `getSlot`, never its URL. */
@@ -9,7 +9,10 @@ export type SolanaNodeHealth = {
   nodes: number;
   slotOk: boolean;
   slot: number | null;
-  /** The error's kind when the slot was not read (`timeout`, `rate-limit`…); never its message. */
+  /**
+   * The error's kind when the slot was not read (`timeout`, `rate-limit`…),
+   * with the node's HTTP status when it refused (`refused:403`); never its message.
+   */
   error: string | null;
   ms: number;
 };
@@ -51,8 +54,18 @@ export async function solanaNodeHealth(
       nodes: nodes.length,
       slotOk: false,
       slot: null,
-      error: error instanceof SealError ? error.kind : 'error',
+      error: healthError(error),
       ms: Date.now() - started,
     };
   }
+}
+
+/** The kind of a failed probe, never its message (which may carry the URL). */
+function healthError(error: unknown): string {
+  if (error instanceof UpstreamError && (error.status === 401 || error.status === 403)) {
+    return `refused:${error.status}`;
+  }
+  if (error instanceof SealError) return error.kind;
+  if (error instanceof DOMException && error.name === 'TimeoutError') return 'timeout';
+  return 'error';
 }

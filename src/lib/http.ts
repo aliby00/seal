@@ -36,6 +36,11 @@ export class BudgetExhaustedError extends Error {
 }
 
 export type FetchOptions = {
+  /**
+   * A 403 is an answer for the caller to read (a node refusing its key or a
+   * network the key does not cover), not a rate limit to wait out.
+   */
+  forbiddenIsAnswer?: boolean;
   source: SourceName;
   timeoutMs?: number;
   retries?: number;
@@ -128,7 +133,7 @@ export async function request(url: string, options: FetchOptions): Promise<Respo
     try {
       const response = await once(url, options);
 
-      if (response.status === 429 || response.status === 403) {
+      if (response.status === 429 || (response.status === 403 && !options.forbiddenIsAnswer)) {
         throw new RateLimitError(source, parseRetryAfter(response.headers.get('retry-after')));
       }
       if (response.status >= 500) {
