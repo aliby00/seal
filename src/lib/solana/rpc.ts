@@ -690,10 +690,12 @@ export function createSolanaRpc(options: SolanaRpcOptions = {}): SolanaRpcClient
       },
     });
     if (response.status === 401 || response.status === 403) {
-      // Never its body: it may name the app or the key's network page.
+      // Never its body: it may name the app or the key's network page. Only
+      // the kind of refusal is kept.
+      const reason = refusalReason(await response.text().catch(() => ''));
       throw new UpstreamError(
         'solana-rpc',
-        `${method}: node refused the request (HTTP ${response.status})`,
+        `${method}: node refused the request (HTTP ${response.status}, ${reason})`,
         response.status,
       );
     }
@@ -790,4 +792,13 @@ export function createSolanaRpc(options: SolanaRpcOptions = {}): SolanaRpcClient
     ...solanaRpcFrom(call),
     usage: () => ({ spent: budget.spent, max: budget.max }),
   };
+}
+
+/** Why a node refused, in one word, from its answer; the answer itself is never kept. */
+export function refusalReason(body: string): 'network' | 'key' | 'allowlist' | 'plan' | 'other' {
+  if (/not enabled|enable the network|network.*disabled/i.test(body)) return 'network';
+  if (/allowlist|whitelist|origin|not allowed from|ip address/i.test(body)) return 'allowlist';
+  if (/authenticat|api key|invalid key|unauthori[sz]ed/i.test(body)) return 'key';
+  if (/plan|upgrade|tier|capacity/i.test(body)) return 'plan';
+  return 'other';
 }
