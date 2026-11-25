@@ -1,53 +1,41 @@
 import type { TokenReport } from '../contracts';
+import type { TokenPowerKind } from '../solana/token-types';
 import { readFailed } from '../failed-reads';
 import { roundTripsExcludedWords } from '../launch-story';
 
 /**
  * Claims the model's text may not make, checked against the facts it was
  * given. The prompt forbids them; this is the check after the fact, sentence
- * by sentence, because the audit of 18/10/2026 found each of them in served
- * text:
+ * by sentence, because audits found each of them in served text:
  *
- *  - `only-token`: "The creator has launched only this one token" (DELTA),
- *    "it covers only this one token" (Mike), while SEAL lists launches on
- *    some launchpads only. Never true as stated.
- *  - `clean-record`: "the creator's own record looks clean" (Mike), with a
- *    creator sale measured on this token.
- *  - `no-sale`: "has not been seen selling", with a sale measured.
- *  - `no-link`: "no link between the creator and the holders", with holders
- *    measured as having received the creator's tokens.
- *  - `took-nothing`: "it took no supply in the launch block" (MUT8), while
- *    the creator's own launch transaction delivered 71.4 % to three
- *    contracts.
- *
- * And from the fourth audit (staging, 18/10/2026):
- *
+ *  - `only-token`: "the creator has launched only this one token", while
+ *    SEAL lists pump.fun's curves and the creator's recent transactions
+ *    only. Never true as stated.
+ *  - `clean-record`: "the creator's own record looks clean", with a creator
+ *    sale read on this token.
+ *  - `no-sale`: "has not been seen selling", with a sale read.
+ *  - `no-link`: "no link between the creator and the holders", while wallets
+ *    got tokens in transactions the creator paid for, wallets it sent SOL to
+ *    traded the token, or its own creation transaction delivered tokens.
+ *  - `took-nothing`: "it took no supply at launch", while the creator's own
+ *    transaction delivered part of it to other addresses.
  *  - `unread`: an absence a failed read would have settled — "no other
- *    launch" while the listing did not answer (AI: 80 launches), "did not
- *    sell" while the creator's history was rate-limited (GNRG);
- *  - `immutable`: "nothing can be rewritten later" (MEME), said of a market
- *    without a hook while the token's own contract is not checked;
- *  - `count`: a count the data gives otherwise — "two early buyers" for 3
- *    (ECOGPT), "five of the top holders" for 6 (BOOMER), "189 early buyers
- *    holding 97 %" for a share they bought (MUT8).
- *
- * And from the fifth (staging, 18/10/2026):
- *
- *  - `into-pools`: "that launch transaction, which delivered into pools"
- *    (MUT8), while it delivered 71.43 % to three contracts that are not
- *    pools;
- *  - a count of the creator's "other" launches given with this token in
- *    it, "sold in 8 of 10 other checked launches" for 7 of 9 (ASTEROID): it
- *    is corrected in place rather than cut.
- *
- * And from the seventh (staging, 18/10/2026):
- *
- *  - `remover-unknown`: "who removed it is not stated here" (MOON), while the
- *    data names the sender of the removal transaction (the creator) and
- *    where the market returned the token (48.07 % of the supply, to it).
+ *    launch" while the history did not answer, "did not sell" while the
+ *    creator's moves were rate-limited.
+ *  - `immutable`: "nothing can be changed later", "the token is immutable":
+ *    only the powers listed were read, and pools, holders and prices change.
+ *    Said of the metadata when nobody can change it, it is a fact and stays.
+ *  - `power-denied`: "the mint authority is revoked", "no one can freeze
+ *    tokens", while the data says someone holds that power, or could not
+ *    read it.
+ *  - `count`: a count the data gives otherwise — "two early buyers" for 3,
+ *    "five wallets in the creation slot" for 6, "189 early buyers holding
+ *    97 %" for a share they bought.
+ *  - `into-pools`: "that creation transaction, which delivered into pools",
+ *    while it delivered to addresses that are not pools.
  *
  * A cut never leaves a dangling sentence behind: "It also took tokens out…"
- * opened AML's section once the sentence before it was cut. The next
+ * once opened a section after the sentence before it was cut. The next
  * sentence gets its subject back, or goes too.
  */
 export type ClaimKind =
@@ -58,9 +46,9 @@ export type ClaimKind =
   | 'took-nothing'
   | 'unread'
   | 'immutable'
+  | 'power-denied'
   | 'count'
   | 'into-pools'
-  | 'remover-unknown'
   | 'misplaced-limit';
 
 export type Claim = { kind: ClaimKind; sentence: string };
@@ -71,7 +59,7 @@ const ONLY_TOKEN: RegExp[] = [
   /\b(?:just|a\s+single)\s+(?:this\s+)?(?:one\s+)?(?:token|launch)\b(?!\s+(?:of|by)\s+(?:others|other))/i,
   /\b(?:launched|created|deployed)\s+(?:only|just)\b/i,
   // "its first launch window" is a time, not a claim about the record.
-  /\b(?:its|their|the\s+creator[’']s|this\s+creator[’']s|the\s+wallet[’']s)\s+(?:very\s+)?first\s+(?:token|launch)\b(?!\s+(?:window|block|minutes?|seconds?|hours?|days?|transaction|pool|price|buyers?)\b)/i,
+  /\b(?:its|their|the\s+creator[’']s|this\s+creator[’']s|the\s+wallet[’']s)\s+(?:very\s+)?first\s+(?:token|launch)\b(?!\s+(?:window|block|slot|minutes?|seconds?|hours?|days?|transaction|pool|price|buyers?)\b)/i,
   /\bfirst\s+(?:token|launch)\s+(?:by|from|of)\s+(?:this|the|its)\s+(?:creator|wallet)\b/i,
   /\bnever\s+launched\s+(?:any|another|other)\b/i,
   /\bno\s+(?:other|prior|previous|earlier)\s+(?:tokens?|launch(?:es)?)\b(?!\s+(?:that|which|where|was|were|has\s+been|have\s+been)?\s*(?:found|seen|listed|recorded|that|which|where)\b)/i,
@@ -113,11 +101,40 @@ const NOTHING_AT_LAUNCH: RegExp[] = [
 
 const NO_TRADE: RegExp[] = [/\bno\s+(?:trades?|trading|swaps?|sells?|buys?)\b/i];
 
+const NO_LINKED_WALLET: RegExp[] = [
+  /\bno\s+(?:\w+\s+)?(?:linked|funded)\s+wallets?\b/i,
+  /\b(?:did\s+not|didn[’']t|never)\s+fund\b/i,
+];
+
 const IMMUTABLE: RegExp[] = [
   /\bnothing\s+(?:\w+\s+){0,3}(?:can|could)\s+(?:\w+\s+)?be\s+(?:rewritten|changed|altered|modified|upgraded)\b/i,
   /\bimmutable\b/i,
   /\bcan(?:not|['’]t|\s+never)\s+be\s+(?:rewritten|changed|altered|modified|upgraded)\b/i,
 ];
+
+/** A sentence about the token's name, symbol or image. */
+const ABOUT_METADATA = /\b(?:metadata|name|symbol|image|logo)\b/i;
+
+/** "No one can freeze", "the freeze authority is revoked", per power the data may contradict. */
+const POWER_DENIED: Partial<Record<TokenPowerKind, RegExp[]>> = {
+  mint: [
+    /\bmint(?:ing)?\s+authority\s+(?:is\s+|was\s+|has\s+been\s+)?(?:revoked|renounced|disabled|removed|burned|gone|null|empty|absent)\b/i,
+    /\bno\s+(?:one|body)\s+can\s+(?:mint|create)\b/i,
+    /\b(?:cannot|can[’']t|can\s+not)\s+be\s+minted\b/i,
+    /\b(?:fixed|capped)\s+supply\b/i,
+  ],
+  freeze: [
+    /\bfreeze\s+authority\s+(?:is\s+|was\s+|has\s+been\s+)?(?:revoked|renounced|disabled|removed|gone|null|empty|absent)\b/i,
+    /\bno\s+(?:one|body)\s+can\s+freeze\b/i,
+    /\b(?:cannot|can[’']t|can\s+not)\s+be\s+frozen\b/i,
+  ],
+  'permanent-delegate': [/\bno\s+permanent\s+delegate\b/i],
+  'transfer-hook': [/\bno\s+transfer\s+hook\b/i],
+  'transfer-fee': [/\bno\s+transfer\s+fees?\b/i, /\b(?:fee|tax)[-\s]free\s+transfers?\b/i],
+  'transfer-fee-change': [
+    /\bno\s+(?:one|body)\s+can\s+(?:set|change|add)\s+(?:a\s+|the\s+)?(?:transfer\s+)?fee\b/i,
+  ],
+};
 
 /** Whether the creator sold this token, as its own moves show; `null` when they were not read. */
 const soldOwn = (report: TokenReport): boolean | null => {
@@ -126,7 +143,7 @@ const soldOwn = (report: TokenReport): boolean | null => {
   return onToken.data.sold !== '0';
 };
 
-/** The absences a failed read leaves unknown, as patterns: never said (GNRG, AI, MEME). */
+/** The absences a failed read leaves unknown, as patterns: never said. */
 export function unreadPatterns(report: TokenReport): RegExp[] {
   const failed = report.failedReads ?? [];
   const creator = readFailed(failed, 'creator');
@@ -135,48 +152,55 @@ export function unreadPatterns(report: TokenReport): RegExp[] {
     ...(creator || readFailed(failed, 'creator-sales') ? NO_SALE : []),
     ...(readFailed(failed, 'launch-replay') ? NOTHING_AT_LAUNCH : []),
     ...(readFailed(failed, 'holders') ? NO_LINK : []),
+    ...(creator || readFailed(failed, 'linked-wallets') ? NO_LINKED_WALLET : []),
     ...(readFailed(failed, 'market') ? NO_TRADE : []),
   ];
+}
+
+/** What a sentence may not deny: powers someone holds, a fee charged, or a mint not read at all. */
+function undeniable(report: TokenReport): RegExp[] {
+  if (!report.mint.data) return Object.values(POWER_DENIED).flat();
+  return report.powers
+    .filter(
+      (p) =>
+        p.status === 'held' ||
+        p.status === 'unknown' ||
+        (p.power === 'transfer-fee' && p.status === 'fixed'),
+    )
+    .flatMap((p) => POWER_DENIED[p.power] ?? []);
 }
 
 /** Which claims the facts forbid for this report. */
 export function forbiddenClaims(report: TokenReport): Set<ClaimKind> {
   const kinds = new Set<ClaimKind>(['only-token', 'immutable']);
   if (unreadPatterns(report).length > 0) kinds.add('unread');
-  const summary = report.launch.data.summary;
+  if (undeniable(report).length > 0) kinds.add('power-denied');
+  const launch = report.launch.data;
+  const summary = launch.summary;
   const soldHere = soldOwn(report) === true || (summary?.creatorSold ?? 0) > 0;
-  // TODO-SOLANA: the creator's sales on its other tokens are not read on Solana yet.
   if (soldHere) kinds.add('clean-record');
   if (soldHere) kinds.add('no-sale');
-  const links = report.holders.data.creatorLinks;
-  if (
-    (links && (links.holders.length > 0 || links.distributors.length > 0)) ||
-    (summary?.creatorTx?.share ?? 0) >= 0.01
-  ) {
-    kinds.add('no-link');
-  }
-  if ((summary?.creatorTx?.share ?? 0) >= 0.01) kinds.add('took-nothing');
-  // MUT8: the launch transaction delivered to contracts, which are not pools.
-  if ((summary?.creatorTx?.share ?? 0) >= 0.01) kinds.add('into-pools');
-  // TODO-SOLANA: liquidity removals (MOON: the remover is in the data) are not read on Solana yet.
+  const linkedTraded = (report.linkedWallets?.data.funded ?? []).some(
+    (f) => f.onToken && (f.onToken.bought !== '0' || f.onToken.sold !== '0'),
+  );
+  const viaCreator = (summary?.creatorTx?.share ?? 0) >= 0.01;
+  if (viaCreator || linkedTraded || (launch.payerGroup?.share ?? 0) >= 0.01) kinds.add('no-link');
+  if (viaCreator) kinds.add('took-nothing');
+  // The creator's own transaction delivered to addresses that are not pools.
+  if (viaCreator) kinds.add('into-pools');
   return kinds;
 }
 
-/** "that launch transaction, which delivered into pools" (MUT8). */
+/** "that creation transaction, which delivered into pools". */
 const INTO_POOLS: RegExp[] = [
-  /\blaunch\s+transaction\b[^.]*\b(?:delivered|sent|went|put|placed)\s+(?:\w+\s+){0,4}?(?:into|to|in)\s+(?:the\s+|its\s+|a\s+)?(?:pools?|liquidity|markets?)\b/i,
-  /\b(?:delivered|sent)\s+(?:\w+\s+){0,4}?into\s+(?:the\s+|its\s+)?pools?\b[^.]*\blaunch\s+transaction\b/i,
+  /\b(?:launch|creation)\s+transaction\b[^.]*\b(?:delivered|sent|went|put|placed)\s+(?:\w+\s+){0,4}?(?:into|to|in)\s+(?:the\s+|its\s+|a\s+)?(?:pools?|liquidity|markets?|curve)\b/i,
+  /\b(?:delivered|sent)\s+(?:\w+\s+){0,4}?into\s+(?:the\s+|its\s+)?pools?\b[^.]*\b(?:launch|creation)\s+transaction\b/i,
 ];
 
-/** "Who removed it is not stated here" (MOON), with the remover in the data. */
-const REMOVER_UNKNOWN: RegExp[] = [
-  /\bwho\s+(?:removed|pulled|withdrew|took\s+out)\b[^.]*\b(?:not\s+(?:stated|known|shown|said|given|clear|identified|named|recorded)|unknown|unclear|cannot\s+be\s+(?:told|said|identified|named))/i,
-  /\b(?:not\s+(?:stated|known|shown|said|clear)|unknown|unclear)\b[^.]*\bwho\s+(?:removed|pulled|withdrew)\b/i,
-  /\b(?:removed|pulled|withdrawn)\s+by\s+(?:an?\s+)?(?:unknown|unidentified|unnamed)\b/i,
-];
-
-const PATTERNS: Record<Exclude<ClaimKind, 'unread' | 'count' | 'misplaced-limit'>, RegExp[]> = {
-  'remover-unknown': REMOVER_UNKNOWN,
+const PATTERNS: Record<
+  Exclude<ClaimKind, 'unread' | 'count' | 'misplaced-limit' | 'power-denied'>,
+  RegExp[]
+> = {
   'into-pools': INTO_POOLS,
   'only-token': ONLY_TOKEN,
   'clean-record': CLEAN,
@@ -224,9 +248,9 @@ const EARLY_COUNT = new RegExp(
   `\\b${NUMBER}\\s+(?:\\w+\\s+){0,2}?(?:early|earliest|first)\\s+(?:\\w+\\s+)?(?:buyers?|wallets?|addresses)\\b`,
   'i',
 );
-/** "five of the top holders", "6 of the largest holders". */
-const LINKED_COUNT = new RegExp(
-  `\\b${NUMBER}\\s+(?:other\\s+)?(?:of\\s+the\\s+)?(?:\\w+\\s+)?(?:top|largest|biggest)\\s+(?:\\w+\\s+)?holders?\\b`,
+/** "3 wallets got 25.8% … in the creation slot", "five addresses bought in the same slot". */
+const SLOT_COUNT = new RegExp(
+  `\\b${NUMBER}\\s+(?:\\w+\\s+){0,2}?(?:wallets?|addresses|buyers?)\\b`,
   'i',
 );
 
@@ -237,8 +261,8 @@ const percents = (share: number): string[] => {
 
 /**
  * A count in `sentence` the report gives otherwise: the early buyers, the
- * largest holders linked to the creator, or a share the early buyers bought
- * told as one they held.
+ * wallets that got tokens in the creation slot, or a share the early buyers
+ * bought told as one they held.
  */
 export function countMismatch(sentence: string, report: TokenReport): boolean {
   const early = report.launch.data.summary?.early;
@@ -246,7 +270,7 @@ export function countMismatch(sentence: string, report: TokenReport): boolean {
     const m = EARLY_COUNT.exec(sentence);
     const n = m?.[1] ? numberOf(m[1]) : null;
     if (n !== null && n !== early.wallets) return true;
-    // MUT8: "189 early buyers holding 97% at launch" — they bought it.
+    // "189 early buyers holding 97% at launch": they bought it.
     if (early.share > 0 && /\b(?:early|earliest|first)\b/i.test(sentence)) {
       const held = new RegExp(
         `\\b(?:holding|held|hold)\\s+(?:about\\s+|roughly\\s+|some\\s+|nearly\\s+|almost\\s+)?(?:${percents(early.share).join('|')})\\s?%`,
@@ -255,25 +279,11 @@ export function countMismatch(sentence: string, report: TokenReport): boolean {
       if (held.test(sentence)) return true;
     }
   }
-  const h = report.holders.data;
-  // WAFER: "the only creator transfer outside markets went to a burn
-  // address", while it also sent 0.11 % to a wallet.
-  if (
-    (h.creatorLinks?.sentTo ?? 0) > 0 &&
-    /\bonly\b[^.]*\b(?:transfers?|sends?|sent)\b[^.]*\bburn/i.test(sentence)
-  ) {
-    return true;
-  }
-  if (h.creatorLinks && /\breceived\b|\bfrom\s+the\s+creator\b|\blinked\b/i.test(sentence)) {
-    const m = LINKED_COUNT.exec(sentence);
+  const slot = report.launch.data.sameSlot;
+  if (slot && /\bcreation\s+slot\b|\bsame\s+slot\b/i.test(sentence)) {
+    const m = SLOT_COUNT.exec(sentence);
     const n = m?.[1] ? numberOf(m[1]) : null;
-    if (n !== null) {
-      const shown = h.top.filter((t) => t.kind === 'wallet' || t.kind === 'contract').slice(0, 8);
-      const k = shown.filter((t) => t.fromCreator).length;
-      const allowed = new Set([k, h.top.filter((t) => t.fromCreator).length]);
-      if (/\bother\b/i.test(sentence) && shown[0]?.fromCreator) allowed.add(k - 1);
-      if (!allowed.has(n)) return true;
-    }
+    if (n !== null && n !== slot.wallets) return true;
   }
   return false;
 }
@@ -288,7 +298,7 @@ function sentences(paragraph: string): string[] {
 
 /** Some claims are only that claim when they are about the creator or the holders. */
 const ABOUT: Partial<Record<ClaimKind, RegExp>> = {
-  'no-link': /\b(?:creator|holders?|wallets?|addresses|contracts?)\b/i,
+  'no-link': /\b(?:creator|holders?|wallets?|addresses|accounts?)\b/i,
   // "did not sell on its other launches" may be true: only this token's sale is measured here.
   'no-sale': /^(?!.*\bother\b).*\bcreator\b/i,
 };
@@ -297,12 +307,25 @@ const ABOUT: Partial<Record<ClaimKind, RegExp>> = {
 export function findClaims(text: string, report: TokenReport): Claim[] {
   const kinds = forbiddenClaims(report);
   const unread = unreadPatterns(report);
+  const denied = undeniable(report);
+  // Nobody can change the metadata: saying so is a fact, not `immutable`.
+  const fixedMetadata =
+    report.mint.data?.metadata?.isMutable === false &&
+    !report.powers.some((p) => p.power === 'metadata-update' && p.status !== 'none');
   const found: Claim[] = [];
   for (const paragraph of text.split(/\n{2,}/)) {
     for (const sentence of sentences(paragraph)) {
       let hit: ClaimKind | undefined;
       for (const kind of kinds) {
         if (kind === 'unread' || kind === 'count' || kind === 'misplaced-limit') continue;
+        if (kind === 'power-denied') {
+          if (denied.some((p) => p.test(sentence))) {
+            hit = kind;
+            break;
+          }
+          continue;
+        }
+        if (kind === 'immutable' && fixedMetadata && ABOUT_METADATA.test(sentence)) continue;
         const about = ABOUT[kind];
         if (about && !about.test(sentence)) continue;
         if (PATTERNS[kind].some((p) => p.test(sentence))) {
@@ -318,78 +341,11 @@ export function findClaims(text: string, report: TokenReport): Claim[] {
       ) {
         hit = 'unread';
       }
-      if (!hit && (countMismatch(sentence, report) || othersCountMismatch(sentence, report)))
-        hit = 'count';
+      if (!hit && countMismatch(sentence, report)) hit = 'count';
       if (hit) found.push({ kind: hit, sentence });
     }
   }
   return found;
-}
-
-/** "8 of 10 other launches", "seven of the nine earlier launches". */
-const OTHERS_COUNT = new RegExp(
-  `\\b${NUMBER}\\s+(of|out\\s+of)\\s+((?:the|its|their)\\s+)?${NUMBER}\\s+(other|previous|earlier|prior)\\b`,
-  'gi',
-);
-
-/**
- * The creator's sales over its other launches, this token left out: the
- * total the data gives (8 of 10, this token included) is not a count of
- * the others (7 of 9). `null` when this token's own sale is not known.
- */
-export function otherLaunchSales(
-  report: TokenReport,
-): { sold: number; checked: number; totalSold: number; totalChecked: number } | null {
-  // TODO-SOLANA: the creator's sales on its other tokens are not read on
-  // Solana yet (creatorHistory lists them and their outcome only): no count
-  // of "other launches sold" to correct.
-  void report;
-  return null;
-}
-
-/**
- * The text with each count of "other" launches the creator sold on set to
- * what the data says of the others: "sold in 8 of 10 other checked
- * launches" said this token in the count (ASTEROID). Only a count that is
- * the total, this token included, is corrected; another one is cut.
- */
-export function correctOtherCounts(text: string, report: TokenReport): string {
-  const counts = otherLaunchSales(report);
-  if (!counts) return text;
-  return text
-    .split(/\n{2,}/)
-    .map((paragraph) =>
-      sentences(paragraph)
-        .map((sentence) => {
-          if (!/\b(?:sold|sell|sells|selling|sales?)\b/i.test(sentence)) return sentence;
-          return sentence.replace(
-            OTHERS_COUNT,
-            (match, a: string, of: string, the: string | undefined, b: string, word: string) => {
-              const x = numberOf(a);
-              const y = numberOf(b);
-              if (x === counts.totalSold && y === counts.totalChecked) {
-                return `${counts.sold} ${of} ${the ?? ''}${counts.checked} ${word}`;
-              }
-              return match;
-            },
-          );
-        })
-        .join(' '),
-    )
-    .join('\n\n');
-}
-
-/** A count of the other launches that is neither theirs nor the total: cut. */
-function othersCountMismatch(sentence: string, report: TokenReport): boolean {
-  const counts = otherLaunchSales(report);
-  if (!counts || !/\b(?:sold|sell|sells|selling|sales?)\b/i.test(sentence)) return false;
-  for (const m of sentence.matchAll(OTHERS_COUNT)) {
-    const x = m[1] ? numberOf(m[1]) : null;
-    const y = m[4] ? numberOf(m[4]) : null;
-    if (x === null || y === null) continue;
-    if (x !== counts.sold || y !== counts.checked) return true;
-  }
-  return false;
 }
 
 /** A sentence that leans on the one before it: "It also took…", "This came…". */
@@ -399,10 +355,10 @@ const SUBJECT =
   /^(The creator(?:[’']s wallet)?|The creator wallet|This token|The token|The largest holder|The market|The main pool)\b/;
 
 /**
- * Openers that sum up what came before (staging, 18/10/2026): "Together,
- * that means no visible holder cluster tied to the creator remains" after a
- * single sentence about liquidity (Mike), and "The two reads use different
- * methods…" opening a section with no two reads named before (MUT8).
+ * Openers that sum up what came before: "Together, that means no visible
+ * holder cluster tied to the creator remains" after a single sentence about
+ * liquidity, and "The two reads use different methods…" opening a section
+ * with no two reads named before.
  */
 const SUMMING = /^(?:(?:Taken|Put)\s+together|Together|Combined|In\s+sum|All\s+told)\b/i;
 const PAIRED = /^(?:(?:The|These|Those)\s+two|Both(?:\s+of\s+the(?:se)?)?)\s+(\w+)/i;
@@ -500,7 +456,7 @@ const SHOUTED =
 const startsSentence = (text: string, offset: number) =>
   /(?:^|[.!?:]\s+|\n\s*)$/.test(text.slice(0, offset));
 
-/** The text without the prompt's words of emphasis: "EXACTEMENT 6 of the 8" (ROBINHOOD), "EXACTLY 70" (OWN). */
+/** The text without the prompt's words of emphasis: "EXACTEMENT 6 of the 8", "EXACTLY 70". */
 export function withoutEmphasis(text: string): string {
   return text
     .split(/(["“][^"”\n]*["”])/)
@@ -530,7 +486,7 @@ export function withoutClaims(
   report: TokenReport,
 ): { text: string | null; dropped: Claim[] } {
   const corrected = correctHeldShare(
-    withRoundTripExclusions(correctOtherCounts(withoutEmphasis(text), report), report),
+    withRoundTripExclusions(withoutEmphasis(text), report),
     report,
   );
   const dropped = [...findClaims(corrected, report), ...misplacedLimits(corrected)];

@@ -3,10 +3,8 @@ import type { TokenReport } from '../../src/lib/contracts';
 import { offlineExplanation } from '../../src/lib/agent/offline';
 import { explain } from '../../src/lib/agent/reason';
 import { findViolations } from '../../src/lib/agent/guardrails';
-import { CREATOR, solanaReport } from '../helpers/solana-report';
+import { CREATOR, HOLDER, solanaReport } from '../helpers/solana-report';
 
-// TODO-SOLANA: the offline wording is a stand-in until the agent is
-// rewritten on the Solana report; these tests hold what it must keep.
 const AT = '2026-11-25T00:00:00.000Z';
 const base = solanaReport();
 
@@ -25,7 +23,8 @@ describe('offlineExplanation', () => {
   it('names the creator, where it was read, and what it did with this token', () => {
     expect(text).toContain(`Creator: ${CREATOR.slice(0, 4)}…${CREATOR.slice(-4)}`);
     expect(text).toContain('named by its pump.fun bonding curve');
-    expect(text).toMatch(/did not sell this token/);
+    // Every move was read, and there was none: no sale is a fact here.
+    expect(text).toMatch(/The creator has no move on this token: it did not sell any\./);
   });
 
   it('says the creator sold when its moves show a sale', () => {
@@ -35,7 +34,100 @@ describe('offlineExplanation', () => {
         data: { ...base.creatorOnToken.data, sold: '5000' },
       },
     });
-    expect(offlineExplanation(sold)).toMatch(/the creator sold some of this token/);
+    expect(offlineExplanation(sold)).toMatch(/the creator sold <0\.01% of the supply/);
+  });
+
+  it('never says "did not sell" when not every move was read', () => {
+    const partial = solanaReport({
+      creatorOnToken: base.creatorOnToken && {
+        ...base.creatorOnToken,
+        completeness: 'partial',
+        data: { ...base.creatorOnToken.data, transactions: { listed: 16, read: 15 } },
+      },
+    });
+    const out = offlineExplanation(partial);
+    expect(out).toMatch(/No sale by the creator was seen in the 15 of 16 transactions read/);
+    expect(out).not.toMatch(/did not sell/);
+  });
+
+  it('says what the mint lets someone do, and who holds it', () => {
+    const held = solanaReport({
+      powers: [
+        {
+          power: 'freeze',
+          status: 'held',
+          holder: CREATOR,
+          sentence:
+            "Someone can freeze any holder's tokens so they cannot be moved (freeze authority).",
+          from: 'mint',
+        },
+        {
+          power: 'mint',
+          status: 'none',
+          holder: null,
+          sentence: 'No one can create new tokens.',
+          from: 'mint',
+        },
+      ],
+    });
+    expect(offlineExplanation(held)).toContain(
+      `Mint (Token-2022): No one can create new tokens. Someone can freeze any holder's tokens so they cannot be moved (freeze authority). Held by ${CREATOR.slice(0, 4)}…${CREATOR.slice(-4)}, the creator.`,
+    );
+    expect(text).toContain('Mint (Token-2022): No one can create new tokens.');
+  });
+
+  it('says what wallets got together at launch, and what they hold today', () => {
+    const grouped = solanaReport({
+      launch: {
+        ...base.launch,
+        data: {
+          ...base.launch.data,
+          sameSlot: {
+            wallets: 2,
+            share: 0.395,
+            transactions: 2,
+            heldNow: 0,
+            unread: 0,
+            soldInWindow: 0,
+            solSpent: 24.2,
+            addresses: [],
+          },
+        },
+      },
+    });
+    expect(offlineExplanation(grouped)).toContain(
+      'Launch: in the creation slot, 2 wallets other than the creator got 39.5 % of the supply and hold none of it today.',
+    );
+  });
+
+  it('says what the wallets the creator funded did, without saying who controls them', () => {
+    const funded = solanaReport({
+      linkedWallets: base.linkedWallets && {
+        ...base.linkedWallets,
+        data: {
+          ...base.linkedWallets.data,
+          window: { from: 1795552000, to: 1795560000 },
+          funded: [
+            {
+              wallet: HOLDER,
+              transfers: [],
+              lamports: '1000000000',
+              onToken: {
+                bought: '40000000000000',
+                sold: '30000000000000',
+                holdsNow: '0',
+                sales: [],
+                complete: true,
+              },
+            },
+          ],
+        },
+      },
+    });
+    const out = offlineExplanation(funded);
+    expect(out).toContain(
+      'Around the launch it sent SOL to 1 wallet; 1 of them traded this token, selling 3.0% of the supply. A transfer links the addresses; it does not show who controls them.',
+    );
   });
 
   it('says nothing names a creator, rather than "could not be read"', () => {

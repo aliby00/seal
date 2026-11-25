@@ -21,8 +21,6 @@ const report: TokenReport = solanaReport({
   },
 });
 
-// TODO-SOLANA: the rendering is a stand-in until the agent is rewritten on
-// the Solana report; these tests hold what any rendering must keep.
 describe('renderReport', () => {
   const rendered = renderReport(report);
 
@@ -39,7 +37,20 @@ describe('renderReport', () => {
   });
 
   it('gives what the mint lets someone do, one sentence each', () => {
-    expect(rendered).toContain('- Nobody can create more of this token.');
+    expect(rendered).toContain('- Nobody can create more of this token. [none]');
+  });
+
+  it('says what each read found in plain lines, not as raw data', () => {
+    expect(rendered).toContain(
+      'Program: Token-2022; 6 decimals; supply 1000000000000000 raw units.',
+    );
+    expect(rendered).toContain(
+      `Creator: ${String(report.creator.data.creator)}, named by its pump.fun bonding curve.`,
+    );
+    expect(rendered).toContain(
+      'Still on its bonding curve, 20.0% of the way to graduation (by tokens sold).',
+    );
+    expect(rendered).not.toMatch(/Data: \{/);
   });
 
   it('keeps addresses as the chain writes them', () => {
@@ -193,7 +204,7 @@ describe('renderReport : les dix questions', () => {
     {
       specialist: 'sell-path' as const,
       title: 'Sell Path',
-      question: 'Can holders sell, and can the trading rules (hook) stand in the way?',
+      question: 'Can holders sell today, and can something in the token stand in their way?',
       signal: 'unknown' as const,
       facts: [],
       limits: ['recent trades were not collected'],
