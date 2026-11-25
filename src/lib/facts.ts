@@ -249,6 +249,18 @@ function heldFromHolders(report: TokenReport): (address: string) => number | nul
 
 const noteOf = (sources: readonly { note?: string }[]) => sources.find((s) => s.note)?.note;
 
+/**
+ * Whether the creator sold this token. A sale read is a sale; "no sale" is a
+ * fact only when every move was read: a partial read (2 of 16 transactions,
+ * Meteora DBC 8xKZ…, 25/11/2026) that saw none leaves it unknown.
+ */
+function creatorSold(report: TokenReport): boolean | null {
+  const onToken = report.creatorOnToken;
+  if (!onToken || onToken.completeness === 'unavailable') return null;
+  if (onToken.data.sold !== '0') return true;
+  return onToken.completeness === 'full' ? false : null;
+}
+
 function creatorFacts(report: TokenReport): ReportFacts['creator'] {
   const { creator, creatorHistory: history, creatorOnToken: onToken } = report;
   const tokens = history && history.completeness !== 'unavailable' ? history.data.tokens : [];
@@ -256,7 +268,7 @@ function creatorFacts(report: TokenReport): ReportFacts['creator'] {
   // The analysed token, when its curve is complete, is one graduation more.
   const ownGraduation = report.graduation?.data.graduated === true ? 1 : 0;
   // What the creator did with this token, when its moves were read.
-  const sold = onToken && onToken.completeness !== 'unavailable' ? onToken.data.sold !== '0' : null;
+  const sold = creatorSold(report);
   const from = creator.data.from;
   const pad = report.launchpad.data.launchpad;
   return {
@@ -290,7 +302,15 @@ function creatorFacts(report: TokenReport): ReportFacts['creator'] {
           ? 'transaction'
           : null,
     notListed: [],
-    graduation: pad ? (report.graduation ? 'measured' : 'not-measured') : 'not-applicable',
+    // A launchpad read that failed says nothing of a graduation: never "not applicable".
+    graduation:
+      report.launchpad.completeness === 'unavailable'
+        ? 'not-measured'
+        : pad
+          ? report.graduation
+            ? 'measured'
+            : 'not-measured'
+          : 'not-applicable',
     ...(onToken && sold !== null
       ? { ownSales: { days: null, wholeLife: onToken.completeness === 'full' } }
       : {}),
@@ -402,9 +422,7 @@ export function toTimeline(report: TokenReport): TimelineLaunch[] {
   }));
   const creation = report.creator.data.creation;
   const graduation = report.graduation?.data;
-  const onToken = report.creatorOnToken;
-  const sold =
-    !onToken || onToken.completeness === 'unavailable' ? null : onToken.data.sold !== '0';
+  const sold = creatorSold(report);
   const current: TimelineLaunch = {
     address: report.token,
     launchedAt:
