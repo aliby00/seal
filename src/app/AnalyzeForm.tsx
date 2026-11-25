@@ -9,12 +9,13 @@ import { SourceStudy } from './components/SourceStudy';
 import { AnalysisReport } from './components/AnalysisReport';
 import { Arch } from './components/brand';
 import {
-  ADDRESS,
-  ADDRESS_HINT,
+  addressHint,
   ANALYZE_EVENT,
-  EXAMPLE_TOKEN,
+  EXAMPLES,
+  isTokenAddress,
   readingUrl,
 } from './components/analyze-request';
+import { short } from './components/explorer';
 import { requestError } from './requestErrors';
 
 type State =
@@ -36,7 +37,7 @@ const PHASES: { from: number; title: string; body: string; checks?: readonly str
   {
     from: 0,
     title: 'Public data',
-    body: 'The creator’s wallet and past launches on Robinhood Chain, the holders via Blockscout, price and trades via DexScreener. All three are read at once.',
+    body: 'The mint and what it lets someone do, the creator and their other tokens, the holders from the token’s own accounts, read on Solana; price and trades via DexScreener. All are read at once.',
   },
   {
     from: 14,
@@ -50,8 +51,6 @@ const PHASES: { from: number; title: string; body: string; checks?: readonly str
     body: 'The facts are read against each other and written up: where they agree, where they do not, and what could not be seen. Nothing is scored.',
   },
 ];
-
-const short = (address: string) => `${address.slice(0, 8)}…${address.slice(-6)}`;
 
 function Loading({
   address,
@@ -167,7 +166,7 @@ export function AnalyzeForm() {
     panel.scrollIntoView({ behavior: reduced ? 'instant' : 'smooth', block: 'start' });
   }, [loading]);
 
-  // A link such as /?token=0x…#analysis (the browser extension's "Full
+  // A link such as /?token=<mint>#analysis (the browser extension's "Full
   // reading", or a shared reading) opens with the address filled in and the
   // analysis started. The entrance field asks for an analysis the same way.
   // The start waits a tick so a remount in development does not send it twice.
@@ -177,10 +176,10 @@ export function AnalyzeForm() {
       void analyze(address);
     };
     const linked = new URLSearchParams(window.location.search).get('token')?.trim() ?? '';
-    const timer = ADDRESS.test(linked) ? setTimeout(() => start(linked), 0) : undefined;
+    const timer = isTokenAddress(linked) ? setTimeout(() => start(linked), 0) : undefined;
     const onRequest = (event: Event) => {
       const address = (event as CustomEvent<string>).detail;
-      if (typeof address === 'string' && ADDRESS.test(address)) start(address);
+      if (typeof address === 'string' && isTokenAddress(address)) start(address);
     };
     window.addEventListener(ANALYZE_EVENT, onRequest);
     return () => {
@@ -198,8 +197,8 @@ export function AnalyzeForm() {
 
   async function analyze(value: string = token) {
     const address = value.trim();
-    if (!ADDRESS.test(address)) {
-      setValidation(ADDRESS_HINT);
+    if (!isTokenAddress(address)) {
+      setValidation(addressHint(address));
       input.current?.focus();
       return;
     }
@@ -285,7 +284,7 @@ export function AnalyzeForm() {
                 setToken(event.target.value);
                 setValidation('');
               }}
-              placeholder="Paste a Robinhood Chain token address · 0x…"
+              placeholder="Paste a Solana token address"
               spellCheck={false}
               autoComplete="off"
               autoCapitalize="none"
@@ -307,23 +306,33 @@ export function AnalyzeForm() {
           )}
           <div className="form-caption">
             <p id="token-help">Public data. No wallet connection.</p>
-            <button
-              type="button"
-              className="text-link"
-              disabled={loading}
-              onClick={() => {
-                setToken(EXAMPLE_TOKEN);
-                setValidation('');
-                input.current?.focus();
-              }}
-            >
-              Try an example <span aria-hidden="true">↗</span>
-            </button>
+          </div>
+          <div className="example-tokens" role="group" aria-labelledby="examples-label">
+            <span id="examples-label" className="example-label">
+              Or read an example
+            </span>
+            {EXAMPLES.map((example) => (
+              <button
+                key={example.token}
+                type="button"
+                className="example-token"
+                disabled={loading}
+                title={example.token}
+                onClick={() => {
+                  setToken(example.token);
+                  setValidation('');
+                  void analyze(example.token);
+                }}
+              >
+                <strong>{example.name}</strong>
+                <span>{example.shows}</span>
+              </button>
+            ))}
           </div>
         </form>
         <div className="source-signatures" aria-label="Research sources">
-          <span>ROBINHOOD CHAIN</span>
-          <span>BLOCKSCOUT</span>
+          <span>SOLANA</span>
+          <span>TOKEN ACCOUNTS</span>
           <span>DEXSCREENER</span>
         </div>
         <p className="entry-principle">Evidence and context. Never a score.</p>

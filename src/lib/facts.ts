@@ -1,13 +1,14 @@
-import { launchpadById } from './chain/launchpads';
-import { checkedByLaunchpad, type CheckedLaunchpad } from './checked-sample';
+import type { CheckedLaunchpad } from './checked-sample';
 import type {
   CreatorLinks,
   FailedRead,
   FeePayer,
+  LaunchReplayData,
   NamedAddress,
   SetAsideRole,
   TokenReport,
 } from './contracts';
+import type { SolanaLaunchReplay } from './solana/launch-types';
 import { buildSupplyFlow, type SupplyFlow } from './supply-flow';
 
 /**
@@ -18,6 +19,12 @@ import { buildSupplyFlow, type SupplyFlow } from './supply-flow';
  *
  * There is no overall score here, on purpose: SEAL shows what each source
  * observed, and never folds them into a grade.
+ *
+ * TODO-SOLANA: this is the screen's shape from the Robinhood Chain reports,
+ * kept so the UI compiles while it is rewritten for Solana. `toFacts` fills
+ * it from the Solana report; the fields only EVM reads had (v4 fees, the
+ * indexer's pool activity, the ETH graduation threshold, pons origins) stay
+ * absent or null. The new UI should read the TokenReport blocks instead.
  */
 export type ReportFacts = {
   /**
@@ -196,171 +203,141 @@ export type ReportFacts = {
 /** Who an address is to the creator. */
 export type Party = 'creator' | 'funder' | 'other';
 
-/** Who a removal's sender, or a recipient, is to the creator. */
+/** Who a removal's sender, or a recipient, is to the creator. Exact match: base58 is case-sensitive. */
 export function partyOf(address: string, creator: string, funder?: string): Party {
-  const a = address.toLowerCase();
-  if (a === creator.toLowerCase()) return 'creator';
-  return funder && a === funder.toLowerCase() ? 'funder' : 'other';
+  if (address === creator) return 'creator';
+  return funder && address === funder ? 'funder' : 'other';
 }
 
 const TOP_SHOWN = 8;
-const WETH = '0x0bd7d308f8e1639fab988df18a8011f41eacad73';
 
-function poolActivity(
-  activity: NonNullable<TokenReport['market']['data']['activity']>,
-): NonNullable<ReportFacts['market']['poolActivity']> {
-  let volume: number | null = null;
-  if (activity.pairToken.toLowerCase() === WETH) {
-    try {
-      // Wei to ETH, kept to six decimals without going through a float of 1e18.
-      volume = Number(BigInt(activity.h24.volume) / 1_000_000_000_000n) / 1_000_000;
-    } catch {
-      volume = null;
-    }
-  }
+/**
+ * The Solana launch replay in the shape the screen's launch views read
+ * (contracts/launch.ts): the same moves and summary, the creation slot as
+ * the launch block. `null` when the creation was not found.
+ */
+export function launchView(replay: SolanaLaunchReplay | undefined): LaunchReplayData | null {
+  const d = replay?.data;
+  if (!d || d.launchBlock === null || d.supply === null) return null;
   return {
-    buys24h: activity.h24.buys,
-    sells24h: activity.h24.sells,
-    traders24h: activity.h24.traders,
-    volume24hEth: volume,
-    lastTradeAt: activity.sinceLaunch.lastTradeAt,
-    coveredFrom: activity.coveredFrom,
+    token: d.token,
+    launchBlock: d.launchBlock,
+    launchedAt: d.launchedAt,
+    windowSeconds: d.windowSeconds,
+    supply: d.supply,
+    moves: d.moves,
+    movesInWindow: d.movesInWindow,
+    ...(d.summary ? { summary: d.summary } : {}),
   };
 }
 
-function graduationOf(
-  origin: TokenReport['creator']['data']['origin'],
-): ReportFacts['creator']['graduation'] {
-  // A history without an origin is a pons read from before origins existed.
-  if (!origin || origin.source === 'pons') return 'measured';
-  // Read from the launchpad's own event (Virtuals' `Graduated`).
-  if (origin.graduationRead) return 'measured';
-  const launchpad = origin.launchpad ? launchpadById(origin.launchpad.id) : undefined;
-  if (launchpad) return launchpad.graduates ? 'not-measured' : 'not-applicable';
-  // A contract deployed on its own has no launch curve to leave.
-  return origin.role === 'deployer' ? 'not-applicable' : 'not-measured';
-}
-
 /**
- * What an address holds today, as a share of the supply, read from the
+ * What an address holds today, as a share of the whole supply, read from the
  * holders list. The list holds the largest only: an address absent from it is
  * unread, never "nothing".
  */
 function heldFromHolders(report: TokenReport): (address: string) => number | null {
   const holders = report.holders;
-  if (holders.completeness === 'unavailable' || !report.launch) return () => null;
-  let supply: bigint;
-  try {
-    supply = BigInt(report.launch.data.supply);
-  } catch {
-    return () => null;
-  }
-  if (supply <= 0n) return () => null;
+  if (holders.completeness === 'unavailable') return () => null;
   const shares = new Map<string, number>();
-  for (const h of holders.data.top) {
-    try {
-      shares.set(
-        h.address.toLowerCase(),
-        Number((BigInt(h.balance) * 1_000_000n) / supply) / 1_000_000,
-      );
-    } catch {
-      // A malformed balance stays unread.
-    }
-  }
+  for (const h of holders.data.top) shares.set(h.address, h.ofSupply);
   for (const s of holders.data.setAside ?? []) {
-    if (s.share !== null && !shares.has(s.address)) shares.set(s.address.toLowerCase(), s.share);
+    if (s.share !== null && !shares.has(s.address)) shares.set(s.address, s.share);
   }
-  return (address) => shares.get(address.toLowerCase()) ?? null;
+  return (address) => shares.get(address) ?? null;
+}
+
+const noteOf = (sources: readonly { note?: string }[]) => sources.find((s) => s.note)?.note;
+
+/**
+ * Whether the creator sold this token. A sale read is a sale; "no sale" is a
+ * fact only when every move was read: a partial read (2 of 16 transactions,
+ * Meteora DBC 8xKZ…, 25/11/2026) that saw none leaves it unknown.
+ */
+function creatorSold(report: TokenReport): boolean | null {
+  const onToken = report.creatorOnToken;
+  if (!onToken || onToken.completeness === 'unavailable') return null;
+  if (onToken.data.sold !== '0') return true;
+  return onToken.completeness === 'full' ? false : null;
+}
+
+function creatorFacts(report: TokenReport): ReportFacts['creator'] {
+  const { creator, creatorHistory: history, creatorOnToken: onToken } = report;
+  const tokens = history && history.completeness !== 'unavailable' ? history.data.tokens : [];
+  const count = (outcome: string) => tokens.filter((t) => t.outcome === outcome).length;
+  // The analysed token, when its curve is complete, is one graduation more.
+  const ownGraduation = report.graduation?.data.graduated === true ? 1 : 0;
+  // What the creator did with this token, when its moves were read.
+  const sold = creatorSold(report);
+  const from = creator.data.from;
+  const pad = report.launchpad.data.launchpad;
+  return {
+    measured: creator.completeness !== 'unavailable',
+    note: noteOf(creator.sources),
+    address: creator.data.creator,
+    // The analysed token counts as one of its launches: the history leaves it out.
+    launched: (history?.data.counts.launched ?? 0) + (creator.data.creator ? 1 : 0),
+    detailed: tokens.length,
+    graduated: count('graduated') + ownGraduation,
+    // TODO-SOLANA: Solana's `dead` (launched over a day ago, no trade in 24 h)
+    // is shown where the EVM screen said "abandoned"; the wording is the UI's.
+    abandoned: count('dead'),
+    undetermined: count('unknown'),
+    active: count('active'),
+    checked: sold === null ? 0 : 1,
+    soldIntoPool: sold === true ? 1 : 0,
+    liquidityPulled: 0,
+    salesChecked: sold === null ? 0 : 1,
+    liquidityChecked: 0,
+    source: null,
+    role: null,
+    launchContract: null,
+    launchesListed: history?.data.scanned.pumpCurvesListed === true,
+    transactionCount: null,
+    launchpad: pad?.name ?? null,
+    creatorFrom:
+      from === 'pump-curve'
+        ? 'launch-record'
+        : from === 'creation-transaction'
+          ? 'transaction'
+          : null,
+    notListed: [],
+    // A launchpad read that failed says nothing of a graduation: never "not applicable".
+    graduation:
+      report.launchpad.completeness === 'unavailable'
+        ? 'not-measured'
+        : pad
+          ? report.graduation
+            ? 'measured'
+            : 'not-measured'
+          : 'not-applicable',
+    ...(onToken && sold !== null
+      ? { ownSales: { days: null, wholeLife: onToken.completeness === 'full' } }
+      : {}),
+  };
 }
 
 export function toFacts(report: TokenReport, options: { funder?: string } = {}): ReportFacts {
-  const { creator, holders, market } = report;
-  const tokens = creator.data.tokens;
-  // A listed liquidity the chain contradicts is not shown as liquidity.
-  const stale = market.data.liquidityCheck?.current === false;
-  const own = tokens.find((t) => String(t.address).toLowerCase() === report.token.toLowerCase());
-  const checked = tokens.filter((t) => t.creatorDumped !== null || t.liquidityPulled !== null);
-  const checkedBy =
-    creator.completeness === 'unavailable' ? [] : checkedByLaunchpad(creator.data, report.token);
-  const note = (sources: { note?: string }[]) => sources.find((s) => s.note)?.note;
-  const flow = report.launch
+  void options;
+  const { holders, market } = report;
+  const launch = launchView(report.launch);
+  const flow = launch
     ? buildSupplyFlow(
-        report.launch.data,
-        report.roles ?? [],
-        creator.data.origin?.launchpad?.name ?? null,
+        launch,
+        [],
+        report.launchpad.data.launchpad?.name ?? null,
         heldFromHolders(report),
-        report.graduated ?? null,
+        null,
       )
     : null;
 
   return {
     ...(report.failedReads?.length ? { failed: report.failedReads } : {}),
     ...(flow ? { supplyFlow: flow } : {}),
-    ...(report.roles?.length ? { roles: report.roles } : {}),
-    creator: {
-      measured: creator.completeness !== 'unavailable',
-      note: note(creator.sources),
-      address: creator.data.creator && creator.data.creator !== '0x' ? creator.data.creator : null,
-      launched: creator.data.counts.launched,
-      detailed: tokens.length,
-      graduated: tokens.filter((t) => t.outcome === 'graduated').length,
-      abandoned: tokens.filter((t) => t.outcome === 'abandoned').length,
-      undetermined: tokens.filter((t) => t.outcome === 'undetermined').length,
-      active: tokens.filter((t) => t.outcome === 'active').length,
-      checked: checked.length,
-      soldIntoPool: tokens.filter((t) => t.creatorDumped === true).length,
-      liquidityPulled: tokens.filter((t) => t.liquidityPulled === true).length,
-      ...(tokens.some((t) => t.feesCollected === true)
-        ? { feesCollected: tokens.filter((t) => t.feesCollected === true).length }
-        : {}),
-      ...(own?.feesTaken
-        ? {
-            ownFees: {
-              share: own.feesTaken.share,
-              transfers: own.feesTaken.transfers,
-              hooks: own.feesTaken.hooks,
-              ...(own.feesTaken.payers ? { payers: own.feesTaken.payers } : {}),
-            },
-          }
-        : {}),
-      salesChecked: tokens.filter((t) => t.creatorDumped !== null).length,
-      liquidityChecked: tokens.filter((t) => t.liquidityPulled !== null).length,
-      ...(checkedBy.length > 0 ? { checkedBy } : {}),
-      source: creator.data.origin?.source ?? null,
-      role: creator.data.origin?.role ?? null,
-      launchContract: creator.data.origin?.launchContract ?? null,
-      launchesListed: creator.data.origin?.launchesListed ?? creator.completeness !== 'unavailable',
-      transactionCount: creator.data.origin?.transactionCount ?? null,
-      launchpad: creator.data.origin?.launchpad?.name ?? null,
-      creatorFrom: creator.data.origin?.creatorFrom ?? null,
-      notListed: creator.data.origin?.launchpadsNotRead ?? [],
-      graduation: graduationOf(creator.data.origin),
-      ...(own?.salesWindow && own.creatorDumped !== null
-        ? { ownSales: { days: own.salesWindow.days, wholeLife: own.salesWindow.wholeLife } }
-        : {}),
-      ...(own?.liquidityRemovals?.length
-        ? {
-            ownRemovals: own.liquidityRemovals.map((r) => ({
-              transaction: r.transaction,
-              by: partyOf(r.sender, creator.data.creator, options.funder),
-              whose:
-                r.sender.toLowerCase() === creator.data.creator.toLowerCase()
-                  ? 'creator'
-                  : 'other-provider',
-              sender: r.sender,
-              returned: r.returned.map((x) => ({
-                address: x.address,
-                share: x.share,
-                to: partyOf(x.address, creator.data.creator, options.funder),
-                heldNow: x.heldNow,
-              })),
-            })),
-          }
-        : {}),
-    },
+    creator: creatorFacts(report),
     holders: {
       measured: holders.completeness !== 'unavailable',
-      note: note(holders.sources),
+      note: noteOf(holders.sources),
       holderCount: holders.data.holderCount,
       pooled: holders.data.pooledShare ?? null,
       top1: holders.data.concentration.top1,
@@ -375,26 +352,18 @@ export function toFacts(report: TokenReport, options: { funder?: string } = {}):
           address: h.address,
           share: h.share,
           kind: h.kind,
-          ...(h.fromCreator ? { fromCreator: h.fromCreator } : {}),
           ...(h.name ? { name: h.name } : {}),
         })),
       ...(holders.data.setAside ? { setAside: holders.data.setAside } : {}),
-      ...(holders.data.creatorLinks ? { creatorLinks: holders.data.creatorLinks } : {}),
-      ...(own?.creatorRecipients !== undefined ? { fromCreator: own.creatorRecipients } : {}),
+      ...(report.creatorOnToken && report.creatorOnToken.completeness !== 'unavailable'
+        ? { fromCreator: report.creatorOnToken.data.sends.distinct }
+        : {}),
     },
     market: {
       measured: market.completeness !== 'unavailable',
-      note: note(market.sources),
+      note: noteOf(market.sources),
       priceUsd: market.data.priceUsd,
-      liquidityUsd: stale ? null : market.data.liquidityUsd,
-      ...(stale && market.data.liquidityUsd !== null && market.data.liquidityCheck
-        ? {
-            staleLiquidity: {
-              listedUsd: market.data.liquidityUsd,
-              poolsShare: market.data.liquidityCheck.poolsShare,
-            },
-          }
-        : {}),
+      liquidityUsd: market.data.liquidityUsd,
       ...(market.data.quiet !== undefined
         ? { quietHours: market.data.quiet === null ? null : market.data.quiet.hours }
         : {}),
@@ -402,29 +371,25 @@ export function toFacts(report: TokenReport, options: { funder?: string } = {}):
       buys24h: market.data.txns?.h24.buys ?? null,
       sells24h: market.data.txns?.h24.sells ?? null,
       fdvUsd: market.data.fdvUsd,
-      ...(market.data.activity ? { poolActivity: poolActivity(market.data.activity) } : {}),
-      graduation: market.data.graduation
-        ? {
-            progress: market.data.graduation.progress,
-            thresholdEth: market.data.graduation.thresholdEth,
-            graduated: market.data.graduation.graduated,
-          }
-        : null,
+      // TODO-SOLANA: the screen's graduation bar is in ETH; a Solana curve's
+      // progress is in `report.graduation` (tokens sold or quote raised).
+      graduation: null,
     },
   };
 }
 
 /**
  * The creator's launches in time order, for the report's timeline. Each one
- * keeps its own outcome and what was checked on it; nothing is summed here.
- * `current` marks the token being analysed.
+ * keeps its own outcome; nothing is summed here. `current` marks the token
+ * being analysed.
  */
 export type TimelineLaunch = {
   address: string;
   launchedAt: string | null;
+  /** The creation slot, when read (0 when unknown). */
   block: number;
   outcome: 'graduated' | 'active' | 'abandoned' | 'undetermined';
-  /** Share of the graduation threshold reached, 0 to 1. */
+  /** Share of the graduation reached, 0 to 1 (0 when unknown). */
   progress: number;
   sold: boolean | null;
   pulled: boolean | null;
@@ -433,20 +398,45 @@ export type TimelineLaunch = {
   launchpad?: string;
 };
 
+const OUTCOME: Record<string, TimelineLaunch['outcome']> = {
+  graduated: 'graduated',
+  active: 'active',
+  // TODO-SOLANA: see creatorFacts.
+  dead: 'abandoned',
+  unknown: 'undetermined',
+};
+
 export function toTimeline(report: TokenReport): TimelineLaunch[] {
-  if (report.creator.completeness === 'unavailable') return [];
-  const token = report.token.toLowerCase();
-  return [...(report.creator.data.tokens ?? [])]
-    .sort((a, b) => a.launchedAtBlock - b.launchedAtBlock)
-    .map((t) => ({
-      address: t.address,
-      launchedAt: t.launchedAt,
-      block: t.launchedAtBlock,
-      outcome: t.outcome,
-      progress: t.graduationProgress,
-      sold: t.creatorDumped,
-      pulled: t.liquidityPulled,
-      current: t.address.toLowerCase() === token,
-      ...(t.launchpad ? { launchpad: t.launchpad } : {}),
-    }));
+  const history = report.creatorHistory;
+  if (!history || history.completeness === 'unavailable') return [];
+  const others: TimelineLaunch[] = history.data.tokens.map((t) => ({
+    address: t.mint,
+    launchedAt: t.launchedAt,
+    block: t.slot ?? 0,
+    outcome: OUTCOME[t.outcome] ?? 'undetermined',
+    progress: t.outcome === 'graduated' ? 1 : 0,
+    sold: null,
+    pulled: null,
+    current: false,
+    ...(t.launchpad ? { launchpad: t.launchpad } : {}),
+  }));
+  const creation = report.creator.data.creation;
+  const graduation = report.graduation?.data;
+  const sold = creatorSold(report);
+  const current: TimelineLaunch = {
+    address: report.token,
+    launchedAt:
+      report.launch.data.launchedAt ??
+      (creation?.blockTime ? new Date(creation.blockTime * 1000).toISOString() : null),
+    block: creation?.slot ?? report.launch.data.launchBlock ?? 0,
+    outcome: graduation?.graduated ? 'graduated' : 'undetermined',
+    progress: graduation?.graduated ? 1 : (graduation?.progress ?? 0),
+    sold,
+    pulled: null,
+    current: true,
+    ...(report.launchpad.data.launchpad ? { launchpad: report.launchpad.data.launchpad.name } : {}),
+  };
+  const time = (t: TimelineLaunch) =>
+    t.launchedAt ? Date.parse(t.launchedAt) : Number.MAX_SAFE_INTEGER;
+  return [...others, current].sort((a, b) => time(a) - time(b));
 }

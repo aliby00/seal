@@ -67,14 +67,14 @@ describe('backoffDelay', () => {
 describe('request', () => {
   it('renvoie la réponse quand tout va bien', async () => {
     stubFetch([new Response('{}', { status: 200 })]);
-    const res = await request('https://exemple.test', { source: 'dexscreener' });
+    const res = await request('https://exemple.test', { source: 'dexscreener-solana' });
     expect(res.status).toBe(200);
   });
 
   it('traduit un 429 en RateLimitError', async () => {
     stubFetch([new Response('', { status: 429 })]);
     await expect(
-      request('https://exemple.test', { source: 'blockscout', retries: 0 }),
+      request('https://exemple.test', { source: 'solana-rpc', retries: 0 }),
     ).rejects.toBeInstanceOf(RateLimitError);
   });
 
@@ -82,7 +82,7 @@ describe('request', () => {
   it('traite un 403 comme un rate limit, pas comme une erreur définitive', async () => {
     stubFetch([new Response('', { status: 403 })]);
     await expect(
-      request('https://exemple.test', { source: 'robinhood-rpc', retries: 0 }),
+      request('https://exemple.test', { source: 'solana-rpc', retries: 0 }),
     ).rejects.toBeInstanceOf(RateLimitError);
   });
 
@@ -92,7 +92,7 @@ describe('request', () => {
       new Response('', { status: 429, headers: { 'retry-after': '3' } }),
       new Response('{}', { status: 200 }),
     ]);
-    await request('https://exemple.test', { source: 'blockscout', sleep });
+    await request('https://exemple.test', { source: 'solana-rpc', sleep });
     expect(calls).toEqual([3000]);
   });
 
@@ -101,7 +101,7 @@ describe('request', () => {
     const { calls, sleep } = recordingSleep();
     stubFetch([new Response('', { status: 429, headers: { 'retry-after': '3600' } })]);
     await expect(
-      request('https://exemple.test', { source: 'blockscout', sleep }),
+      request('https://exemple.test', { source: 'solana-rpc', sleep }),
     ).rejects.toBeInstanceOf(RateLimitError);
     expect(calls).toEqual([]);
   });
@@ -110,7 +110,7 @@ describe('request', () => {
     const { calls, sleep } = recordingSleep();
     stubFetch([new Response('', { status: 429 }), new Response('{}', { status: 200 })]);
     await request('https://exemple.test', {
-      source: 'robinhood-rpc',
+      source: 'solana-rpc',
       sleep,
       minRateLimitWaitMs: 1_200,
     });
@@ -120,14 +120,14 @@ describe('request', () => {
   it('réessaie sur 5xx puis réussit', async () => {
     const { sleep } = recordingSleep();
     const spy = stubFetch([new Response('', { status: 503 }), new Response('{}', { status: 200 })]);
-    const res = await request('https://exemple.test', { source: 'dexscreener', sleep });
+    const res = await request('https://exemple.test', { source: 'dexscreener-solana', sleep });
     expect(res.status).toBe(200);
     expect(spy).toHaveBeenCalledTimes(2);
   });
 
   it('ne réessaie pas un 404 : rien ne changera', async () => {
     const spy = stubFetch([new Response('', { status: 404 })]);
-    const res = await request('https://exemple.test', { source: 'dexscreener' });
+    const res = await request('https://exemple.test', { source: 'dexscreener-solana' });
     expect(res.status).toBe(404);
     expect(spy).toHaveBeenCalledTimes(1);
   });
@@ -137,7 +137,7 @@ describe('request', () => {
     abort.name = 'AbortError';
     stubFetch([abort]);
     await expect(
-      request('https://exemple.test', { source: 'robinhood-rpc', retries: 0 }),
+      request('https://exemple.test', { source: 'solana-rpc', retries: 0 }),
     ).rejects.toBeInstanceOf(TimeoutError);
   });
 
@@ -145,7 +145,7 @@ describe('request', () => {
     const { sleep } = recordingSleep();
     const spy = stubFetch([new Response('', { status: 503 })]);
     await expect(
-      request('https://exemple.test', { source: 'dexscreener', retries: 2, sleep }),
+      request('https://exemple.test', { source: 'dexscreener-solana', retries: 2, sleep }),
     ).rejects.toBeInstanceOf(UpstreamError);
     expect(spy).toHaveBeenCalledTimes(3);
   });
@@ -153,7 +153,7 @@ describe('request', () => {
   it("refuse de dépasser le budget de requêtes de l'analyse", async () => {
     stubFetch([new Response('{}', { status: 200 })]);
     const budget = createBudget(2);
-    const options = { source: 'blockscout' as const, budget };
+    const options = { source: 'solana-rpc' as const, budget };
     await request('https://exemple.test', options);
     await request('https://exemple.test', options);
     await expect(request('https://exemple.test', options)).rejects.toBeInstanceOf(
@@ -169,7 +169,7 @@ describe('request', () => {
     stubFetch([new Response('', { status: 503 })]);
     const budget = createBudget(10);
     await expect(
-      request('https://exemple.test', { source: 'dexscreener', retries: 2, budget, sleep }),
+      request('https://exemple.test', { source: 'dexscreener-solana', retries: 2, budget, sleep }),
     ).rejects.toBeInstanceOf(UpstreamError);
     expect(budget.spent).toBe(3);
   });
@@ -180,7 +180,7 @@ describe('request', () => {
     const { sleep } = recordingSleep();
     stubFetch([new Response('', { status: 429 }), new Response('{}', { status: 200 })]);
     const budget = createBudget(1);
-    await request('https://exemple.test', { source: 'robinhood-rpc', retries: 2, budget, sleep });
+    await request('https://exemple.test', { source: 'solana-rpc', retries: 2, budget, sleep });
     expect(budget.spent).toBe(1);
   });
 });
@@ -202,7 +202,7 @@ describe('the body under the timeout', () => {
     });
     const started = Date.now();
     await expect(
-      requestJson('https://exemple.test', { source: 'robinhood-rpc', timeoutMs: 50, retries: 0 }),
+      requestJson('https://exemple.test', { source: 'solana-rpc', timeoutMs: 50, retries: 0 }),
     ).rejects.toBeInstanceOf(TimeoutError);
     expect(Date.now() - started).toBeLessThan(2_000);
   });

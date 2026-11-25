@@ -154,9 +154,10 @@
     return name || symbol || shortAddress(data.token);
   }
 
+  /** `FB5e…pump`: the first and last four characters, as Solana explorers show them, case kept. */
   function shortAddress(address) {
     const a = String(address || '');
-    return a.length > 12 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a;
+    return a.length > 12 ? `${a.slice(0, 4)}…${a.slice(-4)}` : a;
   }
 
   /**

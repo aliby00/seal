@@ -2,9 +2,11 @@ import { buildGlance } from '@/lib/glance';
 import type { AnalyzeResponse } from '../api/analyze/route';
 import { AtAGlance } from './AtAGlance';
 import { Explanation } from './Explanation';
-import { FactsBoard, plainNote } from './FactsBoard';
+import { FactsBoard, namesOf, plainNote } from './FactsBoard';
 import { LaunchReplay } from './LaunchReplay';
+import { sourceLimits, sourceName } from './report-sources';
 import { ReportHeader } from './ReportHeader';
+import { SolanaFacts } from './SolanaFacts';
 import { SpecialistsPanel } from './SpecialistsPanel';
 import { SupplyFlow } from './SupplyFlow';
 
@@ -22,11 +24,32 @@ const labels: Record<string, string> = {
 export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
   const glance = buildGlance(result);
   const replay = Boolean(result.launch && result.launch.moves.length > 0);
-  // Sections are numbered in reading order; the replay only exists for some tokens.
-  const number = (n: number) => String(n).padStart(2, '0');
+  // Said once: the note above the text says it was written offline, the summary
+  // says which reads failed. The text itself keeps both for the API.
+  const reading = result.explanation
+    .split(/\n\s*\n/)
+    .filter(
+      (block, i) =>
+        !(result.offline && i === 0 && /^This account is produced without/.test(block)) &&
+        !(glance?.partial && /^Partial report:/.test(block.trim())),
+    )
+    .join('\n\n');
+  // Sections are numbered in reading order; the Solana blocks and the replay
+  // only exist for some responses.
+  const sections = [
+    ...(result.facts ? ['facts'] : []),
+    ...(result.solana ? ['solana'] : []),
+    ...(replay ? ['replay'] : []),
+    'questions',
+  ];
+  const number = (section: string) => String(sections.indexOf(section) + 2).padStart(2, '0');
+  const factsIndex = number('facts');
+  const solanaIndex = number('solana');
+  const replayIndex = number('replay');
+  const questionsIndex = number('questions');
   return (
     <article className="report" aria-labelledby="report-title">
-      <ReportHeader result={result} />
+      <ReportHeader result={result} headline={glance?.items[0]?.title} />
       {glance && <AtAGlance glance={glance} />}
       {/* Where the supply went comes right after the summary: what the rest is read against. */}
       {result.facts?.supplyFlow && (
@@ -54,25 +77,25 @@ export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
               .filter((source) => source.note)
               .map((source, index) => (
                 <p className="source-limit" key={`${source.name}-${index}`}>
-                  <strong>{source.name}</strong> — {source.note}
+                  <strong>{sourceName(source.name)}</strong> — {source.note}
                 </p>
               ))}
         </section>
       )}
       <section className="reading-section" aria-labelledby="reading-title">
         <div className="report-section-head">
-          <p className="report-kicker">{number(1)} — Reading</p>
+          <p className="report-kicker">01 — Reading</p>
           <h3 id="reading-title">How the facts fit together.</h3>
         </div>
         {/* A note on how the text was made, kept with the text rather than at the top. */}
         {result.offline && (
-          <section className="offline-note" aria-label="Offline mode">
-            <h3>Offline mode</h3>
-            <p>Facts are presented without being cross-examined by the reasoning agent.</p>
+          <section className="offline-note" aria-label="Facts only">
+            <h3>Facts only</h3>
+            <p>Written from the facts alone: the explanation model was not used this time.</p>
           </section>
         )}
         <div className="reading-layout">
-          <Explanation text={result.explanation} offline={result.offline} />
+          <Explanation text={reading} offline={result.offline} />
           <aside className="sources" aria-label="Report sources">
             <details open>
               <summary>
@@ -83,10 +106,15 @@ export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
               </summary>
               <p className="sources-intro">Sources apply to the report as a whole.</p>
               {result.sources.length === 0 && <p>No sources provided.</p>}
-              {result.sources.map((source, index) => (
-                <div className="source" key={`${source.name}-${index}`}>
-                  <h3>{source.name}</h3>
-                  <p>{plainNote(source.note) ?? 'No limitations reported by this source.'}</p>
+              {/* One entry per source, every limit its reads reported, partial reads included. */}
+              {sourceLimits(result.sources, result.solana, plainNote).map((group) => (
+                <div className="source" key={group.source}>
+                  <h3>{group.name}</h3>
+                  {group.limits.length === 0 ? (
+                    <p>No limitations reported by this source.</p>
+                  ) : (
+                    group.limits.map((limit) => <p key={limit}>{limit}</p>)
+                  )}
                 </div>
               ))}
             </details>
@@ -94,20 +122,25 @@ export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
         </div>
       </section>
       {result.facts && (
-        <FactsBoard facts={result.facts} timeline={result.timeline} index={number(2)} />
+        <FactsBoard
+          facts={result.facts}
+          timeline={result.timeline}
+          solana={result.solana}
+          index={factsIndex}
+        />
       )}
+      {result.solana && <SolanaFacts view={result.solana} index={solanaIndex} />}
       {replay && result.launch && (
         <LaunchReplay
           launch={result.launch}
-          index={number(3)}
+          index={replayIndex}
           hasFlow={Boolean(result.facts?.supplyFlow)}
-          names={Object.fromEntries(
-            (result.facts?.roles ?? []).map((r) => [r.address.toLowerCase(), r.name]),
-          )}
+          names={namesOf(result.solana)}
+          partial={result.solana ? result.solana.launch.read !== 'full' : false}
         />
       )}
       {result.specialists && result.specialists.length > 0 && (
-        <SpecialistsPanel answers={result.specialists} index={number(replay ? 4 : 3)} />
+        <SpecialistsPanel answers={result.specialists} index={questionsIndex} />
       )}
       <footer className="report-footer">
         <p>

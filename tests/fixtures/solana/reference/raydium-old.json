@@ -1,0 +1,66 @@
+[
+  {
+    "method": "getAccountInfo",
+    "params": [
+      "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      {
+        "commitment": "confirmed",
+        "encoding": "jsonParsed"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473513564
+      },
+      "value": {
+        "data": {
+          "parsed": {
+            "info": {
+              "decimals": 6,
+              "freezeAuthority": null,
+              "isInitialized": true,
+              "mintAuthority": null,
+              "supply": "554997296761468"
+            },
+            "type": "mint"
+          },
+          "program": "spl-token",
+          "space": 82
+        },
+        "executable": false,
+        "lamports": 346827788910,
+        "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "rentEpoch": 18446744073709552000,
+        "space": 82
+      }
+    }
+  },
+  {
+    "method": "getAccountInfo",
+    "params": [
+      "AVs9TA4nWDzfPJE9gGVNJMVhcQy3V9PGazuz33BfG2RA",
+      {
+        "commitment": "confirmed",
+        "encoding": "base64"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473513566
+      },
+      "value": {
+        "data": [
+          "BgAAAAAAAAD+AAAAAAAAAAcAAAAAAAAAAwAAAAAAAAAGAAAAAAAAAAkAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAADh9QUAAAAA9AEAAAAAAAAAAAAAAAAAAKCGAQAAAAAAQEIPAAAAAAABAAAAAAAAAADKmjsAAAAAAMqaOwAAAAAFAAAAAAAAABAnAAAAAAAAGQAAAAAAAAAQJwAAAAAAAAwAAAAAAAAAZAAAAAAAAAAZAAAAAAAAABAnAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJhaSWJIPAAAjxiBlGQCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMafnauQpgMAAAAAAAAAAAABjw9ewXRbAAAAAAAAAAAAck+IIuI5AABHNWonL2RaAAAAAAAAAAAAgL2DzTScAwAAAAAAAAAAACXLJUlWAgAAzHQZm0W6z5gtNl5Gv+9qEaF6ncdTHhcqZ+JK5m9xrTgpC+u4fXOeAokTezrBH8HXOQDwoprFtmZgW2UdHz+okTeZjMvy0EWLYVy8xrGjZ8R0np/vcwZiLhsbWJEBILyaBpuIV/6rgYT7aH9jRhjANdrEOdwa6ztVmKDwAAAAAAFqMv4mOSymgSzqTuW7xGS2KUFu76GQUO/5CQz7TceLMVDs2n3OBDb+pbbsf+iadatphbqjzsmfRgoRiu8VJW2LpPMK+KyZYVVWsVJclPiChTagQVyUjjWUvlWIklITutGFDy1uAqR6+CTQmradxC1wyyjL+iSft+5XudJWwSdi70W4rNNW1x2wUtECxs3PS5jJI1apzZ2OkGDr5PnM+dS9AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOW2K2XLO72m9WiI5m/ujmTcVWAZnA+IsR/ic70FnoqhA+O0a1QAAADmGxEAAAAAAEgEAAAAAAAAAAAAAAAAAAA=",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 28329939,
+        "owner": "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8",
+        "rentEpoch": 18446744073709552000,
+        "space": 752
+      }
+    }
+  }
+]

@@ -1,14 +1,22 @@
-import { isAddress } from 'viem';
 import { NextResponse } from 'next/server';
 import { explain } from '@/lib/agent/reason';
 import { collect, type CollectOptions } from '@/lib/collect';
-import { toFacts, toTimeline, type ReportFacts, type TimelineLaunch } from '@/lib/facts';
+import {
+  launchView,
+  toFacts,
+  toTimeline,
+  type ReportFacts,
+  type TimelineLaunch,
+} from '@/lib/facts';
+import { isSolanaAddress } from '@/lib/solana/address';
+import { toSolanaView, type SolanaView } from '@/app/components/solana-view';
 import { SealError } from '@/lib/errors';
 import { ANALYZE_LIMIT, guardedJson } from '@/lib/guard';
 import { log } from '@/lib/logger';
 import { overBudget, recordSpend } from '@/lib/spend';
 import { funderOf } from '@/lib/agent/prompt';
 import { analysisCache, type CachedAnalysis } from '@/lib/analysis-cache';
+import { rememberCard } from '@/lib/glance-service';
 import { mergeFailedReads, questionsFailed } from '@/lib/failed-reads';
 import {
   briefSpecialists,
@@ -44,8 +52,13 @@ const MIN_MODEL_MS = 5_000;
 /** The questions always get a short chance, even after a slow collection. */
 const MIN_SPECIALIST_MS = 1_000;
 
-/** The response body. Its shape is kept with the cache, which stores it as is. */
-export type AnalyzeResponse = CachedAnalysis;
+/**
+ * The response body. Its shape is kept with the cache, which stores it as is.
+ * `solana`: what the report screen draws of the Solana blocks (mint, powers,
+ * holders by role, liquidity by pool, launch, creator); absent from answers
+ * cached before it existed.
+ */
+export type AnalyzeResponse = CachedAnalysis & { solana?: SolanaView };
 
 const PUBLIC_MESSAGE: Record<string, string> = {
   'rate-limit': 'A data source is rate-limiting requests. Try again in a minute.',
@@ -62,6 +75,16 @@ function chartable(
     return toFacts(report, funder ? { funder } : {});
   } catch (error) {
     log.warn('faits non représentables', { error: String(error) });
+    return undefined;
+  }
+}
+
+/** Drawn on top of the text, like the charts: a malformed report must not fail the response. */
+function solanaView(report: Parameters<typeof toSolanaView>[0]): SolanaView | undefined {
+  try {
+    return toSolanaView(report);
+  } catch (error) {
+    log.warn('vue Solana non représentable', { error: String(error) });
     return undefined;
   }
 }
@@ -85,7 +108,6 @@ async function specialists(
 ): Promise<SpecialistBrief | undefined> {
   try {
     return await briefSpecialists(token, report, {
-      rpcUrl: process.env.RPC_URL || undefined,
       timeoutMs,
       ...(started ? { started } : {}),
     });
@@ -121,17 +143,18 @@ async function analyze(request: Request, started: number): Promise<Response> {
   if ('response' in guarded) return guarded.response;
   const token = (guarded.body as { token?: unknown } | null)?.token;
 
-  if (typeof token !== 'string' || !isAddress(token)) {
+  // A Solana mint, base58, case kept: an EVM 0x address is not one.
+  if (typeof token !== 'string' || !isSolanaAddress(token)) {
     return errorResponse(400, 'Invalid token address');
   }
 
-  const cacheKey = token.toLowerCase();
+  const cacheKey = token;
   const hit = await analysisCache.get(cacheKey);
   if (hit) {
     log.info('analyse servie depuis le cache', { token, ms: Date.now() - started });
     // The cost is ours to track, never part of what a reader is served: an
     // entry written before it left the response loses it here.
-    const served: AnalyzeResponse & { costUsd?: number } = { ...hit };
+    const served: AnalyzeResponse & { costUsd?: number } = { ...(hit as AnalyzeResponse) };
     delete served.costUsd;
     return NextResponse.json({ ...served, cached: true } satisfies AnalyzeResponse);
   }
@@ -140,13 +163,9 @@ async function analyze(request: Request, started: number): Promise<Response> {
   const progress: NonNullable<CollectOptions['progress']> = { stages: {} };
   try {
     // What the questions can read without the report starts now, alongside it.
-    const questions = startSpecialists(token, { rpcUrl: process.env.RPC_URL || undefined });
+    const questions = startSpecialists(token);
     const report = await Promise.race([
-      collect(token, {
-        rpcUrl: process.env.RPC_URL || undefined,
-        blockscoutApiKey: process.env.BLOCKSCOUT_API_KEY || undefined,
-        progress,
-      }),
+      collect(token, { progress, signal: AbortSignal.timeout(COLLECT_TIMEOUT_MS) }),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error(COLLECT_TIMEOUT_MESSAGE)), COLLECT_TIMEOUT_MS),
       ),
@@ -196,23 +215,31 @@ async function analyze(request: Request, started: number): Promise<Response> {
       );
     }
 
+    const launch = launchView(report.launch);
+    const solana = solanaView(report);
     const body: AnalyzeResponse = {
       token: report.token,
       explanation: explanation.text,
       completeness: report.completeness,
-      sources: [...report.creator.sources, ...report.holders.sources, ...report.market.sources].map(
-        ({ name, note }) => ({ name, ...(note ? { note } : {}) }),
-      ),
+      sources: [
+        ...report.mint.sources,
+        ...report.creator.sources,
+        ...report.holders.sources,
+        ...report.market.sources,
+      ].map(({ name, note }) => ({ name, ...(note ? { note } : {}) })),
       collectedAt: report.collectedAt,
       offline: explanation.offline,
       facts: chartable(report, funderOf(brief?.answers)),
       timeline: timeline(report),
-      ...(report.launch ? { launch: report.launch.data } : {}),
+      ...(launch ? { launch } : {}),
+      ...(solana ? { solana } : {}),
       ...(brief ? { name: brief.name, symbol: brief.symbol, specialists: brief.answers } : {}),
     };
 
     // A report a failed read left partial is worth asking again, never repeating.
     if ((report.failedReads?.length ?? 0) === 0) await analysisCache.set(cacheKey, body);
+    // The share card shows what was served, partial or not.
+    await rememberCard(body);
     log.info('analyse servie', {
       token,
       ms: Date.now() - started,

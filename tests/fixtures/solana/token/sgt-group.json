@@ -1,0 +1,114 @@
+[
+  {
+    "method": "getMultipleAccounts",
+    "params": [
+      [
+        "GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te",
+        "CiydeXYKWb4xTA8aNVewzn7gtRc1iKW4AqB8D31DJqE2"
+      ],
+      {
+        "commitment": "confirmed",
+        "encoding": "base64"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473520402
+      },
+      "value": [
+        {
+          "data": [
+            "AQAAAOWKqhdAvydh2LouHq0lKwjraNJka0hmiNGggbQhTCm9AAAAAAAAAAAAAQEAAADliqoXQL8nYdi6Lh6tJSsI62jSZGtIZojRoIG0IUwpvQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARIAQADliqoXQL8nYdi6Lh6tJSsI62jSZGtIZojRoIG0IUwpveWJkm0XmBofiHcH5IkGhI6YGUP+gVGTmnUrqnPiEJ7pFABAAOWKqhdAvydh2LouHq0lKwjraNJka0hmiNGggbQhTCm95YmSbReYGh+IdwfkiQaEjpgZQ/6BUZOadSuqc+IQnukDACAA5YqqF0C/J2HYui4erSUrCOto0mRrSGaI0aCBtCFMKb0TAKYA5YqqF0C/J2HYui4erSUrCOto0mRrSGaI0aCBtCFMKb3liZJtF5gaH4h3B+SJBoSOmBlD/oFRk5p1K6pz4hCe6RQAAABTZWVrZXIgR2VuZXNpcyBUb2tlbggAAABTZWVrZXJHVDoAAABodHRwczovL3IyLnNvbGFuYW1vYmlsZWRhcHBzdG9yZS5jb20vc2tyL3NndC1tZXRhZGF0YS5qc29uAAAAABUAUADliqoXQL8nYdi6Lh6tJSsI62jSZGtIZojRoIG0IUwpveWJkm0XmBofiHcH5IkGhI6YGUP+gVGTmnUrqnPiEJ7p99sBAAAAAABAQg8AAAAAAA==",
+            "base64"
+          ],
+          "executable": false,
+          "lamports": 5080800,
+          "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "rentEpoch": 18446744073709552000,
+          "space": 592
+        },
+        null
+      ]
+    }
+  },
+  {
+    "method": "getAccountInfo",
+    "params": [
+      "GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te",
+      {
+        "commitment": "confirmed",
+        "encoding": "jsonParsed"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473520405
+      },
+      "value": {
+        "data": {
+          "parsed": {
+            "info": {
+              "decimals": 0,
+              "extensions": [
+                {
+                  "extension": "metadataPointer",
+                  "state": {
+                    "authority": "GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4",
+                    "metadataAddress": "GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te"
+                  }
+                },
+                {
+                  "extension": "groupPointer",
+                  "state": {
+                    "authority": "GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4",
+                    "groupAddress": "GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te"
+                  }
+                },
+                {
+                  "extension": "mintCloseAuthority",
+                  "state": {
+                    "closeAuthority": "GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4"
+                  }
+                },
+                {
+                  "extension": "tokenMetadata",
+                  "state": {
+                    "additionalMetadata": [],
+                    "mint": "GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te",
+                    "name": "Seeker Genesis Token",
+                    "symbol": "SeekerGT",
+                    "updateAuthority": "GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4",
+                    "uri": "https://r2.solanamobiledappstore.com/skr/sgt-metadata.json"
+                  }
+                },
+                {
+                  "extension": "tokenGroup",
+                  "state": {
+                    "maxSize": 1000000,
+                    "mint": "GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te",
+                    "size": 121847,
+                    "updateAuthority": "GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4"
+                  }
+                }
+              ],
+              "freezeAuthority": "GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4",
+              "isInitialized": true,
+              "mintAuthority": "GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4",
+              "supply": "0"
+            },
+            "type": "mint"
+          },
+          "program": "spl-token-2022",
+          "space": 592
+        },
+        "executable": false,
+        "lamports": 5080800,
+        "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "rentEpoch": 18446744073709552000,
+        "space": 592
+      }
+    }
+  }
+]

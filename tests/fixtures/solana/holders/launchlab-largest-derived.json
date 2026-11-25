@@ -1,0 +1,46 @@
+[
+  {
+    "method": "getTokenLargestAccounts",
+    "params": [
+      "8tLjXE3MRduPL3qZcFZ4k2Covpuk6Zax4A1aqDTfLoat",
+      {
+        "commitment": "confirmed"
+      }
+    ],
+    "result": {
+      "context": {
+        "slot": 473524033
+      },
+      "value": [
+        {
+          "address": "3YEHEbG2LAwSAj7VLzYYf7AtMNoFkjygG39DVWJaZn5j",
+          "amount": "999714147522307",
+          "decimals": 6,
+          "uiAmount": 999714147.522307,
+          "uiAmountString": "999714147.522307"
+        },
+        {
+          "address": "DEN19K2iH1xbhw5DTJY7MABnUQfi8xmm1SY2ijDDUays",
+          "amount": "189475632018",
+          "decimals": 6,
+          "uiAmount": 189475.632018,
+          "uiAmountString": "189475.632018"
+        },
+        {
+          "address": "F777qWJTLdaHieYVCKrbNMef5GB9uYLEhk8xK8ivERdZ",
+          "amount": "96376845675",
+          "decimals": 6,
+          "uiAmount": 96376.845675,
+          "uiAmountString": "96376.845675"
+        },
+        {
+          "address": "Ftr4ZKtCKTpkESutPyinQUhrDyhnJyHSk4rnDPcYtgge",
+          "amount": "0",
+          "decimals": 6,
+          "uiAmount": 0,
+          "uiAmountString": "0"
+        }
+      ]
+    }
+  }
+]

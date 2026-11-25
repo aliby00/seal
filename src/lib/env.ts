@@ -5,32 +5,39 @@ import { z } from 'zod';
  * Un env invalide doit faire échouer le boot, pas produire une erreur
  * incompréhensible au premier appel externe.
  */
-/** `INDEXER_URL=` laissé vide, comme dans `.env.example`, vaut « non configuré ». */
+/** A variable left empty, as in `.env.example`, counts as unset. */
 const blankIsUnset = (value: unknown) =>
   typeof value === 'string' && value.trim() === '' ? undefined : value;
 
 const schema = z.object({
   SEAL_ENV: z.enum(['development', 'staging', 'production']).default('development'),
-  RPC_URL: z.url().default('https://rpc.mainnet.chain.robinhood.com'),
-  BLOCKSCOUT_API_KEY: z.string().optional(),
+  /**
+   * The keyed node's URL (one or several, comma-separated): when one is an
+   * Alchemy URL, its key reads Solana through `solana-mainnet.g.alchemy.com`
+   * (solana/rpc.ts). Unset: the public Solana node.
+   */
+  RPC_URL: z.preprocess(blankIsUnset, z.string().optional()),
+  /** A Solana node of its own; takes precedence over RPC_URL's Alchemy key. */
+  SOLANA_RPC_URL: z.preprocess(blankIsUnset, z.url().optional()),
   ANTHROPIC_API_KEY: z.string().optional(),
-  // Indexeur SEAL (`indexer/`) : les deux ensemble, ou aucun. Sans eux,
-  // l'application fonctionne comme avant, sans ses réponses.
-  INDEXER_URL: z.preprocess(blankIsUnset, z.url().optional()),
-  INDEXER_TOKEN: z.preprocess(blankIsUnset, z.string().min(24).optional()),
   ANTHROPIC_MODEL: z.string().default('claude-sonnet-5-5'),
 });
 
 export type Env = z.infer<typeof schema>;
 
-/** Un seul des deux ne sert à rien : c'est presque toujours un oubli de configuration. */
-const paired = schema.refine((env) => Boolean(env.INDEXER_URL) === Boolean(env.INDEXER_TOKEN), {
-  message: 'INDEXER_URL and INDEXER_TOKEN go together',
-  path: ['INDEXER_TOKEN'],
-});
+/** Every entry of RPC_URL is a URL: a typo would silently fall back to the public node. */
+const checked = schema.refine(
+  (env) =>
+    (env.RPC_URL ?? '')
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .every((entry) => z.url().safeParse(entry).success),
+  { message: 'every entry must be a URL', path: ['RPC_URL'] },
+);
 
 export function parseEnv(source: Record<string, string | undefined>): Env {
-  const result = paired.safeParse(source);
+  const result = checked.safeParse(source);
   if (!result.success) {
     const details = result.error.issues
       .map((issue) => `  ${issue.path.join('.') || '(racine)'}: ${issue.message}`)

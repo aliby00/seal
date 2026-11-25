@@ -10,6 +10,7 @@ import {
   roundTripsExcludedWords,
   type LaunchStory,
 } from '@/lib/launch-story';
+import { addressUrl, short, txUrl } from './explorer';
 
 /**
  * The first minutes of the token, replayed. Every dot is one move read from
@@ -17,8 +18,6 @@ import {
  * it carried, and whether the address still holds today. Nothing is named
  * sniper or insider; the reader sees who moved first and judges.
  */
-
-const EXPLORER = 'https://robinhoodchain.blockscout.com';
 
 const KIND_WORD: Record<LaunchMove['kind'], string> = {
   mint: 'Created for',
@@ -29,28 +28,46 @@ const KIND_WORD: Record<LaunchMove['kind'], string> = {
   withdraw: 'Liquidity removed by',
 };
 
-const short = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)}`;
-
 function pct(value: number): string {
   if (value === 0) return '0%';
   if (value < 0.0001) return '<0.01%';
   if (value < 0.01) return `${(value * 100).toFixed(2)}%`;
-  return `${(value * 100).toFixed(value < 0.1 ? 1 : 0)}%`;
+  // 99.96% rounded would read as the whole supply.
+  if (value > 0.999 && value < 1) return '>99.9%';
+  return `${(value * 100).toFixed(value < 0.1 || (value > 0.99 && value < 1) ? 1 : 0)}%`;
 }
 
-/** "the first 10 minutes", "the first 40 seconds", "the first minute". */
+/**
+ * "the first 40 seconds", "the first 10 minutes", "the first 5 hours", "the
+ * first 3.4 days": a window of 295,183 seconds (JUP) read "4920 minutes".
+ */
 function span(seconds: number): string {
   if (seconds < 90) {
     const s = Math.max(1, Math.round(seconds));
     return s === 1 ? 'second' : `${s} seconds`;
   }
-  const m = Math.round(seconds / 60);
-  return m === 1 ? 'minute' : `${m} minutes`;
+  if (seconds < 90 * 60) {
+    const m = Math.round(seconds / 60);
+    return m === 1 ? 'minute' : `${m} minutes`;
+  }
+  if (seconds < 48 * 3600) return `${Math.round(seconds / 3600)} hours`;
+  const days = seconds / 86400;
+  return `${days < 10 ? Math.round(days * 10) / 10 : Math.round(days)} days`;
 }
 
 function when(seconds: number): string {
   if (seconds < 1) return 'launch';
   if (seconds < 60) return `+${Math.round(seconds)} s`;
+  if (seconds >= 48 * 3600) {
+    const d = Math.floor(seconds / 86400);
+    const h = Math.floor((seconds % 86400) / 3600);
+    return h ? `+${d} d ${h} h` : `+${d} d`;
+  }
+  if (seconds >= 90 * 60) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    return m ? `+${h} h ${m} min` : `+${h} h`;
+  }
   const m = Math.floor(seconds / 60);
   const s = Math.round(seconds % 60);
   return s ? `+${m} min ${s} s` : `+${m} min`;
@@ -70,14 +87,24 @@ const HOLDING_WORD = {
   unknown: 'Unknown',
 } as const;
 
-function Story({ story }: { story: LaunchStory }) {
+function Story({
+  story,
+  early: earlyWithin,
+  partial,
+}: {
+  story: LaunchStory;
+  /** "10 seconds": the time the first buyers are counted over. */
+  early: string;
+  /** The replay was read in part: an absence in it is not a fact. */
+  partial: boolean;
+}) {
   const { early } = story;
   const items: { tone: string; figure: string; label: string }[] = [];
   if (story.creatorAtLaunch > 0) {
     items.push({
       tone: story.creatorAtLaunch >= 0.05 ? 'attention' : 'neutral',
       figure: pct(story.creatorAtLaunch),
-      label: 'taken by the creator in the launch block itself',
+      label: 'taken by the creator in the creation slot itself',
     });
   }
   // Delivered by the creator's own launch transaction to other addresses:
@@ -121,13 +148,23 @@ function Story({ story }: { story: LaunchStory }) {
           },
     );
   } else {
-    items.push({ tone: 'calm', figure: '0', label: 'wallets bought in the first minute' });
+    // None seen is a fact only when the whole window was read, and only for that window.
+    items.push(
+      partial
+        ? {
+            tone: 'neutral',
+            figure: '?',
+            label: `buyers in the first ${earlyWithin}: the window was not read in full`,
+          }
+        : // Counted over the first seconds only: a later buyer is listed below.
+          { tone: 'calm', figure: '0', label: `addresses bought in the first ${earlyWithin}` },
+    );
   }
   if (story.creatorSold > 0) {
     items.push({
       tone: 'attention',
       figure: pct(story.creatorSold),
-      label: `sold by the creator in these first minutes${among}`,
+      label: `sold by the creator in the window read${among}`,
     });
   }
   // The round trips, with those left out of the count and why (RH: 25
@@ -137,7 +174,7 @@ function Story({ story }: { story: LaunchStory }) {
     items.push({
       tone: 'neutral',
       figure: String(trips.wallets),
-      label: `${trips.wallets === 1 ? 'address' : 'addresses'} bought and sold back within these first minutes${roundTripsExcludedWords(trips.excluded ?? undefined)}`,
+      label: `${trips.wallets === 1 ? 'address' : 'addresses'} bought and sold back within the window read${roundTripsExcludedWords(trips.excluded ?? undefined)}`,
     });
   }
   return (
@@ -316,7 +353,7 @@ function Buyers({ buyers, bundle }: { buyers: Buyer[]; bundle: string | null }) 
           <li key={b.address} data-tone={tone}>
             <span className="buyer-rank">{i + 1}</span>
             <span className="buyer-who">
-              <a href={`${EXPLORER}/address/${b.address}`} target="_blank" rel="noreferrer">
+              <a href={addressUrl(b.address)} target="_blank" rel="noreferrer">
                 {short(b.address)}
               </a>
               {b.isCreator && <span className="launch-flag">creator</span>}
@@ -347,8 +384,11 @@ export function LaunchReplay({
   index = '03',
   hasFlow = false,
   names,
+  partial = false,
 }: {
-  /** What the chain says each address is, by lowercase address. */
+  /** The replay was read in part (a failed or capped read): what it did not see is unknown. */
+  partial?: boolean;
+  /** What the chain says each address is, by address (case kept: base58 is case-sensitive). */
   names?: Record<string, string>;
   launch: LaunchReplayData;
   /** The report draws where the supply went: a launch without buyers points to it. */
@@ -365,6 +405,10 @@ export function LaunchReplay({
   // A launch that only handed its supply out has no buyer to draw: an empty
   // chart said nothing (SIRIUS). The supply flow above draws it instead.
   const noBuys = !launch.moves.some((m) => m.kind === 'buy' || m.kind === 'sell');
+  // The first buyers are counted over these seconds, not over the whole window.
+  const earlySpan = span(launch.summary?.earlySeconds ?? launch.windowSeconds);
+  // Buys of dust only (JUP): a chart that reads 0 % says nothing.
+  const drawn = story.curve.some((p) => p.bought >= 0.0001);
 
   return (
     <section className="launch-replay" aria-labelledby="launch-title">
@@ -374,7 +418,7 @@ export function LaunchReplay({
         </p>
         <h3 id="launch-title">Who got in first, and who is still there.</h3>
         <p className="questions-intro">
-          Read from the token’s own transfers, from the moment it was created.
+          Read from the token’s own balance changes, from the slot it was created in.
         </p>
       </div>
       {noBuys ? (
@@ -389,9 +433,9 @@ export function LaunchReplay({
           )}
         </p>
       ) : (
-        <Story story={story} />
+        <Story story={story} early={earlySpan} partial={partial} />
       )}
-      {!noBuys && (
+      {!noBuys && drawn && (
         <div className="launch-stage">
           {!story.frontLoaded && (
             <div className="launch-stage-top">
@@ -463,7 +507,11 @@ export function LaunchReplay({
                 const state = holding(move);
                 return (
                   <tr key={`${move.transaction}-${move.actor}-${move.kind}`} data-kind={move.kind}>
-                    <td>{when(move.seconds)}</td>
+                    <td>
+                      <a href={txUrl(move.transaction)} target="_blank" rel="noreferrer">
+                        {when(move.seconds)}
+                      </a>
+                    </td>
                     <td>
                       <span className="launch-kind">{KIND_WORD[move.kind]}</span>
                       {move.counterpartyIsCreator ? (
@@ -473,28 +521,25 @@ export function LaunchReplay({
                           <small className="launch-from">
                             from{' '}
                             <a
-                              href={`${EXPLORER}/address/${move.counterparty}`}
+                              href={addressUrl(move.counterparty)}
                               target="_blank"
                               rel="noreferrer"
                             >
-                              {names?.[move.counterparty.toLowerCase()] ?? short(move.counterparty)}
+                              {names?.[move.counterparty] ?? short(move.counterparty)}
                             </a>
                           </small>
                         )
                       )}
+                      {move.lock && <span className="launch-role">through {move.lock}</span>}
                     </td>
                     <td>
-                      <a
-                        href={`${EXPLORER}/address/${move.actor}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
+                      <a href={addressUrl(move.actor)} target="_blank" rel="noreferrer">
                         {short(move.actor)}
                       </a>
                       {move.actorIsCreator ? (
                         <span className="launch-flag">creator</span>
-                      ) : names?.[move.actor.toLowerCase()] ? (
-                        <span className="launch-role">{names[move.actor.toLowerCase()]}</span>
+                      ) : names?.[move.actor] ? (
+                        <span className="launch-role">{names[move.actor]}</span>
                       ) : (
                         move.actorKind !== 'wallet' && (
                           <span className="launch-role">{move.actorKind}</span>

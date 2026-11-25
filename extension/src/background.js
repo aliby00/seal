@@ -35,8 +35,6 @@ if (typeof importScripts === 'function') {
     store,
   });
 
-  const ADDRESS = /^0x(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$/;
-
   api.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (!message || message.type !== 'seal:glance') return false;
     // Only this extension's own pages and content scripts are answered.
@@ -44,7 +42,7 @@ if (typeof importScripts === 'function') {
     const query = message.query || {};
     const kind = query.kind === 'pair' ? 'pair' : 'token';
     const address = String(query.address || '');
-    if (!ADDRESS.test(address) || (kind === 'token' && address.length !== 42)) {
+    if (!ns.detect.isAddress(address)) {
       sendResponse({ ok: false, status: 400, message: ns.client.MESSAGES.invalid });
       return false;
     }

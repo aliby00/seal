@@ -20,6 +20,8 @@ const SECURITY_HEADERS = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // The share card reads its fonts from disk at request time.
+  outputFileTracingIncludes: { '/api/card': ['./src/app/api/card/fonts/*.ttf'] },
   async headers() {
     return [{ source: '/:path*', headers: SECURITY_HEADERS }];
   },

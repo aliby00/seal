@@ -1,0 +1,83 @@
+[
+  {
+    "method": "getMultipleAccounts",
+    "params": [
+      ["FGHBr5hqjPRbAEX4oVA6QyJf7NYdgLnSLZT6EQGy3RSe"],
+      {
+        "commitment": "confirmed",
+        "encoding": "jsonParsed"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473525089
+      },
+      "value": [
+        {
+          "data": {
+            "parsed": {
+              "info": {
+                "isNative": false,
+                "mint": "4EQFqvyXViVNrBgYSXqtyadTDNqxFA6Ht3WWFGwqntDL",
+                "owner": "HYhsoBHofTm68KdeZPtvwPNrgF2aSoRytgdVBxspevnu",
+                "state": "initialized",
+                "tokenAmount": {
+                  "amount": "290144486",
+                  "decimals": 6,
+                  "uiAmount": 290.144486,
+                  "uiAmountString": "290.144486"
+                }
+              },
+              "type": "account"
+            },
+            "program": "spl-token",
+            "space": 165
+          },
+          "executable": false,
+          "lamports": 2039280,
+          "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "rentEpoch": 18446744073709552000,
+          "space": 165
+        }
+      ]
+    }
+  },
+  {
+    "method": "getAccountInfo",
+    "params": [
+      "4EQFqvyXViVNrBgYSXqtyadTDNqxFA6Ht3WWFGwqntDL",
+      {
+        "commitment": "confirmed",
+        "encoding": "jsonParsed"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473525089
+      },
+      "value": {
+        "data": {
+          "parsed": {
+            "info": {
+              "decimals": 6,
+              "freezeAuthority": null,
+              "isInitialized": true,
+              "mintAuthority": "5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1",
+              "supply": "290144486"
+            },
+            "type": "mint"
+          },
+          "program": "spl-token",
+          "space": 82
+        },
+        "executable": false,
+        "lamports": 1461600,
+        "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "rentEpoch": 18446744073709552000,
+        "space": 82
+      }
+    }
+  }
+]

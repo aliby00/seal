@@ -58,8 +58,9 @@ export function keepAnalysis(body: CachedAnalysis, modelConfigured: boolean): bo
   return !(body.offline && modelConfigured);
 }
 
+/** `sol1`: Solana readings only; a Robinhood Chain reading cached before is never served. */
 export const analysisCache = new SharedCache<CachedAnalysis>({
-  prefix: 'seal:analysis:v2',
+  prefix: 'seal:analysis:sol1',
   ttlMs: ANALYSIS_TTL_MS,
   keep: (body) => keepAnalysis(body, resolveProvider() !== undefined),
 });

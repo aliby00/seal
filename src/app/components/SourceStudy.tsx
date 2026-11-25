@@ -5,11 +5,12 @@ import { Arch } from './brand';
 const perspectives = [
   {
     name: 'Creator',
-    provider: 'Robinhood RPC',
+    provider: 'Solana RPC',
     title: 'The history behind the address.',
-    text: 'SEAL looks back at the creator’s previous launches and their observed outcomes. A new token is read in the context of what came before it.',
-    facts: ['Previous token launches', 'Graduation and observed outcomes'],
-    limit: 'Only the scanned block range is covered. Earlier activity may be missing.',
+    text: 'SEAL finds who created the token on chain, then reads their other tokens and what became of each, what they did with this one, and who they sent SOL to around the launch.',
+    facts: ['Other tokens from the same creator', 'Buys, sales and transfers of this token'],
+    limit:
+      'Only the transactions the node returns in time are read. Older activity may be missing, and the report says so.',
     question: 'What has this creator launched before?',
     reading:
       'A creator’s previous launches add context. They do not establish what will happen to this token.',
@@ -17,22 +18,23 @@ const perspectives = [
   },
   {
     name: 'Holders',
-    provider: 'Blockscout',
+    provider: 'Solana token accounts',
     title: 'Look beyond the wallet count.',
-    text: 'SEAL examines how supply is distributed and distinguishes liquidity pools and burn addresses from holders. The explanation makes that distinction visible.',
-    facts: ['Supply distribution across holders', 'Liquidity pool and burn exclusions'],
-    limit: 'Unavailable or incomplete holder data is disclosed before the explanation.',
-    question: 'Who holds the supply, and what is excluded?',
+    text: 'SEAL reads the token’s own accounts and names each owner for what the chain shows: a wallet, a bonding curve, a pool, a lock or a burn address. The explanation keeps them apart.',
+    facts: ['Supply distribution across holders', 'Curves, pools, locks and burn set aside'],
+    limit:
+      'On very large tokens only the largest accounts are read: the holder count is then a minimum.',
+    question: 'Who holds the supply, and what is set aside?',
     reading:
-      'Concentrated ownership needs context. A liquidity pool and an individual holder do not mean the same thing.',
+      'Concentrated ownership needs context. A bonding curve and an individual holder do not mean the same thing.',
     connection: 'Read alongside liquidity and the creator’s observed history.',
   },
   {
     name: 'Market',
     provider: 'DexScreener',
     title: 'Activity is a starting point.',
-    text: 'SEAL reads liquidity, volume and transactions together. It explains what those observations support and what they cannot tell you on their own.',
-    facts: ['Available liquidity and trading volume', 'Transactions and market activity'],
+    text: 'SEAL reads liquidity, volume and transactions together, and what the pools’ own accounts show of who can withdraw the liquidity. It explains what those observations support and what they cannot tell you on their own.',
+    facts: ['Available liquidity and trading volume', 'Liquidity burned, locked or withdrawable'],
     limit: 'Market observations describe the collection time, not what comes next.',
     question: 'What does the activity actually explain?',
     reading:

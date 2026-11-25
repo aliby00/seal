@@ -1,0 +1,135 @@
+{
+  "readAt": "2026-11-24",
+  "node": "https://api.mainnet-beta.solana.com (public), commitment confirmed",
+  "note": "Every fact below was read on mainnet on the date given. Young tokens move: the fixtures are a snapshot, the chain today may differ.",
+  "tokens": [
+    {
+      "slug": "pump-curve",
+      "mint": "ANDLpP3C7tFXEpqRBmmnbS4usmQthHfs93N5oHGpump",
+      "why": "pump.fun token under a day old, still on its bonding curve.",
+      "verified": [
+        "Mint owned by Token-2022, extensions metadataPointer + tokenMetadata, no mint or freeze authority, supply 1000000000000000 (6 decimals).",
+        "Bonding curve PDA [\"bonding-curve\", mint] under 6EF8… = 8j8apXSGYWc9m9XySAADCYmUzhetFzs2ZMoj36opQ8YA, owned by pump.fun, complete byte (offset 48) = 0, token_total_supply (offset 40) = mint supply.",
+        "Oldest signature of the mint (full history, 1397 signatures) = 2bp2ZKVj…, slot 473480103, blockTime 1795552482: about 2 hours old when read. Its logs: CreateV2 then BuyV2.",
+        "The curve's creator field (B7VKZzqyCJCJ12yu4AkVdaTvQjd3TSiUJMtCppGP38xg) is NOT the creation transaction's signer (F46pqf6cNywQqncHGPityWzw1BfZtr49oZwbBM5bDfpx): the creator must be read from the curve, not from the fee payer."
+      ],
+      "fixture": "reference/pump-curve.json"
+    },
+    {
+      "slug": "pump-graduated",
+      "mint": "B34nXKzCgsJb9ChLuSHPRpXLE3WFSWyeT8Cqkzzmpump",
+      "why": "pump.fun token graduated to PumpSwap.",
+      "verified": [
+        "Mint owned by Token-2022 (metadataPointer, tokenMetadata).",
+        "Bonding curve 8ypnRXDiWLUtgM2gGBueGJhVr5obKhLF6rXQ8Bvd9XGm: complete byte = 1, reserves all 0.",
+        "PumpSwap pool DjbLtX1HRGZZrJgJ7CwTX6SN3D7tBLiytkGwomBUwTVB (DexScreener pair) owned by pAMMBay6…; per PUMP_SWAP_README layout, index (offset 9) = 0, base_mint (offset 43) = the mint, quote_mint (offset 75) = wrapped SOL, pool_base_token_account (offset 139) = 33J8AEXc7aFsnNoEU8wr2qNtNGQKXzRYXaZkAM54vuN3, a Token-2022 account of the mint whose owner is the pool.",
+        "Also 10,840 token accounts with a non-zero balance (getProgramAccounts on Token-2022, memcmp mint at offset 0)."
+      ],
+      "fixture": "reference/pump-graduated.json"
+    },
+    {
+      "slug": "meteora-dbc",
+      "mint": "8xKZ1yzPFGG1hfsqwPR2tGWsSMx9rJWQGJKiYjKUCLRx",
+      "why": "Token launched on Meteora Dynamic Bonding Curve.",
+      "verified": [
+        "DexScreener lists its pair DbdgjtiiRBWY2C3F3cLssjgfaFQXkRWuoHjduEvexJ9f under dexId meteoradbc.",
+        "That pool account is owned by dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN (424 bytes) and holds the mint's bytes at offset 136 (offset seen, layout not decoded here).",
+        "Mint owned by SPL Token, 6 decimals, no mint or freeze authority."
+      ],
+      "fixture": "reference/meteora-dbc.json"
+    },
+    {
+      "slug": "raydium-old",
+      "mint": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "why": "Old token with a Raydium AMM v4 pool (RAY).",
+      "verified": [
+        "RAY/SOL pool AVs9TA4nWDzfPJE9gGVNJMVhcQy3V9PGazuz33BfG2RA owned by Raydium AMM v4 (675kPX9…), 752 bytes, mint's bytes at offset 400.",
+        "DexScreener gives that pair a creation time of 1669602333000 (28/11/2022).",
+        "Mint owned by SPL Token, no mint or freeze authority; Metaplex metadata names it Raydium / RAY."
+      ],
+      "fixture": "reference/raydium-old.json"
+    },
+    {
+      "slug": "pyusd",
+      "mint": "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo",
+      "why": "Token-2022 with a permanent delegate and other extensions (PayPal USD).",
+      "verified": [
+        "Mint owned by Token-2022; mint authority DRXA1H9SjZPyPCEeuAWpfwk8GqVW6dZsKFAtdfpFwApX, freeze authority 2apBGMsS6ti9RyF5TwQTDswXBWskiJP2LD4cUEDqYJjk.",
+        "Extensions: mintCloseAuthority, permanentDelegate (delegate 2apBGMsS…), transferFeeConfig (0 bps), confidentialTransferMint, confidentialTransferFeeConfig, transferHook, metadataPointer, tokenMetadata."
+      ],
+      "fixture": "reference/pyusd.json"
+    },
+    {
+      "slug": "bern",
+      "mint": "CKfatsPMUf8SkiURsDXs7eK6GWb4Jsd6UDbs7twMCWxo",
+      "why": "Token-2022 with a non-zero transfer fee (BERN).",
+      "verified": [
+        "Mint owned by Token-2022, only extension transferFeeConfig: newer fee 269 bps from epoch 698, older 420 bps; config and withdraw authority BeRNwDN8aGHvxYRVhNyMkF1wsxuEeceux2xn5deFWyEe.",
+        "maximumFee is 3906250000000000000: above 2^53, it loses precision once JSON-parsed.",
+        "No mint or freeze authority; no Metaplex metadata account."
+      ],
+      "fixture": "reference/bern.json"
+    },
+    {
+      "slug": "usdc",
+      "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "why": "Mint and freeze authorities kept (USDC).",
+      "verified": [
+        "Mint owned by SPL Token, 6 decimals; mint authority BJE5MMbqXjVwjAF7oxwPYXnTXDyspzZyt4vwenNw5ruG, freeze authority 7dGbd2QZcCKcTndnHcTL8q7SMVXAkp688NTQYwrRCrar.",
+        "Metaplex metadata 5x38Kp4hvdomTCnCrAny4UtMUt5rQBdB6px2K1Ui45Wq names it USD Coin / USDC."
+      ],
+      "fixture": "reference/usdc.json"
+    },
+    {
+      "slug": "pump-bundled",
+      "mint": "6qmoWWfCw1uVMfPzRWkCEu4kLmT9F8d3MXDMexXkpump",
+      "why": "Bundled launch: other wallets bought in the creation slot.",
+      "verified": [
+        "Creation transaction M49A3kmy… (oldest signature, full history of 1940), slot 473504636, signer = curve creator b5fbkVRNRTjZHgvQLU2QKyYUUBXEVgX7bwTc7eP5FGT, who received 21000000000000 (2.1 % of supply).",
+        "8 more successful transactions in the same slot; 4 distinct signers other than the creator received the token there: haqq6qnV… (two buys), AMDEmVoc…, mxc91JmA… (117819560696626) and 2Hf75pNq… (349999999999991, 35 % of supply, BuyV2).",
+        "The token accounts used in that slot by haqq6qnV…, AMDEmVoc…, mxc91JmA… and 3KspVijg… are not their associated token accounts (the creator's and the curve's are): holders must be read from the token account's owner field, never assumed to be ATAs."
+      ],
+      "fixture": "reference/pump-bundled.json"
+    },
+    {
+      "slug": "pump-creator-sold",
+      "mint": "FB5eSv7CAMWJnrH5GvHLivx9y8Qgoo8vpPV3EX5Npump",
+      "why": "Creator bought at launch, then sold everything.",
+      "verified": [
+        "Creation 5Rftux22… (slot 473491200, logs CreateV2 then Buy): signer = curve creator D234v6Hg5cYYmMkdvRdAdFYBBcLAP9Jcj3Uh2BQ8ChDH, who received 119064729176629 in their associated token account 4CgQM3CBPKvByMwBWJCyxiqT7LfP97FS18zVb4CCM8TW.",
+        "That account has two signatures: the creation and 2gzY9HcN… (slot 473494427, logs Sell then CloseAccount), where the creator's balance fell by 119064729176629. The account no longer exists (getAccountInfo → null).",
+        "Still on its curve (complete = 0)."
+      ],
+      "fixture": "reference/pump-creator-sold.json"
+    },
+    {
+      "slug": "many-holders",
+      "mint": "CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump",
+      "why": "More than 10,000 holders (GOAT).",
+      "verified": [
+        "getProgramAccounts on SPL Token, filters dataSize 165 + memcmp mint at offset 0, dataSlice amount (offset 64, 8 bytes): 249,243 token accounts, 76,652 with a non-zero balance; answered by the public node in 2.7 s.",
+        "Mint owned by SPL Token, 6 decimals, no mint or freeze authority."
+      ],
+      "fixture": "reference/many-holders.json"
+    },
+    {
+      "slug": "bonk",
+      "mint": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+      "why": "Known token (BONK).",
+      "verified": [
+        "Mint owned by SPL Token, 5 decimals, no mint or freeze authority; Metaplex metadata FDZZbyY9… names it Bonk / Bonk.",
+        "Raydium AMM v4 pool G7mw1d83ismcQJKkzt62Ug4noXCjVhu3eV7U5EMgge6Z (Bonk/USDC) owned by 675kPX9…."
+      ],
+      "fixture": "reference/bonk.json"
+    },
+    {
+      "slug": "jup",
+      "mint": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "why": "Known token (JUP).",
+      "verified": [
+        "Mint owned by SPL Token, 6 decimals, no mint or freeze authority; Metaplex metadata 5pddDLA4… names it Jupiter / JUP."
+      ],
+      "fixture": "reference/jup.json"
+    }
+  ]
+}

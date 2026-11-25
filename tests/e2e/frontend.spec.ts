@@ -1,8 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import sirius from './fixtures/sirius-analysis.json' with { type: 'json' };
+import solana from './fixtures/solana-analysis.json' with { type: 'json' };
 
-const token = '0x10e848f9d5073d670201b111f1ba3d1c5be6f18b';
+/** The Poor Bull, a pump.fun token, and the first example of the home page. */
+const token = 'FB5eSv7CAMWJnrH5GvHLivx9y8Qgoo8vpPV3EX5Npump';
 const explanation =
   'What is reassuring.\n\nThe creator launched several tokens.\n\nWhat deserves attention.\n\nConcentration requires further documentation.\n\nWhere the signals diverge.\n\nObserved volume does not explain the distribution.';
 const report = {
@@ -11,11 +12,10 @@ const report = {
   completeness: 'partial',
   sources: [
     {
-      name: 'robinhood-rpc',
-      note: 'Scanned range: blocks 100 to 200. Earlier history not covered.',
+      name: 'solana-rpc',
+      note: 'Scanned range: slots 100 to 200. Earlier history not covered.',
     },
-    { name: 'blockscout', note: 'No API key.' },
-    { name: 'dexscreener' },
+    { name: 'dexscreener-solana' },
   ],
   offline: false,
   collectedAt: '2026-09-27T00:20:04.965Z',
@@ -23,7 +23,7 @@ const report = {
   symbol: 'ALP',
   timeline: [
     {
-      address: '0x1000000000000000000000000000000000000001',
+      address: 'CzLSujWBLFsSjncfkh59rUFqvafWcY5tzedWJSuypump',
       launchedAt: '2026-09-01T00:00:00.000Z',
       block: 100,
       outcome: 'abandoned',
@@ -33,7 +33,7 @@ const report = {
       current: false,
     },
     {
-      address: '0x1000000000000000000000000000000000000002',
+      address: 'ANDLpP3C7tFXEpqRBmmnbS4usmQthHfs93N5oHGpump',
       launchedAt: '2026-09-10T00:00:00.000Z',
       block: 150,
       outcome: 'graduated',
@@ -65,11 +65,9 @@ const report = {
     {
       specialist: 'rule-change',
       title: 'Rule Change',
-      question: 'Can the trading rules (hook) be rewritten after people have bought?',
+      question: 'Can the token’s rules be changed after people have bought?',
       signal: 'reassurance',
-      facts: [
-        'The code of the trading rules (hook) (4120 bytes) has no standard upgrade slot set.',
-      ],
+      facts: ['Nobody can create more of this token, and nobody can freeze its accounts.'],
       limits: [],
     },
     {
@@ -84,8 +82,8 @@ const report = {
   facts: {
     creator: {
       measured: true,
-      note: 'Scanned range: blocks 100 to 200. Earlier history not covered.',
-      address: '0x59a8eb66f90b092c2d1a86531dc3c18e11f0ed34',
+      note: 'Scanned range: slots 100 to 200. Earlier history not covered.',
+      address: 'D234v6HgjNdTfS8vYa3ZfJAF5sSoTVzrKCDmQ2ypCnQK',
       launched: 76,
       detailed: 40,
       graduated: 2,
@@ -97,11 +95,13 @@ const report = {
       liquidityPulled: 1,
       salesChecked: 10,
       liquidityChecked: 8,
-      source: 'pons',
+      source: null,
       role: null,
       launchContract: null,
       launchesListed: true,
       transactionCount: 860,
+      launchpad: 'pump.fun',
+      creatorFrom: 'launch-record',
     },
     holders: {
       measured: true,
@@ -109,9 +109,9 @@ const report = {
       top1: 0.31,
       top10: 0.78,
       top: [
-        { address: '0x25b2eece475e104c85e79d3be9e29cd06cd982ee', share: 0.31, kind: 'wallet' },
-        { address: '0xe08d2285f451ee250b471a5edad1a4b09f22b4fb', share: 0.18, kind: 'wallet' },
-        { address: '0xcd9107d2bdfad6b56a7ac235bebe46e555c1801c', share: 0.04, kind: 'contract' },
+        { address: '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM', share: 0.31, kind: 'wallet' },
+        { address: 'Ft1qQLFGbetZTc4gfT5FSyUw3cMc3mq9ZGkwTVLkVgoX', share: 0.18, kind: 'wallet' },
+        { address: '52PrpjRXwQZURZbVutzpmg12xiTb7txMYY7DcfShkEZW', share: 0.04, kind: 'contract' },
       ],
     },
     market: {
@@ -123,7 +123,7 @@ const report = {
       buys24h: null,
       sells24h: null,
       fdvUsd: null,
-      graduation: { progress: 0.42, thresholdEth: 4.2, graduated: false },
+      graduation: null,
     },
   },
 };
@@ -135,15 +135,21 @@ test('report draws the measured facts, says what is missing, and gives no score'
   await submit(page);
   const board = page.getByRole('region', { name: 'Measured facts' });
   await expect(board).toBeVisible();
-  await expect(board.locator('.fact-big')).toContainText('76 launches found');
+  await expect(board.locator('.fact-big')).toContainText('76 tokens launched, this one included');
   await expect(
     board.getByRole('img', { name: /Largest holder 31%, Holders 2 to 10 47%, Everyone else 22%/ }),
   ).toBeVisible();
   await expect(board.getByText('Launches read in detail, in time order')).toBeVisible();
   await expect(board.getByText('No trading pair listed on DexScreener.')).toBeVisible();
-  await expect(board.getByText('7 of 10 checked')).toBeVisible();
-  await expect(board.getByText('1 of 8 checked')).toBeVisible();
-  await expect(board.getByText('Found from their pons launch record.')).toBeVisible();
+  await expect(board.getByText('The creator sold some of this token.')).toBeVisible();
+  await expect(
+    board.getByText('Named as creator by the token’s pump.fun bonding curve.'),
+  ).toBeVisible();
+  // Addresses are shortened in base58, case kept, and open the Solana Explorer.
+  await expect(board.getByRole('link', { name: '9WzD…AWWM' })).toHaveAttribute(
+    'href',
+    'https://explorer.solana.com/address/9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM',
+  );
   await expect(board).not.toContainText(/score|\/10|\/100/i);
   await accessible(page);
 });
@@ -157,7 +163,7 @@ test('a report a failed read left partial says so in In short, below the finding
       failed: [
         {
           read: 'creator-launches',
-          note: 'the SEAL indexer did not answer: the launches it lists could not be read this time',
+          note: 'the node refused getTransaction (rate-limit): the creator’s other launches could not be read this time',
         },
       ],
     } as typeof report.facts,
@@ -171,7 +177,7 @@ test('a report a failed read left partial says so in In short, below the finding
   );
   await expect(notice).toContainText('Try again in a minute.');
   await expect(page.locator('.glance')).toContainText(
-    'some of the places their launches are listed could not be read this time',
+    'part of its history could not be read this time',
   );
   await accessible(page);
 });
@@ -183,9 +189,13 @@ test('report opens with the token, then gives ten plain checks, without a tally'
   await page.goto('/#analysis');
   await submit(page);
   await expect(page.getByRole('heading', { level: 2, name: /Alpha Token/ })).toBeVisible();
-  await expect(page.getByRole('link', { name: /Explorer/ })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: /Solana Explorer/ })).toHaveAttribute(
     'href',
-    `https://robinhoodchain.blockscout.com/token/${token}`,
+    `https://explorer.solana.com/address/${token}`,
+  );
+  await expect(page.getByRole('link', { name: /DexScreener/ })).toHaveAttribute(
+    'href',
+    `https://dexscreener.com/solana/${token}`,
   );
   const coverage = page.getByRole('list', { name: 'What each source could read' });
   await expect(coverage).toContainText('Market');
@@ -199,7 +209,9 @@ test('report opens with the token, then gives ten plain checks, without a tally'
   // Each check has a plain name and a one-line answer.
   await expect(panel.getByText('Supply held by a few')).toBeVisible();
   await expect(
-    panel.getByText('Largest holder 31.0% · top 10 78.0% (pools left out)'),
+    panel.locator('.check-answer', {
+      hasText: 'The largest holder has 31.0% of counted supply; the top 10 have 78.0%.',
+    }),
   ).toBeVisible();
   // What could not be measured is gathered in one line, not spread among the answers.
   const unmeasured = panel.locator('.check-unmeasured');
@@ -215,87 +227,102 @@ test('report opens with the token, then gives ten plain checks, without a tally'
   await accessible(page);
 });
 
-test('a creator funded by a wallet that funded others: summary line, then the path in its tile', async ({
+test('a recorded Solana reading draws the mint, the supply by role, the launch and the creator', async ({
   page,
-}) => {
-  const funder = '0xf0fc311800000000000000000000000000000016';
-  const above = '0x2274993900000000000000000000000000000029';
-  const linked = {
-    ...report,
-    specialists: [
-      ...report.specialists.filter((a) => a.specialist !== 'funding-trace'),
-      {
-        specialist: 'funding-trace',
-        title: 'Funding Trace',
-        question: 'Who paid for the creator’s wallet, and did they fund other creators?',
-        signal: 'concern',
-        facts: [
-          `The wallet that funded the creator (${funder}, 33 transactions) also funded 16 other token creators, linked through 2 funding steps. Together they launched 41 tokens.`,
-        ],
-        limits: [],
-        funding: {
-          kind: 'wallet',
-          linkedCreators: 16,
-          launches: 41,
-          depth: 2,
-          path: [
-            { address: funder, kind: 'wallet', name: null, txCount: 33 },
-            { address: above, kind: 'wallet', name: null, txCount: 232 },
-          ],
-        },
-      },
-    ],
-  };
-  await page.route('**/api/analyze', (route) => route.fulfill({ json: linked }));
+}, testInfo) => {
+  // pump-creator-sold, collected on mainnet on 25/11/2026 and written offline
+  // (tests/fixtures/solana/collect): the response as /api/analyze serves it.
+  await page.route('**/api/analyze', (route) => route.fulfill({ json: solana }));
   await page.goto('/#analysis');
   await submit(page);
-  const line = page.locator('.glance a').filter({
-    hasText: 'also funded 16 other token creators, who launched 41 tokens between them.',
-  });
-  await expect(line).toHaveAttribute('href', '#question-funding-trace');
-  await line.click();
-  const tile = page.locator('#question-funding-trace');
-  await expect(tile).toHaveAttribute('open', '');
-  const path = tile.getByRole('list').filter({ hasText: 'Creator funded by' });
-  await expect(path.getByRole('listitem')).toHaveCount(2);
-  await expect(path).toContainText('0xf0fc…0016');
-  await expect(path).toContainText('wallet, 33 transactions');
-  await expect(path).toContainText('232 transactions');
+  await expect(page.getByRole('heading', { level: 2, name: /The Poor Bull/ })).toBeVisible();
+  const board = page.getByRole('region', { name: 'Facts read on Solana' });
+  await expect(board).toBeVisible();
+  const mint = board.locator('#fact-mint');
+  await expect(mint).toContainText('Token-2022');
+  await expect(mint).toContainText('metadataPointer');
+  await expect(mint.getByRole('list', { name: 'What the mint lets someone do' })).toContainText(
+    'Create more tokens',
+  );
+  await expect(board.locator('#fact-roles')).toContainText('pump.fun bonding curve');
+  await expect(board.locator('#fact-launch')).toContainText('Launched on pump.fun');
+  await expect(board.locator('#fact-launch')).toContainText('473,491,200');
+  await expect(
+    board.locator('#fact-launch').getByRole('link', { name: /^5Rftux/ }),
+  ).toHaveAttribute('href', /^https:\/\/explorer\.solana\.com\/tx\/5Rftux22/);
+  const creator = board.locator('#fact-creator-token');
+  await expect(creator).toContainText('Named as creator by the token’s pump.fun bonding curve.');
+  await expect(
+    creator.getByRole('link', { name: solana.solana.creator.data.address ?? '' }),
+  ).toHaveAttribute(
+    'href',
+    `https://explorer.solana.com/address/${solana.solana.creator.data.address}`,
+  );
+  await expect(page.getByRole('article')).not.toContainText(
+    /blockscout|robinhood|score\b|\bsafe\b/i,
+  );
   await accessible(page);
+  await page.screenshot({ path: `/tmp/seal-solana-${testInfo.project.name}.png`, fullPage: true });
+  await board.screenshot({ path: `/tmp/seal-solana-board-${testInfo.project.name}.png` });
 });
 
-test('a launch with allocations only: the supply flow leads, and no empty buyers chart', async ({
+/**
+ * The Funding Trace answer staging served for The Poor Bull on 25/11/2026
+ * (~/sol-e2e/1039): the creator's first SOL came from one address, unnamed.
+ */
+const FUNDING_TRACE = {
+  specialist: 'funding-trace',
+  title: 'Funding Trace',
+  question:
+    'Who first sent SOL to the creator, and did wallets the creator funded around the launch trade this token?',
+  signal: 'quiet',
+  facts: [
+    'The creator’s first SOL came from 16hA…6jrY: 5.63 SOL on Nov 19, 2026, when an account was closed to it, in a transaction that address sent.',
+    'Around the launch (Nov 23, 2026 to Nov 24, 2026), the creator sent SOL to no other wallet outside its trades, in the transactions read.',
+  ],
+  limits: [
+    'who is behind the funding address is not read: an exchange, a service or a person',
+    "10 of the creator's 11 transactions around the launch read",
+    'a SOL transfer links the addresses; it does not show who controls them',
+  ],
+  funding: {
+    kind: 'unknown',
+    linkedCreators: 0,
+    launches: null,
+    depth: 1,
+    path: [
+      {
+        address: '16hA8TwtLR1381TD4A6p3V279Dx27ocmiik8tGs6jrY',
+        kind: 'unknown',
+        name: null,
+        txCount: null,
+      },
+    ],
+  },
+};
+
+test('a Solana reading draws the creator’s funding path: who sent the first SOL, not identified', async ({
   page,
 }) => {
-  await page.route('**/api/analyze', (route) => route.fulfill({ json: sirius }));
+  await page.route('**/api/analyze', (route) =>
+    route.fulfill({ json: { ...solana, specialists: [FUNDING_TRACE] } }),
+  );
   await page.goto('/#analysis');
   await submit(page);
-  // The summary's first line says where the supply went, and links to the drawing.
-  const lead = page.locator('.glance-lead');
-  await expect(lead).toContainText(
-    'Launched on Virtuals: 28.6% locked for the creator until 2028, 18% held by Virtuals’ ACF wallet.',
+  const row = page.locator('#question-funding-trace');
+  await row.locator('summary').click();
+  await expect(row.getByRole('heading', { level: 4, name: 'Funding path' })).toBeVisible();
+  const steps = row.locator('.funding-path li');
+  await expect(steps).toHaveCount(1);
+  await expect(steps.first()).toContainText('Creator funded by');
+  await expect(steps.first().locator('code')).toHaveText('16hA…6jrY');
+  await expect(steps.first().locator('code')).toHaveAttribute(
+    'title',
+    '16hA8TwtLR1381TD4A6p3V279Dx27ocmiik8tGs6jrY',
   );
-  await expect(lead.locator('.glance-figure')).toHaveText('28.6%');
-  await expect(lead).toHaveAttribute('href', '#supply-flow');
-  const flow = page.locator('#supply-flow');
-  await expect(flow).toBeVisible();
-  await expect(flow.getByRole('img')).toHaveAttribute('aria-label', /Virtuals’ team lock/);
-  await expect(flow).toContainText('Virtuals’ capital-formation wallet (ACF)');
-  await expect(flow).toContainText('Virtuals’ team lock (TokenTable)');
-  await expect(flow).toContainText('28.6% is locked for the creator');
-  await expect(flow).toContainText('Nobody bought in the first 10 minutes');
-  // The curve's branch shows its outcome: bought there, then graduation.
-  await expect(flow).toContainText('Buyers on the curve');
-  await expect(flow).toContainText('Its Uniswap v2 pair');
-  await expect(flow.locator('.flow-branch')).toHaveCount(2);
-  await expect(flow.locator('.flow-leaf')).toHaveCount(5);
-  // The replay draws no chart for a launch nobody bought into.
-  const replay = page.locator('.launch-replay');
-  await expect(replay).toContainText('Nobody bought or sold in these first 10 minutes');
-  await expect(replay.locator('.story-chart, .story-compare')).toHaveCount(0);
-  // A v4-only question on a Uniswap v2 pair does not apply, said apart.
-  await expect(page.locator('.questions')).toContainText('Does not apply to this token');
-  await expect(page.locator('.glance')).not.toContainText('One contract');
+  // Nothing more than what was read: the address is not named.
+  await expect(steps.first()).toContainText('not identified');
+  await expect(row).not.toContainText(/linked creators?|other creators/i);
   await accessible(page);
 });
 
@@ -322,9 +349,11 @@ test('the entrance field starts the analysis, and the reading gets a link to sha
   await page.goto('/');
   const field = page.getByLabel('Token address to analyze');
   await expect(field).toBeVisible();
-  await field.fill('0x123');
+  await field.fill('0x10e848f9d5073d670201b111f1ba3d1c5be6f18b');
   await page.getByRole('button', { name: 'Analyze', exact: true }).click();
-  await expect(page.locator('.entrance-error')).toContainText('40 hexadecimal characters');
+  await expect(page.locator('.entrance-error')).toContainText(
+    'This looks like an EVM address (0x…): paste the token’s Solana address instead.',
+  );
   expect(posted).toEqual([]);
   await field.fill(token);
   await page.getByRole('button', { name: 'Analyze', exact: true }).click();
@@ -400,13 +429,17 @@ test('homepage: keyboard, example, validation without a request, and accessibili
   await expect(page.getByRole('link', { name: 'Skip to analysis' })).toBeFocused();
   await page.getByRole('button', { name: 'Analyze token' }).click();
   await expect(page.getByRole('main').getByRole('alert')).toContainText(
-    '40 hexadecimal characters',
+    'Enter a Solana token address',
   );
   expect(requests).toBe(0);
   await expect(page.getByLabel('Token address', { exact: true })).toBeFocused();
-  await page.getByRole('button', { name: 'Try an example' }).click();
+  // Each example fills the field and reads the token straight away.
+  const examples = page.getByRole('group', { name: 'Or read an example' });
+  await expect(examples.getByRole('button')).toHaveCount(3);
+  await examples.getByRole('button', { name: /The Poor Bull/ }).click();
   await expect(page.getByLabel('Token address', { exact: true })).toHaveValue(token);
-  expect(requests).toBe(0);
+  await expect(page.getByRole('article')).toBeVisible();
+  expect(requests).toBe(1);
   await expect(page.getByText('Environment: staging')).toBeVisible();
   await expect(page.getByText('Not financial advice.')).toBeVisible();
   await accessible(page);
@@ -427,7 +460,7 @@ test('loading describes sources; report keeps limits before prose and sources gl
   });
   await page.goto('/');
   await submit(page);
-  await expect(page.getByRole('status')).toContainText('Blockscout');
+  await expect(page.getByRole('status')).toContainText('read on Solana');
   await expect(page.getByRole('button', { name: 'Analyzing' })).toBeDisabled();
   release();
   await expect(page.getByRole('article')).toBeVisible();
@@ -436,7 +469,7 @@ test('loading describes sources; report keeps limits before prose and sources gl
   expect(text.indexOf('In short')).toBeLessThan(text.indexOf('Not measured here'));
   expect(text.indexOf('Not measured here')).toBeLessThan(text.indexOf('The creator launched'));
   await expect(page.locator('.glance-lead')).toContainText(
-    'The creator sold into the pool on 7 of 10 launches checked.',
+    'One wallet holds 31% of the tokens held outside any curve, pool or lock.',
   );
   await expect(page.locator('.divergent')).toHaveCount(1);
   await expect(page.getByText('Sources apply to the report as a whole.')).toBeVisible();
@@ -465,7 +498,8 @@ for (const completeness of ['full', 'unavailable']) {
     const article = page.getByRole('article');
     await expect(article).toBeVisible();
     const text = await article.innerText();
-    expect(text.indexOf('Offline mode')).toBeLessThan(text.indexOf('Raw facts.'));
+    expect(text.indexOf('Written from the facts alone')).toBeGreaterThanOrEqual(0);
+    expect(text.indexOf('Written from the facts alone')).toBeLessThan(text.indexOf('Raw facts.'));
     await expect(page.locator('.divergent')).toHaveCount(0);
     await expect(page.locator('.explanation p')).toHaveCount(3);
     // With measured facts the short version stands in for the banner, except when nothing is usable.
@@ -643,9 +677,11 @@ test('source study exposes each method using accessible controls', async ({ page
     'aria-pressed',
     'true',
   );
-  await expect(page.locator('#source-study-detail')).toContainText('Blockscout');
+  await expect(page.locator('#source-study-detail')).toContainText('Solana token accounts');
   await expect(page.locator('.reading-sheet')).toContainText('Who holds the supply');
-  await expect(page.locator('.method-boundary')).toContainText('incomplete holder data');
+  await expect(page.locator('.method-boundary')).toContainText(
+    'only the largest accounts are read',
+  );
   await page.keyboard.press('Tab');
   await page.keyboard.press('Enter');
   await expect(page.locator('#source-study-detail')).toContainText('DexScreener');
@@ -673,4 +709,17 @@ test('legal pages are reachable from the footer, final, and accessible', async (
   await expect(page.getByText('Not financial advice')).toBeVisible();
   await page.goto('/terms');
   await expect(page.getByRole('heading', { name: 'What you may not do' })).toBeVisible();
+});
+
+test('an unknown address gets the site’s own 404, with a way home and one title', async ({
+  page,
+}) => {
+  const response = await page.goto('/this-page-does-not-exist');
+  expect(response?.status()).toBe(404);
+  await expect(page.getByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'SEAL home' })).toHaveAttribute('href', '/');
+  await expect(page.getByRole('link', { name: 'Read a token' })).toHaveAttribute('href', '/');
+  await expect(page).toHaveTitle('Page not found · SEAL');
+  expect(await page.locator('title').count()).toBe(1);
+  await accessible(page);
 });

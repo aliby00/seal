@@ -2,10 +2,12 @@
 
 L'agent qui explique, là où les autres se contentent de noter.
 
-SEAL analyse un token lancé sur le launchpad **pons** (Robinhood Chain) et produit une
-explication en langage clair plutôt qu'un score isolé. Il lit les mêmes données publiques
-que les scanners existants — historique du créateur, concentration des détenteurs, état du
-marché — mais les **croise** et dit là où les signaux ne racontent pas la même histoire.
+SEAL lit un token **Solana** à partir de son adresse (sa mint) et produit une explication en
+langage clair plutôt qu'un score isolé. Il lit ce que la chaîne montre — ce que la mint permet
+(Token-2022 compris), le créateur et ses autres tokens, les détenteurs par rôle, le lancement,
+la liquidité des pools, le marché sur DexScreener — puis **croise** ces faits et dit là où ils
+ne racontent pas la même histoire. Les launchpads lus sont pump.fun, Meteora Dynamic Bonding
+Curve et Raydium LaunchLab (voir [`docs/launchpads.md`](docs/launchpads.md)).
 
 > SEAL n'attribue aucune note et ne dit jamais s'il faut acheter. Voir les avertissements
 > en bas de l'interface.
@@ -20,15 +22,17 @@ pnpm dev                     # http://localhost:3000
 
 ### Variables d'environnement
 
-| Variable             | Requise     | Où l'obtenir                                                                                                                |
-| -------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `ANTHROPIC_API_KEY`  | oui         | [platform.claude.com](https://platform.claude.com)                                                                          |
-| `ANTHROPIC_MODEL`    | non         | défaut `claude-sonnet-5-5`                                                                                                  |
-| `BLOCKSCOUT_API_KEY` | recommandée | [dev.blockscout.com](https://dev.blockscout.com) — gratuite, 5 req/s, 100 000 crédits/jour                                  |
-| `RPC_URL`            | non         | défaut `https://rpc.mainnet.chain.robinhood.com` (public, rate-limité) ; plusieurs URLs séparées par des virgules = bascule |
-| `RPC_URL_FALLBACK`   | non         | nœuds de secours, essayés après `RPC_URL` ; le public reste le dernier recours                                              |
-| `LOGS_RPC_URL`       | non         | nœud pour `eth_getLogs` (+ `LOGS_RPC_URL_FALLBACK`) ; vide = public                                                         |
-| `SEAL_ENV`           | non         | `development` \| `staging` \| `production`                                                                                  |
+| Variable            | Requise     | Où l'obtenir                                                                                                     |
+| ------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY` | non         | [platform.claude.com](https://platform.claude.com) ; sans clé, mode hors-ligne                                   |
+| `ANTHROPIC_MODEL`   | non         | défaut `claude-sonnet-5-5`                                                                                       |
+| `RPC_URL`           | recommandée | URL Alchemy (une ou plusieurs, séparées par des virgules) : sa clé lit Solana via `solana-mainnet.g.alchemy.com` |
+| `SOLANA_RPC_URL`    | non         | un nœud Solana à soi ; prioritaire sur la clé Alchemy de `RPC_URL`                                               |
+| `SEAL_ENV`          | non         | `development` \| `staging` \| `production`                                                                       |
+
+Sans `RPC_URL` ni `SOLANA_RPC_URL`, SEAL lit le nœud public `https://api.mainnet-beta.solana.com` :
+il est limité (quelques appels par seconde) et ne sert pas `getTokenLargestAccounts`, donc les
+rapports y sont souvent partiels, et le disent.
 
 ### Trois modes, du gratuit au payant
 
@@ -42,56 +46,57 @@ Groq est choisi en premier quand les deux clés sont là : on ne dépense pas pa
 
 ### Essayer sans dépenser un centime
 
-**Aucune clé n'est obligatoire.** Le pipeline de données est entièrement gratuit — RPC
-public de Robinhood Chain, DexScreener sans clé, Blockscout en tier gratuit. Seule
-l'explication produite par le modèle est facturée.
+**Aucune clé n'est obligatoire.** Le pipeline de données est entièrement gratuit — nœud
+public de Solana, DexScreener sans clé. Seule l'explication produite par le modèle est
+facturée.
 
 Sans `ANTHROPIC_API_KEY`, l'application bascule en **mode hors-ligne** : elle restitue les
 faits relevés sans les croiser, et le dit explicitement dans la réponse. Tout le reste —
 lecture de la chaîne, concentration, marché, interface, déploiement — fonctionne
 normalement. C'est le moyen d'essayer SEAL de bout en bout pour zéro euro.
 
-Sans `BLOCKSCOUT_API_KEY`, le bloc « détenteurs » est marqué indisponible et l'explication
-le signale. Une source manquante n'empêche jamais l'analyse.
+Quand un appel est refusé (429, méthode non servie, délai dépassé), le bloc concerné est marqué
+partiel ou indisponible et l'explication le signale. Une source manquante n'empêche jamais
+l'analyse.
 
 ## Commandes
 
-|                             |                                         |
-| --------------------------- | --------------------------------------- |
-| `pnpm dev`                  | serveur de développement                |
-| `pnpm build`                | build de production                     |
-| `pnpm typecheck`            | TypeScript, mode strict                 |
-| `pnpm lint` / `pnpm format` | ESLint / Prettier                       |
-| `pnpm test`                 | suite complète, **aucun appel réseau**  |
-| `pnpm test:guards`          | garde-fous de l'agent uniquement        |
-| `pnpm probe:rpc`            | rejoue les mesures RPC de `RESEARCH.md` |
-| `pnpm probe:blockscout`     | idem Blockscout                         |
-| `pnpm probe:dexscreener`    | idem DexScreener                        |
+|                             |                                        |
+| --------------------------- | -------------------------------------- |
+| `pnpm dev`                  | serveur de développement               |
+| `pnpm build`                | build de production                    |
+| `pnpm typecheck`            | TypeScript, mode strict                |
+| `pnpm lint` / `pnpm format` | ESLint / Prettier                      |
+| `pnpm test`                 | suite complète, **aucun appel réseau** |
+| `pnpm test:guards`          | garde-fous de l'agent uniquement       |
 
-Les sondes touchent le réseau pour de vrai — c'est leur but. Elles existent pour que les
-chiffres de `RESEARCH.md` soient rejouables plutôt que crus sur parole.
+Les lectures Solana de bout en bout sont enregistrées sur le réseau principal puis rejouées sans
+réseau ; pour les réenregistrer : `SEAL_RECORD=1 pnpm vitest run tests/collect/record.live.test.ts`.
 
 ## Structure
 
 ```
-src/lib/chain/      RPC Robinhood Chain, factory pons, graduation
-src/lib/holders/    Blockscout — concentration des détenteurs
-src/lib/market/     DexScreener — prix, liquidité, volume
-src/lib/collect.ts  orchestrateur : les trois en parallèle
-src/lib/agent/      prompt, appel au modèle, garde-fous, coût
-src/app/            interface et route /api/analyze
+src/lib/solana/      nœud Solana : mint et pouvoirs, détenteurs, créateur, lancement,
+                     launchpads, graduation, liquidité des pools
+src/lib/market/      DexScreener (Solana) — prix, liquidité, volume, pools listés
+src/lib/collect.ts   orchestrateur : les lectures en parallèle, sous un budget d'appels et de temps
+src/lib/agent/       prompt, appel au modèle, garde-fous, coût
+src/app/             interface, carte de partage et routes /api/*
+extension/           extension navigateur (DexScreener, Solscan, Solana Explorer, pump.fun)
 ```
 
-Chaque module se teste indépendamment, sur des fixtures capturées en direct.
+Chaque module se teste indépendamment, sur des fixtures capturées en direct et un faux nœud
+RPC.
 
 ## Documents
 
-|                                      |                                                                        |
-| ------------------------------------ | ---------------------------------------------------------------------- |
-| [`RESEARCH.md`](RESEARCH.md)         | ce qui a été mesuré, ce qui vient d'une doc, ce qui reste non confirmé |
-| [`ARCHITECTURE.md`](ARCHITECTURE.md) | comment les pièces s'assemblent                                        |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | branches, pipelines, règles non négociables                            |
-| [`TASKS.md`](TASKS.md)               | plan de développement                                                  |
+|                                            |                                                                        |
+| ------------------------------------------ | ---------------------------------------------------------------------- |
+| [`RESEARCH.md`](RESEARCH.md)               | ce qui a été mesuré, ce qui vient d'une doc, ce qui reste non confirmé |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md)       | comment les pièces s'assemblent                                        |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md)       | branches, pipelines, règles non négociables                            |
+| [`TASKS.md`](TASKS.md)                     | plan de développement                                                  |
+| [`docs/launchpads.md`](docs/launchpads.md) | launchpads, graduation et pools lus sur Solana                         |
 
 ## Coût
 

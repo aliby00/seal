@@ -1,0 +1,108 @@
+[
+  {
+    "method": "getMultipleAccounts",
+    "params": [
+      [
+        "CKfatsPMUf8SkiURsDXs7eK6GWb4Jsd6UDbs7twMCWxo",
+        "QX6GygADS5W4SRXFmoKzVH7q6vUKPmUBLodpoWSXnbq"
+      ],
+      {
+        "commitment": "confirmed",
+        "encoding": "base64"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473520386
+      },
+      "value": [
+        {
+          "data": [
+            "AAAAAF6FlBDp84quKJTnIC3eZq7d8SbOoKlPCfCAsA30E9mWJma+v8RVAAAFAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEAbACeKux3o+tagQ3C+8+h6rzjZF5OhOga4vLWDtM8fM7af54q7Hej61qBDcL7z6HqvONkXk6E6Bri8tYO0zx8ztp/8Zz0HAAAAABwAgAAAAAAAACg3sWtyTU2pAG6AgAAAAAAAACg3sWtyTU2DQE=",
+            "base64"
+          ],
+          "executable": false,
+          "lamports": 10574126742,
+          "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "rentEpoch": 18446744073709552000,
+          "space": 278
+        },
+        null
+      ]
+    }
+  },
+  {
+    "method": "getEpochInfo",
+    "params": [
+      {
+        "commitment": "confirmed"
+      }
+    ],
+    "result": {
+      "absoluteSlot": 473520386,
+      "blockHeight": 451533504,
+      "epoch": 1096,
+      "slotIndex": 48386,
+      "slotsInEpoch": 432000,
+      "transactionCount": 568236145894
+    }
+  },
+  {
+    "method": "getAccountInfo",
+    "params": [
+      "CKfatsPMUf8SkiURsDXs7eK6GWb4Jsd6UDbs7twMCWxo",
+      {
+        "commitment": "confirmed",
+        "encoding": "jsonParsed"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473520387
+      },
+      "value": {
+        "data": {
+          "parsed": {
+            "info": {
+              "decimals": 5,
+              "extensions": [
+                {
+                  "extension": "transferFeeConfig",
+                  "state": {
+                    "newerTransferFee": {
+                      "epoch": 698,
+                      "maximumFee": 3906250000000000000,
+                      "transferFeeBasisPoints": 269
+                    },
+                    "olderTransferFee": {
+                      "epoch": 624,
+                      "maximumFee": 3906250000000000000,
+                      "transferFeeBasisPoints": 420
+                    },
+                    "transferFeeConfigAuthority": "BeRNwDN8aGHvxYRVhNyMkF1wsxuEeceux2xn5deFWyEe",
+                    "withdrawWithheldAuthority": "BeRNwDN8aGHvxYRVhNyMkF1wsxuEeceux2xn5deFWyEe",
+                    "withheldAmount": 485793009
+                  }
+                }
+              ],
+              "freezeAuthority": null,
+              "isInitialized": true,
+              "mintAuthority": null,
+              "supply": "94303518877222"
+            },
+            "type": "mint"
+          },
+          "program": "spl-token-2022",
+          "space": 278
+        },
+        "executable": false,
+        "lamports": 10574126742,
+        "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "rentEpoch": 18446744073709552000,
+        "space": 278
+      }
+    }
+  }
+]

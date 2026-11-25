@@ -1,36 +1,61 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { USDC_MINT, USDT_MINT } from '../../src/lib/market/solana';
+import { NATIVE_MINT } from '../../src/lib/solana/programs';
 import {
   addressesSoftware,
   imitatedName,
   normalizeName,
   displayName,
   quoteName,
+  WATCHED_TOKENS,
 } from '../../src/lib/specialists/names';
 
 describe('imitatedName', () => {
   it.each([
-    ['HOOD', 'hood'],
-    ['Amazon • Robinhood Token', 'robinhood'],
-    ['R0B1NH00D INU', 'robinhood'],
-    // « о » cyrillique à la place du « o » latin.
-    ['RОBINHООD', 'robinhood'],
-    ['hood-coin', 'hood'],
-  ])('%s emprunte %s', (name, brand) => {
-    expect(imitatedName(name)).toBe(brand);
+    ['USDC', 'USD Coin (USDC)'],
+    ['JUPITER INU', 'Jupiter (JUP)'],
+    // The digit 1 read as an "i".
+    ['JUP1TER', 'Jupiter (JUP)'],
+    // Cyrillic « о » in place of a Latin « o ».
+    ['B\u043eNK', 'Bonk (BONK)'],
+    ['bonk-coin', 'Bonk (BONK)'],
+    ['PayPal USD', 'PayPal USD (PYUSD)'],
+    ['Wrapped SOL', 'Wrapped SOL'],
+  ])('%s borrows %s', (name, label) => {
+    expect(imitatedName(name)?.label).toBe(label);
   });
 
-  // Les trois premiers ont été relevés sur la chaîne le 11/10/2026.
-  it.each(['WildHood', 'HOODLERS', 'Hookai', 'childhood', 'neighborhood'])(
-    "%s n'est pas une usurpation",
+  // Short names count only as whole words: these are not borrowed.
+  it.each(['Raybot', 'Bonkers', 'Jupyter Notes', 'USDCASH', 'Solana Cat'])(
+    '%s borrows nothing',
     (name) => {
       expect(imitatedName(name)).toBeNull();
     },
   );
+
+  it('names the mint each well-known token really has', () => {
+    expect(WATCHED_TOKENS.find((t) => t.label === 'USD Coin (USDC)')?.mint).toBe(USDC_MINT);
+    expect(WATCHED_TOKENS.find((t) => t.label === 'Tether USD (USDT)')?.mint).toBe(USDT_MINT);
+    expect(WATCHED_TOKENS.find((t) => t.label === 'Wrapped SOL')?.mint).toBe(NATIVE_MINT);
+    const reference = JSON.parse(
+      readFileSync(new URL('../fixtures/solana/REFERENCE.json', import.meta.url), 'utf8'),
+    ) as { tokens: { slug: string; mint: string }[] };
+    const mintOf = (slug: string) => reference.tokens.find((t) => t.slug === slug)?.mint;
+    expect(WATCHED_TOKENS.find((t) => t.label === 'PayPal USD (PYUSD)')?.mint).toBe(
+      mintOf('pyusd'),
+    );
+    expect(WATCHED_TOKENS.find((t) => t.label === 'Jupiter (JUP)')?.mint).toBe(mintOf('jup'));
+    expect(WATCHED_TOKENS.find((t) => t.label === 'Bonk (BONK)')?.mint).toBe(mintOf('bonk'));
+    expect(WATCHED_TOKENS.find((t) => t.label === 'Raydium (RAY)')?.mint).toBe(
+      mintOf('raydium-old'),
+    );
+  });
 });
 
 describe('normalizeName', () => {
   it('ramène casse, chiffres-lettres et séparateurs', () => {
-    expect(normalizeName('R0bin_H00D!')).toBe('robinhood');
+    expect(normalizeName('B0nk_C01N!')).toBe('bonkcoln');
   });
 });
 
@@ -39,7 +64,7 @@ describe('le nom est une donnée, jamais une instruction', () => {
 
   it('repère un texte adressé à un logiciel', () => {
     expect(addressesSoftware(attack)).toBe(true);
-    expect(addressesSoftware('Amazon • Robinhood Token')).toBe(false);
+    expect(addressesSoftware('Jupiter • Bonk Token')).toBe(false);
   });
 
   it('cite entre guillemets, borne la longueur, retire les caractères de contrôle', () => {
@@ -63,14 +88,14 @@ describe('a name that carries a verdict', () => {
   });
 
   it('is quoted when it is only a name', () => {
-    expect(quoteName('Robin Cat')).toBe('"Robin Cat"');
+    expect(quoteName('Bonk Cat')).toBe('"Bonk Cat"');
   });
 });
 
 describe('displayName', () => {
   it('retire les caractères bidi et invisibles', () => {
-    expect(displayName('‮DOOH‬')).toBe('DOOH');
-    expect(displayName('RO​BIN⁦HOOD')).toBe('RO BIN HOOD');
+    expect(displayName('\u202ePUJ\u202c')).toBe('PUJ');
+    expect(displayName('JU\u200bPI\u2066TER')).toBe('JU PI TER');
   });
 
   it('coupe un nom trop long', () => {

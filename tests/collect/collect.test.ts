@@ -1,415 +1,262 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { collect, creatorHistoryCache } from '../../src/lib/collect';
+import { collect, marketCompleteness } from '../../src/lib/collect';
 import { NotFoundError } from '../../src/lib/errors';
+import { createFakeSolanaRpc } from '../../src/lib/solana/fake-rpc';
+import { solanaRpcFrom, type RecordedCall } from '../../src/lib/solana/rpc';
+import {
+  COLLECT_FIXTURES,
+  COLLECT_TOKENS,
+  dexFetch,
+  LONG_TIMEOUTS,
+  loadCollectRecording,
+  NO_TIME_LIMIT,
+} from './recording';
 
-/** The chain node, told apart by its host rather than by a substring of the URL. */
-const isChainNode = (url: string) => new URL(url).hostname.endsWith('.robinhood.com');
-
-const TOKEN = '0x494ddf6f7b4b045ede0abbb9ae86e4d59fa62ec9';
-const at = () => new Date('2026-09-25T00:00:00.000Z');
+/**
+ * `collect` from end to end, on three reference tokens recorded on mainnet
+ * (record.live.test.ts): every Solana call answered by the fake node, every
+ * DexScreener answer by a fake `fetch`. The replay must give the report the
+ * recording gave, block for block; then each token is checked on what the
+ * chain showed for it.
+ */
 
 afterEach(() => vi.unstubAllGlobals());
 
-/** Réseau simulé : chaque hôte répond ce qu'on lui dit, ou casse. */
-function stubNetwork(handlers: {
-  rpc?: (method: string) => unknown | Error;
-  dexscreener?: unknown | Error;
-}) {
-  vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
-    const url = String(input);
-    if (isChainNode(url)) {
-      const body = JSON.parse(String(init?.body ?? '{}')) as { method: string };
-      const out = handlers.rpc?.(body.method);
-      if (out instanceof Error) throw out;
-      return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: out ?? [] }), {
-        status: 200,
-      });
-    }
-    if (url.includes('dexscreener')) {
-      if (handlers.dexscreener instanceof Error) throw handlers.dexscreener;
-      return new Response(JSON.stringify(handlers.dexscreener ?? []), { status: 200 });
-    }
-    return new Response('{}', { status: 404 });
+async function replay(slug: string) {
+  const recording = loadCollectRecording(slug);
+  vi.stubGlobal('fetch', dexFetch(recording));
+  const rpc = createFakeSolanaRpc(recording.rpc, { sequential: true });
+  const report = await collect(recording.mint, {
+    rpc,
+    now: () => new Date(recording.now),
+    deadlineMs: NO_TIME_LIMIT,
+    timeouts: LONG_TIMEOUTS,
   });
+  return { recording, report, rpc };
 }
 
-describe('collect', () => {
-  it('refuse une adresse invalide sans appeler quoi que ce soit', async () => {
-    const spy = vi.fn();
-    vi.stubGlobal('fetch', spy);
-    await expect(collect('pas-une-adresse')).rejects.toBeInstanceOf(NotFoundError);
-    expect(spy).not.toHaveBeenCalled();
+describe.each(COLLECT_TOKENS.map((t) => t.slug))('collect, replayed: %s', (slug) => {
+  it.skipIf(!existsSync(join(COLLECT_FIXTURES, `${slug}.json.gz`)))(
+    'gives the report the recording gave, from the recorded answers alone',
+    async () => {
+      const { recording, report } = await replay(slug);
+      expect(JSON.parse(JSON.stringify(report))).toEqual(recording.report);
+    },
+  );
+});
+
+describe('collect, what each reference token shows', () => {
+  it('pump.fun, creator sold: creator from the curve, holders with the curve set aside', async () => {
+    const { report } = await replay('pump-creator-sold');
+    expect(report.chain).toBe('solana');
+    expect(report.token).toBe('FB5eSv7CAMWJnrH5GvHLivx9y8Qgoo8vpPV3EX5Npump');
+    expect(report.mint.data?.program).toBe('token-2022');
+    expect(report.creator.data.from).toBe('pump-curve');
+    expect(report.creator.data.creator).toMatch(/^D234v6Hg/);
+    expect(report.launchpad.data.launchpad?.id).toBe('pump.fun');
+    expect(report.graduation?.data.launchpad).toBe('pump.fun');
+    // What the creator did with this token: it bought at launch and sold.
+    expect(report.creatorOnToken?.data.sold).not.toBe('0');
+    expect(report.creatorHistory?.data.creator).toBe(report.creator.data.creator);
+    expect(report.linkedWallets?.data.creator).toBe(report.creator.data.creator);
+    expect(report.holders.data.method).not.toBe('none');
+    // Addresses keep their case.
+    expect(report.holders.data.top.every((h) => h.address === h.address.trim())).toBe(true);
+    expect(report.launch.data.creation?.payer).toBeDefined();
+    expect(report.powers.length).toBeGreaterThan(0);
   });
 
-  it('produit un rapport même quand toutes les sources échouent', async () => {
-    stubNetwork({
-      rpc: () => new Error('nœud injoignable'),
-      dexscreener: new Error('API injoignable'),
-    });
-    const report = await collect(TOKEN, { now: at });
-    expect(report.token).toBe(TOKEN);
+  it('Meteora DBC: the launchpad is read from its pool', async () => {
+    const { report } = await replay('meteora-dbc');
+    expect(report.token).toBe('8xKZ1yzPFGG1hfsqwPR2tGWsSMx9rJWQGJKiYjKUCLRx');
+    expect(report.launchpad.data.launchpad?.id).toBe('meteora-dbc');
+    expect(report.graduation).not.toBeNull();
+  });
+
+  it('a token still on its curve, read on chain, is not partial for DexScreener’s missing liquidity alone', async () => {
+    // pump.fun (The Poor Bull) and Meteora DBC (CLARYX), recorded on 25/11/2026:
+    // mint, creator and holders read in full; DexScreener gives no liquidity
+    // figure for a curve, whose reserves SEAL read itself.
+    for (const slug of ['pump-creator-sold', 'meteora-dbc']) {
+      const { report } = await replay(slug);
+      expect(report.market.completeness).toBe('partial');
+      expect(report.market.sources[0]?.note).toMatch(/no liquidity figure/);
+      expect(report.graduation?.data.graduated).toBe(false);
+      expect(report.graduation?.data.account).toBe(report.market.data.pair);
+      expect(report.completeness).toBe('full');
+    }
+  });
+
+  it('PYUSD: no launchpad, and the powers its Token-2022 extensions give', async () => {
+    const { report } = await replay('pyusd');
+    expect(report.mint.data?.program).toBe('token-2022');
+    expect(report.launchpad.data.launchpad).toBeNull();
+    expect(report.graduation).toBeNull();
+    const powers = new Set(report.powers.map((p) => p.power));
+    expect(powers.has('permanent-delegate')).toBe(true);
+    expect(powers.has('transfer-hook')).toBe(true);
+    expect(report.powers.every((p) => p.sentence.length > 0)).toBe(true);
+    // Its creation was not reached and its holders not listed: still partial.
     expect(report.completeness).toBe('partial');
-    expect(report.creator.completeness).toBe('unavailable');
-    expect(report.market.completeness).toBe('unavailable');
-  });
-
-  // Le point du brief : un échec partiel n'empêche pas l'analyse.
-  it('garde le marché quand la chaîne échoue', async () => {
-    stubNetwork({
-      rpc: () => new Error('nœud injoignable'),
-      dexscreener: [
-        {
-          pairAddress: '0xPOOL',
-          baseToken: { address: TOKEN },
-          priceUsd: '0.001',
-          liquidity: { usd: 1000, quote: 0.5 },
-        },
-      ],
-    });
-    const report = await collect(TOKEN, { now: at });
-    expect(report.market.completeness).toBe('full');
-    expect(report.market.data.priceUsd).toBeCloseTo(0.001);
-    expect(report.creator.completeness).toBe('unavailable');
-  });
-
-  it('explique dans la source pourquoi un bloc est indisponible', async () => {
-    stubNetwork({ rpc: () => new Error('nœud injoignable'), dexscreener: [] });
-    const report = await collect(TOKEN, { now: at });
-    expect(report.creator.sources[0]?.note).toBeTruthy();
-    // A node that cannot be reached says so; it does not claim the token is not a pons launch.
-    expect(report.creator.sources[0]?.note).not.toMatch(/no launch record found/);
-  });
-
-  it("sans clé Blockscout, la source est unavailable et l'analyse continue", async () => {
-    stubNetwork({ rpc: () => [], dexscreener: [] });
-    const report = await collect(TOKEN, { now: at });
-    expect(report.holders.completeness).toBe('unavailable');
-    expect(report.holders.sources[0]?.note).toMatch(/402/);
-  });
-
-  it('horodate le rapport une seule fois', async () => {
-    stubNetwork({ rpc: () => [], dexscreener: [] });
-    const report = await collect(TOKEN, { now: at });
-    expect(report.collectedAt).toBe('2026-09-25T00:00:00.000Z');
   });
 });
 
-describe("résolution du créateur depuis l'adresse du token", () => {
-  const TOPIC = '0xdb51ea9ad51ab453a65a4cb7e60c3cb378c9501bb002609f8f97778fb6c4235a';
-  const DEPLOYER = '0xe06289fde414ee521aba50db0cf0a60816faa523';
-  const DATA =
-    '0x0000000000000000000000000bd7d308f8e1639fab988df18a8011f41eacad73' +
-    '000000000000000000000000668942551affd4ee3a2e570366aaef28b56c3a97' +
-    '0000000000000000000000000000000000000000000000000000000000000000'.repeat(4) +
-    '00000000000000000000000000000000000000000000000000005af3107a4000';
-
-  function launchLog(token: string) {
+describe('the market’s part in the report’s completeness', () => {
+  const CURVE = 'NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2';
+  async function curveMarket() {
+    const { report } = await replay('pump-creator-sold');
     return {
-      address: '0xf4fc0cd27fc8ecf17e55ee4c3f7201897df3eb75',
-      topics: [
-        TOPIC,
-        `0x000000000000000000000000${token.slice(2)}`,
-        `0x000000000000000000000000${DEPLOYER.slice(2)}`,
-        '0x0000000000000000000000001f7d7550b1b028f7571e69a784071f0205fd2efa',
-      ],
-      data: DATA,
-      blockNumber: '0x1000',
-      transactionHash: '0xabc',
-      logIndex: '0x0',
+      market: report.market,
+      launch: report.launchpad,
+      graduation: report.graduation,
+      liquidity: report.liquidity,
     };
   }
 
-  // Le bug corrigé : on filtrait TokenLaunched sur l'adresse du TOKEN comme si
-  // c'était celle du DEPLOYER, ce qui ne renvoyait évidemment jamais rien.
-  it("interroge l'historique avec le deployer, pas avec le token", async () => {
-    const topicsSeen: unknown[][] = [];
-    vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
-      const url = String(input);
-      if (isChainNode(url)) {
-        type Call = { id?: number; method: string; params: [{ topics?: unknown[] }] };
-        const raw = JSON.parse(String(init?.body ?? '{}')) as Call | Call[];
-        const answer = (body: Call) => {
-          if (body.method === 'eth_blockNumber') return '0x5000000';
-          if (body.method === 'eth_getLogs') {
-            topicsSeen.push(body.params[0].topics ?? []);
-            return [launchLog(TOKEN)];
-          }
-          return '0x';
-        };
-        const out = Array.isArray(raw)
-          ? raw.map((r) => ({ id: r.id, result: answer(r) }))
-          : { result: answer(raw) };
-        return new Response(JSON.stringify(out), { status: 200 });
-      }
-      return new Response('[]', { status: 200 });
-    });
-
-    const report = await collect(TOKEN, { now: at });
-
-    const padded = (a: string) => `0x000000000000000000000000${a.slice(2)}`;
-    const filters = topicsSeen.map((t) => JSON.stringify(t));
-    // Une requête cherche le lancement du token…
-    expect(filters.some((f) => f.includes(padded(TOKEN)))).toBe(true);
-    // …et une autre l'historique du deployer qu'on en a tiré.
-    expect(filters.some((f) => f.includes(padded(DEPLOYER)))).toBe(true);
-    expect(report.creator.data.creator.toLowerCase()).toBe(DEPLOYER);
+  it('counts the curve read on chain in place of DexScreener’s liquidity figure', async () => {
+    const read = await curveMarket();
+    expect(read.market.data.pair).toBe(CURVE);
+    expect(marketCompleteness(read)).toBe('full');
   });
 
-  it('le signale proprement si le lancement est introuvable', async () => {
-    vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
-      const url = String(input);
-      if (isChainNode(url)) {
-        const raw = JSON.parse(String(init?.body ?? '{}')) as
-          { method: string } | { id: number; method: string }[];
-        if (Array.isArray(raw)) {
-          return new Response(JSON.stringify(raw.map((r) => ({ id: r.id, result: [] }))), {
-            status: 200,
-          });
-        }
-        if (raw.method === 'eth_blockNumber') {
-          return new Response(JSON.stringify({ result: '0x5000000' }), { status: 200 });
-        }
-        return new Response(JSON.stringify({ result: [] }), { status: 200 });
-      }
-      return new Response('[]', { status: 200 });
+  it('stays partial when the curve was not read, has graduated, or is not the main pair', async () => {
+    const read = await curveMarket();
+    const graduation = read.graduation!;
+    expect(marketCompleteness({ ...read, graduation: null })).toBe('partial');
+    expect(
+      marketCompleteness({ ...read, graduation: { ...graduation, completeness: 'unavailable' } }),
+    ).toBe('partial');
+    expect(
+      marketCompleteness({
+        ...read,
+        graduation: { ...graduation, data: { ...graduation.data, graduated: true } },
+      }),
+    ).toBe('partial');
+    expect(
+      marketCompleteness({
+        ...read,
+        graduation: { ...graduation, data: { ...graduation.data, raised: null } },
+      }),
+    ).toBe('partial');
+    expect(
+      marketCompleteness({
+        ...read,
+        market: { ...read.market, data: { ...read.market.data, pair: 'OtherPool111' } },
+      }),
+    ).toBe('partial');
+    // A price missing too is not the curve's doing.
+    expect(
+      marketCompleteness({
+        ...read,
+        market: { ...read.market, data: { ...read.market.data, priceUsd: null } },
+      }),
+    ).toBe('partial');
+  });
+});
+
+/** A node that refuses every method SEAL asks, for its rate. */
+const REFUSING: RecordedCall[] = [
+  'getAccountInfo',
+  'getMultipleAccounts',
+  'getProgramAccounts',
+  'getTokenLargestAccounts',
+  'getTokenAccountsByOwner',
+  'getSignaturesForAddress',
+  'getTransaction',
+  'getSlot',
+  'getBlock',
+  'getEpochInfo',
+].map((method) => ({ method, error: { code: 429, message: 'Too many requests' } }));
+
+describe('collect when the sources fail', () => {
+  it('refuses what is not a Solana address, an EVM one included, without a call', async () => {
+    const rpc = createFakeSolanaRpc([]);
+    for (const token of ['0x494ddf6f7b4b045ede0abbb9ae86e4d59fa62ec9', 'bonjour', '']) {
+      await expect(collect(token, { rpc })).rejects.toBeInstanceOf(NotFoundError);
+    }
+    expect(rpc.calls).toEqual([]);
+  });
+
+  it('says an address that holds no mint is not found', async () => {
+    vi.stubGlobal('fetch', async () => Response.json([]));
+    const rpc = createFakeSolanaRpc([
+      { method: 'getMultipleAccounts', result: { context: { slot: 1 }, value: [null, null] } },
+      ...REFUSING,
+    ]);
+    await expect(
+      collect('9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM', { rpc }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('never throws when every read fails: each block unavailable, each failure named', async () => {
+    vi.stubGlobal('fetch', async () => new Response('busy', { status: 429 }));
+    const rpc = createFakeSolanaRpc(REFUSING);
+    const report = await collect('FB5eSv7CAMWJnrH5GvHLivx9y8Qgoo8vpPV3EX5Npump', {
+      rpc,
+      deadlineMs: NO_TIME_LIMIT,
     });
-    const report = await collect(TOKEN, { now: at });
+    expect(report.mint.completeness).toBe('unavailable');
     expect(report.creator.completeness).toBe('unavailable');
-    expect(report.creator.sources[0]?.note).toMatch(/no launch record found/);
+    expect(report.creator.data.creator).toBeNull();
+    // Without a creator, its later reads are not made: null, never an empty finding.
+    expect(report.creatorHistory).toBeNull();
+    expect(report.creatorOnToken).toBeNull();
+    expect(report.linkedWallets).toBeNull();
+    expect(report.holders.completeness).toBe('unavailable');
+    expect(report.market.completeness).toBe('unavailable');
+    expect(report.completeness).toBe('partial');
+    const failed = new Set(report.failedReads?.map((f) => f.read));
+    for (const read of ['token', 'creator', 'holders', 'market'] as const) {
+      expect(failed.has(read)).toBe(true);
+    }
+    expect(JSON.stringify(report)).not.toMatch(/\bscore\b|\bsafe\b|\bscam\b|\brug\b/i);
   });
-});
 
-describe('créateur d’un token hors pons', () => {
-  const CREATOR = '0xc47ff45c87ee89a999b95ed6d4f408674d9bed9f';
-  const LAUNCHPAD = '0xd4ccbfa37e2f35611b3042e4096ad7a3459bd007';
-  const REGISTRY = '0x6d80b81d9fc56a7a839b1af9006eb49151961ce7';
-  const REGISTRY_TOPIC = '0x8c768b5da89e637b23caac626ccd760ef89b9e8eaa2f45bbf8c9d68e231dabef';
-  const TRANSFER = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
-  const pad = (a: string) => `0x${a.toLowerCase().slice(2).padStart(64, '0')}`;
-
-  it('retrouve le créateur par la transaction du premier mint', async () => {
-    const mint = {
-      address: TOKEN,
-      topics: [TRANSFER, pad('0x0'), pad(LAUNCHPAD)],
-      data: `0x${(1000).toString(16).padStart(64, '0')}`,
-      blockNumber: '0x100',
-      transactionHash: '0xmint',
-      logIndex: '0x1',
-    };
-    const registry = {
-      address: REGISTRY,
-      topics: [REGISTRY_TOPIC, pad(TOKEN), pad(CREATOR)],
-      data: '0x',
-      blockNumber: '0x100',
-      transactionHash: '0xmint',
-      logIndex: '0x5',
-    };
-    const answer = (method: string, params: unknown[]): unknown => {
-      if (method === 'eth_blockNumber') return '0x5000000';
-      if (method === 'eth_getTransactionByHash')
-        return { from: CREATOR, to: LAUNCHPAD, hash: '0xmint' };
-      if (method === 'eth_getTransactionReceipt')
-        return { contractAddress: null, logs: [mint, registry] };
-      if (method === 'eth_getCode') return '0x';
-      if (method === 'eth_getTransactionCount') return '0xb';
-      if (method === 'eth_getBlockByNumber') return { timestamp: '0x68000000' };
-      if (method === 'eth_getLogs') {
-        const f = params[0] as { address: string; topics: (string | null)[] };
-        if (f.address === TOKEN && f.topics[1] === pad('0x0')) return [mint];
-        if (f.address === REGISTRY) return [registry];
-        return [];
-      }
-      return '0x';
-    };
-    vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
-      const url = String(input);
-      if (!isChainNode(url)) return new Response('[]', { status: 200 });
-      const raw = JSON.parse(String(init?.body ?? '{}')) as
-        { method: string; params: unknown[] } | { id: number; method: string; params: unknown[] }[];
-      const body = Array.isArray(raw)
-        ? raw.map((r) => ({ id: r.id, result: answer(r.method, r.params) }))
-        : { result: answer(raw.method, raw.params) };
-      return new Response(JSON.stringify(body), { status: 200 });
-    });
-    const report = await collect(TOKEN, { now: at });
-    expect(report.creator.completeness).toBe('partial');
-    expect(report.creator.data.creator).toBe(CREATOR);
-    expect(report.creator.data.origin).toMatchObject({
-      source: 'deployer',
-      role: 'launcher',
-      launchContract: LAUNCHPAD,
-      launchesListed: true,
-      transactionCount: 11,
-    });
-    expect(report.creator.data.counts.launched).toBe(1);
-  });
-});
-
-describe('token d’un launchpad connu', () => {
-  const FLAP_TOKEN = '0xb417a5dab44c607520bba70a6e08d826c4c57777';
-  const PORTAL = '0x26605f322f7ff986f381bb9a6e3f5dab0beaeb09';
-  const ROUTER = '0xd3de039292dbe0ba6b845c6a22863f73c8906666';
-  const SENDER = '0x498b1bee7a146a4d10514f2d8eb1201b447ad384';
-  const PAIR = '0xc10f2b32cfe7e3088e589c80521669cf01b6359e';
-  const TRANSFER = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
-  const word = (a: string) => a.toLowerCase().replace(/^0x/, '').padStart(64, '0');
-  const pad = (a: string) => `0x${word(a)}`;
-
-  it('names flap.sh, takes the sender behind its router, and replays the curve as a market', async () => {
-    const mint = {
-      address: FLAP_TOKEN,
-      topics: [TRANSFER, pad('0x0'), pad(PORTAL)],
-      data: `0x${word('3e8')}`,
-      blockNumber: '0x5640000',
-      transactionHash: '0xmint',
-      logIndex: '0x7',
-    };
-    const created = {
-      address: PORTAL,
-      topics: ['0x504e7f360b2e5fe33cbaaae4c593bc55305328341bf79009e43e0e3b7f699603'],
-      data: `0x${word('6ad2a579')}${word(ROUTER)}${word('5add6')}${word(FLAP_TOKEN)}`,
-      blockNumber: '0x5640000',
-      transactionHash: '0xmint',
-      logIndex: '0x8',
-    };
-    const asked: { address?: string; topics: (string | null)[] }[] = [];
-    const answer = (method: string, params: unknown[]): unknown => {
-      if (method === 'eth_blockNumber') return '0x5700000';
-      if (method === 'eth_getTransactionByHash')
-        return { from: SENDER, to: ROUTER, hash: '0xmint' };
-      if (method === 'eth_getTransactionReceipt')
-        return { contractAddress: null, logs: [mint, created] };
-      if (method === 'eth_getCode') return '0x';
-      if (method === 'eth_getTransactionCount') return '0x2';
-      if (method === 'eth_getBlockByNumber') return { timestamp: '0x68000000' };
-      if (method === 'eth_call') return `0x${word('3e8')}`;
-      if (method === 'eth_getLogs') {
-        const f = params[0] as { address?: string; topics: (string | null)[] };
-        asked.push(f);
-        if (f.address === FLAP_TOKEN && f.topics[1] === pad('0x0')) return [mint];
-        if (f.address === FLAP_TOKEN && f.topics.length === 1) return [mint];
-        return [];
-      }
-      return '0x';
-    };
-    vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
-      const url = String(input);
-      if (url.includes('dexscreener')) {
-        return new Response(
-          JSON.stringify([
-            {
-              pairAddress: PAIR,
-              dexId: 'flapsh',
-              baseToken: { address: FLAP_TOKEN },
-              priceUsd: '0.0001',
-              liquidity: { usd: 10 },
-            },
-          ]),
-          { status: 200 },
+  it('is cut at its deadline, the requests in flight aborted, and still gives a report', async () => {
+    vi.stubGlobal('fetch', (_: unknown, init?: RequestInit) => {
+      return new Promise<Response>((_, reject) => {
+        init?.signal?.addEventListener('abort', () =>
+          reject(Object.assign(new Error('aborted'), { name: 'AbortError' })),
         );
-      }
-      if (!isChainNode(url)) return new Response('[]', { status: 200 });
-      const raw = JSON.parse(String(init?.body ?? '{}')) as
-        { method: string; params: unknown[] } | { id: number; method: string; params: unknown[] }[];
-      const body = Array.isArray(raw)
-        ? raw.map((r) => ({ id: r.id, result: answer(r.method, r.params) }))
-        : { result: answer(raw.method, raw.params) };
-      return new Response(JSON.stringify(body), { status: 200 });
+      });
     });
-    const report = await collect(FLAP_TOKEN, { now: at });
-    expect(report.creator.data.creator).toBe(SENDER);
-    expect(report.creator.data.origin).toMatchObject({
-      source: 'deployer',
-      role: 'launcher',
-      launchContract: PORTAL,
-      launchpad: { id: 'flap', name: 'flap.sh' },
-      creatorFrom: 'transaction',
-      // flap.sh does not index the creator, and no indexer is configured.
-      launchesListed: false,
+    const seen: (AbortSignal | undefined)[] = [];
+    const rpc = solanaRpcFrom(<T>(_m: string, _p: readonly unknown[], signal?: AbortSignal) => {
+      seen.push(signal);
+      return new Promise<T>(() => {});
     });
-    expect(report.creator.data.origin?.launchpadsNotRead).toContain('flap.sh');
-    // The node is never asked to filter flap.sh by creator: it cannot.
-    expect(asked.some((f) => f.address === PORTAL)).toBe(false);
-    // The listed pair is where the creator's sales are looked for.
-    const sales = asked.find((f) => f.address === FLAP_TOKEN && f.topics[1] === pad(SENDER));
-    expect(sales).toBeDefined();
-    expect(report.market.data.pair).toBe(PAIR);
-  });
-});
-
-describe("cache de l'historique du créateur", () => {
-  const TOPIC = '0xdb51ea9ad51ab453a65a4cb7e60c3cb378c9501bb002609f8f97778fb6c4235a';
-  const DEPLOYER = '0xe06289fde414ee521aba50db0cf0a60816faa523';
-  const DATA =
-    '0x0000000000000000000000000bd7d308f8e1639fab988df18a8011f41eacad73' +
-    '000000000000000000000000668942551affd4ee3a2e570366aaef28b56c3a97' +
-    '0000000000000000000000000000000000000000000000000000000000000000'.repeat(4) +
-    '00000000000000000000000000000000000000000000000000005af3107a4000';
-
-  function node() {
-    let rpcCalls = 0;
-    vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
-      const url = String(input);
-      if (!isChainNode(url)) return new Response('[]', { status: 200 });
-      rpcCalls += 1;
-      const raw = JSON.parse(String(init?.body ?? '{}')) as
-        { method: string } | { id: number; method: string }[];
-      const launch = [
-        {
-          address: '0xf4fc0cd27fc8ecf17e55ee4c3f7201897df3eb75',
-          topics: [
-            TOPIC,
-            `0x000000000000000000000000${TOKEN.slice(2)}`,
-            `0x000000000000000000000000${DEPLOYER.slice(2)}`,
-            '0x0000000000000000000000001f7d7550b1b028f7571e69a784071f0205fd2efa',
-          ],
-          data: DATA,
-          blockNumber: '0x1000',
-          transactionHash: '0xabc',
-          logIndex: '0x0',
-        },
-      ];
-      // Launches answer the TokenLaunched filter only; other log reads are empty.
-      const answer = (r: { method: string; params?: [{ topics?: string[] }] }) =>
-        r.method === 'eth_blockNumber'
-          ? '0x5000000'
-          : r.method === 'eth_getLogs'
-            ? r.params?.[0]?.topics?.[0] === TOPIC
-              ? launch
-              : []
-            : // A wallet's count is read: one the node did not answer keeps the history uncached.
-              r.method === 'eth_getTransactionCount'
-              ? '0x2'
-              : '0x';
-      const body = Array.isArray(raw)
-        ? raw.map((r) => ({ id: r.id, result: answer(r as never) }))
-        : { result: answer(raw as never) };
-      return new Response(JSON.stringify(body), { status: 200 });
+    const started = Date.now();
+    const report = await collect('FB5eSv7CAMWJnrH5GvHLivx9y8Qgoo8vpPV3EX5Npump', {
+      rpc,
+      deadlineMs: 1_200,
     });
-    return () => rpcCalls;
-  }
-
-  it("évite de rescanner l'historique pour un second token du même créateur", async () => {
-    creatorHistoryCache.clear();
-    const calls = node();
-
-    await collect(TOKEN, { now: at });
-    const afterFirst = calls();
-
-    await collect(TOKEN, { now: at });
-    const afterSecond = calls();
-
-    // La seconde analyse refait le marché et la recherche du lancement, mais
-    // pas le scan de l'historique — c'est la partie chère.
-    expect(afterSecond - afterFirst).toBeLessThan(afterFirst);
-    expect(creatorHistoryCache.stats().hits).toBeGreaterThan(0);
+    expect(Date.now() - started).toBeLessThan(5_000);
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.every((s) => s?.aborted)).toBe(true);
+    expect(report.completeness).not.toBe('full');
+    expect(report.failedReads?.length).toBeGreaterThan(0);
   });
 
-  it('ne partage pas une entrée entre deux profondeurs différentes', async () => {
-    creatorHistoryCache.clear();
-    node();
-    await collect(TOKEN, { now: at, lookbackBlocks: 1_000_000 });
-    await collect(TOKEN, { now: at, lookbackBlocks: 5_000_000 });
-    expect(creatorHistoryCache.size).toBe(2);
+  it('stops when the caller gives up', async () => {
+    const rpc = solanaRpcFrom(<T>() => new Promise<T>(() => {}));
+    // A request that never answers, until its signal aborts it (as fetch does).
+    vi.stubGlobal('fetch', (_: unknown, init?: RequestInit) => {
+      return new Promise<Response>((_, reject) => {
+        init?.signal?.addEventListener('abort', () =>
+          reject(Object.assign(new Error('aborted'), { name: 'AbortError' })),
+        );
+      });
+    });
+    const giveUp = new AbortController();
+    const cut = collect('FB5eSv7CAMWJnrH5GvHLivx9y8Qgoo8vpPV3EX5Npump', {
+      rpc,
+      deadlineMs: NO_TIME_LIMIT,
+      signal: giveUp.signal,
+    });
+    setTimeout(() => giveUp.abort(), 50);
+    const report = await cut;
+    expect(report.mint.completeness).toBe('unavailable');
   });
 });

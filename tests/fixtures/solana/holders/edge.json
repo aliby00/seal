@@ -1,0 +1,46 @@
+[
+  {
+    "method": "getAccountInfo",
+    "params": [
+      "1nc1nerator11111111111111111111111111111111",
+      {
+        "commitment": "confirmed",
+        "encoding": "jsonParsed"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473523717
+      },
+      "value": null
+    }
+  },
+  {
+    "method": "getAccountInfo",
+    "params": [
+      "DjbLtX1HRGZZrJgJ7CwTX6SN3D7tBLiytkGwomBUwTVB",
+      {
+        "commitment": "confirmed",
+        "encoding": "jsonParsed"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473523717
+      },
+      "value": {
+        "data": [
+          "8ZptBBGxbbz7AABDjpZDS7Oez5J/b2EtK3MVNSybgn9hORKT7hKkbrlXPZUcT3oNWZRxRx/fLilgAPkzK2cPtfJC75IQjE8nFYPvBpuIV/6rgYT7aH9jRhjANdrEOdwa6ztVmKDwAAAAAAEWJXBv3gxNbwAGdUriiCKV/ZrOZSeoIXhAvg4wRskVTB5N5aHH3E1uh03K3DDdKpnSXH/OskFqFAkUvRy0SKKMvAUmCzT/bbM+KLmTW405di6uMjlQ9x71h7M5WbWqas1IKW1Z0AMAAOUvpy5nZMOv/BWeJjvPafqN5JcvvN+5unTilaI/B4y8AABnwqQBBAAAAAAAAAAAAAAAAAAAAAAAAAAAACALiAEAAAAAVXjxFAAAAAAAAAAAAAAAAAAAAAAAAA==",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 2179320,
+        "owner": "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA",
+        "rentEpoch": 18446744073709552000,
+        "space": 301
+      }
+    }
+  }
+]

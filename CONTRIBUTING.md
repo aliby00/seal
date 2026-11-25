@@ -89,18 +89,25 @@ Il y a **deux endroits distincts**, et les confondre est le piège classique :
 | **Variables Vercel**    | faire tourner l'application | le code en production : `/api/analyze`, `/api/health` |
 
 Une clé posée seulement dans GitHub ne sera **pas** vue par l'application déployée.
-`ANTHROPIC_API_KEY`, `BLOCKSCOUT_API_KEY`, `RPC_URL` et `SEAL_ENV` doivent exister
+`ANTHROPIC_API_KEY`, `RPC_URL` (ou `SOLANA_RPC_URL`) et `SEAL_ENV` doivent exister
 des deux côtés — côté Vercel avec `vercel env add <NOM> production`.
+
+Le nœud Solana : `SOLANA_RPC_URL`, s'il est posé, est lu en premier ; sinon SEAL tire la
+clé de l'URL Alchemy de `RPC_URL` et lit Solana par `solana-mainnet.g.alchemy.com`. Le
+réseau Solana doit être activé sur l'app Alchemy : sinon le nœud refuse, `/api/health`
+répond 503 `degraded` (`solana.error` = `refused:403:network`) et le smoke test échoue.
+Sans l'un ni l'autre, SEAL lit le nœud public, limité, qui ne sert pas
+`getTokenLargestAccounts`.
 
 Les secrets GitHub sont scopés **par Environment**, jamais au niveau du repo.
 
-| Secret                                                 | `staging`          | `production`          |
-| ------------------------------------------------------ | ------------------ | --------------------- |
-| `ANTHROPIC_API_KEY`                                    | clé dédiée staging | clé dédiée production |
-| `BLOCKSCOUT_API_KEY`                                   | clé dédiée staging | clé dédiée production |
-| `RPC_URL`                                              | endpoint staging   | endpoint production   |
-| `SEAL_ENV`                                             | `staging`          | `production`          |
-| `VERCEL_TOKEN` / `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` | ✓                  | ✓                     |
+| Secret                                                 | `staging`                                  | `production`                                  |
+| ------------------------------------------------------ | ------------------------------------------ | --------------------------------------------- |
+| `ANTHROPIC_API_KEY`                                    | clé dédiée staging                         | clé dédiée production                         |
+| `RPC_URL`                                              | URL Alchemy staging (réseau Solana activé) | URL Alchemy production (réseau Solana activé) |
+| `SOLANA_RPC_URL`                                       | nœud Solana staging, facultatif            | nœud Solana production, facultatif            |
+| `SEAL_ENV`                                             | `staging`                                  | `production`                                  |
+| `VERCEL_TOKEN` / `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` | ✓                                          | ✓                                             |
 
 Les clés sont doublées pour que la dépense de staging ne pollue ni le budget de
 production ni la mesure de coût par requête.

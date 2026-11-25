@@ -2,10 +2,10 @@ import type { GlanceData } from './ext';
 
 /** A glance as /api/glance returns it. */
 export const SAMPLE: GlanceData = {
-  token: '0x10E848F9d5073D670201b111f1ba3D1C5bE6f18B',
+  token: 'FB5eSv7CAMWJnrH5GvHLivx9y8Qgoo8vpPV3EX5Npump',
   name: 'Alpha Token',
   symbol: 'ALP',
-  url: 'https://sealauth.dev/?token=0x10E848F9d5073D670201b111f1ba3D1C5bE6f18B#analysis',
+  url: 'https://sealauth.dev/?token=FB5eSv7CAMWJnrH5GvHLivx9y8Qgoo8vpPV3EX5Npump#analysis',
   collectedAt: '2026-10-01T00:00:00.000Z',
   glance: {
     headline: 'The creator sold into the pool on 7 of 10 launches checked.',

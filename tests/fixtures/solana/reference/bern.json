@@ -1,0 +1,75 @@
+[
+  {
+    "method": "getAccountInfo",
+    "params": [
+      "CKfatsPMUf8SkiURsDXs7eK6GWb4Jsd6UDbs7twMCWxo",
+      {
+        "commitment": "confirmed",
+        "encoding": "jsonParsed"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473512202
+      },
+      "value": {
+        "data": {
+          "parsed": {
+            "info": {
+              "decimals": 5,
+              "extensions": [
+                {
+                  "extension": "transferFeeConfig",
+                  "state": {
+                    "newerTransferFee": {
+                      "epoch": 698,
+                      "maximumFee": 3906250000000000000,
+                      "transferFeeBasisPoints": 269
+                    },
+                    "olderTransferFee": {
+                      "epoch": 624,
+                      "maximumFee": 3906250000000000000,
+                      "transferFeeBasisPoints": 420
+                    },
+                    "transferFeeConfigAuthority": "BeRNwDN8aGHvxYRVhNyMkF1wsxuEeceux2xn5deFWyEe",
+                    "withdrawWithheldAuthority": "BeRNwDN8aGHvxYRVhNyMkF1wsxuEeceux2xn5deFWyEe",
+                    "withheldAmount": 485793009
+                  }
+                }
+              ],
+              "freezeAuthority": null,
+              "isInitialized": true,
+              "mintAuthority": null,
+              "supply": "94303518877222"
+            },
+            "type": "mint"
+          },
+          "program": "spl-token-2022",
+          "space": 278
+        },
+        "executable": false,
+        "lamports": 10574126742,
+        "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "rentEpoch": 18446744073709552000,
+        "space": 278
+      }
+    }
+  },
+  {
+    "method": "getAccountInfo",
+    "params": [
+      "QX6GygADS5W4SRXFmoKzVH7q6vUKPmUBLodpoWSXnbq",
+      {
+        "commitment": "confirmed",
+        "encoding": "base64"
+      }
+    ],
+    "result": {
+      "context": {
+        "slot": 473512205
+      },
+      "value": null
+    }
+  }
+]

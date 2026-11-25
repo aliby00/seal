@@ -1,0 +1,70 @@
+[
+  {
+    "chainId": "solana",
+    "dexId": "meteoradbc",
+    "url": "https://dexscreener.com/solana/dbdgjtiirbwy2c3f3clssjgfafqxkrwuohjduevexj9f",
+    "pairAddress": "DbdgjtiiRBWY2C3F3cLssjgfaFQXkRWuoHjduEvexJ9f",
+    "baseToken": {
+      "address": "8xKZ1yzPFGG1hfsqwPR2tGWsSMx9rJWQGJKiYjKUCLRx",
+      "name": "Claryx",
+      "symbol": "CLARYX"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.0000001602",
+    "priceUsd": "0.00001121",
+    "txns": {
+      "m5": {
+        "buys": 3,
+        "sells": 2
+      },
+      "h1": {
+        "buys": 73,
+        "sells": 57
+      },
+      "h6": {
+        "buys": 357,
+        "sells": 215
+      },
+      "h24": {
+        "buys": 357,
+        "sells": 215
+      }
+    },
+    "volume": {
+      "h24": 33831.83,
+      "h6": 33831.83,
+      "h1": 6059.3,
+      "m5": 113.35
+    },
+    "priceChange": {
+      "m5": 2.2,
+      "h1": -25.35,
+      "h6": 481,
+      "h24": 481
+    },
+    "fdv": 11210.44,
+    "marketCap": 11210.44,
+    "pairCreatedAt": 1795555256000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/4Qm-UKIHRu0maOpP?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/TcRtnzrrcVMF_XF5?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/8xKZ1yzPFGG1hfsqwPR2tGWsSMx9rJWQGJKiYjKUCLRx?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://claryx.dev/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/ClaryxAperture",
+          "type": "twitter"
+        }
+      ]
+    }
+  }
+]

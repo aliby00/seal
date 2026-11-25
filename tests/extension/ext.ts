@@ -43,12 +43,19 @@ type Store = {
 };
 
 type SealExt = {
-  config: { CACHE_TTL_MS: number; HOVER_DELAY_MS: number; LOCAL_API: RegExp; API_BASE: string };
+  config: {
+    CACHE_TTL_MS: number;
+    HOVER_DELAY_MS: number;
+    LOCAL_API: RegExp;
+    API_BASE: string;
+    SITES: readonly { host: string; label: string }[];
+  };
   detect: {
     fromUrl(href: string, base?: string): Query | null;
     fromLink(anchor: unknown, base?: string): Query | null;
     keyOf(query: Query): string;
     siteOf(hostname: string): string;
+    isAddress(value: unknown): boolean;
   };
   client: {
     createClient(options: {

@@ -56,7 +56,7 @@ describe('the In-short card', () => {
         },
       },
     });
-    expect(textOf(bare)).toContain('0x10E8…f18B');
+    expect(textOf(bare)).toContain('FB5e…pump');
     expect(textOf(bare)).toContain('Too little could be measured');
     expect(findAll(bare, (n) => n.tag === 'ul')).toHaveLength(0);
   });

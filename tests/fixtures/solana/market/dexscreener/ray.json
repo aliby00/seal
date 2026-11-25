@@ -1,0 +1,2046 @@
+[
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/7dfvkreyqt52w1ocz6xuva1qsqa6keguk9bogali9c4h",
+    "pairAddress": "7DFVkReyQT52W1ocZ6Xuva1QSqa6KeGuk9boGALi9C4H",
+    "labels": ["CLMM"],
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "1.2399",
+    "priceUsd": "1.23",
+    "txns": {
+      "m5": {
+        "buys": 38,
+        "sells": 39
+      },
+      "h1": {
+        "buys": 198,
+        "sells": 97
+      },
+      "h6": {
+        "buys": 1186,
+        "sells": 921
+      },
+      "h24": {
+        "buys": 5901,
+        "sells": 5324
+      }
+    },
+    "volume": {
+      "h24": 941717.77,
+      "h6": 158816.2,
+      "h1": 20449.24,
+      "m5": 6734.14
+    },
+    "priceChange": {
+      "m5": -0.38,
+      "h1": 0.21,
+      "h6": -1.33,
+      "h24": -4.95
+    },
+    "liquidity": {
+      "base": 535784,
+      "quote": 675953,
+      "usd": 1340287.01
+    },
+    "fdv": 688158210,
+    "marketCap": 334735013,
+    "pairCreatedAt": 1794337722000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/avs9ta4nwdzfpje9ggvnjmvhcqy3v9pgazuz33bfg2ra",
+    "pairAddress": "AVs9TA4nWDzfPJE9gGVNJMVhcQy3V9PGazuz33BfG2RA",
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.01772",
+    "priceUsd": "1.23",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 28
+      },
+      "h1": {
+        "buys": 2,
+        "sells": 33
+      },
+      "h6": {
+        "buys": 22,
+        "sells": 132
+      },
+      "h24": {
+        "buys": 607,
+        "sells": 534
+      }
+    },
+    "volume": {
+      "h24": 107874.49,
+      "h6": 13648.83,
+      "h1": 3215.27,
+      "m5": 2956.61
+    },
+    "priceChange": {
+      "m5": -0.43,
+      "h1": -0.46,
+      "h6": -1.3,
+      "h24": -5.36
+    },
+    "liquidity": {
+      "base": 1357460,
+      "quote": 24122,
+      "usd": 3367232.38
+    },
+    "fdv": 687502801,
+    "marketCap": 334416208,
+    "pairCreatedAt": 1669602333000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/2axxcn6on9bbt5owwmth53c7qhuxvhleu718kqt8rvy2",
+    "pairAddress": "2AXXcN6oN9bBT5owwmTH53C7QHUXvhLeu718Kqt8rvY2",
+    "labels": ["CLMM"],
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.01774",
+    "priceUsd": "1.24",
+    "txns": {
+      "m5": {
+        "buys": 81,
+        "sells": 47
+      },
+      "h1": {
+        "buys": 346,
+        "sells": 309
+      },
+      "h6": {
+        "buys": 2537,
+        "sells": 1401
+      },
+      "h24": {
+        "buys": 13475,
+        "sells": 9129
+      }
+    },
+    "volume": {
+      "h24": 1730975.89,
+      "h6": 303794.58,
+      "h1": 58198.46,
+      "m5": 8842.8
+    },
+    "priceChange": {
+      "m5": -0.36,
+      "h1": 0.15,
+      "h6": -1.13,
+      "h24": -5.08
+    },
+    "liquidity": {
+      "base": 541055,
+      "quote": 9928.3918,
+      "usd": 1364707.66
+    },
+    "fdv": 688202195,
+    "marketCap": 334756408,
+    "pairCreatedAt": 1723699296000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/6ummuiyobjsrhakaobjw8bvkmjtdvxaebtbt7rxwo1mg",
+    "pairAddress": "6UmmUiYoBjSrhakAobJw8BvkmJtDVxaeBtbt7rxWo1mg",
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "1.2366",
+    "priceUsd": "1.23",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 41
+      },
+      "h1": {
+        "buys": 44,
+        "sells": 41
+      },
+      "h6": {
+        "buys": 334,
+        "sells": 354
+      },
+      "h24": {
+        "buys": 2090,
+        "sells": 2287
+      }
+    },
+    "volume": {
+      "h24": 604718,
+      "h6": 85079.46,
+      "h1": 15586.32,
+      "m5": 6996.42
+    },
+    "priceChange": {
+      "m5": -0.97,
+      "h1": -0.38,
+      "h6": -1.83,
+      "h24": -5.46
+    },
+    "liquidity": {
+      "base": 2183286,
+      "quote": 2706583,
+      "usd": 5406506.85
+    },
+    "fdv": 686330081,
+    "marketCap": 333845772,
+    "pairCreatedAt": 1669602311000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/dva7qmb5ct9rcpau7utpsaf3gvmyz17vnvu67xpdcrut",
+    "pairAddress": "DVa7Qmb5ct9RCpaU7UTpSaf3GVMYz17vNVU67XpdCRut",
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "name": "USDT",
+      "symbol": "USDT"
+    },
+    "priceNative": "1.2378",
+    "priceUsd": "1.23",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 32
+      },
+      "h1": {
+        "buys": 38,
+        "sells": 32
+      },
+      "h6": {
+        "buys": 227,
+        "sells": 282
+      },
+      "h24": {
+        "buys": 1413,
+        "sells": 1594
+      }
+    },
+    "volume": {
+      "h24": 141259.08,
+      "h6": 19779.81,
+      "h1": 3655.27,
+      "m5": 1661.2
+    },
+    "priceChange": {
+      "m5": -0.98,
+      "h1": -0.39,
+      "h6": -1.84,
+      "h24": -5.48
+    },
+    "liquidity": {
+      "base": 535943,
+      "quote": 665053,
+      "usd": 1328470.4
+    },
+    "fdv": 687005593,
+    "marketCap": 334174355,
+    "pairCreatedAt": 1669602314000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/61r1ndxxvswxxkwsynkcxnzwd3zunb8q2ibmkilpc8ht",
+    "pairAddress": "61R1ndXxvsWXXkWSyNkCxnzwd3zUNB8Q2ibmkiLPC8ht",
+    "labels": ["CLMM"],
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "1.2392",
+    "priceUsd": "1.23",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 23
+      },
+      "h1": {
+        "buys": 34,
+        "sells": 23
+      },
+      "h6": {
+        "buys": 172,
+        "sells": 208
+      },
+      "h24": {
+        "buys": 1056,
+        "sells": 1117
+      }
+    },
+    "volume": {
+      "h24": 14280.83,
+      "h6": 2039.93,
+      "h1": 366.83,
+      "m5": 168.43
+    },
+    "priceChange": {
+      "m5": -0.48,
+      "h1": 0.08,
+      "h6": -1.37,
+      "h24": -5.06
+    },
+    "liquidity": {
+      "base": 73017,
+      "quote": 59828,
+      "usd": 150316.58
+    },
+    "fdv": 687784923,
+    "marketCap": 334553438,
+    "pairCreatedAt": 1723699521000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/enfoa5xdtirwa46xxa5luvcqwe7eub2pgztjfvu7ebs1",
+    "pairAddress": "Enfoa5Xdtirwa46xxa5LUVcQWe7EUb2pGzTjfvU7EBS1",
+    "labels": ["CLMM"],
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.01777",
+    "priceUsd": "1.24",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 10
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 11
+      },
+      "h6": {
+        "buys": 5,
+        "sells": 71
+      },
+      "h24": {
+        "buys": 412,
+        "sells": 444
+      }
+    },
+    "volume": {
+      "h24": 17213.22,
+      "h6": 2357.2,
+      "h1": 567.93,
+      "m5": 517.32
+    },
+    "priceChange": {
+      "m5": 0.14,
+      "h1": 0.28,
+      "h6": -0.81,
+      "h24": -4.92
+    },
+    "liquidity": {
+      "base": 174014,
+      "quote": 1981.3081,
+      "usd": 354549.94
+    },
+    "fdv": 689213533,
+    "marketCap": 335248345,
+    "pairCreatedAt": 1723701464000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/hs245zt4sjkzrhzqindr1wwpqbd9fdisiu61susf8mnv",
+    "pairAddress": "HS245zT4sjkzrhzqiNDr1WWpqbd9FDisiU61sUsf8MnV",
+    "labels": ["CLMM"],
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "name": "USDT",
+      "symbol": "USDT"
+    },
+    "priceNative": "1.2409",
+    "priceUsd": "1.24",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 27
+      },
+      "h1": {
+        "buys": 35,
+        "sells": 27
+      },
+      "h6": {
+        "buys": 186,
+        "sells": 242
+      },
+      "h24": {
+        "buys": 1279,
+        "sells": 1243
+      }
+    },
+    "volume": {
+      "h24": 3919.35,
+      "h6": 567.61,
+      "h1": 108.37,
+      "m5": 49.18
+    },
+    "priceChange": {
+      "m5": -0.52,
+      "h1": 0.11,
+      "h6": -1.35,
+      "h24": -5.01
+    },
+    "liquidity": {
+      "base": 17784,
+      "quote": 26951,
+      "usd": 49020
+    },
+    "fdv": 688699677,
+    "marketCap": 334998394,
+    "pairCreatedAt": 1723700007000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "url": "https://dexscreener.com/solana/d3c5h4yu7rjhk7eprgtk1bhde4tfeitr98axdzna7tet",
+    "pairAddress": "D3C5H4YU7rjhK7ePrGtK1Bhde4tfeiTr98axdZnA7tet",
+    "labels": ["wp"],
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.01773",
+    "priceUsd": "1.23",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 8
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 11
+      },
+      "h6": {
+        "buys": 1,
+        "sells": 45
+      },
+      "h24": {
+        "buys": 122,
+        "sells": 147
+      }
+    },
+    "volume": {
+      "h24": 11604.25,
+      "h6": 1707.65,
+      "h1": 417.06,
+      "m5": 359.4
+    },
+    "priceChange": {
+      "m5": -0.39,
+      "h1": 0.31,
+      "h6": -1.26,
+      "h24": -5.09
+    },
+    "liquidity": {
+      "base": 31397,
+      "quote": 314.8788,
+      "usd": 60911.51
+    },
+    "fdv": 687764107,
+    "marketCap": 334543313,
+    "pairCreatedAt": 1670150307000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "url": "https://dexscreener.com/solana/2r2vhohrc5wonhtrdwnjovaqazramr1de3qfw5jfgb6v",
+    "pairAddress": "2R2VhohRc5WoNHtRdwnjovAQaZRAmr1DE3QFW5jfgb6v",
+    "labels": ["v2"],
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "1.2381",
+    "priceUsd": "1.23",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 11
+      },
+      "h1": {
+        "buys": 18,
+        "sells": 11
+      },
+      "h6": {
+        "buys": 41,
+        "sells": 91
+      },
+      "h24": {
+        "buys": 324,
+        "sells": 414
+      }
+    },
+    "volume": {
+      "h24": 933.03,
+      "h6": 122.06,
+      "h1": 23.38,
+      "m5": 5.89
+    },
+    "priceChange": {
+      "m5": -0.75,
+      "h1": -0.2,
+      "h6": -1.61,
+      "h24": -5.45
+    },
+    "liquidity": {
+      "base": 5113.6079,
+      "quote": 6349.01415,
+      "usd": 12680.64
+    },
+    "fdv": 687196283,
+    "marketCap": 334267111,
+    "pairCreatedAt": 1669602379000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "url": "https://dexscreener.com/solana/a2j7vmg9xadwuzyscn7oqssxzbfihwd3uonkwb8kod1a",
+    "pairAddress": "A2J7vmG9xAdWUzYscN7oQssxZBFihwD3UonkWB8Kod1A",
+    "labels": ["wp"],
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "1.2278",
+    "priceUsd": "1.22",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 2,
+        "sells": 17
+      },
+      "h24": {
+        "buys": 87,
+        "sells": 185
+      }
+    },
+    "volume": {
+      "h24": 544.22,
+      "h6": 27.44
+    },
+    "priceChange": {
+      "h6": -0.54,
+      "h24": -7.49
+    },
+    "liquidity": {
+      "base": 8028.5695,
+      "quote": 5543.3174,
+      "usd": 15401.58
+    },
+    "fdv": 681482516,
+    "marketCap": 331487811,
+    "pairCreatedAt": 1690049515000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/6w5y8kmmdv4epztgzlbanhjcri3y3slwpd3rdtr1umcc",
+    "pairAddress": "6W5Y8kmmDV4EPzTgZLbaNhjCRi3Y3sLwpd3rDTr1uMcc",
+    "labels": ["CPMM"],
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "USD1ttGY1N17NEEHLmELoaybftRBUSErhqYiQzvEmuB",
+      "name": "World Liberty Financial USD",
+      "symbol": "USD1"
+    },
+    "priceNative": "1.2415",
+    "priceUsd": "1.24",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 5
+      },
+      "h1": {
+        "buys": 15,
+        "sells": 5
+      },
+      "h6": {
+        "buys": 33,
+        "sells": 66
+      },
+      "h24": {
+        "buys": 253,
+        "sells": 276
+      }
+    },
+    "volume": {
+      "h24": 474.62,
+      "h6": 61.4,
+      "h1": 11.95,
+      "m5": 4.02
+    },
+    "priceChange": {
+      "m5": -0.28,
+      "h1": 0.27,
+      "h6": -1.14,
+      "h24": -4.92
+    },
+    "liquidity": {
+      "base": 2327.1963,
+      "quote": 2889.4083,
+      "usd": 5778.81
+    },
+    "fdv": 689077700,
+    "marketCap": 335182273,
+    "pairCreatedAt": 1759193017000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/cqc2v6yhk5nbgmhnoybfymua5wr1uriyana3wf7ijn7c",
+    "pairAddress": "Cqc2v6yhK5NBgmhNoYBFYmUA5WR1UriYANa3wf7ijN7C",
+    "labels": ["DLMM"],
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.01775",
+    "priceUsd": "1.24",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 4
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 5
+      },
+      "h6": {
+        "buys": 2,
+        "sells": 17
+      },
+      "h24": {
+        "buys": 42,
+        "sells": 65
+      }
+    },
+    "volume": {
+      "h24": 666.16,
+      "h6": 85.22,
+      "h1": 28.3,
+      "m5": 16.19
+    },
+    "priceChange": {
+      "m5": -0.32,
+      "h1": 0.01,
+      "h6": -0.94,
+      "h24": -5.39
+    },
+    "liquidity": {
+      "base": 4689.2618,
+      "quote": 8.7106,
+      "usd": 6425.18
+    },
+    "fdv": 688412707,
+    "marketCap": 334858806,
+    "pairCreatedAt": 1712185315000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "url": "https://dexscreener.com/solana/27zbvdmouhg639cfqg6kw8a4vxzegbi8dd4huxjvdxes",
+    "pairAddress": "27ZbVdmoUhG639CfqG6kW8a4VXZeGBi8Dd4HUXjVDxeS",
+    "labels": ["wp"],
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.01774",
+    "priceUsd": "1.23",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 5
+      },
+      "h1": {
+        "buys": 3,
+        "sells": 12
+      },
+      "h6": {
+        "buys": 43,
+        "sells": 74
+      },
+      "h24": {
+        "buys": 309,
+        "sells": 264
+      }
+    },
+    "volume": {
+      "h24": 265.16,
+      "h6": 43.94,
+      "h1": 6.55,
+      "m5": 4.03
+    },
+    "priceChange": {
+      "m5": -0.4,
+      "h1": 0.27,
+      "h6": -1.09,
+      "h24": -4.98
+    },
+    "liquidity": {
+      "base": 674.6539,
+      "quote": 13.1787,
+      "usd": 1757.42
+    },
+    "fdv": 688133147,
+    "marketCap": 334722822,
+    "pairCreatedAt": 1753553902000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "url": "https://dexscreener.com/solana/96ubjyfmqy1jlptvrujrkabxm1ft5hqvsvnv4jbagtmz",
+    "pairAddress": "96UbjyFmQY1JLpTvRujrkABxm1ft5hQvSVnv4JbagTMZ",
+    "labels": ["wp"],
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "1.2394",
+    "priceUsd": "1.23",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h1": {
+        "buys": 9,
+        "sells": 1
+      },
+      "h6": {
+        "buys": 16,
+        "sells": 28
+      },
+      "h24": {
+        "buys": 152,
+        "sells": 139
+      }
+    },
+    "volume": {
+      "h24": 18.17,
+      "h6": 2.32,
+      "h1": 0.4,
+      "m5": 0.04
+    },
+    "priceChange": {
+      "m5": -0.63,
+      "h1": -0.05,
+      "h6": -1.52,
+      "h24": -5.39
+    },
+    "liquidity": {
+      "base": 136.1588,
+      "quote": 188.3386,
+      "usd": 357.1
+    },
+    "fdv": 687911011,
+    "marketCap": 334614770,
+    "pairCreatedAt": 1669602664000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "url": "https://dexscreener.com/solana/3thmpkpmchj54jthryazhs7un7hbv5kinjvljs6hspsc",
+    "pairAddress": "3THMPkPmcHJ54JtHRyazhs7UN7HbV5KiNJVLJs6hSPSC",
+    "labels": ["v2"],
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.01774",
+    "priceUsd": "1.24",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 8
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 11
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 35
+      },
+      "h24": {
+        "buys": 46,
+        "sells": 77
+      }
+    },
+    "volume": {
+      "h24": 59.06,
+      "h6": 10.46,
+      "h1": 3.1,
+      "m5": 2.51
+    },
+    "priceChange": {
+      "m5": -0.44,
+      "h1": 0.29,
+      "h6": -1.17,
+      "h24": -5.5
+    },
+    "liquidity": {
+      "base": 1192.6847,
+      "quote": 21.2274,
+      "usd": 2962.67
+    },
+    "fdv": 688370593,
+    "marketCap": 334838321,
+    "pairCreatedAt": 1669602460000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/4bn4r9t3jdogaytpdjstbzi8dkd3279dq4hg82yccttn",
+    "pairAddress": "4Bn4r9T3jdoGaYtPdjSTbZi8Dkd3279Dq4Hg82yCCTtN",
+    "labels": ["DYN"],
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "1.2394",
+    "priceUsd": "1.23",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h1": {
+        "buys": 5,
+        "sells": 1
+      },
+      "h6": {
+        "buys": 9,
+        "sells": 25
+      },
+      "h24": {
+        "buys": 92,
+        "sells": 104
+      }
+    },
+    "volume": {
+      "h24": 26.38,
+      "h6": 3.34,
+      "h1": 0.74,
+      "m5": 0.23
+    },
+    "priceChange": {
+      "m5": -0.47,
+      "h1": 0.04,
+      "h6": -1.3,
+      "h24": -5.21
+    },
+    "liquidity": {
+      "base": 154.6541,
+      "quote": 191.8322,
+      "usd": 383.51
+    },
+    "fdv": 687873455,
+    "marketCap": 334597609,
+    "pairCreatedAt": 1755225205000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "url": "https://dexscreener.com/solana/5sgxhg1c9vbceg6avqguk3nnbpfhinerzj86as6zw5be",
+    "pairAddress": "5sgXhG1c9VBceg6aVQguK3NnbPfHinERZj86As6zW5Be",
+    "labels": ["wp"],
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.01775",
+    "priceUsd": "1.24",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 7
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 7
+      },
+      "h6": {
+        "buys": 3,
+        "sells": 29
+      },
+      "h24": {
+        "buys": 51,
+        "sells": 89
+      }
+    },
+    "volume": {
+      "h24": 20.18,
+      "h6": 2.85,
+      "h1": 0.61,
+      "m5": 0.61
+    },
+    "priceChange": {
+      "m5": 0.11,
+      "h1": 0.11,
+      "h6": -0.91,
+      "h24": -4.9
+    },
+    "liquidity": {
+      "base": 520.6484,
+      "quote": 5.9721,
+      "usd": 1063.25
+    },
+    "fdv": 688539982,
+    "marketCap": 334920715,
+    "pairCreatedAt": 1705643600000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/aqptcjhcg5k1bqpttfdvvuzaekhm5es49onemfwzw9v5",
+    "pairAddress": "AQptcJhCg5k1BQpTtFDVvuZAekhm5eS49oneMfwZW9V5",
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.01774",
+    "priceUsd": "1.24",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 6
+      },
+      "h1": {
+        "buys": 1,
+        "sells": 8
+      },
+      "h6": {
+        "buys": 17,
+        "sells": 27
+      },
+      "h24": {
+        "buys": 128,
+        "sells": 78
+      }
+    },
+    "volume": {
+      "h24": 24.37,
+      "h6": 4,
+      "h1": 1.16,
+      "m5": 1.09
+    },
+    "priceChange": {
+      "m5": -0.45,
+      "h1": 0.21,
+      "h6": -1.45,
+      "h24": -5.3
+    },
+    "liquidity": {
+      "base": 419.7066,
+      "quote": 7.4653,
+      "usd": 1042.21
+    },
+    "fdv": 688330215,
+    "marketCap": 334818680,
+    "pairCreatedAt": 1681017420000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/awttkpyxz71dzajglqr2jsgory7t86yrui45ym7rv9nx",
+    "pairAddress": "AWTtKpyXz71dZaJGLqR2JSGoRY7t86YRui45Ym7rv9NX",
+    "labels": ["DYN"],
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "1.2399",
+    "priceUsd": "1.23",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h1": {
+        "buys": 6,
+        "sells": 1
+      },
+      "h6": {
+        "buys": 11,
+        "sells": 26
+      },
+      "h24": {
+        "buys": 92,
+        "sells": 95
+      }
+    },
+    "volume": {
+      "h24": 15.36,
+      "h6": 2.06,
+      "h1": 0.4,
+      "m5": 0.07
+    },
+    "priceChange": {
+      "m5": -0.43,
+      "h1": 0.07,
+      "h6": -1.22,
+      "h24": -5.16
+    },
+    "liquidity": {
+      "base": 102.1787,
+      "quote": 126.8773,
+      "usd": 253.57
+    },
+    "fdv": 688161863,
+    "marketCap": 334737898,
+    "pairCreatedAt": 1703167204000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "pancakeswap",
+    "url": "https://dexscreener.com/solana/74z1jrgoqua83q8khzfe6tdyvksy8mluiqdednhpujy7",
+    "pairAddress": "74z1jRgoquA83Q8KHZfE6TDYVKSY8MLUiQDEDnHPujy7",
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.01774",
+    "priceUsd": "1.23",
+    "txns": {
+      "m5": {
+        "buys": 2,
+        "sells": 8
+      },
+      "h1": {
+        "buys": 8,
+        "sells": 13
+      },
+      "h6": {
+        "buys": 59,
+        "sells": 86
+      },
+      "h24": {
+        "buys": 99,
+        "sells": 110
+      }
+    },
+    "volume": {
+      "h24": 47.85,
+      "h6": 29.89,
+      "h1": 4.27,
+      "m5": 3.03
+    },
+    "priceChange": {
+      "m5": -0.42,
+      "h1": 0.1,
+      "h6": -1.38,
+      "h24": -0.39
+    },
+    "liquidity": {
+      "base": 11.7706,
+      "quote": 1.04813,
+      "usd": 87.76
+    },
+    "fdv": 687481730,
+    "marketCap": 334407066,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/e64er3scfzwqb2bwjfa6qvutlwak35jfk2wfwzir46vz",
+    "pairAddress": "E64ER3SCFZwqB2BWJFa6QvutLwAk35JfK2wFwZir46vz",
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.01775",
+    "priceUsd": "1.24",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 9
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 10
+      },
+      "h6": {
+        "buys": 3,
+        "sells": 36
+      },
+      "h24": {
+        "buys": 51,
+        "sells": 104
+      }
+    },
+    "volume": {
+      "h24": 17.58,
+      "h6": 3.07,
+      "h1": 0.7,
+      "m5": 0.67
+    },
+    "priceChange": {
+      "m5": 0.22,
+      "h1": 0.27,
+      "h6": -1.01,
+      "h24": -5.37
+    },
+    "liquidity": {
+      "base": 288.1548,
+      "quote": 5.1273,
+      "usd": 715.77
+    },
+    "fdv": 688514135,
+    "marketCap": 334908143,
+    "pairCreatedAt": 1703856870000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/623anvu2nsaprzspuukvh4el6my212yzyatudfvdzzhc",
+    "pairAddress": "623anvu2nSApRZspuUKVH4EL6MY212YZyatUDfvDZzhc",
+    "labels": ["DYN"],
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.01775",
+    "priceUsd": "1.24",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 7
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 7
+      },
+      "h6": {
+        "buys": 1,
+        "sells": 24
+      },
+      "h24": {
+        "buys": 37,
+        "sells": 95
+      }
+    },
+    "volume": {
+      "h24": 4.63,
+      "h6": 0.82,
+      "h1": 0.24,
+      "m5": 0.24
+    },
+    "priceChange": {
+      "m5": 0.06,
+      "h1": 0.06,
+      "h6": -1.32,
+      "h24": -5.44
+    },
+    "liquidity": {
+      "base": 97.4266,
+      "quote": 1.733,
+      "usd": 241.83
+    },
+    "fdv": 688232887,
+    "marketCap": 334772445,
+    "pairCreatedAt": 1738165742000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/dfjsn7ui6ybuc25km5foqrcyrqfrvcosxpteyezwv4vt",
+    "pairAddress": "DfJsn7Ui6YBUC25kM5FoqrCYrqfRVCoSxpTeyEzWv4vT",
+    "labels": ["DYN2"],
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "ASTYqeaoK83Zs1pTFEXZUB6BM8cG8YLTsN852NUkt7ZR",
+      "name": "ArbStrategy",
+      "symbol": "ASTY"
+    },
+    "priceNative": "64.04880",
+    "priceUsd": "1.25",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 7
+      },
+      "h24": {
+        "buys": 0,
+        "sells": 32
+      }
+    },
+    "volume": {
+      "h24": 11.35,
+      "h6": 1.86
+    },
+    "priceChange": {
+      "h6": 0.57,
+      "h24": -6.01
+    },
+    "liquidity": {
+      "base": 853.7035,
+      "quote": 54673,
+      "usd": 2146.78
+    },
+    "fdv": 697848910,
+    "marketCap": 339449902,
+    "pairCreatedAt": 1770237552000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/ay86tr2o8hn2a25aanmqe9bs5t2z5xbushbhhixcw2kb",
+    "pairAddress": "AY86tR2o8Hn2A25AANMqE9bS5t2Z5xBUshBHhiXCW2Kb",
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "1.2396",
+    "priceUsd": "1.23",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h1": {
+        "buys": 4,
+        "sells": 1
+      },
+      "h6": {
+        "buys": 12,
+        "sells": 10
+      },
+      "h24": {
+        "buys": 70,
+        "sells": 63
+      }
+    },
+    "volume": {
+      "h24": 3.42,
+      "h6": 0.49,
+      "h1": 0.15,
+      "m5": 0.04
+    },
+    "priceChange": {
+      "m5": -0.59,
+      "h1": 0.01,
+      "h6": -1.2,
+      "h24": -5.4
+    },
+    "liquidity": {
+      "base": 26.9916,
+      "quote": 33.5037,
+      "usd": 66.96
+    },
+    "fdv": 687988231,
+    "marketCap": 334652332,
+    "pairCreatedAt": 1669603874000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/ohuayu6sz3wbajd29u7rypizsdgfauvig45btw9tkzv",
+    "pairAddress": "oHUAYU6sz3wbAJD29U7rYpiZsdgFauVig45btw9tKzV",
+    "labels": ["CLMM"],
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.01782",
+    "priceUsd": "1.24",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 2
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 3
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 20
+      },
+      "h24": {
+        "buys": 44,
+        "sells": 64
+      }
+    },
+    "volume": {
+      "h24": 4.33,
+      "h6": 0.6,
+      "h1": 0.13,
+      "m5": 0.12
+    },
+    "priceChange": {
+      "m5": 0.26,
+      "h1": 0.16,
+      "h6": -0.38,
+      "h24": -4.88
+    },
+    "liquidity": {
+      "base": 82.9852,
+      "quote": 1.4757,
+      "usd": 206.48
+    },
+    "fdv": 691299709,
+    "marketCap": 336263106,
+    "pairCreatedAt": 1793183522000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/hcrkptnnd6av9cuyapmdzfvxfndgqqxtxqa7ysyhg12o",
+    "pairAddress": "HcRKPTNnd6av9CUYAPmDZFvxFNdGQQXTxqa7ysYHG12o",
+    "labels": ["CPMM"],
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.01784",
+    "priceUsd": "1.24",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 6
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 8
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 21
+      },
+      "h24": {
+        "buys": 37,
+        "sells": 61
+      }
+    },
+    "volume": {
+      "h24": 9.36,
+      "h6": 1.71,
+      "h1": 0.56,
+      "m5": 0.5
+    },
+    "priceChange": {
+      "m5": 0.13,
+      "h1": 0.26,
+      "h6": -0.48,
+      "h24": -4.88
+    },
+    "liquidity": {
+      "base": 216.2484,
+      "quote": 3.8597,
+      "usd": 539.44
+    },
+    "fdv": 692237324,
+    "marketCap": 336719182,
+    "pairCreatedAt": 1749646023000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/fgdzu8kv8k4hubkqahjqe4agsat5ugupztntkazkvwm9",
+    "pairAddress": "Fgdzu8KV8K4huBKQaHJqe4AGSAT5uGUpZtNtKAzKVWm9",
+    "labels": ["DYN"],
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.01779",
+    "priceUsd": "1.24",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 6
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 6
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 23
+      },
+      "h24": {
+        "buys": 7,
+        "sells": 40
+      }
+    },
+    "volume": {
+      "h24": 9.17,
+      "h6": 2.53,
+      "h1": 0.86,
+      "m5": 0.86
+    },
+    "priceChange": {
+      "m5": 0.01,
+      "h1": 0.01,
+      "h6": -0.13,
+      "h24": -6.27
+    },
+    "liquidity": {
+      "base": 404.4937,
+      "quote": 7.2544,
+      "usd": 1009.09
+    },
+    "fdv": 689497840,
+    "marketCap": 335387748,
+    "pairCreatedAt": 1716651150000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/hpwkdpsbakwkxi4f6zswjjdqlmdv9hke7wvynlpwklbd",
+    "pairAddress": "HPWkdpsbaKWKxi4F6ZSWjjDqLmdV9hKE7wvYNLPWKLbD",
+    "labels": ["CLMM"],
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "1.2402",
+    "priceUsd": "1.24",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 1,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 1,
+        "sells": 5
+      },
+      "h24": {
+        "buys": 23,
+        "sells": 60
+      }
+    },
+    "volume": {
+      "h24": 21.54,
+      "h6": 1.39
+    },
+    "priceChange": {
+      "h6": -0.68,
+      "h24": -5.83
+    },
+    "liquidity": {
+      "base": 312.7044,
+      "quote": 394.7217,
+      "usd": 782.56
+    },
+    "fdv": 688364592,
+    "marketCap": 334835402,
+    "pairCreatedAt": 1727004308000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/cu5yujnpzyojxvy68bvd45ethxr23qizdowz6txfgwg3",
+    "pairAddress": "Cu5YuJnpzyoJXvy68bvd45ETHXr23QiZdoWz6txfGWG3",
+    "labels": ["DYN"],
+    "baseToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "quoteToken": {
+      "address": "METvsvVRapdj9cFLzq4Tr43xK4tAjQfwX76z3n6mWQL",
+      "name": "Meteora",
+      "symbol": "MET"
+    },
+    "priceNative": "6.01724",
+    "priceUsd": "1.26",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 1,
+        "sells": 7
+      }
+    },
+    "volume": {
+      "h24": 3.18
+    },
+    "priceChange": {
+      "h24": -4.68
+    },
+    "liquidity": {
+      "base": 602.7143,
+      "quote": 3583.3538,
+      "usd": 1517.85
+    },
+    "fdv": 703042335,
+    "marketCap": 341976105,
+    "pairCreatedAt": 1771397968000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/654ec0cee3ecf3fd5d55c56302d82300ee114ee1ff91e52897798b486993f6c8?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1da07e256a9a70fbdc532be8a1a78770de144c1d961bf565f7e3739341887db3?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R?timestamp=1795562100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/raydiumprotocol",
+          "type": "twitter"
+        }
+      ]
+    }
+  }
+]

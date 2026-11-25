@@ -12,7 +12,6 @@
   const form = doc.getElementById('lookup');
   const input = doc.getElementById('address');
   const result = doc.getElementById('result');
-  const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 
   try {
     const sheet = new CSSStyleSheet();
@@ -67,8 +66,10 @@
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     const value = input.value.trim();
-    if (!ADDRESS.test(value)) {
-      invalid('Enter an address starting with 0x, followed by 40 hexadecimal characters.');
+    if (!detect.isAddress(value)) {
+      invalid(
+        'Enter a Solana token address: 32 to 44 letters and digits, as the explorer shows it.',
+      );
       return;
     }
     input.removeAttribute('aria-invalid');

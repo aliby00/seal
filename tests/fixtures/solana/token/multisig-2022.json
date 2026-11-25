@@ -1,0 +1,78 @@
+[
+  {
+    "method": "getMultipleAccounts",
+    "params": [
+      [
+        "DRXA1H9SjZPyPCEeuAWpfwk8GqVW6dZsKFAtdfpFwApX",
+        "5MvM18mR8581ZFt31zBrQvsDPgQvx3DaMsvZTDp6uU37"
+      ],
+      {
+        "commitment": "confirmed",
+        "encoding": "base64"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473523823
+      },
+      "value": [
+        {
+          "data": [
+            "AQYBF4UyYe9quFMqZ/BThlqtMSk/zwfPEgq1uaFXBlSNwCsjwfxOSRzU9jIfFn4AGEKSPf280QgPAQIx8Az5Ab/kUJ5yuSpBXtTy01awwaV2oDJLAaK7i5AMANAwEsZpjMNTkyucCQxDwLWxwvI6aB20Sg3YYpChjShcGWmgi7EWTcr1BdeUF0RUO+v0Wp48bgNzvKD8mhRogrFXOWsXhBTZEXS+8m1sgMYm5x0F+wuaIL/0sE5AhcFxkHLWDaO0TEfKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+            "base64"
+          ],
+          "executable": false,
+          "lamports": 2453640,
+          "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "rentEpoch": 18446744073709552000,
+          "space": 355
+        },
+        null
+      ]
+    }
+  },
+  {
+    "method": "getAccountInfo",
+    "params": [
+      "DRXA1H9SjZPyPCEeuAWpfwk8GqVW6dZsKFAtdfpFwApX",
+      {
+        "commitment": "confirmed",
+        "encoding": "jsonParsed"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473523823
+      },
+      "value": {
+        "data": {
+          "parsed": {
+            "info": {
+              "isInitialized": true,
+              "numRequiredSigners": 1,
+              "numValidSigners": 6,
+              "signers": [
+                "2apBGMsS6ti9RyF5TwQTDswXBWskiJP2LD4cUEDqYJjk",
+                "3QaqDJS5angcPhW1HsMbB74vJbzWNcy1r5bwtATUro7d",
+                "BfWsvypxRvQ4KUhyJ2gLeFEkhRx3LgfkVahXMj6Kz3LN",
+                "AuVW19qwit2bxZqcspGZLsbq2ZiqosvryTNXE8UZSeGh",
+                "HVU44QhbeMGuMvmnqsjsoRmZiSB6iFp1z2rXEiJnpgEU",
+                "8rjAiCX71uGK7FQLkfbMLvikLkB6HfNjnX81VnYY2Z3X"
+              ]
+            },
+            "type": "multisig"
+          },
+          "program": "spl-token-2022",
+          "space": 355
+        },
+        "executable": false,
+        "lamports": 2453640,
+        "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "rentEpoch": 18446744073709552000,
+        "space": 355
+      }
+    }
+  }
+]
