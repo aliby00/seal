@@ -2,12 +2,13 @@ import type { TokenReport } from '../contracts';
 import type { SpecialistContext } from './types';
 
 /**
- * What the questions read beyond the report.
+ * What the questions read: the collected report, and the creator it names.
  *
- * TODO-SOLANA: the EVM lookups (the token's v4 market and its hook, the
- * rulebook's code, the indexer's counts, Blockscout's funding) went away
- * with the EVM reads. The context is the report alone until the questions
- * are rewritten on it; their extra Solana lookups, if any, belong here.
+ * Every Solana question answers from the report alone (the mint and its
+ * powers, the holders, the creator's history and funding, the launch, the
+ * market), so nothing more is looked up here and nothing can time out. Kept
+ * async so a lookup the report does not hold can be added without changing
+ * the callers.
  */
 export async function gatherContext(
   token: string,
@@ -16,6 +17,5 @@ export async function gatherContext(
   return {
     token,
     ...(report ? { report, creator: report.creator.data.creator } : {}),
-    unread: [],
   };
 }
