@@ -648,3 +648,16 @@ test('legal pages are reachable from the footer, final, and accessible', async (
   await page.goto('/terms');
   await expect(page.getByRole('heading', { name: 'What you may not do' })).toBeVisible();
 });
+
+test('an unknown address gets the site’s own 404, with a way home and one title', async ({
+  page,
+}) => {
+  const response = await page.goto('/this-page-does-not-exist');
+  expect(response?.status()).toBe(404);
+  await expect(page.getByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'SEAL home' })).toHaveAttribute('href', '/');
+  await expect(page.getByRole('link', { name: 'Read a token' })).toHaveAttribute('href', '/');
+  await expect(page).toHaveTitle('Page not found · SEAL');
+  expect(await page.locator('title').count()).toBe(1);
+  await accessible(page);
+});
