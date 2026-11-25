@@ -203,6 +203,20 @@ function powersItem(m: Measures): GlanceItem | null {
       href: '#question-token-powers',
     };
   }
+  // A setting not said above (a fee scheduled for a later epoch, confidential
+  // transfers, a close or rate authority): "no rule acts on transfers" would deny it.
+  if (all.some((p) => p.status !== 'none')) {
+    return {
+      id: 'powers',
+      tone: 'neutral',
+      title:
+        'No one can create more tokens or freeze holders’ tokens; the mint keeps other settings, listed under its powers and transfer rules.',
+      detail,
+      href: (m.rules ?? []).some((p) => p.status !== 'none')
+        ? '#question-transfer-rules'
+        : '#question-token-powers',
+    };
+  }
   return {
     id: 'powers',
     tone: 'reassuring',
@@ -242,9 +256,11 @@ function salesItem(
       href: '#fact-creator',
     };
   }
+  // Trades of the funded wallets not all read: what they bought and sold is a floor.
+  const floor = l && !l.complete ? 'at least ' : '';
   const linkedWords =
     l && l.buyers > 0
-      ? ` ${capitalized(wallets(l.buyers))} the creator sent SOL to around the launch bought ${pct(l.bought)} of the supply${l.sellers > 0 ? ` and sold ${pct(l.sold)}` : ''}${l.heldNow !== null ? `; they hold ${pct(l.heldNow)} today` : ''}.`
+      ? ` ${capitalized(wallets(l.buyers))} the creator sent SOL to around the launch bought ${floor}${pct(l.bought)} of the supply${l.sellers > 0 ? ` and sold ${floor}${pct(l.sold)}` : ''}${l.heldNow !== null ? `; the wallets it funded hold ${l.heldNow === 0 ? 'none of it' : pct(l.heldNow)} today` : ''}.`
       : '';
   const linkedAttention = Boolean(l && (l.sellers > 0 || l.bought >= GROUP_SHARE_MIN));
   const detail = `What the creator bought, sold and holds, read from its own token accounts${linkedWords ? ', and the trades of the wallets it funded' : ''}.`;
@@ -400,12 +416,14 @@ function supplyItem(facts: ReportFacts, launch: LaunchReplayData | undefined): G
     .reduce<number | null>((max, m) => Math.max(max ?? 0, m.heldNow ?? 0), null);
   const pooled = facts.holders.pooled ?? fromReplay ?? null;
   const where = whereSetAside(facts.holders.setAside);
+  const onCurve = where === 'its bonding curve';
   if (pooled !== null && pooled >= MOSTLY_SET_ASIDE) {
     return {
       id: 'supply',
       tone: 'neutral',
       figure: pct(pooled),
-      title: `${pct(pooled)} of the supply is still in ${where}: only ${pct(1 - pooled)} is held outside ${/curve$/.test(where) ? 'it' : 'them'} so far.`,
+      // "Still … so far" only for a curve, which sells it on; burned tokens are gone for good.
+      title: `${pct(pooled)} of the supply is ${onCurve ? 'still ' : ''}in ${where}: only ${pct(1 - pooled)} is held outside ${/^(?:its bonding curve|the incinerator|a liquidity lock)$/.test(where) ? 'it' : 'them'}${onCurve ? ' so far' : ''}.`,
       detail: 'Shares of the whole supply, read from the token accounts.',
       href: '#fact-holders',
     };
@@ -504,7 +522,9 @@ function heldWords(g: GroupMeasure): string {
 function launchBuysItem(launch: LaunchReplayData | undefined, m: Measures): GlanceItem | null {
   const groups = m.launch;
   const paid = groups?.payerGroup;
-  if (paid && paid.share >= GROUP_SHARE_MIN) {
+  const slot = groups?.sameSlot;
+  // The larger group leads: 2% paid by the creator must not hide 40% got in the creation slot.
+  if (paid && paid.share >= GROUP_SHARE_MIN && (!slot || paid.share >= slot.share)) {
     return {
       id: 'launch-buys',
       tone: paid.share >= GROUP_SHARE ? 'attention' : 'neutral',
@@ -514,7 +534,6 @@ function launchBuysItem(launch: LaunchReplayData | undefined, m: Measures): Glan
       href: '#launch-title',
     };
   }
-  const slot = groups?.sameSlot;
   if (slot && slot.share >= GROUP_SHARE_MIN) {
     return {
       id: 'launch-buys',

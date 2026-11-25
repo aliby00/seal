@@ -1,5 +1,6 @@
 import type { TokenReport } from '../contracts';
 import { volumePerTrade } from '../market';
+import { sourcesFailed } from '../failed-reads';
 import { readableNote } from '../plain-note';
 import type { SolanaHolder } from '../solana/holders';
 import { NATIVE_MINT } from '../solana/programs';
@@ -255,6 +256,22 @@ const transferRules: Specialist = {
       };
     }
     const { powers, facts, measures } = powersRead(report, TRANSFER_RULES);
+    // An extension SEAL cannot decode may act on transfers: "none" is not said then.
+    const undecoded = report.powers.some((p) => p.power === 'unknown');
+    if (powers.length === 0 && undecoded) {
+      return {
+        specialist: 'transfer-rules',
+        signal: 'observation',
+        facts: [
+          'No extension SEAL can read acts on transfers (transfer fee, transfer hook, permanent delegate, pause, default account state, non-transferable).',
+        ],
+        limits: [
+          ...mint.gaps,
+          'the mint carries an extension SEAL cannot read: whether it acts on transfers is not known',
+        ],
+        measures: { rules: [] },
+      };
+    }
     if (powers.length === 0) {
       return {
         specialist: 'transfer-rules',
@@ -276,7 +293,7 @@ const transferRules: Specialist = {
     const signal: Signal =
       acting.length > 0
         ? 'concern'
-        : someoneCan.length > 0 || unknownOnes.length > 0
+        : someoneCan.length > 0 || unknownOnes.length > 0 || undecoded
           ? 'observation'
           : 'reassurance';
     return {
@@ -287,6 +304,11 @@ const transferRules: Specialist = {
         ...mint.gaps,
         ...(unknownOnes.length > 0
           ? ['part of the transfer rules could not be read: what they do now is not known']
+          : []),
+        ...(undecoded
+          ? [
+              'the mint carries an extension SEAL cannot read: whether it acts on transfers is not known',
+            ]
           : []),
       ],
       ...(signal === 'concern' ? { followUps: ['sell-path' as const] } : {}),
@@ -338,9 +360,11 @@ const holderSpread: Specialist = {
     }
     const creator = h.creator ?? null;
     if (creator) {
+      // Shares are rounded to six places: a dust balance is "<0.01%", never "none".
+      const ofSupply = shareOf(creator.balance, h.supply) ?? creator.ofSupply;
       facts.push(
-        creator.ofSupply > 0
-          ? `The creator holds ${pct(creator.ofSupply)} of the supply (${pct(creator.share)} of what circulates).`
+        creator.balance !== '0'
+          ? `The creator holds ${ofSupply > 0 ? pct(ofSupply) : '<0.01%'} of the supply (${creator.share > 0 ? pct(creator.share) : '<0.01%'} of what circulates).`
           : 'The creator holds none of it today.',
       );
     }
@@ -391,6 +415,16 @@ export const CREATOR_FROM: Record<NonNullable<TokenReport['creator']['data']['fr
 const NO_CREATOR =
   'no creator is named on the chain (no pump.fun curve, creation transaction or metadata authority names one)';
 
+/**
+ * A question about the creator, with no creator to ask about: "nobody is
+ * named" only when the creator read answered; a failed read says so.
+ */
+function withoutCreator(id: SpecialistId, report: TokenReport): Finding {
+  return report.creator.completeness === 'unavailable'
+    ? unknown(id, [unread('the creator', report.creator)])
+    : unknown(id, [NO_CREATOR]);
+}
+
 /** Whether the creator sold this token: a sale read is a sale; "no sale" only when every move was read. */
 function creatorSold(report: TokenReport): boolean | null {
   const onToken = report.creatorOnToken;
@@ -406,11 +440,7 @@ const creatorHistory: Specialist = {
   run({ report }) {
     if (!report) return unknown('creator-history', [NO_REPORT]);
     const creator = report.creator.data.creator;
-    if (!creator) {
-      return report.creator.completeness === 'unavailable'
-        ? unknown('creator-history', [unread('the creator', report.creator)])
-        : unknown('creator-history', [NO_CREATOR]);
-    }
+    if (!creator) return withoutCreator('creator-history', report);
     const facts: string[] = [];
     const limits: string[] = [];
     const signals: Signal[] = [];
@@ -452,24 +482,31 @@ const creatorHistory: Specialist = {
       const spent = solOf(d.solSpent);
       const got = solOf(d.solReceived);
       const parts: string[] = [];
-      if (d.bought !== '0' && bought !== null) {
-        parts.push(`bought ${pct(bought)} of the supply${spent ? ` for ${solWords(spent)}` : ''}`);
+      // A move read is said even when the supply is not known: "some", never left out.
+      const part = (raw: string) => {
+        const s = shareOf(raw, supply);
+        return s === null ? 'some' : pct(s);
+      };
+      if (d.bought !== '0') {
+        parts.push(
+          `bought ${part(d.bought)}${bought !== null ? ' of the supply' : ''}${spent ? ` for ${solWords(spent)}` : ''}`,
+        );
       }
-      if (d.received !== '0') {
-        const r = shareOf(d.received, supply);
-        if (r !== null) parts.push(`received ${pct(r)} from other addresses`);
+      if (d.received !== '0') parts.push(`received ${part(d.received)} from other addresses`);
+      if (sold === true) {
+        parts.push(
+          `sold ${soldShare !== null ? pct(soldShare) : 'some'}${got ? ` for ${solWords(got)}` : ''}`,
+        );
       }
-      if (sold === true && soldShare !== null) {
-        parts.push(`sold ${pct(soldShare)}${got ? ` for ${solWords(got)}` : ''}`);
+      // Tokens passed on outside any market: who got them is in the report, not who controls them.
+      if (d.sends.distinct > 0) {
+        const total = d.sends.total && d.sends.total !== '0' ? part(d.sends.total) : 'some';
+        parts.push(
+          `sent ${total} to ${count(d.sends.distinct, 'other address', 'other addresses')} outside any market`,
+        );
       }
-      if (d.locked !== '0') {
-        const l = shareOf(d.locked, supply);
-        if (l !== null) parts.push(`put ${pct(l)} into a lock`);
-      }
-      if (d.burned !== '0') {
-        const b = shareOf(d.burned, supply);
-        if (b !== null) parts.push(`burned ${pct(b)}`);
-      }
+      if (d.locked !== '0') parts.push(`put ${part(d.locked)} into a lock`);
+      if (d.burned !== '0') parts.push(`burned ${part(d.burned)}`);
       const read = `${d.transactions.read} of ${count(d.transactions.listed, 'transaction')} on its token accounts read`;
       facts.push(
         parts.length > 0
@@ -525,7 +562,7 @@ const walletAge: Specialist = {
   run({ report }) {
     if (!report) return unknown('wallet-age', [NO_REPORT]);
     const creator = report.creator.data.creator;
-    if (!creator) return unknown('wallet-age', [NO_CREATOR]);
+    if (!creator) return withoutCreator('wallet-age', report);
     const linked = report.linkedWallets;
     const history = report.creatorHistory;
     const facts: string[] = [];
@@ -543,12 +580,16 @@ const walletAge: Specialist = {
             ? `The creator’s wallet first received SOL on ${dayOf(first.blockTime)}, ${durationWords(age)} before the token was created.`
             : `The creator’s wallet first received SOL on ${dayOf(first.blockTime)}, after the token was created.`,
         );
+        // SOL first received after the creation: someone else paid for it, a
+        // fact to note, not a fresh wallet ("funded less than a day before").
         signal =
-          age < FRESH_WALLET_SECONDS
-            ? 'concern'
-            : age < RECENT_WALLET_SECONDS
-              ? 'observation'
-              : 'quiet';
+          age < 0
+            ? 'observation'
+            : age < FRESH_WALLET_SECONDS
+              ? 'concern'
+              : age < RECENT_WALLET_SECONDS
+                ? 'observation'
+                : 'quiet';
       } else if (first.blockTime !== null) {
         facts.push(`The creator’s wallet first received SOL on ${dayOf(first.blockTime)}.`);
         limits.push(
@@ -563,9 +604,11 @@ const walletAge: Specialist = {
         'The creator’s wallet has a longer history than SEAL reads: its first funding was not reached.',
       );
       signal = 'quiet';
-    } else {
+    } else if (linked.data.funding === 'none-seen') {
       facts.push('No incoming SOL was found in the creator’s transactions read.');
       signal = 'observation';
+    } else {
+      limits.push('the creator’s first funding was found but its transfer was not given');
     }
     if (history && history.completeness !== 'unavailable') {
       const s = history.data.scanned;
@@ -594,7 +637,7 @@ const fundingTrace: Specialist = {
     'Who first sent SOL to the creator, and did wallets the creator funded around the launch trade this token?',
   run({ report }) {
     if (!report) return unknown('funding-trace', [NO_REPORT]);
-    if (!report.creator.data.creator) return unknown('funding-trace', [NO_CREATOR]);
+    if (!report.creator.data.creator) return withoutCreator('funding-trace', report);
     const linked = report.linkedWallets;
     if (!linked || linked.completeness === 'unavailable') {
       return unknown('funding-trace', [unread('who funded the creator', linked)]);
@@ -617,8 +660,10 @@ const fundingTrace: Specialist = {
       );
     } else if (d.funding === 'not-reached') {
       limits.push('the creator’s first funding lies beyond the transactions read');
-    } else {
+    } else if (d.funding === 'none-seen') {
       facts.push('No incoming SOL was found in the creator’s transactions.');
+    } else {
+      limits.push('the creator’s first funding was found but its transfer was not given');
     }
 
     const supply = supplyOf(report);
@@ -649,7 +694,7 @@ const fundingTrace: Specialist = {
       facts.push(
         traded.length === 0
           ? `None of them traded this token${complete ? '' : ' in what was read'}.`
-          : `${count(traded.length, 'of them', 'of them')} traded this token: they bought ${pct(bought)} of the supply${sellers.length > 0 ? ` and ${sellers.length === traded.length ? 'sold' : `${sellers.length} sold`} ${pct(sold)}` : ''}${held !== null ? `; they hold ${pct(held)} today` : ''}.`,
+          : `${count(traded.length, 'of them', 'of them')} traded this token: they bought ${complete ? '' : 'at least '}${pct(bought)} of the supply${sellers.length > 0 ? ` and ${sellers.length === traded.length ? 'sold' : `${sellers.length} sold`} ${complete ? '' : 'at least '}${pct(sold)}` : ''}${held !== null ? `; the wallets it funded hold ${held === 0 ? 'none of it' : pct(held)} today` : ''}.`,
       );
       if (!complete) limits.push('not every funded wallet’s trades on this token were read');
     }
@@ -769,7 +814,7 @@ const volumeReality: Specialist = {
         trades >= TRADES_PER_HOLDER * Math.max(1, holders)
       ) {
         facts.push(
-          `That is more than ${TRADES_PER_HOLDER} trades in a day for each wallet holding it now.`,
+          `That is at least ${TRADES_PER_HOLDER} trades in a day for each wallet holding it now.`,
         );
         signals.push('concern');
       }
@@ -834,6 +879,8 @@ const sellPath: Specialist = {
     const facts: string[] = [];
     const limits: string[] = [];
     const signals: Signal[] = [];
+    /** The facts that deserve attention, said first. */
+    const lead: string[] = [];
     const curve = curveOf(report);
     if (curve) {
       facts.push(
@@ -853,7 +900,7 @@ const sellPath: Specialist = {
           `${count(sells, 'sale')} went through in the last 24 hours on its listed pairs.`,
         );
       } else if (buys >= BUYS_WITHOUT_SALE) {
-        facts.push(
+        lead.push(
           `${count(buys, 'buy', 'buys')} and no sale in the last 24 hours on its listed pairs.`,
         );
         signals.push('concern');
@@ -887,15 +934,28 @@ const sellPath: Specialist = {
           (kind === 'pause' && active === true) ||
           (kind === 'default-account-state' && active === true && p.status === 'fixed');
         signals.push(inForce ? 'concern' : 'observation');
+        // What stops a sale today is the answer: said before the trades.
+        if (inForce) lead.push(p.sentence);
+        else facts.push(p.sentence);
       }
-      for (const p of blockers) facts.push(p.sentence);
-      if (blockers.length === 0) {
+      // An extension SEAL cannot decode may block transfers: "nothing" is not said then.
+      const undecoded = report.powers.some((p) => p.power === 'unknown');
+      if (blockers.length === 0 && undecoded) {
+        facts.push(
+          'Nothing SEAL can read in the mint can stop a sale: no freeze authority, no permanent delegate, no transfer hook, no pause.',
+        );
+        limits.push(
+          'the mint carries an extension SEAL cannot read: whether it can stop a sale is not known',
+        );
+        signals.push('observation');
+      } else if (blockers.length === 0) {
         facts.push(
           'Nothing in the mint can stop a sale: no freeze authority, no permanent delegate, no transfer hook, no pause.',
         );
         if (txns && txns.h24.sells > 0) signals.push('reassurance');
       }
     }
+    facts.unshift(...lead);
     const answered = mint !== null || txns !== null;
     return {
       specialist: 'sell-path',
@@ -942,10 +1002,17 @@ const liquidityMove: Specialist = {
     const known = liquidity.data.pools.filter((p) => p.known);
     const unknownPools = liquidity.data.pools.filter((p) => !p.known);
     if (known.length === 0) {
+      // "No pool" only when the market list it comes from answered.
+      const noPool =
+        liquidity.data.pools.length === 0 &&
+        liquidity.sources.some((s) => s.note === 'no pool to read') &&
+        !sourcesFailed(report.market.sources);
       return unknown('liquidity-move', [
         ...(unknownPools.length > 0
           ? [...new Set(unknownPools.map((p) => p.note ?? 'this pool could not be described'))]
-          : [unread('what its pools hold', liquidity)]),
+          : noPool
+            ? ['no trading pool of this token was listed: there is no pool liquidity to read']
+            : [unread('what its pools hold', liquidity)]),
       ]);
     }
     const facts: string[] = [];
@@ -962,20 +1029,25 @@ const liquidityMove: Specialist = {
         .sort((a, b) => b.share - a.share);
       const top = wallets[0];
       const byCreator = wallets.filter((w) => creator && w.owner === creator);
-      const who = top
-        ? `; the largest holder of its liquidity, ${creator && top.owner === creator ? 'the creator' : `the wallet ${short(top.owner)}`}, has ${pct(top.share)}`
-        : '';
-      facts.push(`${name}: ${shares.join(', ') || 'shares not read'}${who}.`);
+      const creatorShare = byCreator.reduce((n, w) => n + w.share, 0);
+      const who = `${
+        top
+          ? `; the largest holder of its liquidity, ${creator && top.owner === creator ? 'the creator' : `the wallet ${short(top.owner)}`}, has ${pct(top.share)}`
+          : ''
+      }${byCreator.length > 0 && top && top.owner !== creator ? `; the creator has ${pct(creatorShare)}` : ''}`;
+      const fact = `${name}: ${shares.join(', ') || 'shares not read'}${who}.`;
       const forGood = (p.burnedShare ?? 0) + (p.lockedShare ?? 0);
-      if (byCreator.length > 0) signals.push('concern');
-      else if (
-        (p.withdrawableShare ?? 0) >= WITHDRAWABLE_SHARE &&
-        top &&
-        top.share >= WITHDRAWABLE_SHARE
-      )
+      // A pool whose liquidity one holder can withdraw is said first.
+      if (
+        byCreator.length > 0 ||
+        ((p.withdrawableShare ?? 0) >= WITHDRAWABLE_SHARE && top && top.share >= WITHDRAWABLE_SHARE)
+      ) {
         signals.push('concern');
-      else if (forGood >= LOCKED_FOR_GOOD) signals.push('reassurance');
-      else signals.push('observation');
+        facts.splice(signals.filter((s) => s === 'concern').length - 1, 0, fact);
+      } else {
+        signals.push(forGood >= LOCKED_FOR_GOOD ? 'reassurance' : 'observation');
+        facts.push(fact);
+      }
     }
     const limits = [
       ...new Set(unknownPools.map((p) => p.note ?? 'a pool could not be described')),
@@ -1000,6 +1072,10 @@ const nameClone: Specialist = {
     if (!mint) return unknown('name-clone', [unread('the mint', report.mint)]);
     const meta = mint.metadata;
     if (!meta) {
+      // A metadata account the mint points to, or a Metaplex account, that
+      // could not be read is not "no metadata".
+      const metadataGaps = mint.gaps.filter((g) => /metadata/i.test(g));
+      if (metadataGaps.length > 0) return unknown('name-clone', metadataGaps);
       return {
         specialist: 'name-clone',
         signal: 'quiet',
@@ -1009,10 +1085,18 @@ const nameClone: Specialist = {
     }
     const facts: string[] = [];
     const signals: Signal[] = [];
-    const borrowed = imitatedName(meta.symbol) ?? imitatedName(meta.name);
+    const bySymbol = imitatedName(meta.symbol);
+    const byName = imitatedName(meta.name);
+    const borrowed = bySymbol ?? byName;
     if (borrowed && borrowed.mint !== token) {
+      const which =
+        bySymbol === borrowed && byName === borrowed
+          ? `Its name ${quoteName(meta.name)} and symbol ${quoteName(meta.symbol)} use those of`
+          : bySymbol === borrowed
+            ? `Its symbol ${quoteName(meta.symbol)} uses that of`
+            : `Its name ${quoteName(meta.name)} uses that of`;
       facts.push(
-        `Its name ${quoteName(meta.name)} and symbol ${quoteName(meta.symbol)} use those of ${borrowed.label}, whose mint is ${short(borrowed.mint)}; this token is another mint.`,
+        `${which} ${borrowed.label}, whose mint is ${short(borrowed.mint)}; this token is another mint.`,
       );
       signals.push('concern');
     }
@@ -1043,9 +1127,10 @@ const nameClone: Specialist = {
       );
       signals.push('observation');
     }
+    const historyRead = Boolean(history && history.completeness !== 'unavailable');
     if (facts.length === 0) {
       facts.push(
-        `Its name ${quoteName(meta.name)} and symbol ${quoteName(meta.symbol)} match none of the well-known tokens SEAL compares with, nor the creator’s other launches found.`,
+        `Its name ${quoteName(meta.name)} and symbol ${quoteName(meta.symbol)} match none of the well-known tokens SEAL compares with${historyRead ? ', nor the creator’s other launches found' : ''}.`,
       );
     }
     return {
@@ -1054,6 +1139,11 @@ const nameClone: Specialist = {
       facts,
       limits: [
         'names are compared with a short list of well-known Solana tokens and the creator’s own launches only',
+        ...(historyRead
+          ? []
+          : [
+              'the creator’s other launches were not read: a name reused from them would not be seen',
+            ]),
       ],
     };
   },

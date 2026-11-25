@@ -83,7 +83,7 @@ function plainName(
   }
   if (isCreator) return { kind: 'creator', name: 'the creator', tradable: true };
   if (kind === 'pool') return { kind: 'pool', name: 'a trading pool', tradable: false };
-  if (kind === 'burn') return { kind: 'burn', name: 'a burn address', tradable: false };
+  if (kind === 'burn') return { kind: 'burn', name: 'the incinerator', tradable: false };
   return kind === 'contract'
     ? { kind: 'contract', name: 'a program account', tradable: null }
     : { kind: 'wallet', name: 'a wallet', tradable: true };

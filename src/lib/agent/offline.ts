@@ -77,8 +77,11 @@ function creatorAccount(report: TokenReport): string {
   ];
   if (history && history.completeness !== 'unavailable') {
     const c = history.data.counts;
+    // As the Creator History question counts them: a floor unless every curve and transaction was read.
     const atLeast =
-      readFailed(report.failedReads, 'creator-launches') || history.completeness === 'partial'
+      readFailed(report.failedReads, 'creator-launches') ||
+      history.completeness !== 'full' ||
+      !history.data.scanned.pumpCurvesListed
         ? 'at least '
         : '';
     sentences.push(
@@ -123,6 +126,9 @@ function creatorAccount(report: TokenReport): string {
           : `It holds ${sharePct(holds)} of the supply today.`,
       );
     }
+  } else if (onToken) {
+    // Unread is said: silence would read as "nothing to say".
+    sentences.push('What it did with this token could not be read this time.');
   }
   if (linkedWallets && linkedWallets.completeness !== 'unavailable') {
     const l = linkedWallets.data;
@@ -137,8 +143,11 @@ function creatorAccount(report: TokenReport): string {
     );
     if (l.funded.length > 0) {
       const sold = l.funded.reduce((n, f) => n + (shareOf(f.onToken?.sold, supply) ?? 0), 0);
+      // Some funded wallets' trades not read: what is said holds for those read.
+      const complete = l.funded.every((f) => f.onToken?.complete === true);
+      const within = complete ? '' : ' in what was read';
       sentences.push(
-        `Around the launch it sent SOL to ${l.funded.length} wallet${l.funded.length === 1 ? '' : 's'}; ${traded.length === 0 ? 'none of them traded this token' : `${traded.length} of them traded this token${sold > 0 ? `, selling ${sharePct(sold)} of the supply` : ''}`}. A transfer links the addresses; it does not show who controls them.`,
+        `Around the launch it sent SOL to ${l.funded.length} wallet${l.funded.length === 1 ? '' : 's'}; ${traded.length === 0 ? `none of them traded this token${within}` : `${traded.length} of them traded this token${sold > 0 ? `, selling ${complete ? '' : 'at least '}${sharePct(sold)} of the supply` : ''}${within}`}. A transfer links the addresses; it does not show who controls them.`,
       );
     }
   }

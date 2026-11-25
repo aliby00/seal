@@ -5,6 +5,7 @@ import { flowDate, flowPct, flowSentence, lockWords, type FlowNode } from '../su
 import { roundTripsExcludedWords } from '../launch-story';
 import type { SpecialistAnswer } from '../specialists/brief';
 import { CREATOR_FROM } from '../specialists/catalog';
+import { quoteName } from '../specialists/names';
 import { dayOf, pct, shareOf, solOf, solWords } from '../specialists/words';
 import { READ_WORDS } from '../failed-reads';
 import type { SolanaHolder } from '../solana/holders';
@@ -136,6 +137,10 @@ const share = (raw: string | null | undefined, supply: string | null) => {
   return s === null ? 'an unread share' : `${pct(s)} of the supply`;
 };
 
+/** What an address holds, from its raw balance: "none", or a share where dust is "<0.01%", never "0.00%". */
+const holding = (raw: string | null | undefined, supply: string | null) =>
+  raw === '0' ? 'none of it' : share(raw, supply);
+
 function groupLine(label: string, g: SolanaLaunchGroup): string {
   return `- ${label}: ${g.wallets} wallets other than the creator got ${pct(g.share)} of the supply in ${g.transactions} transactions, their SOL balances falling by ${solWords(g.solSpent)}; ${g.soldInWindow} of them sold in the window read; they hold ${g.heldNow === null ? 'an unread share' : pct(g.heldNow)} today${g.unread ? ` (${g.unread} not read)` : ''}.`;
 }
@@ -161,7 +166,10 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
       mint
         ? [
             `Program: ${mint.program === 'token-2022' ? 'Token-2022' : 'SPL Token'}; ${mint.decimals} decimals; supply ${mint.supply} raw units.`,
-            `Name ${JSON.stringify(mint.metadata?.name ?? null)}, symbol ${JSON.stringify(mint.metadata?.symbol ?? null)}${mint.metadata?.otherMint ? `, read from the metadata of another mint, ${mint.metadata.otherMint}` : ''}.`,
+            // Chosen by the creator: quoted, cut, and withheld when it reads as a verdict.
+            mint.metadata
+              ? `Name ${quoteName(mint.metadata.name)}, symbol ${quoteName(mint.metadata.symbol)}${mint.metadata.otherMint ? `, read from the metadata of another mint, ${mint.metadata.otherMint}` : ''}.`
+              : 'No name or symbol read.',
             ...(mint.extensions.length > 0
               ? [`Token-2022 extensions: ${mint.extensions.map((e) => e.extension).join(', ')}.`]
               : []),
@@ -201,7 +209,7 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
           .slice(0, 10)
           .map(
             (t) =>
-              `- ${t.mint}${t.name ? ` ${JSON.stringify(t.name)}` : ''}, ${t.launchpad ?? 'no known launchpad'}, launched ${t.launchedAt ?? 'at an unread time'}: ${t.outcome === 'dead' ? 'no trade in the last 24 hours' : t.outcome}${t.trades24h !== null ? ` (${t.trades24h} trades in 24 h)` : ''}.`,
+              `- ${t.mint}${t.name ? ` ${quoteName(t.name)}` : ''}, ${t.launchpad ?? 'no known launchpad'}, launched ${t.launchedAt ?? 'at an unread time'}: ${t.outcome === 'dead' ? 'no trade in the last 24 hours' : t.outcome}${t.trades24h !== null ? ` (${t.trades24h} trades in 24 h)` : ''}.`,
           ),
       ];
     }),
@@ -211,7 +219,7 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
       const got = solOf(d.solReceived);
       return [
         `Bought ${share(d.bought, supply)}${spent ? ` for ${solWords(spent)}` : ''}; sold ${d.sold === '0' ? (onToken!.completeness === 'full' ? 'none' : 'none seen in the transactions read (not all of them)') : `${share(d.sold, supply)}${got ? ` for ${solWords(got)}` : ''}`}; received ${share(d.received, supply)}; put in a lock ${share(d.locked, supply)}; burned ${share(d.burned, supply)}.`,
-        `Holds today: ${d.holdsNowShare === null ? 'not read' : pct(d.holdsNowShare)}. Sent to ${d.sends.distinct} other addresses outside markets.`,
+        `Holds today: ${d.holdsNow === null ? 'not read' : holding(d.holdsNow, supply)}. Sent ${d.sends.distinct === 0 ? 'nothing' : `${d.sends.total ? share(d.sends.total, supply) : 'some'} to ${d.sends.distinct} other address${d.sends.distinct === 1 ? '' : 'es'}`} outside markets.`,
         `Transactions on its token accounts: ${d.transactions.read} read of ${d.transactions.listed}.`,
       ];
     }),
@@ -223,12 +231,14 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
           ? `First SOL received: ${solWords(solOf(first.lamports) ?? 0)} from ${first.from}${first.blockTime ? ` on ${dayOf(first.blockTime)}` : ''} (${first.how === 'system-transfer' ? 'a transfer' : 'an account closed to it, in a transaction that address sent'}). Who is behind that address is not read.`
           : d.funding === 'not-reached'
             ? 'First funding: beyond the transactions read.'
-            : 'First funding: no incoming SOL seen in the transactions read.',
+            : d.funding === 'none-seen'
+              ? 'First funding: no incoming SOL seen in the transactions read.'
+              : 'First funding: not given.',
         d.window === null
           ? 'The launch time is not known: the wallets funded around it were not looked for.'
           : d.funded.length === 0
-            ? 'Around the launch, the creator sent SOL to no other wallet outside its trades.'
-            : `Around the launch, the creator sent SOL to ${d.funded.length} wallets:`,
+            ? `Around the launch, the creator sent SOL to no other wallet outside its trades${linked!.completeness === 'full' ? '' : ', in the transactions read (not all of them)'}.`
+            : `Around the launch, the creator sent SOL to ${d.funded.length} wallet${d.funded.length === 1 ? '' : 's'}${linked!.completeness === 'full' ? '' : ' in the transactions read (not all of them)'}:`,
         ...d.funded
           .slice(0, 8)
           .map(
@@ -238,19 +248,31 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
       ];
     }),
     ...block('Holders', report.holders, () => [
-      h.method === 'all-accounts'
-        ? `Every token account read: ${h.holderCount} holders, curves, pools, locks and the incinerator left out.`
-        : h.method === 'largest-accounts'
-          ? `Only the 20 largest token accounts read: at least ${h.holdersAtLeast} holders; shares are floors.`
-          : 'No holder list could be read.',
-      `Of the whole supply: on bonding curves ${fmt(h.ofSupply.curves)}, in pools ${fmt(h.ofSupply.pools)}, in locks ${fmt(h.ofSupply.locked)}, with the incinerator ${fmt(h.ofSupply.burned)}.`,
-      `Of what circulates: largest holder ${pct(h.concentration.top1)}, top 10 ${pct(h.concentration.top10)}.`,
-      ...(h.creator
+      // No list read: no share, no zero (a "largest holder 0.00%" would be read as a fact).
+      ...(h.method === 'none'
         ? [
-            `The creator holds ${pct(h.creator.ofSupply)} of the supply (${pct(h.creator.share)} of what circulates).`,
+            'No holder list could be read: who holds it, and how much each holds, is not known.',
+            ...(h.creator
+              ? [
+                  `The creator’s own token accounts were read: it holds ${holding(h.creator.balance, h.supply)}.`,
+                ]
+              : []),
           ]
-        : []),
-      ...(h.top as readonly SolanaHolder[])
+        : [
+            h.method === 'all-accounts'
+              ? h.holderCount !== null
+                ? `Every token account read: ${h.holderCount} holders, curves, pools, locks and the incinerator left out.`
+                : `Every token account read: at least ${h.holdersAtLeast} holders (some owners not identified), curves, pools, locks and the incinerator left out.`
+              : `Only the 20 largest token accounts read: at least ${h.holdersAtLeast} holders; shares are floors.`,
+            `Of the whole supply: on bonding curves ${fmt(h.ofSupply.curves)}, in pools ${fmt(h.ofSupply.pools)}, in locks ${fmt(h.ofSupply.locked)}, with the incinerator ${fmt(h.ofSupply.burned)}.`,
+            `Of what circulates: largest holder ${pct(h.concentration.top1)}, top 10 ${pct(h.concentration.top10)}.`,
+            ...(h.creator
+              ? [
+                  `The creator holds ${holding(h.creator.balance, h.supply)}${h.creator.balance !== '0' ? ` (${h.creator.share > 0 ? pct(h.creator.share) : '<0.01%'} of what circulates)` : ''}.`,
+                ]
+              : []),
+          ]),
+      ...(h.method === 'none' ? [] : (h.top as readonly SolanaHolder[]))
         .filter((x) => x.kind === 'wallet' || x.kind === 'contract')
         .slice(0, 10)
         .map(

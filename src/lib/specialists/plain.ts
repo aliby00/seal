@@ -1,4 +1,5 @@
 import type { SpecialistAnswer } from './brief';
+import { GROUP_SHARE_MIN, MOSTLY_SET_ASIDE } from './thresholds';
 import type { PowerMeasure, SpecialistId } from './types';
 
 /**
@@ -69,8 +70,8 @@ export function shortAnswer(answer: SpecialistAnswer): string {
     }
     case 'holder-spread': {
       const s = m?.spread;
-      if (s && s.setAside !== null && s.setAside >= 0.9)
-        return `${pc(s.setAside)} still on its curve or in pools`;
+      if (s && s.setAside !== null && s.setAside >= MOSTLY_SET_ASIDE)
+        return `${pc(s.setAside)} in curves, pools, locks or burned`;
       if (s) return `Largest holder ${pc(s.top1)} · top 10 ${pc(s.top10)} (pools left out)`;
       break;
     }
@@ -82,7 +83,7 @@ export function shortAnswer(answer: SpecialistAnswer): string {
           ? `The creator sold ${pc(c.sold)} of the supply`
           : 'The creator sold some';
       if (h && h.launched > 0)
-        return `${h.atLeast ? 'At least ' : ''}${h.launched} other tokens · ${h.dead} with no trade in 24 h`;
+        return `${h.atLeast ? 'At least ' : ''}${h.launched} other token${h.launched === 1 ? '' : 's'} · ${h.dead} with no trade in 24 h`;
       if (h && h.launched === 0) return 'No other token found from this creator';
       break;
     }
@@ -98,18 +99,23 @@ export function shortAnswer(answer: SpecialistAnswer): string {
       break;
     }
     case 'volume-reality': {
-      const g = m?.launch?.payerGroup ?? m?.launch?.sameSlot;
-      if (g && g.share >= 0.01) return `${g.wallets} wallets got ${pc(g.share)} at creation`;
+      // The larger of the two groups: paid by the creator, or in the creation slot.
+      const paid = m?.launch?.payerGroup;
+      const slot = m?.launch?.sameSlot;
+      const wallets = (n: number) => `${n} wallet${n === 1 ? '' : 's'}`;
+      if (paid && paid.share >= GROUP_SHARE_MIN && (!slot || paid.share >= slot.share))
+        return `${wallets(paid.wallets)} got ${pc(paid.share)} in transactions the creator paid for`;
+      if (slot && slot.share >= GROUP_SHARE_MIN)
+        return `${wallets(slot.wallets)} got ${pc(slot.share)} in the creation slot`;
       if (signal === 'concern') return 'Many trades for few holders';
       break;
     }
     case 'sell-path':
-      if (signal === 'concern') return 'Selling may be blocked';
+      // A concern is said by its own fact, put first: a pause, frozen accounts, buys and no sale.
       if (signal === 'reassurance') return 'Nothing in the mint can stop a sale';
       break;
     case 'liquidity-move':
       if (signal === 'reassurance') return 'Pool liquidity burned or locked';
-      if (signal === 'concern') return 'A wallet can withdraw most of a pool';
       break;
     case 'name-clone':
       if (signal === 'concern') return 'Its name or symbol is taken from another token';

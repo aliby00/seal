@@ -335,7 +335,7 @@ describe('Wallet Age, Funding Trace', () => {
     const finding = ask('funding-trace', report);
     expect(finding.signal).toBe('concern');
     expect(finding.facts).toContain(
-      '1 of them traded this token: they bought 5.0% of the supply and sold 2.0%; they hold 3.0% today.',
+      '1 of them traded this token: they bought 5.0% of the supply and sold 2.0%; the wallets it funded hold 3.0% today.',
     );
     expect(finding.measures?.linked).toEqual({
       wallets: 1,
@@ -392,7 +392,7 @@ describe('Volume Reality, Sell Path, Liquidity Move, Name Clone', () => {
     );
     expect(finding.signal).toBe('concern');
     expect(finding.facts).toContain(
-      'That is more than 10 trades in a day for each wallet holding it now.',
+      'That is at least 10 trades in a day for each wallet holding it now.',
     );
   });
 

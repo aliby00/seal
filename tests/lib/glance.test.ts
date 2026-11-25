@@ -215,7 +215,7 @@ describe('In short: the creator’s part and its sales', () => {
     const sales = glance.items.find((i) => i.id === 'sales');
     expect(sales?.tone).toBe('attention');
     expect(sales?.title).toBe(
-      'The creator has not sold this token; it holds none of it today. 1 wallet the creator sent SOL to around the launch bought 4.0% of the supply and sold 3.0%; they hold 1.0% today.',
+      'The creator has not sold this token; it holds none of it today. 1 wallet the creator sent SOL to around the launch bought 4.0% of the supply and sold 3.0%; the wallets it funded hold 1.0% today.',
     );
   });
 
@@ -277,17 +277,30 @@ describe('In short: wallets that got tokens together at launch', () => {
     expect(item(0.009)).toBeUndefined();
   });
 
-  it('prefers the wallets served by transactions the creator paid for', () => {
-    const item = glanceOf(
+  it('says the larger group: paid by the creator, or got in the creation slot', () => {
+    const paidMore = glanceOf(
       solanaReport({
         launch: withLaunch({
-          sameSlot: group(2, 0.3),
-          payerGroup: { ...group(4, 0.12), payers: [CREATOR] },
+          sameSlot: group(2, 0.12),
+          payerGroup: { ...group(4, 0.3), payers: [CREATOR] },
         }),
       }),
     ).items.find((i) => i.id === 'launch-buys');
-    expect(item?.title).toBe(
-      '4 wallets got 12% of the supply in transactions paid by the creator or by the creation’s fee payer; they hold none of it today.',
+    expect(paidMore?.title).toBe(
+      '4 wallets got 30% of the supply in transactions paid by the creator or by the creation’s fee payer; they hold none of it today.',
+    );
+    // 2% paid by the creator never hides 30% got in the creation slot.
+    const slotMore = glanceOf(
+      solanaReport({
+        launch: withLaunch({
+          sameSlot: group(2, 0.3),
+          payerGroup: { ...group(4, 0.02), payers: [CREATOR] },
+        }),
+      }),
+    ).items.find((i) => i.id === 'launch-buys');
+    expect(slotMore?.tone).toBe('attention');
+    expect(slotMore?.title).toBe(
+      'In the creation slot, 2 wallets other than the creator got 30% of the supply; they hold none of it today.',
     );
   });
 });

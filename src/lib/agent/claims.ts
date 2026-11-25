@@ -13,7 +13,8 @@ import { roundTripsExcludedWords } from '../launch-story';
  *    only. Never true as stated.
  *  - `clean-record`: "the creator's own record looks clean", with a creator
  *    sale read on this token.
- *  - `no-sale`: "has not been seen selling", with a sale read.
+ *  - `no-sale`: "has not been seen selling", with a sale read; or "the
+ *    creator has not sold", unhedged, while not every move of it was read.
  *  - `no-link`: "no link between the creator and the holders", while wallets
  *    got tokens in transactions the creator paid for, wallets it sent SOL to
  *    traded the token, or its own creation transaction delivered tokens.
@@ -143,16 +144,33 @@ const soldOwn = (report: TokenReport): boolean | null => {
   return onToken.data.sold !== '0';
 };
 
+/**
+ * No sale seen, but not every move of the creator was read (a partial read
+ * is not a failed one: Meteora DBC 8xKZ…, 15 of 16 transactions), or no
+ * creator is known: "the creator has not sold" is then not a fact.
+ */
+const salesUnsettled = (report: TokenReport): boolean => {
+  const onToken = report.creatorOnToken;
+  return !onToken || (onToken.completeness !== 'full' && onToken.data.sold === '0');
+};
+
+/** A sentence that says the absence holds only for what was read. */
+const HEDGED =
+  /could\s+not\s+be\s+(?:read|listed)|not\s+(?:all|every)\b|not\s+(?:read|measured)|unknown|failed|(?:transactions?|moves?)\s+(?:it\s+)?read|in\s+what\s+was\s+read/i;
+
 /** The absences a failed read leaves unknown, as patterns: never said. */
 export function unreadPatterns(report: TokenReport): RegExp[] {
   const failed = report.failedReads ?? [];
   const creator = readFailed(failed, 'creator');
+  // "No funded wallet" only when the creator's transfers around the launch were all read.
+  const linked = report.linkedWallets;
+  const fundedUnsettled = !linked || linked.completeness !== 'full' || linked.data.window === null;
   return [
     ...(creator || readFailed(failed, 'creator-launches') ? NO_OTHER_LAUNCH : []),
     ...(creator || readFailed(failed, 'creator-sales') ? NO_SALE : []),
     ...(readFailed(failed, 'launch-replay') ? NOTHING_AT_LAUNCH : []),
     ...(readFailed(failed, 'holders') ? NO_LINK : []),
-    ...(creator || readFailed(failed, 'linked-wallets') ? NO_LINKED_WALLET : []),
+    ...(creator || readFailed(failed, 'linked-wallets') || fundedUnsettled ? NO_LINKED_WALLET : []),
     ...(readFailed(failed, 'market') ? NO_TRADE : []),
   ];
 }
@@ -179,7 +197,7 @@ export function forbiddenClaims(report: TokenReport): Set<ClaimKind> {
   const summary = launch.summary;
   const soldHere = soldOwn(report) === true || (summary?.creatorSold ?? 0) > 0;
   if (soldHere) kinds.add('clean-record');
-  if (soldHere) kinds.add('no-sale');
+  if (soldHere || salesUnsettled(report)) kinds.add('no-sale');
   const linkedTraded = (report.linkedWallets?.data.funded ?? []).some(
     (f) => f.onToken && (f.onToken.bought !== '0' || f.onToken.sold !== '0'),
   );
@@ -312,6 +330,8 @@ export function findClaims(text: string, report: TokenReport): Claim[] {
   const fixedMetadata =
     report.mint.data?.metadata?.isMutable === false &&
     !report.powers.some((p) => p.power === 'metadata-update' && p.status !== 'none');
+  // "No sale" is forbidden outright after a sale read; on a partial read, only unhedged.
+  const saleRead = soldOwn(report) === true || (report.launch.data.summary?.creatorSold ?? 0) > 0;
   const found: Claim[] = [];
   for (const paragraph of text.split(/\n{2,}/)) {
     for (const sentence of sentences(paragraph)) {
@@ -326,6 +346,7 @@ export function findClaims(text: string, report: TokenReport): Claim[] {
           continue;
         }
         if (kind === 'immutable' && fixedMetadata && ABOUT_METADATA.test(sentence)) continue;
+        if (kind === 'no-sale' && !saleRead && HEDGED.test(sentence)) continue;
         const about = ABOUT[kind];
         if (about && !about.test(sentence)) continue;
         if (PATTERNS[kind].some((p) => p.test(sentence))) {
