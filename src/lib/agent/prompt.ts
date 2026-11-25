@@ -1,6 +1,7 @@
 import type { LaunchMove, LaunchReplayData, SourceRef, TokenReport } from '../contracts';
 import { launchView, toFacts, toTimeline } from '../facts';
 import { buildGlance } from '../glance';
+import { pairsWords } from '../market';
 import { flowDate, flowPct, flowSentence, lockWords, type FlowNode } from '../supply-flow';
 import { roundTripsExcludedWords } from '../launch-story';
 import type { SpecialistAnswer } from '../specialists/brief';
@@ -95,7 +96,7 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
   const m = report.market.data;
   if (m.quiet) {
     lines.push(
-      `No trade for at least ${m.quiet.hours} h: do not say trading is active without saying so.`,
+      `No trade on any pair DexScreener lists for the token for at least ${m.quiet.hours} h: do not say trading is active without saying so.`,
     );
   }
 
@@ -293,15 +294,24 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
     ]),
     ...block('Market (DexScreener)', report.market, () => [
       `Main pair on ${m.dex ?? 'an unnamed venue'}${m.pairedWith?.symbol ? `, against ${m.pairedWith.symbol}` : ''}${m.pairCreatedAt ? `, created ${m.pairCreatedAt}` : ''}.`,
-      `Price ${m.priceUsd ?? 'not given'} USD; liquidity ${m.liquidityUsd === null ? 'not given' : `${m.liquidityUsd} USD`}; FDV ${m.fdvUsd ?? 'not given'} USD.`,
+      `Price ${m.priceUsd ?? 'not given'} USD; liquidity ${m.liquidityUsd === null ? 'not given' : `${m.liquidityUsd} USD`}; FDV ${m.fdvUsd ?? 'not given'} USD (the main pair's).`,
+      ...((m.pairsCounted ?? 1) > 1
+        ? [
+            `Volume and trades below are added up ${pairsWords(m.pairsCounted)}: the main pair and its pairs against SOL, USDC or USDT. Say so when quoting them; never present them as the main pair's alone.`,
+          ]
+        : m.volumeUsd || m.txns
+          ? [
+              'Volume and trades below are the main pair’s only: say "on its main pair" when quoting them.',
+            ]
+          : []),
       ...(m.volumeUsd
         ? [
-            `Volume, USD: 5 min ${m.volumeUsd.m5}, 1 h ${m.volumeUsd.h1}, 6 h ${m.volumeUsd.h6}, 24 h ${m.volumeUsd.h24}.`,
+            `Volume, USD, ${pairsWords(m.pairsCounted)}: 5 min ${m.volumeUsd.m5}, 1 h ${m.volumeUsd.h1}, 6 h ${m.volumeUsd.h6}, 24 h ${m.volumeUsd.h24}.`,
           ]
         : []),
       ...(m.txns
         ? [
-            `Trades: 1 h ${m.txns.h1.buys} buys and ${m.txns.h1.sells} sells; 24 h ${m.txns.h24.buys} buys and ${m.txns.h24.sells} sells.`,
+            `Trades ${pairsWords(m.pairsCounted)}: 1 h ${m.txns.h1.buys} buys and ${m.txns.h1.sells} sells; 24 h ${m.txns.h24.buys} buys and ${m.txns.h24.sells} sells.`,
           ]
         : []),
     ]),

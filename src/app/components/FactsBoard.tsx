@@ -564,8 +564,8 @@ function MarketCard({ market, solana }: { market: ReportFacts['market']; solana?
           )}
           {market.quietHours != null && (
             <p className="fact-line">
-              No trade in the last {market.quietHours === 1 ? 'hour' : `${market.quietHours} hours`}
-              .
+              No trade on any listed pair in the last{' '}
+              {market.quietHours === 1 ? 'hour' : `${market.quietHours} hours`}.
             </p>
           )}
           {trades > 0 && (

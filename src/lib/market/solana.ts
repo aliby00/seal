@@ -22,7 +22,9 @@ import type {
 
 /**
  * The market of a Solana token, as DexScreener lists it: price, liquidity,
- * 24 h volume, buys and sells, FDV, and the pools with their venue.
+ * 24 h volume, buys and sells, FDV, and the pools with their venue. Price,
+ * liquidity and FDV are the main pair's; volume and trades are added up over
+ * its pairs against SOL, USDC or USDT (`countedPairs`).
  *
  * Same reading as on Robinhood Chain (index.ts), with three differences:
  * addresses keep their case (base58 is case-sensitive: never lowercased);
@@ -129,6 +131,65 @@ function txns(source: DexScreenerPair['txns'], window: string) {
   return { buys: entry?.buys ?? 0, sells: entry?.sells ?? 0 };
 }
 
+/** Each listed pair once, by its address. */
+function distinct(pairs: readonly DexScreenerPair[]): DexScreenerPair[] {
+  const seen = new Set<string>();
+  return pairs.filter((p) => {
+    const id = p.pairAddress ?? '';
+    if (!id || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
+const WINDOWS = ['m5', 'h1', 'h6', 'h24'] as const;
+
+/** Trade counts and volumes of several pairs, window by window. */
+function addUp(pairs: readonly DexScreenerPair[]): {
+  txns: NonNullable<DexScreenerPair['txns']>;
+  volume: NonNullable<DexScreenerPair['volume']>;
+} {
+  const txnsSum: NonNullable<DexScreenerPair['txns']> = {};
+  const volume: NonNullable<DexScreenerPair['volume']> = {};
+  for (const pair of pairs) {
+    for (const w of WINDOWS) {
+      const t = pair.txns?.[w];
+      if (t) {
+        const sum = txnsSum[w] ?? { buys: 0, sells: 0 };
+        txnsSum[w] = {
+          buys: (sum.buys ?? 0) + (t.buys ?? 0),
+          sells: (sum.sells ?? 0) + (t.sells ?? 0),
+        };
+      }
+      const v = num(pair.volume?.[w]);
+      if (v !== null) volume[w] = (volume[w] ?? 0) + v;
+    }
+  }
+  return { txns: txnsSum, volume };
+}
+
+/**
+ * The pairs whose trades and volume are added up: the main pair, and every
+ * listed pair where the token is the base against SOL, USDC or USDT. A
+ * token's market is spread over many pools: JUP's main pair showed no trade
+ * in the last hour while 25 of its other pairs showed 1,286, and 1,770 trades
+ * over 24 h against 49,317 on all of them (DexScreener, 25/11/2026). Pairs
+ * against another token are left out of the sums: their USD figures go
+ * through that token's price, which can be far off (FIONA's MM pair, above).
+ */
+function countedPairs(
+  mint: string,
+  main: DexScreenerPair,
+  pairs: readonly DexScreenerPair[],
+): DexScreenerPair[] {
+  return distinct([
+    main,
+    ...pairs.filter(
+      (p) => p.baseToken?.address === mint && REFERENCE_QUOTES.has(p.quoteToken?.address ?? ''),
+    ),
+  ]);
+}
+
 export function toSolanaMarketState(
   mint: string,
   pairs: readonly DexScreenerPair[],
@@ -171,6 +232,16 @@ export function toSolanaMarketState(
   }
 
   const liquidityBase = num(pair.liquidity?.base);
+  const counted = countedPairs(mint, pair, pairs);
+  const sums = addUp(counted);
+  const withTxns = counted.some((p) => p.txns);
+  const withVolume = counted.some((p) => p.volume);
+  // "No trade" is said of every listed pair the token is in, either side:
+  // a trade in any of them is a trade of the token.
+  const all = distinct(
+    pairs.filter((p) => p.baseToken?.address === mint || p.quoteToken?.address === mint),
+  );
+  const everywhere = addUp(all);
   const data: SolanaMarketStateData = {
     chain: 'solana',
     token: mint,
@@ -181,19 +252,20 @@ export function toSolanaMarketState(
     priceNative: num(pair.priceNative),
     liquidityUsd: num(pair.liquidity?.usd),
     ...(liquidityBase !== null ? { liquidityBase } : {}),
-    volumeUsd: pair.volume
+    volumeUsd: withVolume
       ? {
-          m5: pair.volume.m5 ?? 0,
-          h1: pair.volume.h1 ?? 0,
-          h6: pair.volume.h6 ?? 0,
-          h24: pair.volume.h24 ?? 0,
+          m5: sums.volume.m5 ?? 0,
+          h1: sums.volume.h1 ?? 0,
+          h6: sums.volume.h6 ?? 0,
+          h24: sums.volume.h24 ?? 0,
         }
       : null,
-    txns: pair.txns ? { h1: txns(pair.txns, 'h1'), h24: txns(pair.txns, 'h24') } : null,
+    txns: withTxns ? { h1: txns(sums.txns, 'h1'), h24: txns(sums.txns, 'h24') } : null,
+    pairsCounted: counted.length,
     fdvUsd: num(pair.fdv),
     marketCapUsd: num(pair.marketCap),
     pairCreatedAt: pair.pairCreatedAt ? new Date(pair.pairCreatedAt).toISOString() : null,
-    ...(pair.txns ? { quiet: quietFor(pair.txns) } : {}),
+    ...(all.some((p) => p.txns) ? { quiet: quietFor(everywhere.txns, everywhere.volume) } : {}),
     pools,
   };
 

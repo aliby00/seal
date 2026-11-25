@@ -1,5 +1,5 @@
 import type { TokenReport } from '../contracts';
-import { volumePerTrade } from '../market';
+import { pairsWords, volumePerTrade } from '../market';
 import { sourcesFailed } from '../failed-reads';
 import { readableNote } from '../plain-note';
 import type { SolanaHolder } from '../solana/holders';
@@ -812,7 +812,7 @@ const volumeReality: Specialist = {
       const holders =
         h.completeness !== 'unavailable' && h.data.holderCount !== null ? h.data.holderCount : null;
       facts.push(
-        `${count(trades, 'trade')} in the last 24 hours on its listed pairs (${txns.h24.buys} buys, ${txns.h24.sells} sells)${perTrade !== null ? `, ${usd(perTrade)} per trade on average` : ''}${holders !== null ? `, while ${count(holders, 'wallet')} ${holders === 1 ? 'holds' : 'hold'} it today, curves and pools left out` : ''}.`,
+        `${count(trades, 'trade')} in the last 24 hours ${pairsWords(market.data.pairsCounted)} (${count(txns.h24.buys, 'buy')}, ${count(txns.h24.sells, 'sell')})${perTrade !== null ? `, ${usd(perTrade)} per trade on average` : ''}${holders !== null ? `, while ${count(holders, 'wallet')} ${holders === 1 ? 'holds' : 'hold'} it today, curves and pools left out` : ''}.`,
       );
       if (
         holders !== null &&
@@ -903,15 +903,15 @@ const sellPath: Specialist = {
       const { buys, sells } = txns.h24;
       if (sells > 0) {
         facts.push(
-          `${count(sells, 'sale')} went through in the last 24 hours on its listed pairs.`,
+          `${count(sells, 'sale')} went through in the last 24 hours ${pairsWords(market.data.pairsCounted)}.`,
         );
       } else if (buys >= BUYS_WITHOUT_SALE) {
         lead.push(
-          `${count(buys, 'buy', 'buys')} and no sale in the last 24 hours on its listed pairs.`,
+          `${count(buys, 'buy', 'buys')} and no sale in the last 24 hours ${pairsWords(market.data.pairsCounted)}.`,
         );
         signals.push('concern');
       } else {
-        facts.push('No sale in the last 24 hours on its listed pairs.');
+        facts.push(`No sale in the last 24 hours ${pairsWords(market.data.pairsCounted)}.`);
       }
     } else {
       limits.push(unread('its recent trades', market));

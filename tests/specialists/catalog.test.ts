@@ -396,6 +396,34 @@ describe('Volume Reality, Sell Path, Liquidity Move, Name Clone', () => {
     );
   });
 
+  it('says where the trades were counted: the main pair, or how many listed pairs', () => {
+    // USDC, 25/11/2026: its main pair's 141,028 trades were said "on its listed pairs".
+    const trades = (report: TokenReport) =>
+      ask('volume-reality', report).facts.find((f) => / in the last 24 hours /.test(f));
+    expect(trades(base)).toMatch(
+      /^70 trades in the last 24 hours on its main pair \(40 buys, 30 sells\)/,
+    );
+    expect(ask('sell-path', base).facts).toContain(
+      '30 sales went through in the last 24 hours on its main pair.',
+    );
+    const spread = solanaReport({
+      market: {
+        ...base.market,
+        data: {
+          ...base.market.data,
+          pairsCounted: 25,
+          txns: { h1: { buys: 128, sells: 73 }, h24: { buys: 94_218, sells: 94_746 } },
+        },
+      },
+    });
+    expect(trades(spread)).toMatch(
+      /^188,964 trades in the last 24 hours on 25 of its listed pairs \(94,218 buys, 94,746 sells\)/,
+    );
+    expect(ask('sell-path', spread).facts).toContain(
+      '94,746 sales went through in the last 24 hours on 25 of its listed pairs.',
+    );
+  });
+
   it('reassures on selling only when nothing in the mint can stop a sale and sales went through', () => {
     expect(ask('sell-path', base).signal).toBe('reassurance');
     const frozen = ask(

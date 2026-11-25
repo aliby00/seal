@@ -19,24 +19,49 @@ export function pickPrimaryPair(pairs: DexScreenerPair[]): DexScreenerPair | und
   return [...pairs].sort((a, b) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0))[0];
 }
 
+const WINDOWS = ['m5', 'h1', 'h6', 'h24'] as const;
+
 /**
- * No trade in the last N hours, from the pair's counts per window: the
- * longest window with no trade at all. `null` when the last five minutes
- * had one, or no window is quiet.
+ * No trade in the last N hours, from trade counts per window (one pair's, or
+ * every listed pair's added up): the longest window with no trade at all.
+ * `null` when no window is quiet.
+ *
+ * A window counts as quiet only when no window inside it shows a trade or a
+ * volume: DexScreener's windows can disagree. USDC's main pair showed 0
+ * trades in the last hour beside 133,953 over 24 h while its pool was swapped
+ * in many times that hour (read on chain, 25/11/2026).
  */
-export function quietFor(source: DexScreenerPair['txns']): { hours: number } | null {
+export function quietFor(
+  source: DexScreenerPair['txns'],
+  volume?: DexScreenerPair['volume'],
+): { hours: number } | null {
   const trades = (window: string) => {
     const t = source?.[window];
     return t ? (t.buys ?? 0) + (t.sells ?? 0) : null;
   };
+  const busy = (window: (typeof WINDOWS)[number]) =>
+    (trades(window) ?? 0) > 0 || (volume?.[window] ?? 0) > 0;
   for (const [window, hours] of [
     ['h24', 24],
     ['h6', 6],
     ['h1', 1],
   ] as const) {
-    if (trades(window) === 0) return { hours };
+    if (trades(window) !== 0) continue;
+    if (WINDOWS.slice(0, WINDOWS.indexOf(window) + 1).some(busy)) continue;
+    return { hours };
   }
   return null;
+}
+
+/**
+ * Where the trade counts and volume come from, in a few words: "on its main
+ * pair", "on 26 of its listed pairs". `undefined` (a report from before the
+ * counts were added up): "on its main pair", which is what they were.
+ */
+export function pairsWords(pairsCounted: number | undefined): string {
+  return pairsCounted === undefined || pairsCounted <= 1
+    ? 'on its main pair'
+    : `on ${pairsCounted.toLocaleString('en-US')} of its listed pairs`;
 }
 
 /** Pools kept per report, the most liquid first. */

@@ -6,6 +6,7 @@ import { createBudget } from '../../src/lib/http';
 import {
   mainPool,
   meaningfulPools,
+  quietFor,
   solanaTokenPairsUrl,
   volumePerTrade,
   type DexScreenerPair,
@@ -41,7 +42,12 @@ const MINTS = {
   'launchlab-curve': 'FnYLY1FQqbfNiMdDpedMPwpKWdM8RtAkwWBvWYNAwq4T',
   ray: '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R',
 } as const;
-type Slug = keyof typeof MINTS;
+/** DexScreener's answer only, no node recording (25/11/2026, 10:50 UTC). */
+const LISTED_ONLY = {
+  usdc: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  jup: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',
+} as const;
+type Slug = keyof typeof MINTS | keyof typeof LISTED_ONLY;
 
 function pairsOf(slug: Slug): DexScreenerPair[] {
   return JSON.parse(
@@ -218,6 +224,92 @@ describe('toSolanaMarketState on recorded answers', () => {
   });
 });
 
+describe('trades and volume over the listed pairs, not the main pair alone', () => {
+  // DexScreener's answers for JUP and USDC on 25/11/2026, 10:50 UTC. Each
+  // main pair showed no trade in the last hour while its pool was swapped in
+  // that hour on chain (JUP C8Gr6…: 33 transactions; USDC DJNtGu…: 1,979 in
+  // 13 minutes), and their other pairs showed hundreds.
+  it('JUP: the main pair says no trade in the last hour, its other pairs 1,235: not quiet', () => {
+    const pairs = pairsOf('jup');
+    const state = toSolanaMarketState(LISTED_ONLY.jup, pairs, { now: at });
+    const main = pairs.find((p) => p.pairAddress === state.data.pair);
+    expect(state.data.pair).toBe('C8Gr6AUuq9hEdSYJzoEpNcdjpojPZwqG5MtQbeouNNwg');
+    expect(main?.txns?.h1).toEqual({ buys: 0, sells: 0 });
+    expect(state.data.quiet).toBeNull();
+    expect(state.data.pairsCounted).toBe(28);
+    expect(state.data.txns).toEqual({
+      h1: { buys: 596, sells: 639 },
+      h24: { buys: 24_319, sells: 23_857 },
+    });
+    expect(state.data.volumeUsd?.h24).toBeCloseTo(2_302_266.3, 1);
+    // Price, liquidity and FDV stay the main pair's.
+    expect(state.data.liquidityUsd).toBe(main?.liquidity?.usd);
+    expect(state.data.fdvUsd).toBe(main?.fdv);
+  });
+
+  it('USDC: 188,964 trades over 25 pairs, not the main pair’s 141,028, and none quiet', () => {
+    const state = toSolanaMarketState(LISTED_ONLY.usdc, pairsOf('usdc'), { now: at });
+    expect(state.data.pair).toBe('DJNtGuBGEQiUCWE8F981M2C3ZghZt2XLD8f2sQdZ6rsZ');
+    expect(state.data.quiet).toBeNull();
+    expect(state.data.pairsCounted).toBe(25);
+    expect(state.data.txns?.h24).toEqual({ buys: 94_218, sells: 94_746 });
+    expect(state.data.txns?.h1).toEqual({ buys: 128, sells: 73 });
+    expect(state.data.volumeUsd?.h24).toBeCloseTo(15_693_112.68, 1);
+  });
+
+  it('leaves out of the sums a pair against another token: its USD figures go through that token', () => {
+    // FIONA's MM pair priced it at $35 against $0.0034 everywhere else.
+    const pairs = pairsOf('pump-graduated');
+    const state = toSolanaMarketState(MINTS['pump-graduated'], pairs, { now: at });
+    const spoof = pairs.find(
+      (p) => p.pairAddress === 'AnZQ2WkdREg5v1cLT96mnt63wYysRXPtfnkU8JVFDN2f',
+    );
+    const counted = pairs.filter(
+      (p) =>
+        p.baseToken?.address === MINTS['pump-graduated'] &&
+        ['SOL', 'USDC', 'USDT'].includes(p.quoteToken?.symbol ?? ''),
+    );
+    expect(spoof?.volume?.h24).toBeGreaterThan(0);
+    expect(state.data.pairsCounted).toBe(counted.length);
+    expect(state.data.volumeUsd?.h24).toBeCloseTo(
+      counted.reduce((s, p) => s + (p.volume?.h24 ?? 0), 0),
+      2,
+    );
+  });
+
+  it('a token with one pair reads that pair: Bouncer’s curve, against XMR', () => {
+    const pairs = pairsOf('pump-curve-xmr');
+    const state = toSolanaMarketState(MINTS['pump-curve-xmr'], pairs, { now: at });
+    expect(state.data.pairsCounted).toBe(1);
+    expect(state.data.txns?.h24).toEqual({ buys: 506, sells: 527 });
+    // Its last hour went quiet a day later (DexScreener, 25/11/2026, 10:50 UTC).
+    const later = pairs.map((p) => ({
+      ...p,
+      txns: { ...p.txns, m5: { buys: 0, sells: 0 }, h1: { buys: 0, sells: 0 } },
+      volume: { h24: 61_570.94, h6: 9.24 },
+    }));
+    expect(toSolanaMarketState(MINTS['pump-curve-xmr'], later, { now: at }).data.quiet).toEqual({
+      hours: 1,
+    });
+  });
+
+  it('quietFor: a window is quiet only when no window inside it shows a trade or a volume', () => {
+    const none = { buys: 0, sells: 0 };
+    expect(quietFor({ h1: none, h6: { buys: 1, sells: 0 }, h24: { buys: 9, sells: 9 } })).toEqual({
+      hours: 1,
+    });
+    // DexScreener's windows disagreeing: 0 trades in the hour, yet trades in the last 5 minutes.
+    expect(
+      quietFor({ m5: { buys: 2, sells: 0 }, h1: none, h24: { buys: 9, sells: 9 } }),
+    ).toBeNull();
+    // Or a volume in the hour with no trade counted.
+    expect(
+      quietFor({ h1: none, h24: { buys: 9, sells: 9 } }, { h1: 87.49, h24: 1_000 }),
+    ).toBeNull();
+    expect(quietFor({ h1: none, h6: none, h24: none })).toEqual({ hours: 24 });
+  });
+});
+
 describe('helpers shared with Robinhood Chain', () => {
   it('mainPool finds a Solana pool by its exact id', () => {
     const state = toSolanaMarketState(MINTS['dbc-migrated-usdc'], pairsOf('dbc-migrated-usdc'), {
@@ -274,7 +366,7 @@ describe('fetchSolanaPairs', () => {
 });
 
 describe('readSolanaMarket, the whole zone, on recorded answers', () => {
-  const read = async (slug: Slug) => {
+  const read = async (slug: keyof typeof MINTS) => {
     stubDexScreener(pairsOf(slug));
     // The recordings come from the public node, which does not serve getTokenLargestAccounts.
     const rpc = fakeRpcFor('market', [`${slug}.json`]);
@@ -335,7 +427,7 @@ describe('readSolanaMarket, the whole zone, on recorded answers', () => {
   });
 
   it('every recorded token reads within the call cap', async () => {
-    for (const slug of Object.keys(MINTS) as Slug[]) {
+    for (const slug of Object.keys(MINTS) as (keyof typeof MINTS)[]) {
       const { result, calls } = await read(slug);
       expect(calls, slug).toBeLessThanOrEqual(8);
       expect(result.market.sources[0]?.name).toBe('dexscreener-solana');

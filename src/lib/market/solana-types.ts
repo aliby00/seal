@@ -40,6 +40,13 @@ export type SolanaMarketStateData = Omit<MarketStateData, 'pools'> & {
   /** Price in the paired token, as DexScreener gives it. */
   priceNative: number | null;
   marketCapUsd: number | null;
+  /**
+   * How many listed pairs `volumeUsd` and `txns` add up: the main pair and
+   * every pair where the token is traded against SOL, USDC or USDT. `quiet`
+   * is read on every listed pair the token is in. Absent from older reports,
+   * whose figures were the main pair's only.
+   */
+  pairsCounted?: number;
   /** The token's listed pools, the most liquid first, the main one among them. */
   pools: SolanaListedPool[];
 };

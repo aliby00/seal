@@ -1,0 +1,1480 @@
+[
+  {
+    "chainId": "solana",
+    "dexId": "pancakeswap",
+    "pairAddress": "DJNtGuBGEQiUCWE8F981M2C3ZghZt2XLD8f2sQdZ6rsZ",
+    "baseToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.01458",
+    "priceUsd": "1.0017",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 3215,
+        "sells": 4806
+      },
+      "h24": {
+        "buys": 69822,
+        "sells": 71206
+      }
+    },
+    "volume": {
+      "h24": 8082385.7,
+      "h6": 450547.5
+    },
+    "liquidity": {
+      "base": 117348,
+      "quote": 30855,
+      "usd": 2237040.67
+    },
+    "fdv": 9067501294,
+    "marketCap": 69077409073
+  },
+  {
+    "chainId": "solana",
+    "dexId": "pancakeswap",
+    "pairAddress": "4QU2NpRaqmKMvPSwVKQDeW4V6JFEKJdkzbzdauumD9qN",
+    "baseToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.01458",
+    "priceUsd": "1.0019",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 446,
+        "sells": 438
+      },
+      "h24": {
+        "buys": 7835,
+        "sells": 7856
+      }
+    },
+    "volume": {
+      "h24": 54374.35,
+      "h6": 2675.72
+    },
+    "liquidity": {
+      "base": 10011,
+      "quote": 2813.2436,
+      "usd": 203244.37
+    },
+    "fdv": 9068915869,
+    "marketCap": 69088185490
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "AdmoAEv4VKu2nUwYt8Ps59SoPnF53yFxQgZD6sFwMZF5",
+    "labels": [
+      "DLMM Pro"
+    ],
+    "baseToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.01456",
+    "priceUsd": "0.9987",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 371,
+        "sells": 400
+      },
+      "h24": {
+        "buys": 6936,
+        "sells": 7232
+      }
+    },
+    "volume": {
+      "h24": 312075.74,
+      "h6": 15418.34
+    },
+    "liquidity": {
+      "base": 45451,
+      "quote": 785.9861,
+      "usd": 99273.34
+    },
+    "fdv": 9040211468,
+    "marketCap": 68869511618,
+    "pairCreatedAt": 1795277161000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "pairAddress": "BZtgQEyS6eXUXicYPHecYQ7PybqodXQMvkjUbP4R8mUU",
+    "labels": [
+      "CLMM"
+    ],
+    "baseToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "quoteToken": {
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "name": "USDT",
+      "symbol": "USDT"
+    },
+    "priceNative": "1.001187",
+    "priceUsd": "1.0011",
+    "txns": {
+      "m5": {
+        "buys": 2,
+        "sells": 1
+      },
+      "h1": {
+        "buys": 27,
+        "sells": 12
+      },
+      "h6": {
+        "buys": 87,
+        "sells": 293
+      },
+      "h24": {
+        "buys": 1850,
+        "sells": 801
+      }
+    },
+    "volume": {
+      "h24": 5443821.78,
+      "h6": 87972.26,
+      "h1": 36878.36,
+      "m5": 638.42
+    },
+    "liquidity": {
+      "base": 138362,
+      "quote": 1713645,
+      "usd": 1852171.76
+    },
+    "fdv": 9353993016,
+    "marketCap": 69038271896,
+    "pairCreatedAt": 1723699296000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "pairAddress": "4fuUiYxTQ6QCrdSq9ouBYcTM7bqSwYTSyLueGZLTy4T4",
+    "labels": [
+      "wp"
+    ],
+    "baseToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "quoteToken": {
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "name": "USDT",
+      "symbol": "USDT"
+    },
+    "priceNative": "1.001223",
+    "priceUsd": "1.0012",
+    "txns": {
+      "m5": {
+        "buys": 13,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 60,
+        "sells": 10
+      },
+      "h6": {
+        "buys": 158,
+        "sells": 76
+      },
+      "h24": {
+        "buys": 1531,
+        "sells": 964
+      }
+    },
+    "volume": {
+      "h24": 1596042.71,
+      "h6": 135041.21,
+      "h1": 122873.87,
+      "m5": 80.23
+    },
+    "liquidity": {
+      "base": 158879,
+      "quote": 468914,
+      "usd": 627988.36
+    },
+    "fdv": 9354326206,
+    "marketCap": 69040731046,
+    "pairCreatedAt": 1669603219000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "32D4zRxNc1EssbJieVHfPhZM3rH6CzfUPrWUuWxD9prG",
+    "labels": [
+      "DYN"
+    ],
+    "baseToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "quoteToken": {
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "name": "USDT",
+      "symbol": "USDT"
+    },
+    "priceNative": "1.001222",
+    "priceUsd": "1.0012",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 32,
+        "sells": 32
+      },
+      "h6": {
+        "buys": 93,
+        "sells": 172
+      },
+      "h24": {
+        "buys": 509,
+        "sells": 723
+      }
+    },
+    "volume": {
+      "h24": 62192.86,
+      "h6": 15049.47,
+      "h1": 7062.39
+    },
+    "liquidity": {
+      "base": 49089,
+      "quote": 370742,
+      "usd": 419891.85
+    },
+    "fdv": 8910629577,
+    "marketCap": 69040690116,
+    "pairCreatedAt": 1703167204000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "ARwi1S4DaiTG5DX7S4M4ZsrXqpMD1MrTmbu9ue2tpmEq",
+    "labels": [
+      "DLMM"
+    ],
+    "baseToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "quoteToken": {
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "name": "USDT",
+      "symbol": "USDT"
+    },
+    "priceNative": "1.001301",
+    "priceUsd": "1.0013",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 2,
+        "sells": 3
+      },
+      "h6": {
+        "buys": 50,
+        "sells": 26
+      },
+      "h24": {
+        "buys": 273,
+        "sells": 199
+      }
+    },
+    "volume": {
+      "h24": 119183.65,
+      "h6": 2497.78,
+      "h1": 135.2
+    },
+    "liquidity": {
+      "base": 65380,
+      "quote": 177423,
+      "usd": 242888.61
+    },
+    "fdv": 9355059931,
+    "marketCap": 69046146386,
+    "pairCreatedAt": 1706214035000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "Fpr8EzktEQKA2PMw2t4Pbo3iGCJbasUJ516gGpFmNpui",
+    "labels": [
+      "DLMM"
+    ],
+    "baseToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "quoteToken": {
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "name": "USDT",
+      "symbol": "USDT"
+    },
+    "priceNative": "1.001097",
+    "priceUsd": "1.0010",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 1,
+        "sells": 3
+      },
+      "h6": {
+        "buys": 14,
+        "sells": 22
+      },
+      "h24": {
+        "buys": 70,
+        "sells": 76
+      }
+    },
+    "volume": {
+      "h24": 4396.15,
+      "h6": 586.4,
+      "h1": 110.17
+    },
+    "liquidity": {
+      "base": 51871,
+      "quote": 47855,
+      "usd": 99783.32
+    },
+    "fdv": 9353147947,
+    "marketCap": 69032034760,
+    "pairCreatedAt": 1795256924000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "pairAddress": "F13xvvx45jVGd84ynK3c8T89UejQVxjCLtmHfPmAXAHP",
+    "labels": [
+      "v2"
+    ],
+    "baseToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "quoteToken": {
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "name": "USDT",
+      "symbol": "USDT"
+    },
+    "priceNative": "0.9523",
+    "priceUsd": "0.9523",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 2
+      },
+      "h6": {
+        "buys": 8,
+        "sells": 7
+      },
+      "h24": {
+        "buys": 13,
+        "sells": 24
+      }
+    },
+    "volume": {
+      "h24": 22.94,
+      "h6": 0.07
+    },
+    "liquidity": {
+      "base": 20948,
+      "quote": 24064,
+      "usd": 44014.65
+    },
+    "fdv": 8897998400,
+    "marketCap": 65672748719,
+    "pairCreatedAt": 1669604057000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "pairAddress": "3NeUgARDmFgnKtkJLqUcEUNCfknFCcGsFfMJCtx6bAgx",
+    "labels": [
+      "CLMM"
+    ],
+    "baseToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "quoteToken": {
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "name": "USDT",
+      "symbol": "USDT"
+    },
+    "priceNative": "1.001200",
+    "priceUsd": "1.0012",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 5
+      },
+      "h6": {
+        "buys": 29,
+        "sells": 33
+      },
+      "h24": {
+        "buys": 158,
+        "sells": 146
+      }
+    },
+    "volume": {
+      "h24": 1351.19,
+      "h6": 209.82,
+      "h1": 8.45
+    },
+    "liquidity": {
+      "base": 17620,
+      "quote": 19095,
+      "usd": 36736.71
+    },
+    "fdv": 9354115870,
+    "marketCap": 69039178632,
+    "pairCreatedAt": 1723699419000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "pancakeswap",
+    "pairAddress": "8VXj6uz61v8yAu7m9pVEYNYjJwjK7WfFbRCs3YyXY6Bb",
+    "baseToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.01458",
+    "priceUsd": "1.0020",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 104,
+        "sells": 164
+      },
+      "h24": {
+        "buys": 2022,
+        "sells": 2373
+      }
+    },
+    "volume": {
+      "h24": 184.94,
+      "h6": 8.65
+    },
+    "liquidity": {
+      "base": 24.4918,
+      "quote": 0.9963,
+      "usd": 92.97
+    },
+    "fdv": 9070144461,
+    "marketCap": 69097545063
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "4YCSViu6q8MQ9YVAptUvNicYaqMB6TsXQi7ET3bJvdsr",
+    "labels": [
+      "DLMM Pro"
+    ],
+    "baseToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.01457",
+    "priceUsd": "0.9989",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 276,
+        "sells": 315
+      },
+      "h24": {
+        "buys": 2571,
+        "sells": 2596
+      }
+    },
+    "volume": {
+      "h24": 8602.85,
+      "h6": 507.64
+    },
+    "liquidity": {
+      "base": 343.8583,
+      "quote": 5.9213,
+      "usd": 749.41
+    },
+    "fdv": 9042385070,
+    "marketCap": 68886070401,
+    "pairCreatedAt": 1795276008000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "4nkJrNo9yEaGXqPKdB8PqJoyRZiVKzgRitqnrkx1Qotc",
+    "labels": [
+      "DLMM"
+    ],
+    "baseToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "quoteToken": {
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "name": "USDT",
+      "symbol": "USDT"
+    },
+    "priceNative": "0.9997",
+    "priceUsd": "0.9997",
+    "txns": {
+      "m5": {
+        "buys": 1,
+        "sells": 4
+      },
+      "h1": {
+        "buys": 1,
+        "sells": 5
+      },
+      "h6": {
+        "buys": 22,
+        "sells": 34
+      },
+      "h24": {
+        "buys": 98,
+        "sells": 131
+      }
+    },
+    "volume": {
+      "h24": 3956.31,
+      "h6": 358.42,
+      "h1": 20,
+      "m5": 20
+    },
+    "liquidity": {
+      "base": 978.882,
+      "quote": 1598.4238,
+      "usd": 2577.04
+    },
+    "fdv": 9340440309,
+    "marketCap": 68938244511,
+    "pairCreatedAt": 1712432719000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "pairAddress": "FPPHjpjBk98pd5Z3xXQuDcrZdUdqfraCRJU8yvdT1ZKR",
+    "labels": [
+      "wp"
+    ],
+    "baseToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "quoteToken": {
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "name": "USDT",
+      "symbol": "USDT"
+    },
+    "priceNative": "1.001466",
+    "priceUsd": "1.0014",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 2,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 7,
+        "sells": 12
+      },
+      "h24": {
+        "buys": 28,
+        "sells": 23
+      }
+    },
+    "volume": {
+      "h24": 290.88,
+      "h6": 127.08,
+      "h1": 14
+    },
+    "liquidity": {
+      "base": 399.003665,
+      "quote": 2074.2992,
+      "usd": 2473.88
+    },
+    "fdv": 9356603070,
+    "marketCap": 69057535714,
+    "pairCreatedAt": 1703788397000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "pairAddress": "CxF3jKhGrauHQjFk8L5XUkLTjmeLFqHUYHLCYYSautMC",
+    "labels": [
+      "wp"
+    ],
+    "baseToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "quoteToken": {
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "name": "USDT",
+      "symbol": "USDT"
+    },
+    "priceNative": "1.002062",
+    "priceUsd": "1.0020",
+    "txns": {
+      "m5": {
+        "buys": 3,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 3,
+        "sells": 1
+      },
+      "h6": {
+        "buys": 7,
+        "sells": 6
+      },
+      "h24": {
+        "buys": 35,
+        "sells": 27
+      }
+    },
+    "volume": {
+      "h24": 1075.21,
+      "h6": 229.63,
+      "h1": 78.34,
+      "m5": 75
+    },
+    "liquidity": {
+      "base": 256.000463,
+      "quote": 2017.2191,
+      "usd": 2273.74
+    },
+    "fdv": 9362167908,
+    "marketCap": 69098607673,
+    "pairCreatedAt": 1674184768000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "pairAddress": "ELqXddRqcnRJXQnqZdPwBXEEBpQ6SEbCQrBe12wpHBU",
+    "labels": [
+      "wp"
+    ],
+    "baseToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "quoteToken": {
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "name": "USDT",
+      "symbol": "USDT"
+    },
+    "priceNative": "1.001124",
+    "priceUsd": "1.0011",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 25,
+        "sells": 57
+      }
+    },
+    "volume": {
+      "h24": 926.43
+    },
+    "liquidity": {
+      "base": 422.2929,
+      "quote": 844.7252,
+      "usd": 1267.49
+    },
+    "fdv": 9353402483,
+    "marketCap": 69033913391,
+    "pairCreatedAt": 1709683865000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "FcjjezXg8afwpVWxdVcXALLkqSXAAoGLuWaS6LmtNoZG",
+    "labels": [
+      "DLMM"
+    ],
+    "baseToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "quoteToken": {
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "name": "USDT",
+      "symbol": "USDT"
+    },
+    "priceNative": "1.001896",
+    "priceUsd": "1.0018",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 6,
+        "sells": 5
+      },
+      "h24": {
+        "buys": 50,
+        "sells": 25
+      }
+    },
+    "volume": {
+      "h24": 258.79,
+      "h6": 56.46
+    },
+    "liquidity": {
+      "base": 392.5969,
+      "quote": 452.8002,
+      "usd": 846.14
+    },
+    "fdv": 9360615261,
+    "marketCap": 69087148168,
+    "pairCreatedAt": 1717802485000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "8kvGYkeqDnb21b2BnSb9BMS2gJSfqF91EhpvAtzExCfM",
+    "labels": [
+      "DLMM"
+    ],
+    "baseToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "quoteToken": {
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "name": "USDT",
+      "symbol": "USDT"
+    },
+    "priceNative": "1.001195",
+    "priceUsd": "1.0011",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 1,
+        "sells": 1
+      }
+    },
+    "volume": {},
+    "liquidity": {
+      "base": 745.3568,
+      "quote": 864.4233,
+      "usd": 1610.67
+    },
+    "fdv": 9354068691,
+    "marketCap": 69038830423,
+    "pairCreatedAt": 1712616388000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "4bg8UDLXEm4T6pCyoW7iUizAz9HMoxhTAtMquSXigFZu",
+    "labels": [
+      "DLMM"
+    ],
+    "baseToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "quoteToken": {
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "name": "USDT",
+      "symbol": "USDT"
+    },
+    "priceNative": "0.9907",
+    "priceUsd": "0.9907",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h24": {
+        "buys": 26,
+        "sells": 21
+      }
+    },
+    "volume": {
+      "h24": 524.43
+    },
+    "liquidity": {
+      "base": 190.915,
+      "quote": 387.4104,
+      "usd": 576.55
+    },
+    "fdv": 9256390002,
+    "marketCap": 68317901098,
+    "pairCreatedAt": 1715973763000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "pancakeswap",
+    "pairAddress": "4yTQ8Z4wCp6y7ca5ZkPBZ6haNLfXPUXjzVzbnvvqbQcn",
+    "baseToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.01454",
+    "priceUsd": "0.9971",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 3,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 34,
+        "sells": 12
+      }
+    },
+    "volume": {
+      "h24": 0.07
+    },
+    "liquidity": {
+      "base": 23.4645,
+      "quote": 5.3021,
+      "usd": 386.96
+    },
+    "fdv": 9025840205,
+    "marketCap": 68760029461
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "uGv7HFB1cKuxoAb36g65BzK8UVorpAR7SfrkwDZRzdJ",
+    "labels": [
+      "DLMM"
+    ],
+    "baseToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "quoteToken": {
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "name": "USDT",
+      "symbol": "USDT"
+    },
+    "priceNative": "1.001442",
+    "priceUsd": "1.0014",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 13,
+        "sells": 10
+      }
+    },
+    "volume": {
+      "h24": 5.32
+    },
+    "liquidity": {
+      "base": 33.3044,
+      "quote": 61.1994,
+      "usd": 94.55
+    },
+    "fdv": 9356372405,
+    "marketCap": 69055833264,
+    "pairCreatedAt": 1712653306000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "pairAddress": "FPfbntAR84nyxfcmATEwYG55joLcPCxgYBC3BTPqB7yR",
+    "labels": [
+      "CLMM"
+    ],
+    "baseToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "quoteToken": {
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "name": "USDT",
+      "symbol": "USDT"
+    },
+    "priceNative": "1.0008392",
+    "priceUsd": "1.00083",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 3,
+        "sells": 1
+      }
+    },
+    "volume": {
+      "h24": 7.21
+    },
+    "liquidity": {
+      "base": 11.3664,
+      "quote": 111.3188,
+      "usd": 122.69
+    },
+    "fdv": 9350738946,
+    "marketCap": 69014254837,
+    "pairCreatedAt": 1723730288000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "pancakeswap",
+    "pairAddress": "3M5vVLykKgNMr5FXucLKkRiyE5uq2msEfvD2haYH1rhw",
+    "baseToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "quoteToken": {
+      "address": "2zMMhcVQEXDtdE6vsFS7S7D5oUodfJHE8vd1gnBouauv",
+      "name": "Pudgy Penguins",
+      "symbol": "PENGU"
+    },
+    "priceNative": "234.8702",
+    "priceUsd": "0.9859",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 4,
+        "sells": 0
+      }
+    },
+    "volume": {},
+    "liquidity": {
+      "base": 0.2656,
+      "quote": 75621,
+      "usd": 317.72
+    },
+    "fdv": 8924760610,
+    "marketCap": 67989991900
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "pairAddress": "Es7bSM24764r8RUzoL8eecf9VVjeJmLTjZ6NSbo8MXtL",
+    "labels": [
+      "wp"
+    ],
+    "baseToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "quoteToken": {
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "name": "USDT",
+      "symbol": "USDT"
+    },
+    "priceNative": "1.0006800",
+    "priceUsd": "1.00068",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 0,
+        "sells": 1
+      }
+    },
+    "volume": {
+      "h24": 1.68
+    },
+    "liquidity": {
+      "base": 14.5801,
+      "quote": 82.6112,
+      "usd": 97.2
+    },
+    "fdv": 9349252272,
+    "marketCap": 69003282266,
+    "pairCreatedAt": 1753018231000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "HiSk9RZMczoey5rtgrgLpZxhR9QXQ57ac9VaDidunw4Y",
+    "labels": [
+      "DLMM Pro"
+    ],
+    "baseToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.01439",
+    "priceUsd": "1.00013",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 309,
+        "sells": 238
+      }
+    },
+    "volume": {
+      "h24": 1405.87
+    },
+    "liquidity": {
+      "base": 0.305,
+      "quote": 0.002906,
+      "usd": 0.5
+    },
+    "fdv": 9052833597,
+    "marketCap": 68965668645,
+    "pairCreatedAt": 1795466560000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "4N41hUkrayX6duXJH8oYzybVpH3mcbG8TzoM14VXmTmh",
+    "labels": [
+      "DLMM"
+    ],
+    "baseToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "quoteToken": {
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "name": "USDT",
+      "symbol": "USDT"
+    },
+    "priceNative": "1.001408",
+    "priceUsd": "1.0014",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 3,
+        "sells": 1
+      },
+      "h24": {
+        "buys": 6,
+        "sells": 3
+      }
+    },
+    "volume": {
+      "h24": 25.62,
+      "h6": 17.4
+    },
+    "liquidity": {
+      "base": 24.1886,
+      "quote": 23.6923,
+      "usd": 47.91
+    },
+    "fdv": 9356061805,
+    "marketCap": 69053540843,
+    "pairCreatedAt": 1712984304000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "pumpswap",
+    "pairAddress": "B4Cp45PGifVM5FAXfh6AeV8QZ3eUNQnqGBw7KuC7MHnB",
+    "baseToken": {
+      "address": "DtcicPCKTKeAh7TDEzTym3hXeoHAoMiBdYJhMYxZpump",
+      "name": "Cartoon Money",
+      "symbol": "CBUCKS"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "0.005477",
+    "priceUsd": "0.005477",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 2
+      },
+      "h1": {
+        "buys": 23,
+        "sells": 22
+      },
+      "h6": {
+        "buys": 326,
+        "sells": 230
+      },
+      "h24": {
+        "buys": 821,
+        "sells": 720
+      }
+    },
+    "volume": {
+      "h24": 296903.34,
+      "h6": 141278.93,
+      "h1": 3628.16,
+      "m5": 7.72
+    },
+    "liquidity": {
+      "base": 24144071,
+      "quote": 130788,
+      "usd": 263032.63
+    },
+    "fdv": 5161835,
+    "marketCap": 5161835,
+    "pairCreatedAt": 1791311393000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "pumpswap",
+    "pairAddress": "7CNC9gGegzEfFK8fLXiYUhdtMEeFPQZoND56U1Mxhnor",
+    "baseToken": {
+      "address": "FVzqGqRmr4UH1Fif6dewmwbJ1p4YUZCu8dcw4Efopump",
+      "name": "Hogecoin",
+      "symbol": "HOGE"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "0.0006961",
+    "priceUsd": "0.0006961",
+    "txns": {
+      "m5": {
+        "buys": 1,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 48,
+        "sells": 55
+      },
+      "h6": {
+        "buys": 278,
+        "sells": 190
+      },
+      "h24": {
+        "buys": 1364,
+        "sells": 1120
+      }
+    },
+    "volume": {
+      "h24": 177759.45,
+      "h6": 36716.72,
+      "h1": 11961.39,
+      "m5": 31.72
+    },
+    "liquidity": {
+      "base": 78482676,
+      "quote": 51575,
+      "usd": 106210.21
+    },
+    "fdv": 665063,
+    "marketCap": 665063,
+    "pairCreatedAt": 1794725770000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "pairAddress": "HnhpJPJgBG2KwniMTNW8cVBHvk1hFog3RC3kjnyc23tD",
+    "labels": [
+      "CLMM"
+    ],
+    "baseToken": {
+      "address": "CARDSccUMFKoPRZxt5vt3ksUbxEFEcnZ3H2pd3dKxYjp",
+      "name": "Collector Crypt",
+      "symbol": "CARDS"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "0.1618",
+    "priceUsd": "0.1618",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 22,
+        "sells": 39
+      },
+      "h6": {
+        "buys": 177,
+        "sells": 271
+      },
+      "h24": {
+        "buys": 988,
+        "sells": 1135
+      }
+    },
+    "volume": {
+      "h24": 745890.09,
+      "h6": 132519.84,
+      "h1": 10125.85
+    },
+    "liquidity": {
+      "base": 12054393,
+      "quote": 1332751,
+      "usd": 3283233.59
+    },
+    "fdv": 323613553,
+    "marketCap": 144085943,
+    "pairCreatedAt": 1756493686000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "pumpswap",
+    "pairAddress": "2uF4Xh61rDwxnG9woyxsVQP7zuA6kLFpb3NvnRQeoiSd",
+    "baseToken": {
+      "address": "pumpCmXqMfrsAkQ5r49WcJnRayYRqmXz6ae8H7H9Dfn",
+      "name": "Pump",
+      "symbol": "PUMP"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "0.002360",
+    "priceUsd": "0.002360",
+    "txns": {
+      "m5": {
+        "buys": 1,
+        "sells": 1
+      },
+      "h1": {
+        "buys": 41,
+        "sells": 189
+      },
+      "h6": {
+        "buys": 391,
+        "sells": 788
+      },
+      "h24": {
+        "buys": 5132,
+        "sells": 7436
+      }
+    },
+    "volume": {
+      "h24": 2648432.94,
+      "h6": 410148.97,
+      "h1": 80497.93,
+      "m5": 55.1
+    },
+    "liquidity": {
+      "base": 3693001384,
+      "quote": 8693390,
+      "usd": 17410690.94
+    },
+    "fdv": 1936915146,
+    "marketCap": 832984970,
+    "pairCreatedAt": 1752512149000
+  }
+]

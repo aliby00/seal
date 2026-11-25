@@ -1,0 +1,1527 @@
+[
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "pairAddress": "C1MgLojNLWBKADvu9BHdtgzz1oZX4dZ5zGdGcgvvW8Wz",
+    "labels": [
+      "wp"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.003177",
+    "priceUsd": "0.2144",
+    "txns": {
+      "m5": {
+        "buys": 10,
+        "sells": 20
+      },
+      "h1": {
+        "buys": 178,
+        "sells": 168
+      },
+      "h6": {
+        "buys": 1210,
+        "sells": 1027
+      },
+      "h24": {
+        "buys": 6139,
+        "sells": 5085
+      }
+    },
+    "volume": {
+      "h24": 532592.25,
+      "h6": 101947.22,
+      "h1": 16078.48,
+      "m5": 1190.37
+    },
+    "liquidity": {
+      "base": 932688,
+      "quote": 2988.3984,
+      "usd": 401609.19
+    },
+    "fdv": 1500897205,
+    "marketCap": 711721041,
+    "pairCreatedAt": 1706675725000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "pairAddress": "EZVkeboWeXygtq8LMyENHyXdF5wpYrtExRNH9UwB1qYw",
+    "labels": [
+      "CLMM"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.003178",
+    "priceUsd": "0.2144",
+    "txns": {
+      "m5": {
+        "buys": 4,
+        "sells": 2
+      },
+      "h1": {
+        "buys": 109,
+        "sells": 70
+      },
+      "h6": {
+        "buys": 538,
+        "sells": 555
+      },
+      "h24": {
+        "buys": 2797,
+        "sells": 2447
+      }
+    },
+    "volume": {
+      "h24": 43782.97,
+      "h6": 9406.18,
+      "h1": 3190.69,
+      "m5": 28.54
+    },
+    "liquidity": {
+      "base": 102779,
+      "quote": 232.5518,
+      "usd": 37734.02
+    },
+    "fdv": 1501324891,
+    "marketCap": 711923849,
+    "pairCreatedAt": 1723699335000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "pairAddress": "4Ui9QdDNuUaAGqCPcDSp191QrixLzQiLxJ1Gnqvz3szP",
+    "labels": [
+      "wp"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "0.2143",
+    "priceUsd": "0.2143",
+    "txns": {
+      "m5": {
+        "buys": 8,
+        "sells": 8
+      },
+      "h1": {
+        "buys": 156,
+        "sells": 159
+      },
+      "h6": {
+        "buys": 1275,
+        "sells": 1306
+      },
+      "h24": {
+        "buys": 7567,
+        "sells": 6135
+      }
+    },
+    "volume": {
+      "h24": 100001.07,
+      "h6": 19379.48,
+      "h1": 2606.59,
+      "m5": 150.91
+    },
+    "liquidity": {
+      "base": 128062,
+      "quote": 8920.2002,
+      "usd": 36372.06
+    },
+    "fdv": 1500533017,
+    "marketCap": 711548345,
+    "pairCreatedAt": 1706719531000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "HfgjZDmexhFVD28Vkb1NbQwWeXP3uDcVTLPjSGHmRHhL",
+    "labels": [
+      "DLMM"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "0.2149",
+    "priceUsd": "0.2149",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 11,
+        "sells": 15
+      },
+      "h6": {
+        "buys": 77,
+        "sells": 110
+      },
+      "h24": {
+        "buys": 405,
+        "sells": 584
+      }
+    },
+    "volume": {
+      "h24": 218755.96,
+      "h6": 73501.88,
+      "h1": 3814.38
+    },
+    "liquidity": {
+      "base": 643565,
+      "quote": 59002,
+      "usd": 197358.67
+    },
+    "fdv": 1504888309,
+    "marketCap": 713613611,
+    "pairCreatedAt": 1716847949000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "6sT1fW2omQZxvUVnfrqSULdrauZ7tGDgdBcZcZF3Fu73",
+    "labels": [
+      "DLMM"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "0.2155",
+    "priceUsd": "0.2155",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 2
+      },
+      "h6": {
+        "buys": 20,
+        "sells": 96
+      },
+      "h24": {
+        "buys": 156,
+        "sells": 355
+      }
+    },
+    "volume": {
+      "h24": 205003.64,
+      "h6": 57472.63,
+      "h1": 3414.93
+    },
+    "liquidity": {
+      "base": 1270995,
+      "quote": 188123,
+      "usd": 462142.25
+    },
+    "fdv": 1509150406,
+    "marketCap": 715634685,
+    "pairCreatedAt": 1720289127000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "HdsFGjjY46twFKjqHqUyT2bnRS4XCo1HaExts5CSNprU",
+    "labels": [
+      "DLMM"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.003176",
+    "priceUsd": "0.2141",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 1,
+        "sells": 4
+      },
+      "h6": {
+        "buys": 44,
+        "sells": 42
+      },
+      "h24": {
+        "buys": 187,
+        "sells": 348
+      }
+    },
+    "volume": {
+      "h24": 41807.55,
+      "h6": 5983.57,
+      "h1": 192.09
+    },
+    "liquidity": {
+      "base": 325160,
+      "quote": 1497.8623,
+      "usd": 170662.42
+    },
+    "fdv": 1499333830,
+    "marketCap": 710979693,
+    "pairCreatedAt": 1713958084000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "AUgbdzNob9S8MiVHm4Qruqz3VsZGoqtMZnSzv45juDbL",
+    "labels": [
+      "DLMM"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "0.2154",
+    "priceUsd": "0.2154",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 2
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 4
+      },
+      "h24": {
+        "buys": 2,
+        "sells": 25
+      }
+    },
+    "volume": {
+      "h24": 1645.78,
+      "h6": 273.88,
+      "h1": 0.01
+    },
+    "liquidity": {
+      "base": 300199,
+      "quote": 17605,
+      "usd": 82279.36
+    },
+    "fdv": 1508041531,
+    "marketCap": 715108860,
+    "pairCreatedAt": 1706713234000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "Eio6hAieGTAmKgfvbEfbnXke6o5kfEd74tqHm2Z9SFjf",
+    "labels": [
+      "DLMM"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.003178",
+    "priceUsd": "0.2144",
+    "txns": {
+      "m5": {
+        "buys": 5,
+        "sells": 2
+      },
+      "h1": {
+        "buys": 59,
+        "sells": 47
+      },
+      "h6": {
+        "buys": 421,
+        "sells": 390
+      },
+      "h24": {
+        "buys": 2089,
+        "sells": 1872
+      }
+    },
+    "volume": {
+      "h24": 33026.32,
+      "h6": 9793.54,
+      "h1": 1207.51,
+      "m5": 49.49
+    },
+    "liquidity": {
+      "base": 27326,
+      "quote": 162.6966,
+      "usd": 16838.32
+    },
+    "fdv": 1501401492,
+    "marketCap": 711960173,
+    "pairCreatedAt": 1737481161000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "Hb4ksMUbnsw5ssXdC1ANf3A49djUnxSLd48HxHwjHVNF",
+    "labels": [
+      "DLMM"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.003179",
+    "priceUsd": "0.2154",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h6": {
+        "buys": 13,
+        "sells": 5
+      },
+      "h24": {
+        "buys": 83,
+        "sells": 140
+      }
+    },
+    "volume": {
+      "h24": 45.38,
+      "h6": 5.24,
+      "h1": 0.38
+    },
+    "liquidity": {
+      "base": 181087,
+      "quote": 3.6527,
+      "usd": 39254.51
+    },
+    "fdv": 1507824808,
+    "marketCap": 715006090,
+    "pairCreatedAt": 1713192151000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "7qt1qBnQ5CNNpMH1no6jYAzuyazP5QWXsUZB7dot5kga",
+    "labels": [
+      "DLMM"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.003178",
+    "priceUsd": "0.2144",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h1": {
+        "buys": 54,
+        "sells": 47
+      },
+      "h6": {
+        "buys": 274,
+        "sells": 288
+      },
+      "h24": {
+        "buys": 1355,
+        "sells": 1488
+      }
+    },
+    "volume": {
+      "h24": 8173.89,
+      "h6": 1806.02,
+      "h1": 378.68,
+      "m5": 3.21
+    },
+    "liquidity": {
+      "base": 50394,
+      "quote": 23.9502,
+      "usd": 12421.99
+    },
+    "fdv": 1501016050,
+    "marketCap": 711777397,
+    "pairCreatedAt": 1713260070000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "hPkPt9Mvu3f6Bpky38ekfqRb37DSFnHtdjnFpfF86wY",
+    "labels": [
+      "DYN"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.003161",
+    "priceUsd": "0.2190",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h24": {
+        "buys": 0,
+        "sells": 162
+      }
+    },
+    "volume": {
+      "h24": 450.85
+    },
+    "liquidity": {
+      "base": 71322,
+      "quote": 226.1746,
+      "usd": 31299.1
+    },
+    "fdv": 1503196561,
+    "marketCap": 727198839,
+    "pairCreatedAt": 1706641379000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "pairAddress": "FgTCR1ufcaTZMwZZYhNRhJm2K3HgMA8V8kXtdqyttm19",
+    "labels": [
+      "wp"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.003134",
+    "priceUsd": "0.2159",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 2
+      },
+      "h24": {
+        "buys": 1,
+        "sells": 141
+      }
+    },
+    "volume": {
+      "h24": 80.31,
+      "h6": 0.16
+    },
+    "liquidity": {
+      "base": 109451,
+      "quote": 62.5735,
+      "usd": 27951.81
+    },
+    "fdv": 1511924562,
+    "marketCap": 716950181,
+    "pairCreatedAt": 1706517028000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "BhQEFZCRnWKQ21LEt4DUby7fKynfmLVJcNjfHNqjEF61",
+    "labels": [
+      "DLMM"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "0.2143",
+    "priceUsd": "0.2143",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h1": {
+        "buys": 6,
+        "sells": 18
+      },
+      "h6": {
+        "buys": 78,
+        "sells": 93
+      },
+      "h24": {
+        "buys": 546,
+        "sells": 604
+      }
+    },
+    "volume": {
+      "h24": 3147.67,
+      "h6": 165.57,
+      "h1": 23.86,
+      "m5": 0.26
+    },
+    "liquidity": {
+      "base": 70883,
+      "quote": 180.5769,
+      "usd": 15371.42
+    },
+    "fdv": 1500153800,
+    "marketCap": 711368521,
+    "pairCreatedAt": 1716446965000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "pairAddress": "FYmLrqgfrZ6u1Qvfo48wnhGp4HxXeQP7SQB5USQyQCPQ",
+    "labels": [
+      "wp"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "0.2141",
+    "priceUsd": "0.2141",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 14
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 23
+      },
+      "h24": {
+        "buys": 12,
+        "sells": 195
+      }
+    },
+    "volume": {
+      "h24": 453.54,
+      "h6": 48.72,
+      "h1": 22.25,
+      "m5": 3.08
+    },
+    "liquidity": {
+      "base": 52216,
+      "quote": 11889,
+      "usd": 23072.48
+    },
+    "fdv": 1499084323,
+    "marketCap": 710861378,
+    "pairCreatedAt": 1706516558000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "HHMcXebyUakhxnZavV9LBspv8SgsphoEbfhCjz8xPGe1",
+    "labels": [
+      "DLMM"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "0.2149",
+    "priceUsd": "0.2149",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 2
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 6
+      },
+      "h24": {
+        "buys": 6,
+        "sells": 59
+      }
+    },
+    "volume": {
+      "h24": 1045.61,
+      "h6": 81.61
+    },
+    "liquidity": {
+      "base": 77027,
+      "quote": 5127.2172,
+      "usd": 21682.29
+    },
+    "fdv": 1504457444,
+    "marketCap": 713409296,
+    "pairCreatedAt": 1706713193000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "pairAddress": "9ZpFyuMaHjSbM8feuarrWf4VZN2gmLxtwEc3e471n1KN",
+    "labels": [
+      "CLMM"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "name": "Raydium",
+      "symbol": "RAY"
+    },
+    "priceNative": "0.1777",
+    "priceUsd": "0.2145",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 47
+      },
+      "h6": {
+        "buys": 107,
+        "sells": 111
+      },
+      "h24": {
+        "buys": 339,
+        "sells": 532
+      }
+    },
+    "volume": {
+      "h24": 6680.74,
+      "h6": 1579.12,
+      "h1": 366.4
+    },
+    "liquidity": {
+      "base": 20409,
+      "quote": 7790.7905,
+      "usd": 13782.75
+    },
+    "fdv": 1501771945,
+    "marketCap": 712135840,
+    "pairCreatedAt": 1723702663000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "6N1nUDCC9gkbRaA2X2G2feuoZJk3KWFpGzHgqvSMAusq",
+    "labels": [
+      "DLMM"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "0.2163",
+    "priceUsd": "0.2163",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h6": {
+        "buys": 14,
+        "sells": 11
+      },
+      "h24": {
+        "buys": 34,
+        "sells": 52
+      }
+    },
+    "volume": {
+      "h24": 120.31,
+      "h6": 27.39
+    },
+    "liquidity": {
+      "base": 50696,
+      "quote": 6707.9716,
+      "usd": 17674.71
+    },
+    "fdv": 1514235341,
+    "marketCap": 718045946,
+    "pairCreatedAt": 1706713189000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "E1nhUcSbuZrg3pcRdM6CeSXD9GJNpWqWYSkLvuip1CFm",
+    "labels": [
+      "DYN"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "0.2167",
+    "priceUsd": "0.2167",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 2
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 14
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 20
+      },
+      "h24": {
+        "buys": 0,
+        "sells": 95
+      }
+    },
+    "volume": {
+      "h24": 142.42,
+      "h6": 35.75,
+      "h1": 17.31,
+      "m5": 3.47
+    },
+    "liquidity": {
+      "base": 26938,
+      "quote": 6133.9116,
+      "usd": 11971.68
+    },
+    "fdv": 1486928685,
+    "marketCap": 719328957,
+    "pairCreatedAt": 1706716775000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "C8Gr6AUuq9hEdSYJzoEpNcdjpojPZwqG5MtQbeouNNwg",
+    "labels": [
+      "DLMM"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.003195",
+    "priceUsd": "0.2168",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 179,
+        "sells": 103
+      },
+      "h24": {
+        "buys": 818,
+        "sells": 952
+      }
+    },
+    "volume": {
+      "h24": 1109372.99,
+      "h6": 172028.07
+    },
+    "liquidity": {
+      "base": 3988964,
+      "quote": 9327.2902,
+      "usd": 1497813.6
+    },
+    "fdv": 1517857521,
+    "marketCap": 719763573,
+    "pairCreatedAt": 1706713193000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "pairAddress": "HrLmpzp8Nu5wkn9SGZYSS9Ms6deTvMgGc6BETp4161ZX",
+    "labels": [
+      "wp"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "0.2141",
+    "priceUsd": "0.2141",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 21
+      },
+      "h6": {
+        "buys": 45,
+        "sells": 71
+      },
+      "h24": {
+        "buys": 216,
+        "sells": 396
+      }
+    },
+    "volume": {
+      "h24": 686.28,
+      "h6": 147.41,
+      "h1": 25.46,
+      "m5": 1.55
+    },
+    "liquidity": {
+      "base": 40837,
+      "quote": 2781.589,
+      "usd": 11527.82
+    },
+    "fdv": 1499183104,
+    "marketCap": 710908220,
+    "pairCreatedAt": 1706598193000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "HyhMt7jPKJ1LLXQTm5wjf5f4kWqAeTeKQZvMq8TtZnPV",
+    "labels": [
+      "DLMM"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "0.2145",
+    "priceUsd": "0.2145",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 3
+      },
+      "h6": {
+        "buys": 42,
+        "sells": 49
+      },
+      "h24": {
+        "buys": 127,
+        "sells": 124
+      }
+    },
+    "volume": {
+      "h24": 507,
+      "h6": 114.52,
+      "h1": 4.02
+    },
+    "liquidity": {
+      "base": 37876,
+      "quote": 2572.8591,
+      "usd": 10698.16
+    },
+    "fdv": 1501626468,
+    "marketCap": 712066856,
+    "pairCreatedAt": 1706713197000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "pairAddress": "4h9SaY7YMVtKfTewpGFq8StWJgGdRN3gVD7XmAGCSbki",
+    "labels": [
+      "wp"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.003178",
+    "priceUsd": "0.2144",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 2
+      },
+      "h1": {
+        "buys": 21,
+        "sells": 30
+      },
+      "h6": {
+        "buys": 197,
+        "sells": 246
+      },
+      "h24": {
+        "buys": 1026,
+        "sells": 1327
+      }
+    },
+    "volume": {
+      "h24": 594.53,
+      "h6": 97.83,
+      "h1": 10.05,
+      "m5": 0.27
+    },
+    "liquidity": {
+      "base": 549.6881,
+      "quote": 4.4911,
+      "usd": 420.9
+    },
+    "fdv": 1501206411,
+    "marketCap": 711867666,
+    "pairCreatedAt": 1749154266000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "pairAddress": "EYErUp5muPYEEkeaUCY22JibeZX7E9UuMcJFZkmNAN7c",
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.003175",
+    "priceUsd": "0.2141",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 7
+      },
+      "h6": {
+        "buys": 49,
+        "sells": 43
+      },
+      "h24": {
+        "buys": 182,
+        "sells": 329
+      }
+    },
+    "volume": {
+      "h24": 356.69,
+      "h6": 74.2,
+      "h1": 3.28
+    },
+    "liquidity": {
+      "base": 16184,
+      "quote": 51.5228,
+      "usd": 6940.96
+    },
+    "fdv": 1499224635,
+    "marketCap": 710927914,
+    "pairCreatedAt": 1706715778000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "pancakeswap",
+    "pairAddress": "HJuipW7pcVq6kPQWJ4hovubwcu3gg8Vd2hmkR5bHh1Vs",
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.003169",
+    "priceUsd": "0.2176",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 13,
+        "sells": 19
+      },
+      "h24": {
+        "buys": 226,
+        "sells": 381
+      }
+    },
+    "volume": {
+      "h24": 17.23,
+      "h6": 0.82
+    },
+    "liquidity": {
+      "base": 26.8254,
+      "quote": 0.7023,
+      "usd": 54.08
+    },
+    "fdv": 1493655399,
+    "marketCap": 722583127
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "6t3kGkKhRQRMMb1sUtG8N5VDg1CkkDwtSNYjiHhqRWq7",
+    "labels": [
+      "DLMM"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.003194",
+    "priceUsd": "0.2167",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 2,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 2,
+        "sells": 7
+      }
+    },
+    "volume": {
+      "h24": 132.15
+    },
+    "liquidity": {
+      "base": 36512,
+      "quote": 27.6058,
+      "usd": 9787.27
+    },
+    "fdv": 1517285265,
+    "marketCap": 719492211,
+    "pairCreatedAt": 1706713212000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "pairAddress": "7WMCUyZXrDxNjAWjuh2r7g8CdT2guqvrmdUPAnGdLsfG",
+    "labels": [
+      "CLMM"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.003185",
+    "priceUsd": "0.2154",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 3
+      },
+      "h6": {
+        "buys": 23,
+        "sells": 17
+      },
+      "h24": {
+        "buys": 63,
+        "sells": 119
+      }
+    },
+    "volume": {
+      "h24": 30.23,
+      "h6": 5.57,
+      "h1": 0.29
+    },
+    "liquidity": {
+      "base": 25306,
+      "quote": 17.9332,
+      "usd": 6665.09
+    },
+    "fdv": 1508140857,
+    "marketCap": 715155959,
+    "pairCreatedAt": 1723699350000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "pairAddress": "Fu5uXjR17rGbUur294Ke3UxCH8JF5nWYYCe9wqNjDuFr",
+    "labels": [
+      "CLMM"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "0.2148",
+    "priceUsd": "0.2148",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 7
+      },
+      "h6": {
+        "buys": 22,
+        "sells": 22
+      },
+      "h24": {
+        "buys": 112,
+        "sells": 180
+      }
+    },
+    "volume": {
+      "h24": 28.2,
+      "h6": 2.72,
+      "h1": 0.51,
+      "m5": 0.08
+    },
+    "liquidity": {
+      "base": 12666,
+      "quote": 702.5265,
+      "usd": 3423.59
+    },
+    "fdv": 1503729802,
+    "marketCap": 713064250,
+    "pairCreatedAt": 1723699363000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "55sEMuXnwNmHQaEmqyP7DHeyTXHcaMJcKZUMFS46W7uL",
+    "labels": [
+      "DLMM"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.003186",
+    "priceUsd": "0.2150",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 1,
+        "sells": 2
+      },
+      "h6": {
+        "buys": 21,
+        "sells": 14
+      },
+      "h24": {
+        "buys": 84,
+        "sells": 114
+      }
+    },
+    "volume": {
+      "h24": 122.04,
+      "h6": 21.28,
+      "h1": 2.42
+    },
+    "liquidity": {
+      "base": 19430,
+      "quote": 2.8459,
+      "usd": 4371.12
+    },
+    "fdv": 1505560682,
+    "marketCap": 713932448,
+    "pairCreatedAt": 1719317605000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "pairAddress": "F2HNEPsQ4WpQ2M4QRmeZTG8GZLkcj537zCisNCpuZcR4",
+    "labels": [
+      "DYN"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn",
+      "name": "Jito Staked SOL",
+      "symbol": "JitoSOL"
+    },
+    "priceNative": "0.002423",
+    "priceUsd": "0.2147",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 4
+      },
+      "h6": {
+        "buys": 19,
+        "sells": 11
+      },
+      "h24": {
+        "buys": 66,
+        "sells": 204
+      }
+    },
+    "volume": {
+      "h24": 118.24,
+      "h6": 17.04,
+      "h1": 1.95
+    },
+    "liquidity": {
+      "base": 6949.4178,
+      "quote": 16.8646,
+      "usd": 2986.89
+    },
+    "fdv": 1473542559,
+    "marketCap": 712853173,
+    "pairCreatedAt": 1706742453000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "pairAddress": "BakaWqcYAhwR2oGWBw3iHzmSiJqQ3j1uvvBm4DPxg1dU",
+    "labels": [
+      "CPMM"
+    ],
+    "baseToken": {
+      "address": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "name": "Jupiter",
+      "symbol": "JUP"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.003184",
+    "priceUsd": "0.2157",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 2
+      },
+      "h6": {
+        "buys": 26,
+        "sells": 10
+      },
+      "h24": {
+        "buys": 84,
+        "sells": 141
+      }
+    },
+    "volume": {
+      "h24": 143.44,
+      "h6": 20.13,
+      "h1": 1.56
+    },
+    "liquidity": {
+      "base": 8041.2965,
+      "quote": 25.6066,
+      "usd": 3469.18
+    },
+    "fdv": 1509968984,
+    "marketCap": 716022852,
+    "pairCreatedAt": 1772811879000
+  }
+]
