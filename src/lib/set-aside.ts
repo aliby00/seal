@@ -18,12 +18,16 @@ const WORD: Record<SetAsideRole, string> = {
   burn: 'the incinerator',
 };
 
-/** "its bonding curve", "its trading pools and locks"; a generic phrase when unknown. */
+/**
+ * "its bonding curve", "its trading pools and locks"; when nothing was found
+ * set aside, a phrase that gives the token no curve or pool it may not have
+ * (USDC's card said "outside its curve and pools", 25/11/2026).
+ */
 export function whereSetAside(
   setAside: readonly { role: SetAsideRole; share: number | null }[] | undefined,
 ): string {
   const roles = [...new Set((setAside ?? []).map((s) => WORD[s.role]))];
-  if (roles.length === 0) return 'its curve and pools';
+  if (roles.length === 0) return 'any curve, pool or lock';
   return roles.length === 1
     ? roles[0]!
     : `${roles.slice(0, -1).join(', ')} and ${roles[roles.length - 1]}`;

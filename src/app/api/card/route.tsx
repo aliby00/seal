@@ -244,7 +244,8 @@ function Card({ data }: { data: CardData }) {
         }}
       >
         <div style={{ color: TEXT, fontWeight: 700 }}>sealauth.dev</div>
-        <div style={{ color: FAINT }}>No score. Only what Solana shows.</div>
+        {/* The market figures come from DexScreener, not from the chain. */}
+        <div style={{ color: FAINT }}>No score. Only what Solana and its markets show.</div>
       </div>
     </div>
   );
