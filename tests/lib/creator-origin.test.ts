@@ -4,7 +4,7 @@ import type { ReportFacts } from '../../src/lib/facts';
 
 const base: ReportFacts['creator'] = {
   measured: true,
-  address: '0xc47f000000000000000000000000000000001234',
+  address: 'D234v6HgjNdTfS8vYa3ZfJAF5sSoTVzrKCDmQ2ypCnQK',
   launched: 1,
   detailed: 1,
   graduated: 0,
@@ -16,59 +16,62 @@ const base: ReportFacts['creator'] = {
   liquidityPulled: 0,
   salesChecked: 1,
   liquidityChecked: 0,
-  source: 'deployer',
-  role: 'deployer',
+  source: null,
+  role: null,
   launchContract: null,
   launchesListed: true,
-  transactionCount: 11,
+  transactionCount: null,
 };
 
 describe('creatorOrigin', () => {
-  it('dit comment le créateur a été trouvé', () => {
-    expect(creatorOrigin({ ...base, source: 'pons', role: null })).toMatch(/pons launch record/);
-    expect(creatorOrigin(base)).toBe('Deployed the token contract.');
+  it('says the creator was named by the token’s pump.fun curve', () => {
+    expect(creatorOrigin({ ...base, launchpad: 'pump.fun', creatorFrom: 'launch-record' })).toBe(
+      'Named as creator by the token’s pump.fun bonding curve.',
+    );
+  });
+
+  it('never says a fee payer launched the token, launchpad or not', () => {
+    const text = creatorOrigin({
+      ...base,
+      launchpad: 'Meteora Dynamic Bonding Curve',
+      creatorFrom: 'transaction',
+    });
+    expect(text).toMatch(/^Paid for the transaction that created the mint\./);
+    expect(text).toMatch(/does not prove who made the token/);
+    expect(text).not.toMatch(/Launched/);
+  });
+
+  it('says nothing for an origin it does not know, even with a launchpad', () => {
+    // The metadata's update authority: the Solana creator card says it.
+    expect(creatorOrigin({ ...base, launchpad: 'pump.fun', creatorFrom: null })).toBeNull();
+  });
+
+  it('says a fee payer does not prove who made the token', () => {
+    expect(creatorOrigin({ ...base, creatorFrom: 'transaction' })).toMatch(
+      /^Paid for the transaction that created the mint\. A launch service can pay it: this does not prove/,
+    );
+  });
+
+  it('shortens an address in base58 without changing its case', () => {
     expect(
       creatorOrigin({
         ...base,
         role: 'launcher',
-        launchContract: '0xabcdef0000000000000000000000000000009876',
+        launchContract: '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P',
       }),
-    ).toBe('Launched the token through 0xabcd…9876.');
+    ).toBe('Launched the token through 6EF8…wF6P.');
   });
 
-  it('nuance le premier mint : il ne prouve pas qui a écrit le token', () => {
-    expect(creatorOrigin({ ...base, role: 'first-minter' })).toMatch(/does not prove/);
-  });
-
-  it('ne dit rien quand l’origine est inconnue', () => {
-    expect(creatorOrigin({ ...base, source: null, role: null })).toBeNull();
+  it('says nothing when the origin is unknown', () => {
+    expect(creatorOrigin(base)).toBeNull();
   });
 });
 
-describe('creator origin on a known launchpad', () => {
-  it('says where the creator was read', () => {
-    expect(
-      creatorOrigin({
-        ...base,
-        source: 'deployer',
-        launchpad: 'flap.sh',
-        creatorFrom: 'launch-record',
-      }),
-    ).toBe('Found from their flap.sh launch record.');
-    expect(
-      creatorOrigin({
-        ...base,
-        source: 'deployer',
-        launchpad: 'flap.sh',
-        creatorFrom: 'transaction',
-      }),
-    ).toBe('Launched the token through flap.sh: the sender of that transaction.');
-  });
-
+describe('graduation line', () => {
   it('says graduation does not apply, or was not measured, rather than drawing zeros', () => {
     expect(graduationLine({ ...base, graduation: 'not-applicable' })).toMatch(/does not apply/);
-    expect(graduationLine({ ...base, graduation: 'not-measured', launchpad: 'flap.sh' })).toBe(
-      'Graduation is read for pons and Virtuals launches only: not measured on flap.sh.',
+    expect(graduationLine({ ...base, graduation: 'not-measured', launchpad: 'pump.fun' })).toBe(
+      'Graduation is read on pump.fun, Meteora DBC and Raydium LaunchLab curves: not measured on pump.fun.',
     );
   });
 });

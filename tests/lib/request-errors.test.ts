@@ -21,6 +21,14 @@ describe('requestError', () => {
     expect(requestError(502).retry).toBe(true);
   });
 
+  it('speaks of Solana addresses, never of another chain', () => {
+    expect(requestError(400).message).toMatch(/Solana token address/);
+    expect(requestError(404).message).toMatch(/on Solana/);
+    for (const status of [400, 404]) {
+      expect(requestError(status).message).not.toMatch(/0x|hexadecimal|robinhood/i);
+    }
+  });
+
   it('tells a reader a long history can be read on a second try', () => {
     expect(requestError(504)).toMatchObject({ title: 'Still reading.', retry: true });
   });

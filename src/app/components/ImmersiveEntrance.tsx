@@ -439,7 +439,7 @@ export function ImmersiveEntrance({
             <div ref={copy} className="entrance-copy">
               <p className="scene-eyebrow">
                 <span>
-                  Robinhood Chain <span aria-hidden="true">·</span> pons, Virtuals, Doppler, flap.sh
+                  Solana <span aria-hidden="true">·</span> pump.fun, Meteora, Raydium LaunchLab
                 </span>
               </p>
               <h1 id="entrance-title">
@@ -467,7 +467,7 @@ export function ImmersiveEntrance({
                   ↓
                 </span>
               </a>
-              <span className="caption-network">Robinhood Chain</span>
+              <span className="caption-network">Solana</span>
             </div>
           </div>
         </section>
@@ -482,9 +482,7 @@ export function ImmersiveEntrance({
               <span className="workspace-location">
                 SEAL <span aria-hidden="true">/</span> Research workspace
               </span>
-              <span>
-                {environment !== 'production' ? `Environment: ${environment}` : 'Robinhood Chain'}
-              </span>
+              <span>{environment !== 'production' ? `Environment: ${environment}` : 'Solana'}</span>
             </div>
             {children}
           </div>

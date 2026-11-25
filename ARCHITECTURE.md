@@ -7,101 +7,101 @@ Comment les pièces s'assemblent : **pipeline de données → agent de raisonnem
 ## Le principe directeur
 
 SEAL ne calcule pas de score. Le pipeline ne produit donc **aucun agrégat, aucune note,
-aucun verdict** : il rassemble trois blocs de faits et les remet tels quels à l'agent, qui
+aucun verdict** : il rassemble des blocs de faits et les remet tels quels à l'agent, qui
 les croise. C'est tout le propos du produit — si le pipeline pré-mâchait une conclusion,
 il ne resterait à l'agent qu'à la reformuler, et SEAL redeviendrait un scanner de plus.
 
 ## Vue d'ensemble
 
 ```
-                        POST /api/analyze
-                               │
-                               ▼
-                    ┌──────────────────────┐
-                    │  collect(token)      │   les trois modules en parallèle
-                    └──────────┬───────────┘
-            ┌─────────────────┼─────────────────┐
-            ▼                 ▼                 ▼
-   ┌────────────────┐ ┌──────────────┐ ┌────────────────┐
-   │ lib/chain      │ │ lib/holders  │ │ lib/market     │
-   │ RPC + factory  │ │ Blockscout   │ │ DexScreener    │
-   │ CreatorHistory │ │ Distribution │ │ MarketState    │
-   └────────┬───────┘ └──────┬───────┘ └───────┬────────┘
-            └─────────────────┼─────────────────┘
-                              ▼
-                       ┌─────────────┐
-                       │ TokenReport │   trois blocs + leur complétude
-                       └──────┬──────┘
-                              ▼
-                    ┌──────────────────────┐
-                    │  lib/agent           │
-                    │  prompt → Claude     │
-                    │  guardrails + cost   │
-                    └──────────┬───────────┘
-                               ▼
-                    explication en langage clair
+                         POST /api/analyze  (une mint Solana, en base58, casse gardée)
+                                │
+                                ▼
+                     ┌──────────────────────┐
+                     │  collect(mint)       │   un client Solana par analyse,
+                     └──────────┬───────────┘   300 appels et 27 s au plus
+        étape 1, en parallèle   │
+        ┌───────────────────────┼────────────────────────┐
+        ▼                       ▼                        ▼
+ ┌──────────────┐   ┌───────────────────────┐   ┌──────────────────┐
+ │ readToken    │   │ readSolanaMarket      │   │ findCreator      │
+ │ mint, Token- │   │ DexScreener, puis     │   │ courbe pump.fun, │
+ │ 2022, pouvoirs│  │ launchpad, graduation,│   │ payeur de la     │
+ │ métadonnées  │   │ liquidité des pools   │   │ création, ou     │
+ └──────┬───────┘   └───────────┬───────────┘   │ autorité méta.   │
+        │                       │               └────────┬─────────┘
+        └───────────────────────┼────────────────────────┘
+        étape 2, en parallèle   ▼
+ ┌────────────┐ ┌──────────────┐ ┌────────────────┐ ┌────────────────┐ ┌───────────────┐
+ │ readHolders│ │ replayLaunch │ │ creatorHistory │ │ creatorOnToken │ │ linkedWallets │
+ └─────┬──────┘ └──────┬───────┘ └───────┬────────┘ └───────┬────────┘ └───────┬───────┘
+       └───────────────┴─────────────────┼──────────────────┴──────────────────┘
+                                         ▼
+                                 ┌─────────────┐
+                                 │ TokenReport │   blocs de faits + complétude de chacun
+                                 └──────┬──────┘
+                                        ▼
+                             ┌──────────────────────┐
+                             │  lib/agent           │
+                             │  prompt → modèle     │
+                             │  guardrails + coût   │
+                             └──────────┬───────────┘
+                                        ▼
+                  explication en langage clair + blocs dessinés à l'écran
 ```
 
-## Les trois modules
+## Les lecteurs
 
-Chacun vit dans son dossier, ne connaît pas les autres, et se teste **indépendamment**
-sur des fixtures figées. Aucun test unitaire ne touche le réseau.
+Chacun vit dans son module, ne connaît pas les autres, et se teste **indépendamment** sur
+des fixtures relevées sur le réseau principal, servies par un faux nœud
+(`src/lib/solana/fake-rpc.ts`). Aucun test unitaire ne touche le réseau.
 
-| Module        | Source              | Produit              | Clé requise               |
-| ------------- | ------------------- | -------------------- | ------------------------- |
-| `lib/chain`   | RPC Robinhood Chain | `CreatorHistory`     | non (public, rate-limité) |
-| `lib/holders` | Blockscout API PRO  | `HolderDistribution` | **oui**, gratuite         |
-| `lib/market`  | DexScreener         | `MarketState`        | non                       |
+| Module                                                      | Source                   | Produit                                                                                                 |
+| ----------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `lib/solana/token.ts`                                       | nœud Solana              | la mint (programme, offre, autorités, extensions, métadonnées) et ses pouvoirs                          |
+| `lib/solana/creator.ts`                                     | nœud Solana, DexScreener | le créateur, ses autres tokens, ce qu'il a fait de celui-ci, les portefeuilles à qui il a envoyé du SOL |
+| `lib/solana/holders.ts`                                     | nœud Solana              | les détenteurs regroupés par propriétaire, chacun nommé par rôle                                        |
+| `lib/solana/launch.ts`                                      | nœud Solana              | les premières transactions après la création, rejouées                                                  |
+| `lib/market/`                                               | DexScreener (Solana)     | prix, liquidité, volume, pools listés                                                                   |
+| `lib/solana/launchpads.ts`, `graduation.ts`, `liquidity.ts` | nœud Solana              | le launchpad, la graduation, la liquidité de chaque pool                                                |
 
-### `lib/chain`
+Le nœud est Alchemy quand `RPC_URL` porte une clé Alchemy, un nœud à soi avec
+`SOLANA_RPC_URL`, sinon le nœud public `api.mainnet-beta.solana.com` (quelques appels par
+seconde, pas de `getTokenLargestAccounts` : le client se replie sur une autre lecture).
 
-Résout **dynamiquement** l'adresse du factory — celle de la documentation pons est périmée
-et revert, et au moins quatre générations existent (voir `RESEARCH.md`). Puis filtre
-`TokenLaunched` par `deployer` (topic2, indexé) et lit `graduationStatus()` pour chaque token.
+Les adresses Solana sont du base58 **sensible à la casse** : elles ne sont jamais mises en
+minuscules, ni dans les lectures, ni dans les clés de cache, ni à l'écran. Les montants
+restent en unités brutes (chaînes décimales) ; les parts vont de 0 à 1.
 
-Le découpage des `eth_getLogs` est **piloté par le volume**, pas par une taille de fenêtre
-fixe : la fenêtre se divise en deux à l'approche de 10 000 résultats. Trois issues doivent
-être traitées — dépassement de limite, `log query timed out`, et rate limit (429/403).
-
-### `lib/holders`
-
-L'instance publique Blockscout est derrière Cloudflare et renvoie 403 côté serveur : tout
-passe par l'API PRO, qui exige une clé même en gratuit (5 req/s, 100 000 crédits/jour).
-
-Le pool et les adresses de burn sont exclus du calcul des parts — sinon le pool ressort
-systématiquement comme « détenteur majoritaire » et fausse tout.
-
-### `lib/market`
-
-Slug de chaîne DexScreener : `robinhood`. Pas de clé, 300 req/min.
-
-Croise le volume avec le nombre de transactions distinctes : 485 $ de volume pour 4 achats
-et 3 ventes ne raconte pas la même histoire que le même volume réparti sur 200 échanges.
-C'est le signal « aller-retour artificiel » du whitepaper.
+Le détail des launchpads, de la graduation et des pools lus est dans
+[`docs/launchpads.md`](docs/launchpads.md).
 
 ## La complétude, partout
 
-Chaque bloc porte son propre `completeness` : `full`, `partial` ou `unavailable`.
+Chaque bloc porte son propre `completeness` : `full`, `partial` ou `unavailable`, et ses
+sources avec une note quand elles n'ont pas tout donné. La complétude d'ensemble est la plus
+faible de la mint, du créateur, des détenteurs et du marché.
 
-C'est structurel, pas cosmétique. Le whitepaper assume publiquement que la vue peut être
-partielle — _« the agent may have a partial view of a very old creator until indexing is
-complete »_. Pour que l'agent puisse le **dire**, il faut qu'il le **sache**. D'où un champ
-par source plutôt qu'un drapeau global : « l'historique du créateur est tronqué » et
-« Blockscout n'a pas répondu » ne conduisent pas au même paragraphe.
+C'est structurel, pas cosmétique. Pour que l'agent puisse **dire** que sa vue est partielle,
+il faut qu'il le **sache** : « l'historique du créateur est plus long que ce qui a été lu » et
+« le nœud a refusé 21 lectures de transactions » ne conduisent pas au même paragraphe. Une
+lecture en échec (erreur de source, plafond d'appels ou de temps, 429, méthode non servie)
+est listée dans `failedReads` ; ce qu'elle aurait trouvé reste inconnu, jamais « rien ».
 
-**Un échec partiel ne tue jamais l'analyse.** Deux sources sur trois restent une analyse,
-à condition de le signaler. `combineCompleteness` applique la règle du maillon faible.
+**Un échec partiel ne tue jamais l'analyse.** Un lecteur qui échoue laisse son bloc
+`unavailable` avec sa raison ; les autres blocs restent ce qu'ils étaient.
 
 ## Gestion des erreurs
 
 Chaque appel externe peut échouer de trois façons — timeout, rate limit, donnée incomplète —
-et les trois sont traitées explicitement, jamais supposées absentes. Le wrapper HTTP commun
-(`lib/http.ts`) porte le timeout, le retry exponentiel, le respect du `Retry-After` et un
-plafond de requêtes par analyse, pour qu'une analyse ne puisse pas épuiser un quota
-journalier à elle seule.
+et les trois sont traitées explicitement, jamais supposées absentes. Le client Solana porte
+un budget d'appels commun à toute l'analyse ; chaque lecteur ajoute son plafond et son délai,
+et chaque limite coupe les requêtes en cours. Le wrapper HTTP commun (`lib/http.ts`) porte le
+timeout, le retry exponentiel et le respect du `Retry-After` pour DexScreener.
 
-Les erreurs sont typées (`lib/errors.ts`) : un `RateLimitError` et un `NotFoundError` ne se
-traduisent pas par la même complétude ni par le même message.
+Les erreurs sont typées (`lib/errors.ts`) : un `RateLimitError` et un `NotFoundError` (une
+adresse qui ne porte pas de mint) ne se traduisent pas par la même complétude ni par le même
+message.
 
 ## L'agent
 
@@ -113,17 +113,16 @@ score numérique, aucune formulation de conseil d'achat. Ce sont des propriété
 pas des intentions.
 
 Le coût de chaque requête est lu dans `response.usage`, converti en dollars via une table
-de tarifs versionnée, et loggué avec le label `SEAL_ENV` — **dès le MVP**, pas ajouté après
-coup. Sans ça, l'arbitrage Sonnet 5 contre Haiku 4.5 resterait théorique.
+de tarifs versionnée, et loggué avec le label `SEAL_ENV`.
 
-## Ce qui est volontairement absent du MVP
+## L'interface
 
-| Absent                                       | Où ça arrive            |
-| -------------------------------------------- | ----------------------- |
-| Historique créateur complet sur 71,7 M blocs | `feat/creator-history`  |
-| Détection de clusters de wallets liés        | `feat/holder-deep-scan` |
-| Cache de réponses                            | `feat/response-cache`   |
-| Persistance, utilisateurs                    | `feat/watchlist`        |
+La réponse de `/api/analyze` porte le texte, les faits dessinés par les cartes (`facts`), la
+chronologie des lancements du créateur, le replay du lancement et une vue compacte des blocs
+Solana (`solana`, construite par `src/app/components/solana-view.ts`) : mint et pouvoirs,
+offre par rôle, liquidité par pool, lancement, créateur. Chaque adresse et chaque transaction
+renvoie à l'explorateur Solana (`explorer.solana.com`). Un bloc non lu est dit « non lu »,
+jamais dessiné à zéro.
 
-Le MVP scanne une **fenêtre récente** et marque `completeness: partial`. C'est assumé et
-visible dans la réponse, pas caché.
+`/api/glance` donne le « In short » sans modèle, pour l'extension navigateur ; `/api/card`
+dessine l'image de partage d'une lecture.

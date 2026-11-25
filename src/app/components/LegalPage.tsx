@@ -5,7 +5,7 @@ import { Arch, Wordmark } from './brand';
 /** Shell shared by the legal pages. */
 
 /** The date shown on every legal page: bump it whenever one of them changes. */
-export const LEGAL_UPDATED = 'October 17, 2026';
+export const LEGAL_UPDATED = 'November 25, 2026';
 
 /** Where questions about the terms or about data go. */
 export const CONTACT_URL = 'https://github.com/aliby00/seal/issues';
