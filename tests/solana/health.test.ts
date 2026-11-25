@@ -29,7 +29,7 @@ describe('a node that refuses the key', () => {
     );
     vi.stubGlobal('fetch', fetch);
     const health = await solanaNodeHealth({}, { nodes: [alchemy, pub], timeoutMs: 2_000 });
-    expect(health).toMatchObject({ node: 'alchemy', slotOk: false, error: 'refused:403' });
+    expect(health).toMatchObject({ node: 'alchemy', slotOk: false, error: 'refused:403:network' });
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(health.ms).toBeLessThan(1_000);
   });
@@ -56,5 +56,19 @@ describe('a node that refuses the key', () => {
     );
     const health = await solanaNodeHealth({}, { nodes: [alchemy], timeoutMs: 50 });
     expect(health.error).toBe('timeout');
+  });
+});
+
+describe('the reason of a refusal', () => {
+  it('is one word, never the answer', async () => {
+    const { refusalReason } = await import('../../src/lib/solana/rpc');
+    expect(
+      refusalReason(
+        '{"error":{"message":"SOLANA_MAINNET is not enabled for this app. Visit https://dashboard.alchemy.com/apps/x/networks"}}',
+      ),
+    ).toBe('network');
+    expect(refusalReason('Must be authenticated!')).toBe('key');
+    expect(refusalReason('Unspecified origin not on whitelist.')).toBe('allowlist');
+    expect(refusalReason('')).toBe('other');
   });
 });

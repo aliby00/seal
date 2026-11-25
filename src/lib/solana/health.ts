@@ -63,7 +63,8 @@ export async function solanaNodeHealth(
 /** The kind of a failed probe, never its message (which may carry the URL). */
 function healthError(error: unknown): string {
   if (error instanceof UpstreamError && (error.status === 401 || error.status === 403)) {
-    return `refused:${error.status}`;
+    const reason = /HTTP \d+, (\w+)\)/.exec(error.message)?.[1];
+    return `refused:${error.status}${reason ? `:${reason}` : ''}`;
   }
   if (error instanceof SealError) return error.kind;
   if (error instanceof DOMException && error.name === 'TimeoutError') return 'timeout';
