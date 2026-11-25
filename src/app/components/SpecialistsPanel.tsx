@@ -6,6 +6,7 @@ import type { SpecialistAnswer } from '@/lib/specialists/brief';
 import type { FundingPathStep } from '@/lib/specialists/types';
 import { describeService } from '@/lib/specialists/names';
 import { PLAIN_LABEL, shortAnswer } from '@/lib/specialists/plain';
+import { short } from './explorer';
 import { SIGNAL_LABEL } from './signal-labels';
 import { SignalIcon } from './signals';
 
@@ -16,7 +17,8 @@ const KIND_LABEL: Record<FunderKind, string> = {
   unknown: 'not identified',
 };
 
-const shortAddress = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+/** Base58, first and last four characters, case kept. */
+const shortAddress = (a: string) => short(a);
 
 /** Who funded the creator, then who funded that wallet, up to three steps. */
 function FundingPath({ path }: { path: FundingPathStep[] }) {

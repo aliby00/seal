@@ -215,6 +215,12 @@ describe('the Solana blocks, drawn', () => {
     expect(text(html)).toMatch(/Sold not read/);
   });
 
+  it('says a token with no pool has no pool liquidity, not that a read failed', () => {
+    const html = text(render(view('pump-creator-sold').view));
+    expect(html).toMatch(/No trading pool was found for this token/);
+    expect(html).not.toMatch(/pools could not be read/);
+  });
+
   it('links each creation to its transaction', () => {
     const { report, view: v } = view('pump-creator-sold');
     expect(render(v)).toContain(

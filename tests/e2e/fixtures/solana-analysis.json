@@ -1,0 +1,864 @@
+{
+  "token": "FB5eSv7CAMWJnrH5GvHLivx9y8Qgoo8vpPV3EX5Npump",
+  "explanation": "This account is produced without the reasoning agent: it lists the observed facts without cross-examining or interpreting them.\n\nCreator: D234…ChDH, named by its pump.fun bonding curve. No other token by this address was found on pump.fun’s curves or in its recent transactions. In the transactions read, the creator sold some of this token. It holds 0.0 % of the supply today.\n\nHolders: the largest holds 42.7 % of the supply held outside pools and burn addresses; the top 10 hold 100.0 % combined.\n\nMarket: price $0.0₅1952, 0.3 % of the way along its pump.fun curve.\n\nOver 24 hours: $41,384.60 in volume across 874 trades, averaging $47.35 per trade.\n\nSome reads cover only part of the data; their limits are stated above.",
+  "completeness": "partial",
+  "sources": [
+    {
+      "name": "solana-rpc"
+    },
+    {
+      "name": "solana-rpc"
+    },
+    {
+      "name": "solana-rpc"
+    },
+    {
+      "name": "dexscreener-solana",
+      "note": "DexScreener gives no liquidity figure for the main pair (pumpfun)"
+    }
+  ],
+  "collectedAt": "2026-11-25T00:35:22.397Z",
+  "offline": true,
+  "facts": {
+    "creator": {
+      "measured": true,
+      "address": "D234v6Hg5cYYmMkdvRdAdFYBBcLAP9Jcj3Uh2BQ8ChDH",
+      "launched": 1,
+      "detailed": 0,
+      "graduated": 0,
+      "abandoned": 0,
+      "undetermined": 0,
+      "active": 0,
+      "checked": 1,
+      "soldIntoPool": 1,
+      "liquidityPulled": 0,
+      "salesChecked": 1,
+      "liquidityChecked": 0,
+      "source": null,
+      "role": null,
+      "launchContract": null,
+      "launchesListed": true,
+      "transactionCount": null,
+      "launchpad": "pump.fun",
+      "creatorFrom": "launch-record",
+      "notListed": [],
+      "graduation": "measured",
+      "ownSales": {
+        "days": null,
+        "wholeLife": true
+      }
+    },
+    "holders": {
+      "measured": true,
+      "holderCount": 4,
+      "pooled": 0.997896,
+      "top1": 0.42708,
+      "top10": 0.999999,
+      "top": [
+        {
+          "address": "WfwY3KdbArV8SnqB7qZCLaR2Ci1KFDeKemPtuAvuJbY",
+          "share": 0.42708,
+          "kind": "wallet"
+        },
+        {
+          "address": "GDCNmbrRyygpEmJ9VrLbJTSEetSZ4Fe6svdZUWX8wM7y",
+          "share": 0.397139,
+          "kind": "wallet"
+        },
+        {
+          "address": "DuuzbPg7ucsHaJWXnNkzTs2a1q5bw2o36qS6fSf7bTMh",
+          "share": 0.125986,
+          "kind": "wallet"
+        },
+        {
+          "address": "EgJUHcee77yDsHvunzpLmcrJ65UTgmVB1M9naiC9fBgz",
+          "share": 0.049794,
+          "kind": "wallet"
+        }
+      ],
+      "setAside": [
+        {
+          "address": "NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2",
+          "role": "curve",
+          "share": 0.997896,
+          "name": "pump.fun bonding curve"
+        }
+      ],
+      "fromCreator": 0
+    },
+    "market": {
+      "measured": true,
+      "note": "DexScreener gives no liquidity figure for the main pair (pumpfun)",
+      "priceUsd": 0.000001952,
+      "liquidityUsd": null,
+      "quietHours": null,
+      "volume24hUsd": 41384.6,
+      "buys24h": 447,
+      "sells24h": 427,
+      "fdvUsd": 1952.76,
+      "graduation": null
+    }
+  },
+  "timeline": [
+    {
+      "address": "FB5eSv7CAMWJnrH5GvHLivx9y8Qgoo8vpPV3EX5Npump",
+      "launchedAt": "2026-11-24T21:14:28.000Z",
+      "block": 473491200,
+      "outcome": "undetermined",
+      "progress": 0.002652361,
+      "sold": true,
+      "pulled": null,
+      "current": true,
+      "launchpad": "pump.fun"
+    }
+  ],
+  "launch": {
+    "token": "FB5eSv7CAMWJnrH5GvHLivx9y8Qgoo8vpPV3EX5Npump",
+    "launchBlock": 473491200,
+    "launchedAt": "2026-11-24T21:14:28.000Z",
+    "windowSeconds": 5,
+    "supply": "1000000000000000",
+    "moves": [
+      {
+        "kind": "mint",
+        "seconds": 0,
+        "block": 0,
+        "actor": "NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2",
+        "counterparty": "FB5eSv7CAMWJnrH5GvHLivx9y8Qgoo8vpPV3EX5Npump",
+        "actorKind": "pool",
+        "share": 1,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": null,
+        "transaction": "5Rftux227E8C37AFjXqDFkoqDvd15tTGAeqD4pk8PubLmuZfNCUtydsBh6coFiVQc1V9NxaxtM4Cpd8YGKjTvico",
+        "amount": "1000000000000000",
+        "slot": 473491200,
+        "payer": "D234v6Hg5cYYmMkdvRdAdFYBBcLAP9Jcj3Uh2BQ8ChDH",
+        "quote": null
+      },
+      {
+        "kind": "buy",
+        "seconds": 0,
+        "block": 0,
+        "actor": "D234v6Hg5cYYmMkdvRdAdFYBBcLAP9Jcj3Uh2BQ8ChDH",
+        "counterparty": "NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2",
+        "actorKind": "wallet",
+        "share": 0.119064,
+        "actorIsCreator": true,
+        "counterpartyIsCreator": false,
+        "heldNow": 0,
+        "transaction": "5Rftux227E8C37AFjXqDFkoqDvd15tTGAeqD4pk8PubLmuZfNCUtydsBh6coFiVQc1V9NxaxtM4Cpd8YGKjTvico",
+        "amount": "119064729176629",
+        "slot": 473491200,
+        "payer": "D234v6Hg5cYYmMkdvRdAdFYBBcLAP9Jcj3Uh2BQ8ChDH",
+        "quote": {
+          "asset": "SOL",
+          "amount": "3800682951",
+          "decimals": 9
+        }
+      },
+      {
+        "kind": "buy",
+        "seconds": 0,
+        "block": 0,
+        "actor": "Ft1qQLFGbetZTc4gfT5FSyUw3cMc3mq9ZGkwTVLkVgoX",
+        "counterparty": "NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2",
+        "actorKind": "wallet",
+        "share": 0.214648,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0,
+        "transaction": "2P9WVwXM7B4zayJLeMCw91YFg7mtG2aiwGgJiUVWSjD6KoH1dm57Gi9baaY7Lvi6TJrfAaxTHtGkCraa4VH5vLi8",
+        "amount": "214648364811297",
+        "slot": 473491200,
+        "payer": "Ft1qQLFGbetZTc4gfT5FSyUw3cMc3mq9ZGkwTVLkVgoX",
+        "quote": {
+          "asset": "SOL",
+          "amount": "9922911551",
+          "decimals": 9
+        }
+      },
+      {
+        "kind": "buy",
+        "seconds": 0,
+        "block": 0,
+        "actor": "52PrpjRXwQZURZbVutzpmg12xiTb7txMYY7DcfShkEZW",
+        "counterparty": "NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2",
+        "actorKind": "wallet",
+        "share": 0.180684,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0,
+        "transaction": "3yrPKrAXW5nE3wrYuhDutBGLPw21eGUgyXBRwdrANJNUCKwdtR7FHK7zVHxnQY9QBG2pLUCweiPFgnVGRwriEce1",
+        "amount": "180684007964316",
+        "slot": 473491200,
+        "payer": "52PrpjRXwQZURZbVutzpmg12xiTb7txMYY7DcfShkEZW",
+        "quote": {
+          "asset": "SOL",
+          "amount": "14262894607",
+          "decimals": 9
+        }
+      },
+      {
+        "kind": "buy",
+        "seconds": 0,
+        "block": 1,
+        "actor": "H9kuqGKNYgPFYCA17uUTkaqXGum7MK8y1GwbS7cxsjDg",
+        "counterparty": "NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2",
+        "actorKind": "wallet",
+        "share": 0.026535,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0,
+        "transaction": "5qWTc5rRoQLyDqnMxv4CPLBeHYBSHEhXHYeHK4rJ66YPKdxCgL5zWWxt288VDsxt7MNqqUgLKzN6Fy97fGUvk5Sg",
+        "amount": "26535088888302",
+        "slot": 473491201,
+        "payer": "H9kuqGKNYgPFYCA17uUTkaqXGum7MK8y1GwbS7cxsjDg",
+        "quote": {
+          "asset": "SOL",
+          "amount": "2944706221",
+          "decimals": 9
+        }
+      },
+      {
+        "kind": "buy",
+        "seconds": 0,
+        "block": 2,
+        "actor": "H2VUrX1z1T3Be3gkwaJTuHCumr5F7SQt4o6NmLdHWmp7",
+        "counterparty": "NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2",
+        "actorKind": "wallet",
+        "share": 0.001474,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0,
+        "transaction": "3k32JBYivrRYriWVmMV477k586K4fhzTGBaF72p21fYKACthVCJmiWzNbC3mp7ELTjY3o1iePVQZyKDfT2dneEuT",
+        "amount": "1474558487441",
+        "slot": 473491202,
+        "payer": "H2VUrX1z1T3Be3gkwaJTuHCumr5F7SQt4o6NmLdHWmp7",
+        "quote": {
+          "asset": "SOL",
+          "amount": "171824019",
+          "decimals": 9
+        }
+      },
+      {
+        "kind": "buy",
+        "seconds": 0,
+        "block": 2,
+        "actor": "CWUqhP2gq49fxJqW99zjQptZStvTWDV1XwrtmSKTf49p",
+        "counterparty": "NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2",
+        "actorKind": "wallet",
+        "share": 0.000862,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0,
+        "transaction": "4sAaRrHF6BBFTqH1zt87HwzZHU1C3zTA9LUTKRUTqZnj2JFSDCPJK2vkKH2Kx627w1LiYTniBVuHNjWxzKBEuuea",
+        "amount": "862384579913",
+        "slot": 473491202,
+        "payer": "CWUqhP2gq49fxJqW99zjQptZStvTWDV1XwrtmSKTf49p",
+        "quote": {
+          "asset": "SOL",
+          "amount": "101588840",
+          "decimals": 9
+        }
+      },
+      {
+        "kind": "buy",
+        "seconds": 0,
+        "block": 3,
+        "actor": "894GkByxrSMTUuEw1Mcgu7DesWih5HcQ2AHYZ3EMjEv6",
+        "counterparty": "NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2",
+        "actorKind": "wallet",
+        "share": 0.00427,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0,
+        "transaction": "4keQqtWe3s6SH7YyenC5pXzuEPRB7bAMthdovNVFFXVPKiEcZgf6P62YKd2rHXwRiqs4Hacpb8GKMrnwV6Qi8WfB",
+        "amount": "4270212369657",
+        "slot": 473491203,
+        "payer": "894GkByxrSMTUuEw1Mcgu7DesWih5HcQ2AHYZ3EMjEv6",
+        "quote": {
+          "asset": "SOL",
+          "amount": "504018840",
+          "decimals": 9
+        }
+      },
+      {
+        "kind": "buy",
+        "seconds": 0,
+        "block": 3,
+        "actor": "haqq6qnVBCZt97amh9VUFZRFCkD6NJxoYifacCuqqqq",
+        "counterparty": "NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2",
+        "actorKind": "wallet",
+        "share": 0.001478,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0,
+        "transaction": "5LDJpAoDtv7odWNXyETru2qGjqEbCCNVTRf6y13oqUfQcE12pya2xQkNMUC51mHaDE8PCV3LXp542TudybFRJLNy",
+        "amount": "1478355399595",
+        "slot": 473491203,
+        "payer": "haqq6qnVBCZt97amh9VUFZRFCkD6NJxoYifacCuqqqq",
+        "quote": {
+          "asset": "SOL",
+          "amount": "177613450",
+          "decimals": 9
+        }
+      },
+      {
+        "kind": "buy",
+        "seconds": 0,
+        "block": 3,
+        "actor": "HruByfy1nzmgwq7PmRBUUeU7fBqifxjw4UXxHGu12Kgg",
+        "counterparty": "NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2",
+        "actorKind": "wallet",
+        "share": 0.003622,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0,
+        "transaction": "2HmLrqUEwfLL7PQ5QjZ7baVKL6XWvfzDPygj6f8qmXY9r9yQYPSaLhwr9UNCLqdBcYJVecL8xZPVJ3jMRVrjnTA7",
+        "amount": "3622413968476",
+        "slot": 473491203,
+        "payer": "HruByfy1nzmgwq7PmRBUUeU7fBqifxjw4UXxHGu12Kgg",
+        "quote": {
+          "asset": "SOL",
+          "amount": "435905552",
+          "decimals": 9
+        }
+      },
+      {
+        "kind": "buy",
+        "seconds": 0,
+        "block": 4,
+        "actor": "7DfduZr4A2MYW564Ak47FhuL9cFLvgCeu85Sfy8Hpy6E",
+        "counterparty": "NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2",
+        "actorKind": "wallet",
+        "share": 0.004121,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0,
+        "transaction": "5LciwZDvf5eB6jSUKMfmN845Di1T5Egozw2r9kqN39YqUEwUyMmYkBG3Vrm5T9BeEQ4jLmLnygkc9bw2t42khSMr",
+        "amount": "4121055551509",
+        "slot": 473491204,
+        "payer": "7DfduZr4A2MYW564Ak47FhuL9cFLvgCeu85Sfy8Hpy6E",
+        "quote": {
+          "asset": "SOL",
+          "amount": "505044280",
+          "decimals": 9
+        }
+      },
+      {
+        "kind": "buy",
+        "seconds": 0,
+        "block": 4,
+        "actor": "haqq6qnVBCZt97amh9VUFZRFCkD6NJxoYifacCuqqqq",
+        "counterparty": "NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2",
+        "actorKind": "wallet",
+        "share": 0.001223,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0,
+        "transaction": "61Ntxfg1o6HWe3dBDefc85CysrDXqs6rzngipLcbhNdC29AUvVNgtcX2qAoA2cbnrQxen8vCBJeYh5V6zujtC3AC",
+        "amount": "1223618308813",
+        "slot": 473491204,
+        "payer": "haqq6qnVBCZt97amh9VUFZRFCkD6NJxoYifacCuqqqq",
+        "quote": {
+          "asset": "SOL",
+          "amount": "150325011",
+          "decimals": 9
+        }
+      },
+      {
+        "kind": "buy",
+        "seconds": 0,
+        "block": 4,
+        "actor": "6BxpWLQorrdRhQCobXqX5q3sZjyu4nLKqjuQPdC3Y29K",
+        "counterparty": "NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2",
+        "actorKind": "wallet",
+        "share": 0.001271,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0,
+        "transaction": "523gs2jPCbHMXctm1edwJvSuTufBXj2Ln4roSbVLLUqQ9G6KezcZ6xJWTYHatkCVWn1xuaff67kfu4wt3TpUf4h6",
+        "amount": "1271524202017",
+        "slot": 473491204,
+        "payer": "6BxpWLQorrdRhQCobXqX5q3sZjyu4nLKqjuQPdC3Y29K",
+        "quote": {
+          "asset": "SOL",
+          "amount": "158273530",
+          "decimals": 9
+        }
+      },
+      {
+        "kind": "buy",
+        "seconds": 1,
+        "block": 5,
+        "actor": "FZqrwiGrovPdMSpvjQCsens5apQDh1JLerCmcV16rq47",
+        "counterparty": "NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2",
+        "actorKind": "wallet",
+        "share": 0.000808,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0,
+        "transaction": "661TDCBV9vSGWv6KbszwjjEJ2VgQn7WBWNg4wEWbfhVdpv75UKLgbtwTGv99XRKsodcciMwhcoQA5rjcduWmVE59",
+        "amount": "808524065593",
+        "slot": 473491205,
+        "payer": "FZqrwiGrovPdMSpvjQCsens5apQDh1JLerCmcV16rq47",
+        "quote": {
+          "asset": "SOL",
+          "amount": "101578840",
+          "decimals": 9
+        }
+      },
+      {
+        "kind": "sell",
+        "seconds": 1,
+        "block": 6,
+        "actor": "HruByfy1nzmgwq7PmRBUUeU7fBqifxjw4UXxHGu12Kgg",
+        "counterparty": "NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2",
+        "actorKind": "wallet",
+        "share": 0.003622,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0,
+        "transaction": "3xssmY2QNw8TV9cGxXUDviPhJWL4a5QDovpUEqah7XeVC2cCfESJavVv37VyhCWCHiNdT2vrkBQHrTwJhEhEgkuB",
+        "amount": "3622413968476",
+        "slot": 473491206,
+        "payer": "HruByfy1nzmgwq7PmRBUUeU7fBqifxjw4UXxHGu12Kgg",
+        "quote": {
+          "asset": "SOL",
+          "amount": "437397881",
+          "decimals": 9
+        }
+      },
+      {
+        "kind": "buy",
+        "seconds": 1,
+        "block": 7,
+        "actor": "5ZtzVYRuF7sEhot31S68xHRCKDMkDdFtTp1iujTRjowV",
+        "counterparty": "NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2",
+        "actorKind": "wallet",
+        "share": 0.004004,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0,
+        "transaction": "2HDhMgsVq3D5qv3rrdguPHUktiQuATrbLjmfzm6cSXcgBgRYb7R2JpkdpxHfW3fqN8cUuNXFuy9forAUmrsAKD3C",
+        "amount": "4004804774177",
+        "slot": 473491207,
+        "payer": "5ZtzVYRuF7sEhot31S68xHRCKDMkDdFtTp1iujTRjowV",
+        "quote": {
+          "asset": "SOL",
+          "amount": "494621029",
+          "decimals": 9
+        }
+      },
+      {
+        "kind": "sell",
+        "seconds": 1,
+        "block": 8,
+        "actor": "haqq6qnVBCZt97amh9VUFZRFCkD6NJxoYifacCuqqqq",
+        "counterparty": "NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2",
+        "actorKind": "wallet",
+        "share": 0.001223,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0,
+        "transaction": "5HigEhAW4VhgcSD1GhmkqVNPRbxDHWKC5wBFjGVP25NYyjFi7PbWwGkeWrcCkWqnuJYC8hEkDWD3JYtT3qVpj4MJ",
+        "amount": "1223618308813",
+        "slot": 473491208,
+        "payer": "haqq6qnVBCZt97amh9VUFZRFCkD6NJxoYifacCuqqqq",
+        "quote": {
+          "asset": "SOL",
+          "amount": "147578669",
+          "decimals": 9
+        }
+      },
+      {
+        "kind": "sell",
+        "seconds": 1,
+        "block": 8,
+        "actor": "H2VUrX1z1T3Be3gkwaJTuHCumr5F7SQt4o6NmLdHWmp7",
+        "counterparty": "NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2",
+        "actorKind": "wallet",
+        "share": 0.001474,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0,
+        "transaction": "4cRkmcSQaRZBLZwPTfYDwriJMhpQBsvoB44mqiR2WrdTaVBpzaPx6dTM8k29uQhuRMcUXyF4BgpL6CdFGCBWUjey",
+        "amount": "1474558487441",
+        "slot": 473491208,
+        "payer": "H2VUrX1z1T3Be3gkwaJTuHCumr5F7SQt4o6NmLdHWmp7",
+        "quote": {
+          "asset": "SOL",
+          "amount": "178501562",
+          "decimals": 9
+        }
+      },
+      {
+        "kind": "sell",
+        "seconds": 1,
+        "block": 9,
+        "actor": "CWUqhP2gq49fxJqW99zjQptZStvTWDV1XwrtmSKTf49p",
+        "counterparty": "NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2",
+        "actorKind": "wallet",
+        "share": 0.000862,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0,
+        "transaction": "3uY8oGpcCaEDo33NPzgDnqjggSGUTG1rxRGGfdWs7Kexo1o7L4ru6ucgDGs3T6q9w5hXxDgGh6LEabgmXWUowM4P",
+        "amount": "862384579913",
+        "slot": 473491209,
+        "payer": "CWUqhP2gq49fxJqW99zjQptZStvTWDV1XwrtmSKTf49p",
+        "quote": {
+          "asset": "SOL",
+          "amount": "104523769",
+          "decimals": 9
+        }
+      },
+      {
+        "kind": "sell",
+        "seconds": 1,
+        "block": 9,
+        "actor": "haqq6qnVBCZt97amh9VUFZRFCkD6NJxoYifacCuqqqq",
+        "counterparty": "NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2",
+        "actorKind": "wallet",
+        "share": 0.001478,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0,
+        "transaction": "2bDpApmRm5HUHrtK5yRH5uATuyyMZDr4Yt7Ynq7JVKBmbNA94mxjCsEhQBdc9JSFnsGngg6R7SkgYPih13vLoxQF",
+        "amount": "1478355399595",
+        "slot": 473491209,
+        "payer": "haqq6qnVBCZt97amh9VUFZRFCkD6NJxoYifacCuqqqq",
+        "quote": {
+          "asset": "SOL",
+          "amount": "175590673",
+          "decimals": 9
+        }
+      },
+      {
+        "kind": "sell",
+        "seconds": 5,
+        "block": 25,
+        "actor": "7DfduZr4A2MYW564Ak47FhuL9cFLvgCeu85Sfy8Hpy6E",
+        "counterparty": "NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2",
+        "actorKind": "wallet",
+        "share": 0.004121,
+        "actorIsCreator": false,
+        "counterpartyIsCreator": false,
+        "heldNow": 0,
+        "transaction": "31YLmFUasEv4THwLGuizSZ1tppL7jdYQGoncL8JircR1ZgJyf8VrkEDH3MnxrB43ygFYecFpYJmHzV3hSGHC1wsi",
+        "amount": "4121055551509",
+        "slot": 473491225,
+        "payer": "7DfduZr4A2MYW564Ak47FhuL9cFLvgCeu85Sfy8Hpy6E",
+        "quote": {
+          "asset": "SOL",
+          "amount": "485652750",
+          "decimals": 9
+        }
+      }
+    ],
+    "movesInWindow": 21,
+    "summary": {
+      "moves": 21,
+      "earlySeconds": 5,
+      "creatorAtLaunch": 0.119064,
+      "creatorBought": 0.119064,
+      "creatorSold": 0,
+      "creatorFirstBuyAt": 0,
+      "creatorLastSaleAt": null,
+      "creatorSaleConfirmed": false,
+      "creatorTx": null,
+      "early": {
+        "wallets": 12,
+        "share": 0.445004,
+        "within": 1,
+        "heldNow": 0,
+        "unread": 0,
+        "contracts": 0
+      },
+      "bundle": null,
+      "roundTrips": {
+        "wallets": 5,
+        "creator": false,
+        "delays": {
+          "min": 1,
+          "max": 5
+        },
+        "fromBundle": null,
+        "listed": [
+          {
+            "address": "H2VUrX1z1T3Be3gkwaJTuHCumr5F7SQt4o6NmLdHWmp7",
+            "boughtAt": 0,
+            "soldAt": 1
+          },
+          {
+            "address": "CWUqhP2gq49fxJqW99zjQptZStvTWDV1XwrtmSKTf49p",
+            "boughtAt": 0,
+            "soldAt": 1
+          },
+          {
+            "address": "HruByfy1nzmgwq7PmRBUUeU7fBqifxjw4UXxHGu12Kgg",
+            "boughtAt": 0,
+            "soldAt": 1
+          },
+          {
+            "address": "haqq6qnVBCZt97amh9VUFZRFCkD6NJxoYifacCuqqqq",
+            "boughtAt": 0,
+            "soldAt": 1
+          },
+          {
+            "address": "7DfduZr4A2MYW564Ak47FhuL9cFLvgCeu85Sfy8Hpy6E",
+            "boughtAt": 0,
+            "soldAt": 5
+          }
+        ]
+      },
+      "receiptsRead": 60,
+      "receiptsWanted": 60,
+      "balancesRead": 13,
+      "balancesWanted": 13
+    }
+  },
+  "solana": {
+    "mint": {
+      "read": "full",
+      "data": {
+        "program": "token-2022",
+        "decimals": 6,
+        "supply": "1000000000000000",
+        "extensions": ["metadataPointer", "tokenMetadata"],
+        "metadata": {
+          "name": "The Poor Bull",
+          "symbol": "PoorBull",
+          "from": "tokenMetadata",
+          "mutable": false,
+          "updateAuthority": null
+        },
+        "gaps": []
+      }
+    },
+    "powers": [
+      {
+        "power": "mint",
+        "status": "none",
+        "holder": null,
+        "sentence": "No one can create new tokens: there is no mint authority."
+      },
+      {
+        "power": "freeze",
+        "status": "none",
+        "holder": null,
+        "sentence": "No one can freeze holders' tokens: there is no freeze authority."
+      },
+      {
+        "power": "metadata-update",
+        "status": "none",
+        "holder": null,
+        "sentence": "No one can change the token's name, symbol or image link."
+      },
+      {
+        "power": "metadata-pointer",
+        "status": "none",
+        "holder": null,
+        "sentence": "No one can point the token to other metadata."
+      }
+    ],
+    "creator": {
+      "read": "full",
+      "data": {
+        "address": "D234v6Hg5cYYmMkdvRdAdFYBBcLAP9Jcj3Uh2BQ8ChDH",
+        "from": "pump-curve",
+        "creation": {
+          "signature": "5Rftux227E8C37AFjXqDFkoqDvd15tTGAeqD4pk8PubLmuZfNCUtydsBh6coFiVQc1V9NxaxtM4Cpd8YGKjTvico",
+          "slot": 473491200,
+          "at": "2026-11-24T21:14:28.000Z",
+          "payer": "D234v6Hg5cYYmMkdvRdAdFYBBcLAP9Jcj3Uh2BQ8ChDH"
+        }
+      }
+    },
+    "onToken": {
+      "read": "full",
+      "data": {
+        "bought": 0.119064,
+        "sold": 0.119064,
+        "received": 0,
+        "burned": 0,
+        "locked": 0,
+        "holdsNow": 0,
+        "moves": [
+          {
+            "signature": "5Rftux227E8C37AFjXqDFkoqDvd15tTGAeqD4pk8PubLmuZfNCUtydsBh6coFiVQc1V9NxaxtM4Cpd8YGKjTvico",
+            "kind": "buy",
+            "share": 0.119064,
+            "at": "2026-11-24T21:14:28.000Z"
+          },
+          {
+            "signature": "2gzY9HcNCX7DpifJxFoXzNd9uxLyxmRj88FWtHyr3porps64Qo5LQEa1NV8Timp2LbvMn47CLEowDxCpqsxQC9J2",
+            "kind": "sell",
+            "share": 0.119064,
+            "at": "2026-11-24T21:25:58.000Z"
+          }
+        ],
+        "more": 0,
+        "transactions": {
+          "listed": 2,
+          "read": 2
+        }
+      }
+    },
+    "history": {
+      "read": "partial",
+      "note": "12 of the creator's 13 transactions listed were read for launches outside pump.fun",
+      "data": {
+        "launched": 0,
+        "counts": {
+          "graduated": 0,
+          "dead": 0,
+          "active": 0,
+          "unknown": 0
+        },
+        "curvesListed": true,
+        "historyComplete": true,
+        "tokens": [],
+        "more": 0
+      }
+    },
+    "linked": {
+      "read": "partial",
+      "note": "10 of the creator's 11 transactions around the launch read",
+      "data": {
+        "funding": "found",
+        "firstFunding": {
+          "from": "16hA8TwtLR1381TD4A6p3V279Dx27ocmiik8tGs6jrY",
+          "sol": 5.626514133,
+          "signature": "2YJWqr5T7RQPUZyjA2ZL9p3TcbYLosxJEYxvzCgjjewqsNg8h6qzP3di78K2sSBpaEuQ78PBmcjndzrZdiGdLXJe",
+          "at": "2026-11-19T21:27:05.000Z"
+        },
+        "window": {
+          "from": "2026-11-23T21:14:28.000Z",
+          "to": "2026-11-24T22:14:28.000Z"
+        },
+        "funded": [],
+        "more": 0
+      }
+    },
+    "holders": {
+      "read": "full",
+      "data": {
+        "method": "all-accounts",
+        "holderCount": 4,
+        "holdersAtLeast": 4,
+        "top": [
+          {
+            "address": "WfwY3KdbArV8SnqB7qZCLaR2Ci1KFDeKemPtuAvuJbY",
+            "ofSupply": 0.000898,
+            "share": 0.42708,
+            "owner": "wallet",
+            "name": null
+          },
+          {
+            "address": "GDCNmbrRyygpEmJ9VrLbJTSEetSZ4Fe6svdZUWX8wM7y",
+            "ofSupply": 0.000835,
+            "share": 0.397139,
+            "owner": "wallet",
+            "name": null
+          },
+          {
+            "address": "DuuzbPg7ucsHaJWXnNkzTs2a1q5bw2o36qS6fSf7bTMh",
+            "ofSupply": 0.000265,
+            "share": 0.125986,
+            "owner": "wallet",
+            "name": null
+          },
+          {
+            "address": "EgJUHcee77yDsHvunzpLmcrJ65UTgmVB1M9naiC9fBgz",
+            "ofSupply": 0.000104,
+            "share": 0.049794,
+            "owner": "wallet",
+            "name": null
+          }
+        ],
+        "setAside": [
+          {
+            "address": "NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2",
+            "role": "curve",
+            "share": 0.997896,
+            "name": "pump.fun bonding curve"
+          }
+        ],
+        "ofSupply": {
+          "largestWallet": 0.000898,
+          "top10Wallets": 0.002103,
+          "pools": 0,
+          "curves": 0.997896,
+          "burned": 0,
+          "locked": 0
+        },
+        "creator": {
+          "address": "D234v6Hg5cYYmMkdvRdAdFYBBcLAP9Jcj3Uh2BQ8ChDH",
+          "ofSupply": 0
+        }
+      }
+    },
+    "market": {
+      "read": "partial",
+      "note": "DexScreener gives no liquidity figure for the main pair (pumpfun)",
+      "data": {
+        "pair": "NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2",
+        "dex": "pumpfun",
+        "pairedWith": "SOL",
+        "marketCapUsd": 1952.76,
+        "pairCreatedAt": "2026-11-24T21:14:28.000Z"
+      }
+    },
+    "launchpad": {
+      "read": "full",
+      "data": {
+        "name": "pump.fun",
+        "account": "NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2"
+      }
+    },
+    "graduation": {
+      "read": "full",
+      "data": {
+        "graduated": false,
+        "progress": 0.002652361,
+        "basis": "tokens-sold",
+        "destination": null
+      }
+    },
+    "liquidity": {
+      "read": "unavailable",
+      "note": "no pool to read",
+      "data": {
+        "pools": []
+      }
+    },
+    "launch": {
+      "read": "partial",
+      "note": "60 transactions read from the creation on, covering 25 slots (5 seconds by block time); 20 of them changed balances of this token; later transactions are not read (at most 60); 434 failed transactions in the window moved nothing; the window read ends before 10 seconds: later buys are not counted among the first buyers",
+      "data": {
+        "creation": {
+          "signature": "5Rftux227E8C37AFjXqDFkoqDvd15tTGAeqD4pk8PubLmuZfNCUtydsBh6coFiVQc1V9NxaxtM4Cpd8YGKjTvico",
+          "slot": 473491200,
+          "at": "2026-11-24T21:14:28.000Z",
+          "payer": "D234v6Hg5cYYmMkdvRdAdFYBBcLAP9Jcj3Uh2BQ8ChDH"
+        },
+        "sameSlot": {
+          "wallets": 2,
+          "share": 0.395332,
+          "heldNow": 0,
+          "soldInWindow": 0,
+          "addresses": [
+            "Ft1qQLFGbetZTc4gfT5FSyUw3cMc3mq9ZGkwTVLkVgoX",
+            "52PrpjRXwQZURZbVutzpmg12xiTb7txMYY7DcfShkEZW"
+          ]
+        },
+        "payerGroup": null
+      }
+    },
+    "failed": []
+  },
+  "name": "The Poor Bull",
+  "symbol": "PoorBull"
+}

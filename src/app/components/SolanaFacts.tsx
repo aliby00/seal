@@ -402,9 +402,15 @@ function PoolRow({ pool }: { pool: PoolView }) {
 
 function LiquidityCard({ view }: { view: SolanaView }) {
   const l = view.liquidity;
+  // No pool to read is a fact about the token (one still on its curve), not a failed read.
+  const noPool = l.data.pools.length === 0 && /no pool to read/i.test(l.note ?? '');
   return (
     <Card id="fact-liquidity" title="Liquidity by pool">
-      {l.data.pools.length === 0 ? (
+      {noPool ? (
+        <p className="fact-line">
+          No trading pool was found for this token: there is no pool liquidity to read.
+        </p>
+      ) : l.data.pools.length === 0 ? (
         <p className="fact-line">
           {l.read === 'unavailable'
             ? 'The pools could not be read.'
@@ -417,7 +423,7 @@ function LiquidityCard({ view }: { view: SolanaView }) {
           ))}
         </ul>
       )}
-      <ReadNote block={l} />
+      {!noPool && <ReadNote block={l} />}
     </Card>
   );
 }
