@@ -244,7 +244,8 @@ function Card({ data }: { data: CardData }) {
         }}
       >
         <div style={{ color: TEXT, fontWeight: 700 }}>sealauth.dev</div>
-        <div style={{ color: FAINT }}>No score. Only what Solana shows.</div>
+        {/* The market figures come from DexScreener, not from the chain. */}
+        <div style={{ color: FAINT }}>No score. Only what Solana and its markets show.</div>
       </div>
     </div>
   );
@@ -263,8 +264,10 @@ export async function GET(request: Request): Promise<Response> {
   const plain: CardData = { token, name: null, symbol: null, items: [] };
   // Short-lived: the next crawler may find the reading done.
   const retry = 'public, max-age=60, s-maxage=60';
+  // One caller past its limit: the CDN must not serve that empty card to everyone.
+  const limited = 'private, no-store';
 
-  if (!(await allowShared(`card:${clientKey(request)}`, CARD_LIMIT))) return render(plain, retry);
+  if (!(await allowShared(`card:${clientKey(request)}`, CARD_LIMIT))) return render(plain, limited);
 
   try {
     const glance =

@@ -396,6 +396,71 @@ describe('Volume Reality, Sell Path, Liquidity Move, Name Clone', () => {
     );
   });
 
+  it('says where the trades were counted: the main pair, or how many listed pairs', () => {
+    // USDC, 25/11/2026: its main pair's 141,028 trades were said "on its listed pairs".
+    const trades = (report: TokenReport) =>
+      ask('volume-reality', report).facts.find((f) => / in the last 24 hours /.test(f));
+    expect(trades(base)).toMatch(
+      /^70 trades in the last 24 hours on its main pair \(40 buys, 30 sells\)/,
+    );
+    expect(ask('sell-path', base).facts).toContain(
+      '30 sales went through in the last 24 hours on its main pair.',
+    );
+    const spread = solanaReport({
+      market: {
+        ...base.market,
+        data: {
+          ...base.market.data,
+          pairsCounted: 25,
+          txns: { h1: { buys: 128, sells: 73 }, h24: { buys: 94_218, sells: 94_746 } },
+        },
+      },
+    });
+    expect(trades(spread)).toMatch(
+      /^188,964 trades in the last 24 hours on 25 of its listed pairs \(94,218 buys, 94,746 sells\)/,
+    );
+    expect(ask('sell-path', spread).facts).toContain(
+      '94,746 sales went through in the last 24 hours on 25 of its listed pairs.',
+    );
+  });
+
+  it('a transfer fee someone can raise up to 100% is said, and nothing is called reassuring', () => {
+    // CKfatsPM… on 25/11/2026: "Nothing in the mint can stop a sale", under
+    // "What is reassuring", while BeRN…WyEe could raise its fee to 100%.
+    const sentence =
+      'Someone can change the transfer fee, up to 100%, starting two epochs later (transfer fee authority).';
+    const finding = ask(
+      'sell-path',
+      solanaReport({
+        powers: [
+          power({ power: 'freeze', status: 'none' }),
+          power({
+            power: 'transfer-fee',
+            status: 'held',
+            holder: 'BeRNwDN8aGHvxYRVhNyMkF1wsxuEeceux2xn5deFWyEe',
+            sentence:
+              'Every transfer pays a 2.69% fee, which someone can collect (withdraw authority).',
+          }),
+          power({
+            power: 'transfer-fee-change',
+            status: 'held',
+            holder: 'BeRNwDN8aGHvxYRVhNyMkF1wsxuEeceux2xn5deFWyEe',
+            sentence,
+          }),
+        ],
+      }),
+    );
+    expect(finding.signal).toBe('observation');
+    expect(finding.facts).toContain(sentence);
+    expect(finding.facts.join(' ')).not.toMatch(/Nothing in the mint can stop a sale/);
+    // Nobody able to change the fee: nothing in the mint stands in the way.
+    const fixed = ask(
+      'sell-path',
+      solanaReport({ powers: [power({ power: 'transfer-fee-change', status: 'none' })] }),
+    );
+    expect(fixed.signal).toBe('reassurance');
+  });
+
   it('reassures on selling only when nothing in the mint can stop a sale and sales went through', () => {
     expect(ask('sell-path', base).signal).toBe('reassurance');
     const frozen = ask(

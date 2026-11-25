@@ -1,7 +1,9 @@
 import { readableNote } from '@/lib/plain-note';
 import type { CSSProperties } from 'react';
 import type { ReportFacts, TimelineLaunch } from '@/lib/facts';
+import { dexName } from '@/lib/market';
 import { whereSetAside } from '@/lib/set-aside';
+import { displayName } from '@/lib/specialists/names';
 import { creatorFrom } from './creator-from';
 import { addressUrl, short } from './explorer';
 import type { SolanaView } from './solana-view';
@@ -45,6 +47,8 @@ const SUBSCRIPT = '₀₁₂₃₄₅₆₇₈₉';
 
 export function usd(value: number | null): string {
   if (value === null) return '—';
+  // USDC's FDV read "$9067.50M".
+  if (value >= 999_500_000) return `$${(value / 1_000_000_000).toFixed(2)}B`;
   if (value >= 999_500) return `$${(value / 1_000_000).toFixed(2)}M`;
   if (value >= 999.95) return `$${(value / 1_000).toFixed(1)}k`;
   if (value >= 1) return `$${value.toFixed(2)}`;
@@ -160,7 +164,7 @@ function Donut({ top1, top10, count }: { top1: number; top10: number; count: num
           })}
         </svg>
         <span className="donut-center" aria-hidden="true">
-          <strong>{count ?? '—'}</strong>
+          <strong>{count === null ? '—' : count.toLocaleString('en-US')}</strong>
           <span>holders</span>
         </span>
       </div>
@@ -465,8 +469,8 @@ function HoldersCard({
           <p className="sr-only">{`Concentration: largest ${pct(holders.top1)} · top 10 ${pct(holders.top10)}`}</p>
           {holders.holderCount !== null && (
             <p className="fact-line">
-              <strong>{holders.holderCount}</strong> holders outside curves, pools, locks and burn
-              addresses
+              <strong>{holders.holderCount.toLocaleString('en-US')}</strong> holders outside curves,
+              pools, locks and burn addresses
             </p>
           )}
           {holders.note && <p className="fact-note">{plainNote(holders.note)}</p>}
@@ -549,9 +553,12 @@ function MarketCard({ market, solana }: { market: ReportFacts['market']; solana?
           </dl>
           {listed?.pair && (
             <p className="fact-mono">
-              Main pair{listed.dex ? ` on ${listed.dex}` : ''}
-              {listed.pairedWith ? ` against ${listed.pairedWith}` : ''}:{' '}
-              <Address address={listed.pair} />
+              Main pair{listed.dex ? ` on ${dexName(listed.dex)}` : ''}
+              {/* Chosen by whoever made the paired token: filtered as the header's names. */}
+              {listed.pairedWith
+                ? ` against ${displayName(listed.pairedWith) ?? 'another token'}`
+                : ''}
+              : <Address address={listed.pair} />
               {listed.pair === solana?.launchpad.data?.account ? ', its launch curve' : ''}
             </p>
           )}
@@ -564,13 +571,13 @@ function MarketCard({ market, solana }: { market: ReportFacts['market']; solana?
           )}
           {market.quietHours != null && (
             <p className="fact-line">
-              No trade in the last {market.quietHours === 1 ? 'hour' : `${market.quietHours} hours`}
-              .
+              No trade on any listed pair in the last{' '}
+              {market.quietHours === 1 ? 'hour' : `${market.quietHours} hours`}.
             </p>
           )}
           {trades > 0 && (
             <Split
-              label={`${market.buys24h ?? 0} buys and ${market.sells24h ?? 0} sells in 24 hours`}
+              label={`${(market.buys24h ?? 0).toLocaleString('en-US')} buys and ${(market.sells24h ?? 0).toLocaleString('en-US')} sells in 24 hours`}
               parts={[
                 { value: market.buys24h ?? 0, tone: 'calm', name: 'buys' },
                 { value: market.sells24h ?? 0, tone: 'warm', name: 'sells' },

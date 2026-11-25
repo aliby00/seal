@@ -91,9 +91,9 @@ function pct(value: number): string {
   return `${(value * 100).toFixed(value < 0.1 || (value >= 0.995 && value < 1) ? 1 : 0)}%`;
 }
 
-/** "1 launch", "9 launches" (not "launchs"). */
+/** "1 launch", "9 launches" (not "launchs"), "141,028 trades". */
 export const plural = (n: number, word: string) =>
-  `${n} ${word}${n === 1 ? '' : /(?:s|x|z|ch|sh)$/.test(word) ? 'es' : 's'}`;
+  `${n.toLocaleString('en-US')} ${word}${n === 1 ? '' : /(?:s|x|z|ch|sh)$/.test(word) ? 'es' : 's'}`;
 
 /** "a, b and c", for a sentence. */
 function joinAnd(items: readonly string[]): string {
@@ -615,8 +615,9 @@ function launchBuysItem(
 
 // ── The market ──────────────────────────────────────────────────────────────
 
-/** "$337", "$61.9k", "$7.3M": a figure a reader takes in at once. */
+/** "$337", "$61.9k", "$7.3M", "$9.1B": a figure a reader takes in at once. */
 export function usdShort(value: number): string {
+  if (value >= 999_950_000) return `$${(value / 1_000_000_000).toFixed(1)}B`;
   if (value >= 999_950) return `$${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1000) return `$${(value / 1000).toFixed(1)}k`;
   // "$0" would say a market held nothing when it held 39 cents.
@@ -726,7 +727,8 @@ function marketItem(market: ReportFacts['market'], m: Measures): GlanceItem | nu
       tone: 'neutral',
       figure: usd,
       title: `${usd} traded in the last 24 hours${trades > 0 ? `, over ${plural(trades, 'trade')}` : ''}${quiet ? `, none in ${quiet}` : ''}.`,
-      detail: 'From the token’s listed trading pairs.',
+      // Volume and trades are added up over these pairs; "none" is said of every listed pair.
+      detail: 'From DexScreener: its main pair and its other pairs against SOL, USDC or USDT.',
       href: '#fact-market',
     };
   }
