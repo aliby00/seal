@@ -1,5 +1,5 @@
-import { getAddress } from 'viem';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { MINT, solanaReport } from '../helpers/solana-report';
 
 const collect = vi.hoisted(() => vi.fn());
 const explain = vi.hoisted(() => vi.fn());
@@ -19,20 +19,23 @@ const { RateLimitError, NotFoundError } = await import('../../src/lib/errors');
 const { resetRateLimits } = await import('../../src/lib/guard');
 const { analysisCache } = await import('../../src/lib/analysis-cache');
 
-const TOKEN = '0x494ddf6f7b4b045ede0abbb9ae86e4d59fa62ec9';
+const TOKEN = MINT;
+const AT = '2026-11-25T00:00:00.000Z';
 
-const report = {
-  token: TOKEN,
-  collectedAt: '2026-09-25T00:00:00.000Z',
+const base = solanaReport();
+const report = solanaReport({
   completeness: 'partial',
   creator: {
+    ...base.creator,
     completeness: 'partial',
-    sources: [{ name: 'robinhood-rpc', note: 'tronqué' }],
-    data: {},
+    sources: [{ name: 'solana-rpc', fetchedAt: AT, note: 'tronqué' }],
   },
-  holders: { completeness: 'unavailable', sources: [{ name: 'blockscout' }], data: {} },
-  market: { completeness: 'full', sources: [{ name: 'dexscreener' }], data: {} },
-};
+  holders: {
+    ...base.holders,
+    completeness: 'unavailable',
+    sources: [{ name: 'solana-rpc', fetchedAt: AT }],
+  },
+});
 
 function post(body: unknown): Request {
   return new Request('http://localhost/api/analyze', {
@@ -58,6 +61,19 @@ describe('POST /api/analyze', () => {
   it('refuse une adresse invalide sans rien collecter', async () => {
     const res = await POST(post({ token: 'bonjour' }));
     expect(res.status).toBe(400);
+    expect(collect).not.toHaveBeenCalled();
+  });
+
+  // SEAL reads Solana only: an EVM address is not a mint, and is refused before any read.
+  it('refuses an EVM 0x address and a string that is not base58 of 32 bytes', async () => {
+    for (const token of [
+      '0x494ddf6f7b4b045ede0abbb9ae86e4d59fa62ec9',
+      'FB5eSv7CAMWJnrH5GvHLivx9y8Qgoo8vpPV3EX5Npum0',
+      'FB5eSv7CAMWJnrH5GvHLivx9y8Qgoo8vpPV3EX5N',
+      '',
+    ]) {
+      expect((await POST(post({ token }))).status).toBe(400);
+    }
     expect(collect).not.toHaveBeenCalled();
   });
 
@@ -125,7 +141,7 @@ describe('POST /api/analyze', () => {
     const body = (await (await POST(post({ token: TOKEN }))).json()) as {
       sources: { name: string; note?: string }[];
     };
-    expect(body.sources.find((s) => s.name === 'robinhood-rpc')?.note).toBe('tronqué');
+    expect(body.sources.some((s) => s.name === 'solana-rpc' && s.note === 'tronqué')).toBe(true);
   });
 
   // Une sortie non conforme ne doit jamais atteindre l'utilisateur.
@@ -141,12 +157,12 @@ describe('POST /api/analyze', () => {
   });
 
   it('traduit un rate limit en 429', async () => {
-    collect.mockRejectedValue(new RateLimitError('robinhood-rpc'));
+    collect.mockRejectedValue(new RateLimitError('solana-rpc'));
     expect((await POST(post({ token: TOKEN }))).status).toBe(429);
   });
 
   it('traduit un not-found en 404', async () => {
-    collect.mockRejectedValue(new NotFoundError('dexscreener', 'token'));
+    collect.mockRejectedValue(new NotFoundError('solana-rpc', 'token mint'));
     expect((await POST(post({ token: TOKEN }))).status).toBe(404);
   });
 
@@ -160,22 +176,16 @@ describe('POST /api/analyze', () => {
 });
 
 describe('configuration', () => {
-  // The bug: RPC_URL was only read by /api/agent, so a paid node set on
-  // Vercel would never have been used by the main analysis.
-  it('passes RPC_URL to the pipeline, and ignores it when empty', async () => {
+  // The node comes from the environment (RPC_URL's Alchemy key, SOLANA_RPC_URL):
+  // the route hands the address as given, and a signal that cuts the reads at 30 s.
+  it('hands the address as given, with a signal that cuts the collection', async () => {
     collect.mockResolvedValue(report);
     explain.mockResolvedValue({ text: 'ok', cost: { costUsd: 0 }, violations: [] });
-    vi.stubEnv('RPC_URL', 'https://rpc.example/key');
     await POST(post({ token: TOKEN }));
     expect(collect).toHaveBeenLastCalledWith(
       TOKEN,
-      expect.objectContaining({ rpcUrl: 'https://rpc.example/key' }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
-    vi.stubEnv('RPC_URL', '');
-    analysisCache.clear();
-    await POST(post({ token: TOKEN }));
-    expect(collect).toHaveBeenLastCalledWith(TOKEN, expect.objectContaining({ rpcUrl: undefined }));
-    vi.unstubAllEnvs();
   });
 
   // The same token asked twice spends one model call: the second answer is
@@ -189,8 +199,8 @@ describe('configuration', () => {
       offline: false,
     });
     await POST(post({ token: TOKEN }));
-    // Same token, other casing (the checksummed form): same cache entry.
-    const res = await POST(post({ token: getAddress(TOKEN) }));
+    // Solana addresses are case-sensitive: the key is the address as given.
+    const res = await POST(post({ token: TOKEN }));
     const body = (await res.json()) as { cached?: boolean; explanation: string };
     expect(res.status).toBe(200);
     expect(body).toMatchObject({ cached: true, explanation: 'ok' });
@@ -204,7 +214,9 @@ describe('configuration', () => {
       ...report,
       creator: {
         ...report.creator,
-        sources: [{ name: 'robinhood-rpc', note: 'their other launches could not be read' }],
+        sources: [
+          { name: 'solana-rpc', fetchedAt: AT, note: 'creation not read: call cap of 30 reached' },
+        ],
       },
     });
     explain.mockResolvedValue({ text: 'ok', cost: { costUsd: 0.01 }, violations: [] });
@@ -219,8 +231,8 @@ describe('a partial report (fourth audit)', () => {
   it('is never cached when a read failed, even without a source note saying so', async () => {
     collect.mockResolvedValue({
       ...report,
-      creator: { ...report.creator, sources: [{ name: 'robinhood-rpc' }] },
-      failedReads: [{ read: 'creator-launches', note: 'the SEAL indexer did not answer' }],
+      creator: { ...report.creator, sources: [{ name: 'solana-rpc', fetchedAt: AT }] },
+      failedReads: [{ read: 'creator-launches', note: 'creator’s transactions not listed' }],
     });
     explain.mockResolvedValue({ text: 'ok', cost: { costUsd: 0.01 }, violations: [] });
     await POST(post({ token: TOKEN }));

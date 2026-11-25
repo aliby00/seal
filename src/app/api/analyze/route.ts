@@ -1,8 +1,14 @@
-import { isAddress } from 'viem';
 import { NextResponse } from 'next/server';
 import { explain } from '@/lib/agent/reason';
 import { collect, type CollectOptions } from '@/lib/collect';
-import { toFacts, toTimeline, type ReportFacts, type TimelineLaunch } from '@/lib/facts';
+import {
+  launchView,
+  toFacts,
+  toTimeline,
+  type ReportFacts,
+  type TimelineLaunch,
+} from '@/lib/facts';
+import { isSolanaAddress } from '@/lib/solana/address';
 import { SealError } from '@/lib/errors';
 import { ANALYZE_LIMIT, guardedJson } from '@/lib/guard';
 import { log } from '@/lib/logger';
@@ -86,7 +92,6 @@ async function specialists(
 ): Promise<SpecialistBrief | undefined> {
   try {
     return await briefSpecialists(token, report, {
-      rpcUrl: process.env.RPC_URL || undefined,
       timeoutMs,
       ...(started ? { started } : {}),
     });
@@ -122,11 +127,12 @@ async function analyze(request: Request, started: number): Promise<Response> {
   if ('response' in guarded) return guarded.response;
   const token = (guarded.body as { token?: unknown } | null)?.token;
 
-  if (typeof token !== 'string' || !isAddress(token)) {
+  // A Solana mint, base58, case kept: an EVM 0x address is not one.
+  if (typeof token !== 'string' || !isSolanaAddress(token)) {
     return errorResponse(400, 'Invalid token address');
   }
 
-  const cacheKey = token.toLowerCase();
+  const cacheKey = token;
   const hit = await analysisCache.get(cacheKey);
   if (hit) {
     log.info('analyse servie depuis le cache', { token, ms: Date.now() - started });
@@ -141,13 +147,9 @@ async function analyze(request: Request, started: number): Promise<Response> {
   const progress: NonNullable<CollectOptions['progress']> = { stages: {} };
   try {
     // What the questions can read without the report starts now, alongside it.
-    const questions = startSpecialists(token, { rpcUrl: process.env.RPC_URL || undefined });
+    const questions = startSpecialists(token);
     const report = await Promise.race([
-      collect(token, {
-        rpcUrl: process.env.RPC_URL || undefined,
-        blockscoutApiKey: process.env.BLOCKSCOUT_API_KEY || undefined,
-        progress,
-      }),
+      collect(token, { progress, signal: AbortSignal.timeout(COLLECT_TIMEOUT_MS) }),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error(COLLECT_TIMEOUT_MESSAGE)), COLLECT_TIMEOUT_MS),
       ),
@@ -197,18 +199,22 @@ async function analyze(request: Request, started: number): Promise<Response> {
       );
     }
 
+    const launch = launchView(report.launch);
     const body: AnalyzeResponse = {
       token: report.token,
       explanation: explanation.text,
       completeness: report.completeness,
-      sources: [...report.creator.sources, ...report.holders.sources, ...report.market.sources].map(
-        ({ name, note }) => ({ name, ...(note ? { note } : {}) }),
-      ),
+      sources: [
+        ...report.mint.sources,
+        ...report.creator.sources,
+        ...report.holders.sources,
+        ...report.market.sources,
+      ].map(({ name, note }) => ({ name, ...(note ? { note } : {}) })),
       collectedAt: report.collectedAt,
       offline: explanation.offline,
       facts: chartable(report, funderOf(brief?.answers)),
       timeline: timeline(report),
-      ...(report.launch ? { launch: report.launch.data } : {}),
+      ...(launch ? { launch } : {}),
       ...(brief ? { name: brief.name, symbol: brief.symbol, specialists: brief.answers } : {}),
     };
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, type CSSProperties } from 'react';
-import type { FunderKind } from '@/lib/chain/funder-kind';
+import type { FunderKind } from '@/lib/specialists/types';
 import type { SpecialistAnswer } from '@/lib/specialists/brief';
 import type { FundingPathStep } from '@/lib/specialists/types';
 import { describeService } from '@/lib/specialists/names';

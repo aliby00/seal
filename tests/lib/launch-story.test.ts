@@ -63,12 +63,13 @@ describe('launch story', () => {
     const story = buildStory(
       launch(
         ['0xa', '0xb', '0xc', '0xd'].map((actor) =>
-          move({ actor, block: 2, share: 0.06, transaction: '0xBUNDLE' }),
+          move({ actor, block: 2, share: 0.06, transaction: '5BuNdLeSiG' }),
         ),
         448,
       ),
     );
-    expect(story.bundle).toMatchObject({ transaction: '0xbundle', wallets: 4, seconds: 0 });
+    // A Solana signature keeps its case: base58 is case-sensitive.
+    expect(story.bundle).toMatchObject({ transaction: '5BuNdLeSiG', wallets: 4, seconds: 0 });
     expect(story.bundle!.share).toBeCloseTo(0.24);
     expect(story.partial).toBe(true);
   });

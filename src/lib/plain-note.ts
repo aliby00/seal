@@ -1,7 +1,7 @@
 /**
  * A source note as a reader can take it. Notes are built for the logs
- * ("incomplete : robinhood-rpc : incomplete data — the creator's history did
- * not finish in time"); the page and the offline text show what happened, not
+ * ("timeout : solana-rpc : request timed out after 8000 ms"); the page and
+ * the offline text show what happened, not
  * the error's kind and source name (staging, 16/11/2026).
  */
 export function readableNote(note: string, { sentence = false } = {}): string {

@@ -1,4 +1,3 @@
-import { LAUNCH_HOOKS } from './chain/launchpads';
 import type { FeePayer } from './contracts/creator';
 import type { SetAsideRole } from './contracts/holders';
 
@@ -11,11 +10,9 @@ import type { SetAsideRole } from './contracts/holders';
 
 const WORD: Record<SetAsideRole, string> = {
   pool: 'trading pools',
-  'pool-manager': 'trading pools',
   curve: 'launch curve',
   launchpad: 'launch contracts',
   locker: 'liquidity lock contract',
-  hook: 'trading-rules contracts',
   vesting: 'vesting locks',
   burn: 'burn addresses',
 };
@@ -37,11 +34,9 @@ export function whereSetAside(
 export function roleWord(role: SetAsideRole): string {
   return {
     pool: 'a trading pool',
-    'pool-manager': 'the Uniswap v4 pool manager',
     curve: 'a launch curve',
     launchpad: 'a launch contract',
     locker: 'a liquidity lock contract',
-    hook: 'the trading rules (hook) of a market',
     vesting: 'a vesting lock',
     burn: 'a burn address',
   }[role];
@@ -63,10 +58,7 @@ export function feePayerWords(
   const words = list.map(({ address, role }) => {
     const a = address.toLowerCase();
     if (role === 'main-hook') return `the trading rules (hook) of its main pool, ${a}`;
-    // A launchpad's contract is named by its role wherever it is not the
-    // main pool's hook, in reports made before the role was read too.
-    const known = LAUNCH_HOOKS.find((h) => h.address === a);
-    if (known) return `${known.payer} (${a})`;
+    // TODO-SOLANA: EVM wording (hooks); no Solana report fills fee payers.
     if (role === 'pool-hook') return `the trading rules (hook) of another of its pools, ${a}`;
     return payers?.length
       ? `the trading rules (hook) ${a} of a market of this token`

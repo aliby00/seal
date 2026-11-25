@@ -119,10 +119,12 @@ const IMMUTABLE: RegExp[] = [
   /\bcan(?:not|['’]t|\s+never)\s+be\s+(?:rewritten|changed|altered|modified|upgraded)\b/i,
 ];
 
-const own = (report: TokenReport) =>
-  report.creator.data.tokens.find(
-    (t) => String(t.address).toLowerCase() === report.token.toLowerCase(),
-  );
+/** Whether the creator sold this token, as its own moves show; `null` when they were not read. */
+const soldOwn = (report: TokenReport): boolean | null => {
+  const onToken = report.creatorOnToken;
+  if (!onToken || onToken.completeness === 'unavailable') return null;
+  return onToken.data.sold !== '0';
+};
 
 /** The absences a failed read leaves unknown, as patterns: never said (GNRG, AI, MEME). */
 export function unreadPatterns(report: TokenReport): RegExp[] {
@@ -141,10 +143,10 @@ export function unreadPatterns(report: TokenReport): RegExp[] {
 export function forbiddenClaims(report: TokenReport): Set<ClaimKind> {
   const kinds = new Set<ClaimKind>(['only-token', 'immutable']);
   if (unreadPatterns(report).length > 0) kinds.add('unread');
-  const tokens = report.creator.completeness === 'unavailable' ? [] : report.creator.data.tokens;
-  const summary = report.launch?.data.summary;
-  const soldHere = own(report)?.creatorDumped === true || (summary?.creatorSold ?? 0) > 0;
-  if (soldHere || tokens.some((t) => t.creatorDumped === true)) kinds.add('clean-record');
+  const summary = report.launch.data.summary;
+  const soldHere = soldOwn(report) === true || (summary?.creatorSold ?? 0) > 0;
+  // TODO-SOLANA: the creator's sales on its other tokens are not read on Solana yet.
+  if (soldHere) kinds.add('clean-record');
   if (soldHere) kinds.add('no-sale');
   const links = report.holders.data.creatorLinks;
   if (
@@ -156,8 +158,7 @@ export function forbiddenClaims(report: TokenReport): Set<ClaimKind> {
   if ((summary?.creatorTx?.share ?? 0) >= 0.01) kinds.add('took-nothing');
   // MUT8: the launch transaction delivered to contracts, which are not pools.
   if ((summary?.creatorTx?.share ?? 0) >= 0.01) kinds.add('into-pools');
-  // MOON: the sender of the removal transaction is in the data.
-  if ((own(report)?.liquidityRemovals?.length ?? 0) > 0) kinds.add('remover-unknown');
+  // TODO-SOLANA: liquidity removals (MOON: the remover is in the data) are not read on Solana yet.
   return kinds;
 }
 
@@ -240,7 +241,7 @@ const percents = (share: number): string[] => {
  * told as one they held.
  */
 export function countMismatch(sentence: string, report: TokenReport): boolean {
-  const early = report.launch?.data.summary?.early;
+  const early = report.launch.data.summary?.early;
   if (early) {
     const m = EARLY_COUNT.exec(sentence);
     const n = m?.[1] ? numberOf(m[1]) : null;
@@ -339,17 +340,11 @@ const OTHERS_COUNT = new RegExp(
 export function otherLaunchSales(
   report: TokenReport,
 ): { sold: number; checked: number; totalSold: number; totalChecked: number } | null {
-  if (report.creator.completeness === 'unavailable') return null;
-  const checked = report.creator.data.tokens.filter((t) => t.creatorDumped !== null);
-  const self = own(report);
-  if (!self || self.creatorDumped === null || !checked.includes(self)) return null;
-  const others = checked.filter((t) => t !== self);
-  return {
-    sold: others.filter((t) => t.creatorDumped === true).length,
-    checked: others.length,
-    totalSold: checked.filter((t) => t.creatorDumped === true).length,
-    totalChecked: checked.length,
-  };
+  // TODO-SOLANA: the creator's sales on its other tokens are not read on
+  // Solana yet (creatorHistory lists them and their outcome only): no count
+  // of "other launches sold" to correct.
+  void report;
+  return null;
 }
 
 /**
@@ -648,7 +643,7 @@ export function withSectionOpeners(paragraphs: readonly string[]): string[] {
  * of what they bought) is set right in place.
  */
 export function correctHeldShare(text: string, report: TokenReport): string {
-  const early = report.launch?.data.summary?.early;
+  const early = report.launch.data.summary?.early;
   if (!early || early.heldNow === null || early.heldNow <= 0) return text;
   const held = percents(early.heldNow).join('|');
   const ofBought = early.share > 0 ? percents(early.heldNow / early.share) : [];
@@ -674,7 +669,7 @@ const ROUND_TRIP_COUNT = (n: number) =>
  * after the count, when the sentence does not already say it.
  */
 export function withRoundTripExclusions(text: string, report: TokenReport): string {
-  const trips = report.launch?.data.summary?.roundTrips;
+  const trips = report.launch.data.summary?.roundTrips;
   const words = roundTripsExcludedWords(trips?.excluded);
   if (!trips || trips.wallets === 0 || words === '') return text;
   const count = new RegExp(ROUND_TRIP_COUNT(trips.wallets).source, 'gi');

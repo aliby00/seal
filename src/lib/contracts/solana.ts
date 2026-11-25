@@ -3,8 +3,8 @@
  * shapes; what only Solana has starts here.
  */
 
-/** The chain a report reads. Reports made before Solana carry none: Robinhood Chain. */
-export type Chain = 'robinhood' | 'solana';
+/** The chain a report reads: Solana only since the Robinhood Chain reads were retired. */
+export type Chain = 'solana';
 
 /** The sources a Solana read cites (`SourceRef.name`). */
 export type SolanaSourceName = 'solana-rpc' | 'dexscreener-solana';

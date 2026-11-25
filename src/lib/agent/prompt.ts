@@ -1,18 +1,13 @@
 import type { LaunchMove, LaunchReplay, NamedAddress, TokenReport } from '../contracts';
-import { toFacts, toTimeline } from '../facts';
+import { launchView, toFacts, toTimeline } from '../facts';
 import { buildGlance } from '../glance';
 import { flowDate, flowPct, flowSentence, lockWords, type FlowNode } from '../supply-flow';
-import { OTHER_LAUNCH_SALES_DAYS } from '../contracts/creator';
-import { launchpadProse } from '../chain/launchpads';
-import { checkedByLaunchpad, checkedWords, joinClauses } from '../checked-sample';
 import { roundTripsExcludedWords } from '../launch-story';
 
 export { roundTripsExcludedWords };
-import { feePayerWords, roleWord, whereSetAside } from '../set-aside';
 import type { SpecialistAnswer } from '../specialists/brief';
-import { mostHoldersFromCreator } from '../contracts/holders';
-import { READ_WORDS, readFailed, UNREAD } from '../failed-reads';
-import { partyOf } from '../facts';
+import { READ_WORDS } from '../failed-reads';
+import type { SolanaHolder } from '../solana/holders';
 
 /**
  * Le system prompt est un préfixe **stable** : il ne contient aucune donnée de
@@ -22,7 +17,9 @@ import { partyOf } from '../facts';
  * Le ton est calibré sur le whitepaper : on décrit, on ne note pas, et on fait
  * ressortir les endroits où les signaux ne racontent pas la même histoire.
  */
-export const SYSTEM_PROMPT = `You are SEAL, an agent analyzing tokens on Robinhood Chain, whatever launched them: pons, flap.sh, other launchpads, or a contract deployed directly.
+// TODO-SOLANA: the rules below were written for Robinhood Chain (hooks, v4, pons); the agent's
+// rewrite adapts them. Only the chain named in the first line is changed here.
+export const SYSTEM_PROMPT = `You are SEAL, an agent analyzing tokens on Solana, whatever launched them: pump.fun, Meteora, Raydium LaunchLab, other launchpads, or a mint created directly.
 
 Your role is to EXPLAIN, never to rate. Cross-examine creator history, holder concentration and market conditions. Explain what they reveal together, especially where they contradict one another.
 
@@ -91,421 +88,186 @@ export function renderReport(report: TokenReport, specialists?: SpecialistAnswer
   lines.push(...renderAttention(report, specialists));
   lines.push(...renderSupplyFlow(report));
 
-  lines.push('## Creator history');
-  lines.push(`Completeness: ${report.creator.completeness}`);
-  for (const source of report.creator.sources) {
-    if (source.note) lines.push(`Limit: ${source.note}`);
-  }
-  const c = report.creator.data;
-  const deployer = c.origin?.source === 'deployer';
-  // The other launches listed, their checks not read: the count stands.
-  const launchesFailed = failedReads.some(
-    (f) => f.read === 'creator-launches' && f.note !== UNREAD.otherChecks,
-  );
-  lines.push(`Creator: ${c.creator}`);
-  if (deployer && c.origin) {
-    const role = {
-      deployer: 'deployed the token contract',
-      launcher: `launched the token through the contract ${c.origin.launchContract ?? 'of its launch'}`,
-      'first-minter':
-        'sent the transaction of the first mint, after the contract was created (this does not prove who wrote it)',
-    }[c.origin.role];
-    lines.push(
-      c.origin.launchpad
-        ? `Origin: launched on ${launchpadProse(c.origin.launchpad.id)}. ${c.origin.creatorFrom === 'launch-record' ? 'Creator named by the launch event' : 'Creator: the sender of the launch transaction'}: this address ${role}.`
-        : `Origin: no known launchpad. Creator found through the transaction of the first mint: this address ${role}.`,
-    );
-    if (c.origin.transactionCount !== null) {
-      lines.push(`Transactions sent by this wallet: ${c.origin.transactionCount}.`);
-    }
-    lines.push(
-      launchesFailed
-        ? `Launches by this address: at least ${c.counts.launched}. A read of its launches failed this time, so do not write that no other launch was found.`
-        : c.origin.launchesListed
-          ? `Launches by this address (${c.origin.launchpadsRead?.map(launchpadProse).join(', ') || 'same launch contract'}): ${c.counts.launched}.`
-          : 'This address’s other launches on this launchpad cannot be listed from the chain: do not count them.',
-    );
-    if (c.origin.launchpadsNotRead?.length) {
-      lines.push(
-        `Not listed: ${c.origin.launchpadsNotRead.map(launchpadProse).join(', ')}. Do not say there are none, and never write that this is the creator’s first token.`,
-      );
-    }
-    lines.push(
-      c.origin.graduationRead
-        ? `Graduation, read from the Virtuals launchpad’s own Graduated event: ${c.tokens.filter((t) => t.outcome === 'graduated').length} of the ${c.tokens.length} launches read in detail graduated to an open market.`
-        : 'Graduation is read on pons and Virtuals only: what became of these launches (graduated, abandoned) is not measured here. Do not present it as known.',
-    );
-  } else {
-    if (c.origin?.transactionCount !== null && c.origin?.transactionCount !== undefined) {
-      lines.push(`Transactions sent by this wallet: ${c.origin.transactionCount}.`);
-    }
-    if (launchesFailed) {
-      lines.push(
-        `A read of the creator’s launches failed this time: ${c.counts.launched} is a minimum. Do not write that no other launch was found.`,
-      );
-    }
-    lines.push(
-      `Tokens launched over the observed window: ${c.counts.launched}, of which ${c.counts.graduated} graduated, ` +
-        `${c.counts.abandoned} abandoned, and ${c.counts.undetermined} whose outcome cannot be told over this window.`,
-    );
-    lines.push(
-      `Launches read on ${['pons', ...(c.origin?.launchpadsRead ?? []).filter((l) => l !== 'pons')].map(launchpadProse).join(', ')} only${c.origin?.launchpadsNotRead?.length ? `; not listed: ${c.origin.launchpadsNotRead.map(launchpadProse).join(', ')}` : ''}. Never write that the creator launched only this token or that it is their first: say "no other launch found on the launchpads SEAL can list".`,
-    );
-    if (c.counts.undetermined > 0) {
-      lines.push(
-        'An outcome that "cannot be told" means the window scanned is shorter than the delay after which a launch would count as abandoned. Do not present it as observed activity.',
-      );
-    }
-  }
-  // Sales and liquidity are checked on the most recent launches only; the
-  // model must get those results, not the oldest launches where nothing was
-  // checked (it then wrote "no sale observed" over a 10/10 that the card showed).
-  // Each signal has its own denominator: a market that could not be read is
-  // not "no liquidity removed".
-  const salesChecked = c.tokens.filter((t) => t.creatorDumped !== null);
-  const liquidityChecked = c.tokens.filter((t) => t.liquidityPulled !== null);
-  const ownSold = c.tokens.some(
-    (t) =>
-      String(t.address).toLowerCase() === report.token.toLowerCase() && t.creatorDumped === true,
-  );
-  if (readFailed(failedReads, 'creator-sales')) {
-    lines.push(
-      ownSold
-        ? 'The creator’s sales of this token: the read of its transfers did not complete this time, but a sale was still confirmed by a trade in its market. Say the creator sold it, and that the read was partial.'
-        : 'The creator’s sales of this token: not read this time (the read failed). Do not write that it did not sell.',
-    );
-  }
-  if (salesChecked.length > 0) {
-    const own = salesChecked.find(
-      (t) => String(t.address).toLowerCase() === report.token.toLowerCase(),
-    );
-    const w = own?.salesWindow;
-    const ownWindow = w
-      ? w.wholeLife
-        ? `this token read over its whole life to date${w.days !== null ? ` (${w.days} days)` : ''}`
-        : `this token read up to day ${w.days ?? '?'} after its launch only`
-      : null;
-    lines.push(
-      `Creator sales into the market: of ${salesChecked.length} launches checked${own ? ' in total, this token included' : ''}, ` +
-        `${salesChecked.filter((t) => t.creatorDumped === true).length} (` +
-        (ownWindow
-          ? `${ownWindow}; the other launches in the first ${OTHER_LAUNCH_SALES_DAYS} days after each`
-          : `in the first ${OTHER_LAUNCH_SALES_DAYS} days after each launch`) +
-        '). Give the window when you cite these sales.',
-    );
-    // ASTEROID: "sold in 8 of 10 other checked launches", the total said of the others.
-    if (own && own.creatorDumped !== null) {
-      const others = salesChecked.filter((t) => t !== own);
-      const othersSold = others.filter((t) => t.creatorDumped === true).length;
-      lines.push(
-        `Detail: this token, ${own.creatorDumped ? 'the creator sold it' : 'no creator sale observed'}; ` +
-          `its other launches, ${othersSold} with a sale of ${others.length} checked. ` +
-          `When you speak of its "other" launches, the count is ${othersSold} of ${others.length}; ` +
-          `${salesChecked.filter((t) => t.creatorDumped === true).length} of ${salesChecked.length} is the total with this token included: never use it with "other".`,
-      );
-    }
-  }
-  // Which launches were checked, launchpad by launchpad: "0 of 10" was the
-  // ten latest Doppler launches of a creator who sold on its pons ones (AI).
-  const by = checkedByLaunchpad(c, report.token);
-  if (by.some((r) => r.salesChecked + r.liquidityChecked > 0)) {
-    lines.push(
-      `Which other launches were checked (the most recent on each launchpad the creator used): sales, ${joinClauses(checkedWords(by, 'sales'))}` +
-        (by.some((r) => r.liquidityChecked > 0)
-          ? `; liquidity removals, ${joinClauses(checkedWords(by, 'liquidity'))}`
-          : '') +
-        '. When you cite these counts, say which launches they cover, in these words.',
-    );
-  }
-  const anySold = salesChecked.some((t) => t.creatorDumped === true);
-  if (anySold) {
-    lines.push(
-      ownSold
-        ? 'Measured fact: the creator sold this token into its market (a sale confirmed by a trade in the same transaction, routed or not). The launch-window sales further down cover only the first minutes. Never say its record or behaviour is clean or without sales.'
-        : 'Measured fact: the creator sold into the market of at least one other of its launches. Never say its record is clean.',
-    );
-  }
-  if (liquidityChecked.length > 0) {
-    lines.push(
-      `Liquidity removals ${deployer ? 'sent by the creator' : 'from the launch position'}: of ${liquidityChecked.length} launches checked, ` +
-        `${liquidityChecked.filter((t) => t.liquidityPulled === true).length} (same window).`,
-    );
-  }
-  lines.push(...renderRemovals(report, funderOf(specialists)));
-  const fees = c.tokens.filter((t) => t.feesCollected === true);
-  if (fees.length > 0) {
-    lines.push(
-      `The creator took tokens out of the market’s liquidity position without removing its liquidity (fees collected) on ${fees.length} launch(es)${fees.some((t) => String(t.address).toLowerCase() === report.token.toLowerCase()) ? ', this one included' : ''}. Say so; do not write "no removal" without saying it.`,
-    );
-  }
-  const taken = c.tokens.find(
-    (t) => String(t.address).toLowerCase() === report.token.toLowerCase(),
-  )?.feesTaken;
-  if (taken && taken.transfers > 0) {
-    lines.push(
-      `Over this token’s whole life, ${feePayerWords(taken.payers, taken.hooks)} paid the creator ${(taken.share * 100).toFixed(2)}% of the supply in ${taken.transfers} transfer(s): trading fees taken out of the market. Say so with these figures, and name that contract by this exact role: call it "the market’s trading rules (hook)" only when it says "of its main pool".`,
-    );
-  }
-  const yesNo = (value: boolean | null) =>
-    value === null ? 'not checked' : value ? 'yes' : 'not observed';
-  // The launches checked, each named (every launchpad's), and the latest ones.
-  const latestTen = new Set(c.tokens.slice(-10));
-  const listed = c.tokens
-    .filter((t) => latestTen.has(t) || t.creatorDumped !== null || t.liquidityPulled !== null)
-    .slice(-30);
-  for (const token of listed) {
-    lines.push(
-      `- ${token.address}: ` +
-        (deployer
-          ? ''
-          : `${token.outcome}, progress ${(token.graduationProgress * 100).toFixed(2)}%, `) +
-        `${token.launchpad ? `${token.launchpad}, ` : ''}creator sale: ${yesNo(token.creatorDumped)}, liquidity removal ${deployer ? 'by the creator' : 'from the launch position'}: ${yesNo(token.liquidityPulled)}`,
-    );
-  }
-  lines.push('');
+  // TODO-SOLANA: the EVM sections (creator history with its pons and
+  // deployer origins, the holders' links to the creator, the v4 market and
+  // the indexer's pool activity) went away with the EVM reads. Until the
+  // agent is rewritten on the Solana report, each block is handed to the
+  // model as it was read: its completeness, its limits, and its data.
+  lines.push(...renderSolanaBlocks(report));
 
-  lines.push('## Holder concentration');
-  lines.push(`Completeness: ${report.holders.completeness}`);
-  for (const source of report.holders.sources) {
-    if (source.note) lines.push(`Limit: ${source.note}`);
-  }
-  const h = report.holders.data;
-  if (report.holders.completeness === 'unavailable') {
-    // Zeros here would read as "no concentration": the model is told nothing was measured.
-    lines.push('Not measured: no share to interpret.');
-  } else {
-    // How much circulates comes first: "one holds three fifths" of the 0.9 %
-    // outside the pool is not three fifths of the token.
-    if (h.pooledShare != null) {
-      lines.push(
-        `Say this before any share: ${(h.pooledShare * 100).toFixed(2)}% of the total supply sits in ${whereSetAside(h.setAside)} (pools, launch curve, launch contracts, burn); only ${((1 - h.pooledShare) * 100).toFixed(2)}% circulates outside those addresses, and the shares below are of that ${((1 - h.pooledShare) * 100).toFixed(2)}%.`,
-      );
-    } else {
-      lines.push(
-        'Share of the total supply out of circulation (pools, curve, launch contracts): not measured. The shares below are not shares of the total supply.',
-      );
-    }
-    for (const aside of (h.setAside ?? []).slice(0, 5)) {
-      lines.push(
-        `- set aside: ${aside.address} (${aside.name ?? roleWord(aside.role)})${aside.share !== null ? `: ${(aside.share * 100).toFixed(2)}% of the total supply` : ''}${aside.role === 'vesting' ? '; locked, it cannot be sold before it unlocks' : ''}`,
-      );
-    }
-    const ownToken = report.creator.data.tokens.find(
-      (t) => String(t.address).toLowerCase() === report.token.toLowerCase(),
-    );
-    const sent = ownToken?.creatorRecipients ?? null;
-    if (mostHoldersFromCreator(sent, h.holderCount)) {
-      lines.push(
-        `The creator sent this token directly to ${sent} addresses (outside markets), for ${h.holderCount} holders: most received it from the creator rather than buying it. Do not present the number of holders as reassuring.`,
-      );
-    }
-    const links = h.creatorLinks;
-    if (links) {
-      const linked = h.top.filter((t) => t.fromCreator);
-      // The same count the glance gives: among the largest holders shown.
-      const shown = h.top.filter((t) => t.kind === 'wallet' || t.kind === 'contract').slice(0, 8);
-      const shownLinked = shown.filter((t) => t.fromCreator).length;
-      const n = links.sentTo;
-      lines.push(
-        `Creator-to-holder links, read from the creator’s transfers (${n} address${n === 1 ? '' : 'es'} received from the creator outside markets and burn${links.sentShare !== undefined ? `, ${(links.sentShare * 100).toFixed(2)}% of the supply in all` : ''}):`,
-      );
-      if (links.recipients && links.recipients.length > 0) {
-        lines.push(
-          `- every recipient of the creator outside markets and burn${n > links.recipients.length ? ` (the ${links.recipients.length} largest of ${n})` : ''}: ` +
-            links.recipients
-              .map(
-                (r) =>
-                  `${r.address} (${(r.share * 100).toFixed(2)}%${r.listed ? ', a holder today' : ''})`,
-              )
-              .join(', ') +
-            '. Do not write that the creator’s only transfer is another one than these.',
-        );
-      }
-      lines.push(
-        `- ${shownLinked} of the ${shown.length} largest holders shown received tokens from the creator (directly or through a contract it funded); ${linked.length} among all holders read. Quote these numbers as they are.`,
-      );
-      for (const t of linked.slice(0, 8)) {
-        const f = t.fromCreator!;
-        lines.push(
-          `- ${t.address} (holder today, ${(t.share * 100).toFixed(2)}% of the share outside pools) received ${(f.share * 100).toFixed(2)}% of the total supply ${f.via ? `from the contract ${f.via}, which the creator had funded with tokens` : 'directly from the creator'}.`,
-        );
-      }
-      for (const d of links.distributors) {
-        lines.push(
-          `- the creator sent ${(d.share * 100).toFixed(2)}% of the supply to the contract ${d.address}, which passed it on to ${d.recipients} addresses${d.complete ? '' : ' (at least)'}.`,
-        );
-      }
-      if (links.burned > 0) {
-        lines.push(
-          `- the creator sent ${(links.burned * 100).toFixed(2)}% of the supply to a burn address.`,
-        );
-      }
-      if (linked.length === 0 && links.distributors.length === 0) {
-        lines.push('- none of the largest holders listed received tokens from the creator.');
-      } else {
-        lines.push(
-          'These links are measured: state them plainly, without claiming who controls these addresses, and never write that there is no link between the creator and the holders.',
-        );
-      }
-    }
-    lines.push(`Share of the largest holder: ${(h.concentration.top1 * 100).toFixed(2)}%`);
-    lines.push('(These shares are of the holders retrieved, not of the token’s total supply.)');
-    lines.push(`Combined share of the top 10: ${(h.concentration.top10 * 100).toFixed(2)}%`);
-    lines.push(
-      '(Pools, launch curves, launch contracts and burn addresses are left out of these shares.)',
-    );
-    const creator = report.creator.data.creator.toLowerCase();
-    for (const holder of h.top
-      .filter((t) => t.kind === 'wallet' || t.kind === 'contract')
-      .slice(0, 5)) {
-      // Whether the creator still holds a large share is a fact, not a guess: name it.
-      const role =
-        holder.address.toLowerCase() === creator
-          ? ': the creator’s address'
-          : holder.fromCreator
-            ? `: received ${(holder.fromCreator.share * 100).toFixed(2)}% of the supply ${holder.fromCreator.via ? 'through a contract the creator funded' : 'from the creator'}`
-            : '';
-      lines.push(
-        `- ${holder.address} (${holder.name ?? holder.kind}): ${(holder.share * 100).toFixed(2)}%${role}`,
-      );
-    }
-  }
-  lines.push('');
-
-  lines.push('## Market state');
-  lines.push(`Completeness: ${report.market.completeness}`);
-  for (const source of report.market.sources) {
-    if (source.note) lines.push(`Limit: ${source.note}`);
-  }
   const m = report.market.data;
-  lines.push(`Price: ${m.priceUsd === null ? 'unknown' : `${m.priceUsd} USD`}`);
-  if (m.liquidityCheck && !m.liquidityCheck.current && m.liquidityUsd !== null) {
-    // A removal is on chain at once; the listed figure can lag it by hours.
-    lines.push(
-      `Liquidity: DexScreener lists ${m.liquidityUsd} USD, but the token’s pools hold only ${(m.liquidityCheck.poolsShare * 100).toFixed(4)}% of its supply on chain today: that figure is not current. Never present it as liquidity, nor as reassuring.`,
-    );
-  } else {
-    lines.push(`Liquidity: ${m.liquidityUsd === null ? 'unknown' : `${m.liquidityUsd} USD`}`);
-  }
   if (m.quiet) {
     lines.push(
       `No trade for at least ${m.quiet.hours} h: do not say trading is active without saying so.`,
     );
   }
-  if (m.graduation) {
-    lines.push(
-      `Graduation: ${(m.graduation.progress * 100).toFixed(2)}% of the ${m.graduation.thresholdEth} ETH threshold` +
-        (m.graduation.graduated ? ', threshold reached' : ''),
-    );
-  } else if (report.graduated) {
-    // The launchpad's own event settles it; its curve has no ETH threshold to
-    // measure against, so "not determined" would contradict the event.
-    const g = report.graduated;
-    lines.push(
-      `Graduation: graduated to an open market${g.at ? ` on ${g.at.slice(0, 10)}` : ''} (block ${g.block}), read from the launchpad’s own Graduated event. Its threshold is not in ETH: say it graduated, never that graduation is undetermined.`,
-    );
-  } else {
-    lines.push('Graduation: not determined');
-  }
-  if (m.volumeUsd && m.txns) {
-    const trades = m.txns.h24.buys + m.txns.h24.sells;
-    lines.push(
-      `24 h volume: ${m.volumeUsd.h24} USD over ${trades} trades (${m.txns.h24.buys} buys, ${m.txns.h24.sells} sells).`,
-    );
-  } else if (m.activity && m.txns) {
-    // No listed pair: the launch pool's own swaps, counted by the indexer.
-    const a = m.activity;
-    lines.push(
-      `24 h trades (counted by the SEAL indexer on the launch pool’s swaps, without prices): ${a.h24.buys} buys, ${a.h24.sells} sells, ${a.h24.traders} distinct addresses, volume ${a.h24.volume} wei of the paired token.`,
-      `7 d trades: ${a.d7.buys} buys, ${a.d7.sells} sells, ${a.d7.traders} addresses. Last trade: ${a.sinceLaunch.lastTradeAt ?? 'none'}.`,
-      `Window covered: since ${a.coveredFrom ?? 'unknown'}${a.sinceLaunch.complete ? ' (everything since launch)' : ''}. ${
-        a.creatorTrades
-          ? `The creator’s swaps in this pool: ${a.creatorTrades.buys} buy(s), ${a.creatorTrades.sells} sell(s).`
-          : a.creatorTraded
-            ? 'The creator traded in this pool; the direction of its trades is not given here: do not mention it.'
-            : 'The creator did not trade in this pool over the window covered.'
-      }`,
-    );
-  } else {
-    lines.push('Volume: not available');
-  }
 
   // Who first funded the creator, so the replay can name it where it traded (KEL).
   const funder = funderOf(specialists);
-  if (report.launch) {
-    lines.push(
-      '',
-      ...renderLaunch(report.launch, {
-        ...(funder ? { funder } : {}),
-        ...(report.roles?.length ? { roles: report.roles } : {}),
-      }),
-    );
+  const launch = launchView(report.launch);
+  if (launch) {
+    lines.push('', ...renderLaunch({ ...report.launch, data: launch }, funder ? { funder } : {}));
   }
   if (specialists && specialists.length > 0) lines.push('', ...renderSpecialists(specialists));
 
   return lines.join('\n');
 }
 
-/** Who first funded the creator's wallet, as the funding question traced it. */
-export function funderOf(specialists?: readonly SpecialistAnswer[]): string | undefined {
-  return specialists
-    ?.find((a) => a.specialist === 'funding-trace')
-    ?.funding?.path[0]?.address?.toLowerCase();
+/** One block as the model reads it: what was read, how complete, and its limits. */
+function renderBlock(
+  title: string,
+  block: { completeness: string; sources: readonly { note?: string }[] } | null,
+  data: unknown,
+): string[] {
+  if (!block) return [`## ${title}`, 'Not read: no creator is known.', ''];
+  return [
+    `## ${title}`,
+    `Completeness: ${block.completeness}`,
+    ...block.sources.filter((s) => s.note).map((s) => `Limit: ${s.note}`),
+    `Data: ${JSON.stringify(data)}`,
+    '',
+  ];
 }
 
-const PARTY_WORD = {
-  creator: 'the creator',
-  funder: 'the wallet that first funded the creator',
-  other: 'an address that is neither the creator nor its first funder',
-} as const;
-
 /**
- * The analysed token's liquidity removals: who sent each, and to whom the
- * market returned the token (MOON: "who removed it is not stated here",
- * while the creator sent tx 0xf58e531e… and got 48.07 % of the supply back).
+ * The Solana report, block by block (TODO-SOLANA: a stand-in for the
+ * agent's own rendering). Shares are fractions of 1; amounts are raw units.
  */
-function renderRemovals(report: TokenReport, funder?: string): string[] {
-  const token = report.creator.data.tokens.find(
-    (t) => String(t.address).toLowerCase() === report.token.toLowerCase(),
-  );
-  const removals = token?.liquidityRemovals ?? [];
-  if (removals.length === 0) return [];
-  const creator = report.creator.data.creator;
-  const deployer = report.creator.data.origin?.source === 'deployer';
-  const pc = (x: number) => `${(x * 100).toFixed(2)}%`;
-  const parties = removals.map((r) => partyOf(r.sender, creator, funder));
-  const creators = parties.filter((p) => p === 'creator').length;
-  const launchWords = deployer ? 'sent by the creator' : 'from the launch position';
-  const launchRead =
-    token?.liquidityPulled === true || creators > 0
-      ? 'yes, listed below'
-      : token?.liquidityPulled === false
-        ? 'none observed'
-        : 'not determined';
-  const header = [
-    `Liquidity removals on this token’s markets, the ${removals.length} most recent read. Two separate questions, answer both apart:`,
-    `- Removals of the creator’s or the launch liquidity (${launchWords}): ${launchRead}.`,
-    `- Removals by other liquidity providers, taking back positions they had added themselves (the tokens going back to them): ${removals.length - creators}.`,
-    'These are not contradictory: a third party taking back its own position is not the creator removing the launch liquidity, and "no removal of the creator’s liquidity" stays true next to them. Never call them a contradiction or a divergence.',
+export function renderSolanaBlocks(report: TokenReport): string[] {
+  const mint = report.mint.data;
+  const history = report.creatorHistory;
+  const onToken = report.creatorOnToken;
+  const linked = report.linkedWallets;
+  const h = report.holders.data;
+  const m = report.market.data;
+  return [
+    ...renderBlock(
+      'Token mint',
+      report.mint,
+      mint
+        ? {
+            program: mint.program,
+            decimals: mint.decimals,
+            supply: mint.supply,
+            mintAuthority: mint.mintAuthority,
+            freezeAuthority: mint.freezeAuthority,
+            extensions: mint.extensions.map((e) => e.extension),
+            name: mint.metadata?.name ?? null,
+            symbol: mint.metadata?.symbol ?? null,
+          }
+        : null,
+    ),
+    '## What the mint lets someone do',
+    ...(report.powers.length > 0 ? report.powers.map((p) => `- ${p.sentence}`) : ['- Not read.']),
+    '',
+    ...renderBlock('Creator', report.creator, {
+      creator: report.creator.data.creator,
+      from: report.creator.data.from,
+      creation: report.creator.data.creation,
+    }),
+    ...renderBlock(
+      'The creator’s other tokens',
+      history,
+      history
+        ? {
+            counts: history.data.counts,
+            tokens: history.data.tokens.slice(0, 10).map((t) => ({
+              mint: t.mint,
+              launchpad: t.launchpad,
+              launchedAt: t.launchedAt,
+              outcome: t.outcome,
+            })),
+            scanned: history.data.scanned,
+          }
+        : null,
+    ),
+    ...renderBlock(
+      'What the creator did with this token',
+      onToken,
+      onToken
+        ? {
+            bought: onToken.data.bought,
+            sold: onToken.data.sold,
+            received: onToken.data.received,
+            burned: onToken.data.burned,
+            locked: onToken.data.locked,
+            holdsNowShare: onToken.data.holdsNowShare,
+            sentToAddresses: onToken.data.sends.distinct,
+          }
+        : null,
+    ),
+    ...renderBlock(
+      'Wallets linked to the creator by SOL transfers',
+      linked,
+      linked
+        ? {
+            firstFunding: linked.data.firstFunding,
+            funding: linked.data.funding,
+            funded: linked.data.funded.slice(0, 5).map((f) => ({
+              wallet: f.wallet,
+              lamports: f.lamports,
+              onToken: f.onToken,
+            })),
+          }
+        : null,
+    ),
+    ...renderBlock('Holders', report.holders, {
+      method: h.method,
+      holderCount: h.holderCount,
+      holdersAtLeast: h.holdersAtLeast,
+      concentration: h.concentration,
+      ofSupply: h.ofSupply,
+      creator: h.creator ?? null,
+      top: (h.top as readonly SolanaHolder[]).slice(0, 10).map((x) => ({
+        address: x.address,
+        share: x.share,
+        ofSupply: x.ofSupply,
+        is: x.owner.name,
+      })),
+    }),
+    ...renderBlock('Market (DexScreener)', report.market, {
+      dex: m.dex,
+      pairedWith: m.pairedWith?.symbol ?? null,
+      priceUsd: m.priceUsd,
+      liquidityUsd: m.liquidityUsd,
+      volumeUsd: m.volumeUsd,
+      txns: m.txns,
+      fdvUsd: m.fdvUsd,
+      pairCreatedAt: m.pairCreatedAt,
+    }),
+    ...renderBlock('Launchpad and graduation', report.launchpad, {
+      launchpad: report.launchpad.data.launchpad?.name ?? null,
+      graduation: report.graduation
+        ? {
+            graduated: report.graduation.data.graduated,
+            progress: report.graduation.data.progress,
+            progressBasis: report.graduation.data.progressBasis,
+            destination: report.graduation.data.destination,
+          }
+        : null,
+    }),
+    ...renderBlock('Liquidity of the main pools', report.liquidity, {
+      pools: report.liquidity.data.pools.map((p) => ({
+        pool: p.pool,
+        kind: p.kind,
+        burnedShare: p.burnedShare,
+        lockedShare: p.lockedShare,
+        withdrawableShare: p.withdrawableShare,
+      })),
+    }),
+    ...(report.launch.data.story.length > 0
+      ? [
+          '## The launch, in order',
+          ...report.launch.data.story.map((s) => `- +${s.seconds} s: ${s.text}`),
+          '',
+        ]
+      : []),
   ];
-  const lines = removals.map((r, i) => {
-    const by = parties[i] ?? 'other';
-    const back = r.returned.map((x) => {
-      const to = partyOf(x.address, creator, funder);
-      const self = x.address.toLowerCase() === r.sender.toLowerCase();
-      return `${pc(x.share)} of the supply to ${self && by === 'other' ? 'that same address' : to === 'other' ? x.address : PARTY_WORD[to]}${x.heldNow === null ? '' : `, which holds ${pc(x.heldNow)} of the supply today`}`;
-    });
-    const label =
-      by === 'creator' ? 'the creator’s removal' : 'another liquidity provider’s own position';
-    return (
-      `Liquidity removal on this token (${label}; transaction ${r.transaction}): sent by ${PARTY_WORD[by]}${by === 'other' ? ` (${r.sender})` : ''}. ` +
-      (back.length > 0
-        ? `In it the market returned ${back.join('; ')}. `
-        : 'No token of this one came back out of its markets to an address in that transaction. ') +
-      'Say who removed it and where the tokens went; never write that who removed it is unknown or not stated.'
-    );
-  });
-  return [...header, ...lines];
+}
+
+/** Who first funded the creator's wallet, as the funding question traced it. */
+export function funderOf(specialists?: readonly SpecialistAnswer[]): string | undefined {
+  return specialists?.find((a) => a.specialist === 'funding-trace')?.funding?.path[0]?.address;
 }
 
 const MOVE_WORD: Record<LaunchMove['kind'], string> = {
@@ -526,8 +288,8 @@ export function renderLaunch(
   launch: LaunchReplay,
   options: { funder?: string; roles?: readonly NamedAddress[] } = {},
 ): string[] {
-  const named = new Map((options.roles ?? []).map((r) => [r.address.toLowerCase(), r.name]));
-  const nameOf = (address: string) => named.get(address.toLowerCase());
+  const named = new Map((options.roles ?? []).map((r) => [r.address, r.name]));
+  const nameOf = (address: string) => named.get(address);
   const d = launch.data;
   const lines = [
     `## The first ${Math.round(d.windowSeconds / 60)} minutes after the launch (block ${d.launchBlock})`,
@@ -605,7 +367,7 @@ function windowRoundTrips(
   // The creator's trip comes first in the list, when it made one.
   const creator = trips.creator ? trips.listed[0]?.address : undefined;
   const first = (t: { address: string }) =>
-    t.address === creator || (funder && t.address.toLowerCase() === funder) ? 0 : 1;
+    t.address === creator || (funder && t.address === funder) ? 0 : 1;
   const shown = [...trips.listed]
     .sort((a, b) => first(a) - first(b))
     .slice(0, ROUND_TRIPS_SHOWN)
@@ -640,7 +402,7 @@ function windowRoundTrips(
     const who =
       t.address === creator
         ? `${t.address} (the creator)`
-        : funder && t.address.toLowerCase() === funder
+        : funder && t.address === funder
           ? `${t.address} (the first funder of the creator’s wallet)`
           : t.address;
     const delay = Math.round((t.soldAt - t.boughtAt) * 10) / 10;
@@ -666,7 +428,7 @@ function roundTrips(moves: readonly LaunchMove[], funder?: string): string[] {
   const seen = new Set<string>();
   // The creator and its funder first: theirs are the trips the text names.
   const first = (m: LaunchMove) =>
-    m.actorIsCreator || (funder !== undefined && m.actor.toLowerCase() === funder) ? 0 : 1;
+    m.actorIsCreator || (funder !== undefined && m.actor === funder) ? 0 : 1;
   for (const buy of [...moves].sort((a, b) => first(a) - first(b))) {
     if (buy.kind !== 'buy' || seen.has(buy.actor)) continue;
     const sale = moves.find(
@@ -677,7 +439,7 @@ function roundTrips(moves: readonly LaunchMove[], funder?: string): string[] {
     const delay = Math.round((sale.seconds - buy.seconds) * 10) / 10;
     const who = buy.actorIsCreator
       ? `${buy.actor} (the creator)`
-      : funder && buy.actor.toLowerCase() === funder
+      : funder && buy.actor === funder
         ? `${buy.actor} (the first funder of the creator’s wallet)`
         : buy.actor;
     out.push(
@@ -746,7 +508,7 @@ export function renderAttention(report: TokenReport, specialists?: SpecialistAns
   const glance = buildGlance({
     facts: toFacts(report),
     timeline: toTimeline(report),
-    ...(report.launch ? { launch: report.launch.data } : {}),
+    ...(launchView(report.launch) ? { launch: launchView(report.launch)! } : {}),
     ...(specialists ? { specialists } : {}),
   });
   const items = (glance?.items ?? []).filter((i) => i.tone === 'attention' && !i.unread);
@@ -763,7 +525,8 @@ export function renderSupplyFlow(report: TokenReport): string[] {
   const flow = toFacts(report).supplyFlow;
   if (!flow) return [];
   const creator = report.creator.data.creator;
-  const roles = new Map((report.roles ?? []).map((r) => [r.address, r]));
+  // TODO-SOLANA: no address roles are read on Solana yet (holders carry their owner's role).
+  const roles = new Map<string, NamedAddress>();
   const lines = [
     '## Where the supply went at launch (say this first, by role)',
     `In one sentence: ${flowSentence(flow, creator)}`,
@@ -778,7 +541,7 @@ export function renderSupplyFlow(report: TokenReport): string[] {
       lines.push(`${'  '.repeat(depth + 1)}· ${lockWords(n.lock, creator, n.received)}.`);
       for (const sch of n.lock.schedules) {
         lines.push(
-          `${'  '.repeat(depth + 1)}· schedule: ${flowPct(sch.total)} for ${sch.beneficiary ?? 'an unread beneficiary'}${sch.beneficiary === creator.toLowerCase() ? ' (the creator)' : ''}, ${sch.steps} unlocks from ${flowDate(sch.startsAt)} to ${flowDate(sch.endsAt)}, ${flowPct(sch.claimed)} claimed so far.`,
+          `${'  '.repeat(depth + 1)}· schedule: ${flowPct(sch.total)} for ${sch.beneficiary ?? 'an unread beneficiary'}${creator && sch.beneficiary === creator ? ' (the creator)' : ''}, ${sch.steps} unlocks from ${flowDate(sch.startsAt)} to ${flowDate(sch.endsAt)}, ${flowPct(sch.claimed)} claimed so far.`,
         );
       }
       if (n.lock.cancelable || n.lock.withdrawable) {

@@ -5,7 +5,9 @@ describe('parseEnv', () => {
   it('applique les valeurs par défaut sur un environnement vide', () => {
     const env = parseEnv({});
     expect(env.SEAL_ENV).toBe('development');
-    expect(env.RPC_URL).toBe('https://rpc.mainnet.chain.robinhood.com');
+    // No keyed node: the public Solana node is read.
+    expect(env.RPC_URL).toBeUndefined();
+    expect(env.SOLANA_RPC_URL).toBeUndefined();
     expect(env.ANTHROPIC_MODEL).toBe('claude-sonnet-5-5');
   });
 
@@ -19,28 +21,17 @@ describe('parseEnv', () => {
     expect(() => parseEnv({ SEAL_ENV: 'preprod' })).toThrow(/SEAL_ENV/);
   });
 
-  it("rejette une RPC_URL qui n'est pas une URL", () => {
+  it("rejette une RPC_URL qui n'est pas une URL, ou dont une entrée n'en est pas une", () => {
     expect(() => parseEnv({ RPC_URL: 'pas-une-url' })).toThrow(/RPC_URL/);
-  });
-
-  it("accepte l'indexeur configuré en entier, ou pas du tout", () => {
-    expect(parseEnv({}).INDEXER_URL).toBeUndefined();
-    expect(parseEnv({ INDEXER_URL: '', INDEXER_TOKEN: '' }).INDEXER_TOKEN).toBeUndefined();
-    const env = parseEnv({
-      INDEXER_URL: 'http://127.0.0.1:8795',
-      INDEXER_TOKEN: 'a'.repeat(32),
-    });
-    expect(env.INDEXER_URL).toBe('http://127.0.0.1:8795');
-  });
-
-  it('rejette un indexeur à moitié configuré ou un jeton trop court', () => {
-    expect(() => parseEnv({ INDEXER_URL: 'http://127.0.0.1:8795' })).toThrow(/INDEXER_TOKEN/);
-    expect(() =>
-      parseEnv({ INDEXER_URL: 'http://127.0.0.1:8795', INDEXER_TOKEN: 'court' }),
-    ).toThrow(/INDEXER_TOKEN/);
-    expect(() => parseEnv({ INDEXER_URL: 'pas-une-url', INDEXER_TOKEN: 'a'.repeat(32) })).toThrow(
-      /INDEXER_URL/,
+    expect(() => parseEnv({ RPC_URL: 'https://a.example/v2/k, pas-une-url' })).toThrow(/RPC_URL/);
+    expect(parseEnv({ RPC_URL: 'https://a.example/v2/k, https://b.example' }).RPC_URL).toBe(
+      'https://a.example/v2/k, https://b.example',
     );
+  });
+
+  it('accepte un nœud Solana à soi, et le laisse vide comme non configuré', () => {
+    expect(parseEnv({ SOLANA_RPC_URL: '' }).SOLANA_RPC_URL).toBeUndefined();
+    expect(() => parseEnv({ SOLANA_RPC_URL: 'pas-une-url' })).toThrow(/SOLANA_RPC_URL/);
   });
 
   it('distingue la production du reste', () => {

@@ -10,7 +10,7 @@ import { GET } from '../../src/app/api/card/route';
  * the card keeps the summary that was served, whatever its completeness.
  */
 
-const TOKEN = '0xd58387ABfE21c72203CBED48E4409BBb34571326';
+const TOKEN = 'FB5eSv7CAMWJnrH5GvHLivx9y8Qgoo8vpPV3EX5Npump';
 
 const analysis = (failed: boolean): CachedAnalysis =>
   ({
@@ -25,7 +25,7 @@ const analysis = (failed: boolean): CachedAnalysis =>
     facts: {
       creator: {
         measured: false,
-        address: '0x780a6b85d841b0750e91644cce6de349e6fb6cba',
+        address: 'D234v6HgjNdTfS8vYa3ZfJAF5sSoTVzrKCDmQ2ypCnQK',
         launched: 0,
         detailed: 0,
         graduated: 0,
@@ -66,14 +66,17 @@ describe('share card', () => {
   it('keeps the summary of a partial analysis for the card', async () => {
     setSharedRedis(null);
     await rememberCard(analysis(true));
-    const card = await cardCache.get(TOKEN.toLowerCase());
+    // The key is the address as given: Solana addresses are case-sensitive.
+    const card = await cardCache.get(TOKEN);
     expect(card?.name).toBe('Rubricat');
     expect(card?.glance.headline).toMatch(/^Its market is all but empty: \$0\.39 of liquidity/);
   });
 
-  it('refuses what is not an address', async () => {
-    const response = await GET(new Request('http://localhost/api/card?token=0x12'));
-    expect(response.status).toBe(400);
+  it('refuses what is not a Solana address, an EVM one included', async () => {
+    for (const token of ['0x12', '0xd58387ABfE21c72203CBED48E4409BBb34571326', 'bonjour']) {
+      const response = await GET(new Request(`http://localhost/api/card?token=${token}`));
+      expect(response.status).toBe(400);
+    }
   });
 
   it('draws the card of a reading just served, cached for crawlers', async () => {

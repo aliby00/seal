@@ -31,10 +31,7 @@ export type SolanaListedPool = ListedPool & {
  * the ETH graduation threshold: a Solana launchpad's graduation is read on
  * chain (`solana/graduation.ts`) and reported in its own block.
  */
-export type SolanaMarketStateData = Omit<
-  MarketStateData,
-  'pairedEth' | 'graduation' | 'pools' | 'activity' | 'liquidityCheck'
-> & {
+export type SolanaMarketStateData = Omit<MarketStateData, 'pools'> & {
   chain: 'solana';
   /** DexScreener's venue of the main pair. */
   dex: string | null;

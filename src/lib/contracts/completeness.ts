@@ -18,8 +18,8 @@ export type Completeness =
 
 /** D'où vient une donnée, et quand. Permet à l'agent de citer ses sources. */
 export type SourceRef = {
-  /** `indexer` : l'indexeur SEAL, qui lit la chaîne en continu (`indexer/`). */
-  name: 'robinhood-rpc' | 'blockscout' | 'dexscreener' | 'indexer' | SolanaSourceName;
+  /** `solana-rpc`: the Solana node; `dexscreener-solana`: DexScreener's Solana listings. */
+  name: SolanaSourceName;
   fetchedAt: string;
   /** Renseigné quand la source a échoué ou n'a répondu que partiellement. */
   note?: string;

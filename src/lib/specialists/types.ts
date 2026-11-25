@@ -1,8 +1,12 @@
 import type { TokenReport } from '../contracts';
-import type { HookCode } from '../chain/facts';
-import type { FunderKind } from '../chain/funder-kind';
-import type { HookCapability, HookPermissions } from '../chain/hooks';
-import type { IndexedMarket, MarketIndex } from '../chain/pools';
+
+/**
+ * What kind of address first funded a wallet: an exchange or a router
+ * (`service`), a batch-sending tool, a wallet, or unread (`unknown`, never
+ * treated as a wallet). Kept from the EVM questions for the screen.
+ * TODO-SOLANA: the funding question is to be rewritten on `linkedWallets`.
+ */
+export type FunderKind = 'service' | 'tool' | 'wallet' | 'unknown';
 
 /**
  * Les dix spécialistes que SEAL fournit et que chacun peut assembler.
@@ -123,51 +127,23 @@ export type FundingFacts = {
   network?: FundingNetwork;
 };
 
-/** A listed pool and its trading rules, as the market questions weigh it. */
-export type PoolRules = {
-  id: string;
-  version: 'v2' | 'v3' | 'v4' | null;
-  liquidityUsd: number | null;
-  /**
-   * A v4 pool's hook (the zero address when it runs none); `undefined` when
-   * its `Initialize` could not be read; `null` for a v2/v3 pair, which has
-   * no hook.
-   */
-  hook: string | null | undefined;
-};
-
-/** How many markets run on one hook, from the indexer's whole history. */
-export type HookUse = { markets: number; pairs: number; indexedTo: number };
-
+/**
+ * What a question can read: the token and its collected report.
+ *
+ * TODO-SOLANA: the ten questions are not ported yet (another change rewrites
+ * them on the Solana report). The EVM context (v4 market, hook, rulebook
+ * code, indexer, Blockscout funding) is gone with the EVM reads; each
+ * question answers `unknown` until it is rewritten.
+ */
 export type SpecialistContext = {
   token: string;
   report?: TokenReport;
-  /** Le marché v4 du token, s'il en a un. */
-  market?: IndexedMarket | null;
-  hook?: (HookPermissions & { capabilities: HookCapability[] }) | null;
-  /** The main pool (the most liquid one listed), when the token has listed pools. */
-  mainPool?: PoolRules | null;
-  /** The other pools with liquidity enough to trade in, where the token is the base. */
-  otherPools?: PoolRules[];
-  /** True when the main pool is v4 and its trading rules could not be read this time. */
-  mainRulesUnread?: boolean;
-  /**
-   * The lookups of the questions that failed this time (the creator's
-   * funding, the hook's code, the market's creator): their answers fell back
-   * to "not measured", and the report says it is partial.
-   */
-  unread?: string[];
-  /** Markets on the main pool's hook, all history (indexer); absent when not read. */
-  hookUse?: HookUse | null;
-  hookCode?: HookCode | null;
-  /** Adresse du créateur : rapport pons, sinon expéditeur de la création du marché. */
+  /** The creator, from the report. */
   creator?: string | null;
-  creatorNonce?: number | null;
-  /** Beacon EIP-1967 du token. Sert à reconnaître une famille de tokens émis ensemble. */
-  tokenBeacon?: string | null;
-  /** `undefined` = pas collecté ; `null` = collecté, rien trouvé. */
+  /** The lookups of the questions that failed this time: the report is then partial. */
+  unread?: string[];
+  /** `undefined` = not collected; `null` = collected, nothing found. */
   funding?: FundingFacts | null;
-  index?: MarketIndex;
 };
 
 export type Specialist = {

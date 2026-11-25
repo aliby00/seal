@@ -104,14 +104,14 @@ export function buildStory(launch: LaunchReplayData): LaunchStory {
     )
     .reduce((sum, m) => sum + m.share, 0);
   const sales = moves.filter((m) => m.kind === 'sell' && m.actorIsCreator);
-  const kindOf = new Map(moves.map((m) => [m.actor.toLowerCase(), m.actorKind]));
+  const kindOf = new Map(moves.map((m) => [m.actor, m.actorKind]));
   const contractsAmong = (addresses: ReadonlySet<string>) =>
     [...addresses].filter((a) => kindOf.get(a) === 'contract').length;
 
   const byActor = new Map<string, Buyer>();
   for (const m of moves) {
     if (m.kind !== 'buy' || !isHolder(m)) continue;
-    const key = m.actor.toLowerCase();
+    const key = m.actor;
     const known = byActor.get(key);
     if (known) {
       known.bought += m.share;
@@ -120,7 +120,7 @@ export function buildStory(launch: LaunchReplayData): LaunchStory {
       byActor.set(key, {
         address: m.actor,
         isCreator: m.actorIsCreator,
-        transaction: m.transaction.toLowerCase(),
+        transaction: m.transaction,
         firstAt: m.seconds,
         bought: m.share,
         heldNow: m.heldNow,
@@ -141,7 +141,7 @@ export function buildStory(launch: LaunchReplayData): LaunchStory {
   for (const m of moves) {
     if (m.kind !== 'buy' || !isHolder(m)) continue;
     bought += m.share;
-    const key = m.actor.toLowerCase();
+    const key = m.actor;
     if (!counted.has(key)) {
       counted.add(key);
       held += keep(byActor.get(key)!);
@@ -157,9 +157,9 @@ export function buildStory(launch: LaunchReplayData): LaunchStory {
   const byTx = new Map<string, { wallets: Set<string>; share: number; seconds: number }>();
   for (const m of moves) {
     if (m.kind !== 'buy' || !isHolder(m) || m.actorIsCreator) continue;
-    const key = m.transaction.toLowerCase();
+    const key = m.transaction;
     const group = byTx.get(key) ?? { wallets: new Set<string>(), share: 0, seconds: m.seconds };
-    group.wallets.add(m.actor.toLowerCase());
+    group.wallets.add(m.actor);
     group.share += m.share;
     byTx.set(key, group);
   }
@@ -208,7 +208,7 @@ export function buildStory(launch: LaunchReplayData): LaunchStory {
           within: early.length ? Math.max(...early.map((b) => b.firstAt)) : 0,
           heldNow: read.length ? read.reduce((sum, b) => sum + keep(b), 0) : null,
           unread: early.length - read.length,
-          contracts: contractsAmong(new Set(early.map((b) => b.address.toLowerCase()))),
+          contracts: contractsAmong(new Set(early.map((b) => b.address))),
         },
     creatorTx: summary?.creatorTx
       ? {

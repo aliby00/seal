@@ -62,7 +62,8 @@ export const FLOW_MIN_SHARE = 0.001;
 /** Recipients drawn under one holder, at most. */
 export const FLOW_MAX_CHILDREN = 6;
 
-const lower = (a: string) => a.toLowerCase();
+/** Addresses keep their case: Solana addresses are case-sensitive (base58). */
+const lower = (a: string) => a;
 
 function plainName(
   address: string,
@@ -361,7 +362,7 @@ export function flowHeadline(
   const clauses: { share: number; words: string; rank: number }[] = [];
   for (const n of all) {
     if (n.lock && n.lock.locked > 0) {
-      const who = n.lock.schedules.every((s) => creator && s.beneficiary === creator.toLowerCase())
+      const who = n.lock.schedules.every((s) => creator && s.beneficiary === creator)
         ? ' for the creator'
         : '';
       const until = n.lock.fullyUnlockedAt ? ` until ${yearOf(n.lock.fullyUnlockedAt)}` : '';
