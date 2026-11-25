@@ -351,7 +351,9 @@ test('the entrance field starts the analysis, and the reading gets a link to sha
   await expect(field).toBeVisible();
   await field.fill('0x10e848f9d5073d670201b111f1ba3d1c5be6f18b');
   await page.getByRole('button', { name: 'Analyze', exact: true }).click();
-  await expect(page.locator('.entrance-error')).toContainText('Enter a Solana token address');
+  await expect(page.locator('.entrance-error')).toContainText(
+    'This looks like an EVM address (0x…): paste the token’s Solana address instead.',
+  );
   expect(posted).toEqual([]);
   await field.fill(token);
   await page.getByRole('button', { name: 'Analyze', exact: true }).click();
