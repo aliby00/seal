@@ -211,6 +211,8 @@ export const TOKEN_SWAP_POOL_SIZE = 324;
 const TOKEN_SWAP = { bump: 2, vaultA: 35, vaultB: 67, mintA: 131, mintB: 163 } as const;
 /** Bytes a reader needs of a token-swap pool: up to mint B's end. */
 export const TOKEN_SWAP_READ = TOKEN_SWAP.mintB + 32;
+/** Where a token-swap pool names its two mints: a mint is looked for at one, then the other. */
+export const TOKEN_SWAP_MINT_OFFSETS = [TOKEN_SWAP.mintA, TOKEN_SWAP.mintB] as const;
 /** Programs whose pools have that layout. */
 export const TOKEN_SWAP_PROGRAMS: readonly string[] = [FLUXBEAM_PROGRAM];
 
