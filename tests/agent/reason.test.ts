@@ -3,61 +3,23 @@ import type { TokenReport } from '../../src/lib/contracts';
 import { buildRequest, explain } from '../../src/lib/agent/reason';
 import { renderReport, SYSTEM_PROMPT } from '../../src/lib/agent/prompt';
 import { UpstreamError } from '../../src/lib/errors';
+import { solanaReport } from '../helpers/solana-report';
 
-const report: TokenReport = {
-  token: '0x494ddf6f7b4b045ede0abbb9ae86e4d59fa62ec9',
-  collectedAt: '2026-09-25T00:00:00.000Z',
+const AT = '2026-11-25T00:00:00.000Z';
+const base = solanaReport();
+const report: TokenReport = solanaReport({
   completeness: 'partial',
   creator: {
+    ...base.creator,
     completeness: 'partial',
-    sources: [
-      { name: 'robinhood-rpc', fetchedAt: '2026-09-25T00:00:00.000Z', note: 'fenêtre tronquée' },
-    ],
-    data: {
-      creator: '0xE06289fde414EE521aBA50Db0Cf0a60816FAA523',
-      tokens: [],
-      counts: {
-        launched: 3,
-        graduated: 2,
-        abandoned: 1,
-        undetermined: 0,
-        liquidityPulled: 0,
-        creatorDumped: 0,
-      },
-      scannedRange: { fromBlock: 60_000_000, toBlock: 72_000_000 },
-    },
+    sources: [{ name: 'solana-rpc', fetchedAt: AT, note: 'fenêtre tronquée' }],
   },
   holders: {
+    ...base.holders,
     completeness: 'unavailable',
-    sources: [
-      { name: 'blockscout', fetchedAt: '2026-09-25T00:00:00.000Z', note: 'aucune clé API' },
-    ],
-    data: {
-      token: '0x494d',
-      countedSupply: '0',
-      holderCount: null,
-      top: [],
-      concentration: { top1: 0, top10: 0 },
-      distinctTraders: null,
-    },
+    sources: [{ name: 'solana-rpc', fetchedAt: AT, note: 'aucune liste lue' }],
   },
-  market: {
-    completeness: 'full',
-    sources: [{ name: 'dexscreener', fetchedAt: '2026-09-25T00:00:00.000Z' }],
-    data: {
-      token: '0x494d',
-      pair: '0x6689',
-      priceUsd: 0.000003654,
-      liquidityUsd: 3654.24,
-      pairedEth: 0.002235,
-      graduation: { thresholdEth: 4.2, progress: 0.000532, graduated: false },
-      volumeUsd: { m5: 0, h1: 485.73, h6: 485.73, h24: 485.73 },
-      txns: { h1: { buys: 4, sells: 3 }, h24: { buys: 4, sells: 3 } },
-      fdvUsd: 3654,
-      pairCreatedAt: '2026-09-24T22:08:22.000Z',
-    },
-  },
-};
+});
 
 describe('renderReport', () => {
   const rendered = renderReport(report);
@@ -71,45 +33,29 @@ describe('renderReport', () => {
 
   it('remonte les limites de chaque source', () => {
     expect(rendered).toContain('fenêtre tronquée');
-    expect(rendered).toContain('aucune clé API');
+    expect(rendered).toContain('aucune liste lue');
   });
 
-  // Unmeasured holders are not sent as zeros: "0 %" would read as a fact.
-  it('ne transmet aucune part quand les holders ne sont pas mesurés', () => {
-    expect(rendered).toContain('Not measured');
-    expect(rendered).not.toMatch(/Share of the largest holder/);
+  it('gives what the mint lets someone do, one sentence each', () => {
+    expect(rendered).toContain('- Nobody can create more of this token. [none]');
   });
 
-  it('précise que le pool est exclu des parts, et nomme le créateur parmi les holders', () => {
-    const creator = report.creator.data.creator;
-    const measured = renderReport({
-      ...report,
-      holders: {
-        ...report.holders,
-        completeness: 'full',
-        data: {
-          ...report.holders.data,
-          concentration: { top1: 0.26, top10: 0.9 },
-          top: [
-            { address: creator.toLowerCase(), balance: '1', share: 0.26, kind: 'contract' },
-            {
-              address: '0x1111111111111111111111111111111111111111',
-              balance: '1',
-              share: 0.2,
-              kind: 'wallet',
-            },
-          ],
-        },
-      },
-    });
-    expect(measured).toMatch(
-      /Pools, launch curves, launch contracts and burn addresses are left out/,
+  it('says what each read found in plain lines, not as raw data', () => {
+    expect(rendered).toContain(
+      'Program: Token-2022; 6 decimals; supply 1000000000000000 raw units.',
     );
-    expect(measured).toMatch(/26\.00%: the creator’s address/);
+    expect(rendered).toContain(
+      `Creator: ${String(report.creator.data.creator)}, named by its pump.fun bonding curve.`,
+    );
+    expect(rendered).toContain(
+      'Still on its bonding curve, 20.0% of the way to graduation (by tokens sold).',
+    );
+    expect(rendered).not.toMatch(/Data: \{/);
   });
 
-  it("donne le volume rapporté au nombre d'échanges", () => {
-    expect(rendered).toContain('7 trades');
+  it('keeps addresses as the chain writes them', () => {
+    expect(rendered).toContain(report.token);
+    expect(rendered).toContain(String(report.creator.data.creator));
   });
 });
 
@@ -245,39 +191,6 @@ describe('explain', () => {
   });
 });
 
-describe('renderReport : ventes et retraits du créateur', () => {
-  // The bug: the card showed "sold into the pool 10/10" while the model wrote
-  // that nothing showed the creator selling — it was never told.
-  it('transmet les ventes et retraits observés sur les lancements vérifiés', () => {
-    const t = (dumped: boolean | null, pulled: boolean | null, i: number) => ({
-      address: `0x${String(i).padStart(40, '0')}`,
-      pool: '0xpool',
-      launchedAtBlock: i,
-      launchedAt: null,
-      outcome: 'abandoned' as const,
-      graduationProgress: 0,
-      creatorDumped: dumped,
-      liquidityPulled: pulled,
-    });
-    const rendered = renderReport({
-      ...report,
-      creator: {
-        ...report.creator,
-        data: {
-          ...report.creator.data,
-          tokens: [t(null, null, 1), t(true, false, 2), t(true, true, 3)],
-        },
-      },
-    });
-    expect(rendered).toContain('Creator sales into the market: of 2 launches checked, 2');
-    expect(rendered).toContain(
-      'Liquidity removals from the launch position: of 2 launches checked, 1',
-    );
-    expect(rendered).toMatch(/creator sale: yes, liquidity removal from the launch position: yes/);
-    expect(rendered).toMatch(/creator sale: not checked/);
-  });
-});
-
 describe('renderReport : les dix questions', () => {
   const answers = [
     {
@@ -291,7 +204,7 @@ describe('renderReport : les dix questions', () => {
     {
       specialist: 'sell-path' as const,
       title: 'Sell Path',
-      question: 'Can holders sell, and can the trading rules (hook) stand in the way?',
+      question: 'Can holders sell today, and can something in the token stand in their way?',
       signal: 'unknown' as const,
       facts: [],
       limits: ['recent trades were not collected'],

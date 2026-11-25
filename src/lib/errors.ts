@@ -7,7 +7,7 @@
  * message, donc ils ne peuvent pas partager un seul type d'erreur.
  */
 
-export type SourceName = 'robinhood-rpc' | 'blockscout' | 'dexscreener' | 'anthropic' | 'groq';
+export type SourceName = 'anthropic' | 'groq' | 'solana-rpc' | 'dexscreener-solana';
 
 export abstract class SealError extends Error {
   abstract readonly kind: string;
@@ -36,7 +36,7 @@ export class TimeoutError extends SealError {
   }
 }
 
-/** 429, ou 403 après une rafale — le cas du RPC public de Robinhood Chain. */
+/** 429, ou 403 après une rafale — le cas du nœud Solana public. */
 export class RateLimitError extends SealError {
   readonly kind = 'rate-limit';
   readonly retryable = true;

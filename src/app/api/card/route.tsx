@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ImageResponse } from 'next/og';
-import { getAddress, isAddress } from 'viem';
+import { isSolanaAddress, shortAddress } from '@/lib/solana/address';
 import { cardCache, glanceOf } from '@/lib/glance-service';
 import type { GlanceItem, GlanceTone } from '@/lib/glance';
 import { allowShared, clientKey, type RateLimit } from '@/lib/guard';
@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
 /**
- * GET /api/card?token=0x…
+ * GET /api/card?token=<mint>
  *
  * The image a shared reading shows on X, Telegram or Discord: the token, the
  * first line of its "In short" and the next two, as the report states them.
@@ -61,8 +61,6 @@ function loadFonts(): Promise<Font[]> {
     });
   return fonts;
 }
-
-const short = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)}`;
 
 /** Cut at a word, so a long sentence ends cleanly inside its box. */
 function clip(text: string, max: number): string {
@@ -124,7 +122,7 @@ type CardData = {
 
 function Card({ data }: { data: CardData }) {
   const [lead, ...rest] = data.items;
-  const title = data.name ?? data.symbol ?? 'A token on Robinhood Chain';
+  const title = data.name ?? data.symbol ?? 'A token on Solana';
   const nameSize = title.length > 18 ? 54 : 68;
   const tone = lead ? TONE[lead.tone].color : ACCENT;
   return (
@@ -145,7 +143,7 @@ function Card({ data }: { data: CardData }) {
           <div style={{ fontSize: 34, fontWeight: 700, letterSpacing: 6 }}>SEAL</div>
         </div>
         <div style={{ fontFamily: 'Mono', fontSize: 18, color: FAINT, letterSpacing: 3 }}>
-          READING · ROBINHOOD CHAIN
+          READING · SOLANA
         </div>
       </div>
 
@@ -171,7 +169,7 @@ function Card({ data }: { data: CardData }) {
         )}
       </div>
       <div style={{ fontFamily: 'Mono', fontSize: 20, color: FAINT, marginTop: 12 }}>
-        {short(data.token)}
+        {`${shortAddress(data.token)} · Solana`}
       </div>
 
       {lead ? (
@@ -231,7 +229,7 @@ function Card({ data }: { data: CardData }) {
             color: DIM,
           }}
         >
-          Who made it, who holds it, what its market shows.
+          Who made it, who holds it, what its market shows, read on Solana.
         </div>
       )}
 
@@ -246,7 +244,7 @@ function Card({ data }: { data: CardData }) {
         }}
       >
         <div style={{ color: TEXT, fontWeight: 700 }}>sealauth.dev</div>
-        <div style={{ color: FAINT }}>No score. Only what the chain shows.</div>
+        <div style={{ color: FAINT }}>No score. Only what Solana shows.</div>
       </div>
     </div>
   );
@@ -260,8 +258,8 @@ async function render(data: CardData, cache: string): Promise<Response> {
 
 export async function GET(request: Request): Promise<Response> {
   const param = new URL(request.url).searchParams.get('token')?.trim() ?? '';
-  if (!isAddress(param)) return new Response('Invalid token address', { status: 400 });
-  const token = getAddress(param);
+  if (!isSolanaAddress(param)) return new Response('Invalid token address', { status: 400 });
+  const token = param;
   const plain: CardData = { token, name: null, symbol: null, items: [] };
   // Short-lived: the next crawler may find the reading done.
   const retry = 'public, max-age=60, s-maxage=60';
@@ -270,7 +268,7 @@ export async function GET(request: Request): Promise<Response> {
 
   try {
     const glance =
-      (await cardCache.get(token.toLowerCase()).catch(() => null)) ??
+      (await cardCache.get(token).catch(() => null)) ??
       (await Promise.race([
         glanceOf(token),
         new Promise<null>((resolve) => setTimeout(() => resolve(null), CARD_WAIT_MS)),

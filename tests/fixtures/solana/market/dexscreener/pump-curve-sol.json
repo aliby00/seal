@@ -1,0 +1,68 @@
+[
+  {
+    "chainId": "solana",
+    "dexId": "pumpfun",
+    "url": "https://dexscreener.com/solana/nyqujdukyaxvrbptxagxqjbxwri9mzpfzvoapxyqnb2",
+    "pairAddress": "NYquJDUKYAXvRBptxagxQJBXwRi9MZpFZVoApxYQnb2",
+    "baseToken": {
+      "address": "FB5eSv7CAMWJnrH5GvHLivx9y8Qgoo8vpPV3EX5Npump",
+      "name": "The Poor Bull",
+      "symbol": "PoorBull"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.00000002808",
+    "priceUsd": "0.000001962",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 1,
+        "sells": 3
+      },
+      "h6": {
+        "buys": 447,
+        "sells": 426
+      },
+      "h24": {
+        "buys": 447,
+        "sells": 426
+      }
+    },
+    "volume": {
+      "h24": 41383.94,
+      "h6": 41383.94,
+      "h1": 15.56
+    },
+    "priceChange": {
+      "h1": -0.58,
+      "h6": -19.8,
+      "h24": -19.8
+    },
+    "fdv": 1962.7,
+    "marketCap": 1962.7,
+    "pairCreatedAt": 1795554868000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/av0oRp97YpMxrCoM?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/1y4RF6mzaNNq6Q9z?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/FB5eSv7CAMWJnrH5GvHLivx9y8Qgoo8vpPV3EX5Npump?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://thepoorbull.xyz",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/poorbullsolana",
+          "type": "twitter"
+        }
+      ]
+    }
+  }
+]

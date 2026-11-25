@@ -3,9 +3,7 @@
 import { useState } from 'react';
 import type { AnalyzeResponse } from '../api/analyze/route';
 import { readingUrl } from './analyze-request';
-
-const EXPLORER = 'https://robinhoodchain.blockscout.com';
-const DEXSCREENER = 'https://dexscreener.com/robinhood';
+import { addressUrl, marketUrl, short } from './explorer';
 
 type Coverage = 'measured' | 'partial' | 'missing';
 const COVERAGE_LABEL: Record<Coverage, string> = {
@@ -20,6 +18,12 @@ function coverageOf(measured: boolean | undefined, note: string | undefined): Co
     ? 'partial'
     : 'measured';
 }
+
+const MINT_COVERAGE: Record<'full' | 'partial' | 'unavailable', Coverage> = {
+  full: 'measured',
+  partial: 'partial',
+  unavailable: 'missing',
+};
 
 function CoverageMark({ coverage }: { coverage: Coverage }) {
   return (
@@ -46,8 +50,6 @@ function CoverageMark({ coverage }: { coverage: Coverage }) {
   );
 }
 
-const short = (address: string) => `${address.slice(0, 8)}…${address.slice(-6)}`;
-
 export function ReportHeader({
   result,
   headline,
@@ -58,8 +60,10 @@ export function ReportHeader({
 }) {
   const [copied, setCopied] = useState<'address' | 'link' | null>(null);
   const facts = result.facts;
+  const mint = result.solana?.mint;
   const sources: { name: string; coverage: Coverage }[] = facts
     ? [
+        ...(mint ? [{ name: 'Mint', coverage: MINT_COVERAGE[mint.read] }] : []),
         { name: 'Creator', coverage: coverageOf(facts.creator.measured, facts.creator.note) },
         { name: 'Holders', coverage: coverageOf(facts.holders.measured, facts.holders.note) },
         { name: 'Market', coverage: coverageOf(facts.market.measured, facts.market.note) },
@@ -73,8 +77,8 @@ export function ReportHeader({
   // The post carries the finding itself; the link's card repeats it as an image.
   const post =
     headline && headline.length <= 200
-      ? `${named}: ${headline}\n\nRead by SEAL. No score, only what the chain shows.`
-      : `What the chain shows about ${named}, read by SEAL. No score, just the evidence.`;
+      ? `${named}: ${headline}\n\nRead by SEAL on Solana. No score, only what the chain shows.`
+      : `What Solana shows about ${named}, read by SEAL. No score, just the evidence.`;
   const shareOnX = `https://x.com/intent/post?${new URLSearchParams({ text: post, url: link })}`;
 
   async function copy(what: 'address' | 'link') {
@@ -102,15 +106,15 @@ export function ReportHeader({
           </button>
           <a
             className="chip-button"
-            href={`${EXPLORER}/token/${result.token}`}
+            href={addressUrl(result.token)}
             target="_blank"
             rel="noreferrer"
           >
-            Explorer <span aria-hidden="true">↗</span>
+            Solana Explorer <span aria-hidden="true">↗</span>
           </a>
           <a
             className="chip-button"
-            href={`${DEXSCREENER}/${result.token}`}
+            href={marketUrl(result.token)}
             target="_blank"
             rel="noreferrer"
           >

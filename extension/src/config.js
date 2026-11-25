@@ -26,9 +26,10 @@
     REQUEST_TIMEOUT_MS: 45_000,
     /** The sites the overlay runs on, as the toolbar popup names them. */
     SITES: Object.freeze([
-      { host: 'dexscreener.com', label: 'DexScreener (Robinhood Chain)' },
-      { host: 'robinhoodchain.blockscout.com', label: 'Blockscout (Robinhood Chain)' },
-      { host: 'ponsfamily.com', label: 'pons launchpad' },
+      { host: 'dexscreener.com', label: 'DexScreener (Solana)' },
+      { host: 'solscan.io', label: 'Solscan' },
+      { host: 'explorer.solana.com', label: 'Solana Explorer' },
+      { host: 'pump.fun', label: 'pump.fun' },
     ]),
   });
 })(globalThis);

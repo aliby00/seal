@@ -1,4 +1,3 @@
-import { getAddress, isAddress } from 'viem';
 import { NextResponse } from 'next/server';
 import { corsHeaders, foreignOrigin } from '@/lib/cors';
 import { SealError } from '@/lib/errors';
@@ -7,18 +6,19 @@ import {
   deepLink,
   glanceOf,
   GlanceUnavailableError,
-  PAIR_PATTERN,
+  isPairAddress,
   tokenOfPair,
   type GlanceResponse,
 } from '@/lib/glance-service';
 import { log } from '@/lib/logger';
+import { isSolanaAddress } from '@/lib/solana/address';
 import { siteUrl } from '@/lib/site';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 /**
- * GET /api/glance?token=0x… (or ?pair=0x… for a DexScreener pair)
+ * GET /api/glance?token=<mint> (or ?pair=<pool> for a DexScreener pair), Solana addresses
  *
  * The "In short" of a token for the browser extension, worked out from the
  * collected facts alone: no model is called, nothing is paid per request.
@@ -64,7 +64,7 @@ export async function GET(request: Request): Promise<Response> {
   const params = new URL(request.url).searchParams;
   const tokenParam = params.get('token')?.trim() ?? '';
   const pairParam = params.get('pair')?.trim() ?? '';
-  if (tokenParam ? !isAddress(tokenParam) : !PAIR_PATTERN.test(pairParam)) {
+  if (tokenParam ? !isSolanaAddress(tokenParam) : !isPairAddress(pairParam)) {
     return fail(request, 400, 'Invalid token address');
   }
 
@@ -79,17 +79,15 @@ export async function GET(request: Request): Promise<Response> {
     if (!token) {
       // A DexScreener URL names the pair; it can also carry the token itself.
       const traded = await tokenOfPair(pairParam);
-      if (traded) token = traded;
-      else if (isAddress(pairParam)) token = pairParam;
-      else return fail(request, 404, 'Nothing was found for this address');
+      // A Solana pool and a mint look alike: the address may be the token itself.
+      token = traded ?? pairParam;
     }
-    const checksummed = getAddress(token);
     const started = Date.now();
-    const { cached, ...glance } = await glanceOf(checksummed);
-    log.info('aperçu servi', { token: checksummed, cached, ms: Date.now() - started });
+    const { cached, ...glance } = await glanceOf(token);
+    log.info('aperçu servi', { token, cached, ms: Date.now() - started });
     return reply(request, {
       ...glance,
-      url: deepLink(linkBase(request), checksummed),
+      url: deepLink(linkBase(request), token),
       cached,
     } satisfies GlanceResponse);
   } catch (error) {

@@ -1,0 +1,355 @@
+[
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/cp222ubb6wy2j3enmbmmeggqdggwdcuada358ldn7hxx",
+    "pairAddress": "CP222Ubb6wY2J3EnMbMmEGGQdgGWDcUADa358LDN7HxX",
+    "labels": ["DYN2"],
+    "baseToken": {
+      "address": "Ax5dAamJPeuaLpFUzs9FdcpoUhHDcxyjPzxCJQidjups",
+      "name": "Minirouter.sh",
+      "symbol": "MINI"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "0.0005552",
+    "priceUsd": "0.0005552",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 4,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 13,
+        "sells": 3
+      },
+      "h24": {
+        "buys": 24,
+        "sells": 20
+      }
+    },
+    "volume": {
+      "h24": 2087.63,
+      "h6": 658.77,
+      "h1": 6.12
+    },
+    "priceChange": {
+      "h1": -0.04,
+      "h6": -2.31,
+      "h24": -6.32
+    },
+    "liquidity": {
+      "base": 75974587,
+      "quote": 42185,
+      "usd": 84369.93
+    },
+    "fdv": 555217,
+    "marketCap": 555217,
+    "pairCreatedAt": 1788468891000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/2Wm42J-3pd4h0Cs5?width=800&height=800&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/Ax5dAamJPeuaLpFUzs9FdcpoUhHDcxyjPzxCJQidjups?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://minirouter.sh/",
+          "label": "Website"
+        },
+        {
+          "url": "https://minirouter.sh/docs",
+          "label": "Docs"
+        }
+      ],
+      "socials": []
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/7nwyqjusxtkvp88wbvvzjpf14miyiwn8apv9qrqwuk57",
+    "pairAddress": "7NWyQjusXtKVP88WBvvZJpF14MiyiwN8APV9qrQWUk57",
+    "labels": ["DLMM"],
+    "baseToken": {
+      "address": "Ax5dAamJPeuaLpFUzs9FdcpoUhHDcxyjPzxCJQidjups",
+      "name": "Minirouter.sh",
+      "symbol": "MINI"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.000007958",
+    "priceUsd": "0.0005516",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h24": {
+        "buys": 2,
+        "sells": 1
+      }
+    },
+    "volume": {
+      "h24": 21.95,
+      "h6": 11.56
+    },
+    "priceChange": {
+      "h6": -4.07,
+      "h24": -5.11
+    },
+    "liquidity": {
+      "base": 647519,
+      "quote": 12.4217,
+      "usd": 1218.29
+    },
+    "fdv": 551672,
+    "marketCap": 551672,
+    "pairCreatedAt": 1790093367000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/2Wm42J-3pd4h0Cs5?width=800&height=800&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/Ax5dAamJPeuaLpFUzs9FdcpoUhHDcxyjPzxCJQidjups?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://minirouter.sh/",
+          "label": "Website"
+        },
+        {
+          "url": "https://minirouter.sh/docs",
+          "label": "Docs"
+        }
+      ],
+      "socials": []
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/5xkopwlqkb9swbhtvnanwpzvwxfs8iyjst8twksm9nhl",
+    "pairAddress": "5xkoPWLQkb9SWbhtvNANWPzVWXfS8iyjsT8TWksm9NHL",
+    "labels": ["DLMM"],
+    "baseToken": {
+      "address": "Ax5dAamJPeuaLpFUzs9FdcpoUhHDcxyjPzxCJQidjups",
+      "name": "Minirouter.sh",
+      "symbol": "MINI"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.000008049",
+    "priceUsd": "0.0005596",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 2
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 2
+      },
+      "h24": {
+        "buys": 2,
+        "sells": 3
+      }
+    },
+    "volume": {
+      "h24": 17.36,
+      "h6": 5.72,
+      "h1": 5.72
+    },
+    "priceChange": {
+      "h1": -2.95,
+      "h6": -2.95,
+      "h24": -2.61
+    },
+    "liquidity": {
+      "base": 357405,
+      "quote": 6.4555,
+      "usd": 648.8
+    },
+    "fdv": 559631,
+    "marketCap": 559631,
+    "pairCreatedAt": 1788778113000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/2Wm42J-3pd4h0Cs5?width=800&height=800&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/Ax5dAamJPeuaLpFUzs9FdcpoUhHDcxyjPzxCJQidjups?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://minirouter.sh/",
+          "label": "Website"
+        },
+        {
+          "url": "https://minirouter.sh/docs",
+          "label": "Docs"
+        }
+      ],
+      "socials": []
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/akyz7biuvvt3m9apu8gyfkdkxpzqecybg8krk1djusdw",
+    "pairAddress": "Akyz7BiuVVT3M9APu8gYFKdKXPzQECYbg8KRK1dJUsdw",
+    "labels": ["DYN2"],
+    "baseToken": {
+      "address": "3dUHMD1HWSqBC8b6P1uVe6UmrrVLvindSvxurdJnpump",
+      "name": "STIX",
+      "symbol": "STIX"
+    },
+    "quoteToken": {
+      "address": "Ax5dAamJPeuaLpFUzs9FdcpoUhHDcxyjPzxCJQidjups",
+      "name": "Minirouter.sh",
+      "symbol": "MINI"
+    },
+    "priceNative": "0.01178",
+    "priceUsd": "0.000006542",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 2,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 7,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 14,
+        "sells": 7
+      }
+    },
+    "volume": {
+      "h24": 5.97,
+      "h6": 2.26,
+      "h1": 0.45
+    },
+    "priceChange": {
+      "h1": 0.63,
+      "h6": -1.69,
+      "h24": -3.36
+    },
+    "liquidity": {
+      "base": 24256783,
+      "quote": 286184,
+      "usd": 317.59
+    },
+    "fdv": 6454,
+    "marketCap": 6454,
+    "pairCreatedAt": 1790371688000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/gLj3-e_ebW93zvIJ?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/GGeFAVIY1_aV9hiI?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/3dUHMD1HWSqBC8b6P1uVe6UmrrVLvindSvxurdJnpump?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://stix.meme",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/stix_ai",
+          "type": "twitter"
+        },
+        {
+          "url": "https://discord.gg/Ng99VPYyBM",
+          "type": "discord"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/ahhfq3wy5yu17mwgfq5e6vkffvgixctjmyku3wjmkuut",
+    "pairAddress": "AhhFq3wY5YU17MwgFQ5e6VkFFVgixCTjmyku3WJmkuut",
+    "labels": ["DYN2"],
+    "baseToken": {
+      "address": "SV151D5pjygAKA8aJJcKzm4wFnRX5G92Fye94jQJk7g",
+      "name": "Scarlet & Violet 151",
+      "symbol": "SV151"
+    },
+    "quoteToken": {
+      "address": "Ax5dAamJPeuaLpFUzs9FdcpoUhHDcxyjPzxCJQidjups",
+      "name": "Minirouter.sh",
+      "symbol": "MINI"
+    },
+    "priceNative": "381.9326",
+    "priceUsd": "0.2119",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 1,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 3,
+        "sells": 0
+      }
+    },
+    "volume": {
+      "h24": 0.23,
+      "h6": 0.07
+    },
+    "priceChange": {
+      "h6": -2.19,
+      "h24": -1.12
+    },
+    "liquidity": {
+      "base": 38.1023,
+      "quote": 14680,
+      "usd": 16.22
+    },
+    "fdv": 211816,
+    "marketCap": 211816,
+    "pairCreatedAt": 1793449117000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/gfnN-dHXsfgIvZpd?width=800&height=800&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/SV151D5pjygAKA8aJJcKzm4wFnRX5G92Fye94jQJk7g?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://dassetsol.xyz/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/dAssetSOL",
+          "type": "twitter"
+        }
+      ]
+    }
+  }
+]

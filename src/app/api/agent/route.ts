@@ -1,18 +1,16 @@
-import { isAddress } from 'viem';
 import { NextResponse } from 'next/server';
 import { investigate } from '@/lib/agent/investigate';
-import { createRpcClient } from '@/lib/chain';
 import { collect } from '@/lib/collect';
 import type { TokenReport } from '@/lib/contracts';
 import { SealError } from '@/lib/errors';
 import { AGENT_LIMIT, guardedJson } from '@/lib/guard';
 import { log } from '@/lib/logger';
 import { overBudget, recordSpend } from '@/lib/spend';
+import { isSolanaAddress } from '@/lib/solana/address';
 import {
   compileAgent,
   gatherContext,
   InvalidAgentSpecError,
-  liveIndex,
   type Finding,
 } from '@/lib/specialists';
 
@@ -51,7 +49,8 @@ export async function POST(request: Request): Promise<Response> {
   const body = (guarded.body ?? {}) as { token?: unknown; agent?: unknown };
 
   const { token } = body;
-  if (typeof token !== 'string' || !isAddress(token)) {
+  // A Solana mint, base58, case kept: an EVM 0x address is not one.
+  if (typeof token !== 'string' || !isSolanaAddress(token)) {
     return errorResponse(400, 'Invalid token address');
   }
 
@@ -67,25 +66,17 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const work = (async () => {
-      const rpc = createRpcClient(process.env.RPC_URL || undefined);
-      // Un token sans lancement pons reste analysable : les spécialistes qui
-      // dépendent du rapport répondront `unknown` en le disant.
-      const [report, index] = await Promise.all([
-        Promise.race([
-          collect(token, {
-            rpcUrl: process.env.RPC_URL || undefined,
-            blockscoutApiKey: process.env.BLOCKSCOUT_API_KEY || undefined,
-          }),
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('collecte trop longue')), GATHER_TIMEOUT_MS),
-          ),
-        ]).catch((error: unknown): TokenReport | undefined => {
-          log.warn('rapport pons indisponible', { token, error: String(error) });
-          return undefined;
-        }),
-        liveIndex().catch(() => undefined),
-      ]);
-      const context = await gatherContext(rpc, token, report, index);
+      // Without a report the questions that depend on it answer `unknown` and say so.
+      const report = await Promise.race([
+        collect(token, { signal: AbortSignal.timeout(GATHER_TIMEOUT_MS) }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('collecte trop longue')), GATHER_TIMEOUT_MS),
+        ),
+      ]).catch((error: unknown): TokenReport | undefined => {
+        log.warn('rapport indisponible', { token, error: String(error) });
+        return undefined;
+      });
+      const context = await gatherContext(token, report);
       const left = GLOBAL_TIMEOUT_MS - (Date.now() - started);
       const result = await investigate(checklist, context, {
         offline: left < MIN_MODEL_MS || (await overBudget()),
@@ -103,7 +94,7 @@ export async function POST(request: Request): Promise<Response> {
     ]);
 
     const response: AgentResponse = {
-      token: token.toLowerCase(),
+      token,
       agent: checklist.name,
       fingerprint: checklist.fingerprint,
       findings: result.findings,

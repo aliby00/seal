@@ -2,28 +2,11 @@ import type { CSSProperties } from 'react';
 
 /**
  * SEAL v3 — le contrôle. Même géométrie que brand/v3/gen/marks.mjs : l'arche
- * du scanner et son rideau de 14 lanières, une par bit de permission du hook
- * (bit 13 à gauche). Lanière longue = permission active.
+ * du scanner et son rideau de 14 lanières (bit 13 à gauche). Lanière longue =
+ * bit à 1 dans `mask` ; toutes longues par défaut.
  */
 const f = (n: number) => +n.toFixed(2);
 const bitOn = (mask: number, bit: number) => (mask >> bit) & 1;
-
-export const PERMISSIONS = [
-  'beforeInitialize',
-  'afterInitialize',
-  'beforeAddLiquidity',
-  'afterAddLiquidity',
-  'beforeRemoveLiquidity',
-  'afterRemoveLiquidity',
-  'beforeSwap',
-  'afterSwap',
-  'beforeDonate',
-  'afterDonate',
-  'beforeSwapReturnsDelta',
-  'afterSwapReturnsDelta',
-  'afterAddLiquidityReturnsDelta',
-  'afterRemoveLiquidityReturnsDelta',
-] as const;
 
 export function Arch({
   mask = 0x3fff,

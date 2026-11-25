@@ -1,0 +1,90 @@
+[
+  {
+    "method": "getAccountInfo",
+    "params": [
+      "b5fbkVRNRTjZHgvQLU2QKyYUUBXEVgX7bwTc7eP5FGT",
+      {
+        "commitment": "confirmed",
+        "encoding": "jsonParsed"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473531657
+      },
+      "value": {
+        "data": ["", "base64"],
+        "executable": false,
+        "lamports": 4649830554,
+        "owner": "11111111111111111111111111111111",
+        "rentEpoch": 18446744073709552000,
+        "space": 0
+      }
+    }
+  },
+  {
+    "method": "getAccountInfo",
+    "params": [
+      "HfryjDW8VuRHJmREiv8KnHwStXzh2LNaEm1yFFv5EAoE",
+      {
+        "commitment": "confirmed",
+        "encoding": "jsonParsed"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473531663
+      },
+      "value": {
+        "data": {
+          "parsed": {
+            "info": {
+              "extensions": [
+                {
+                  "extension": "immutableOwner"
+                }
+              ],
+              "isNative": false,
+              "mint": "6qmoWWfCw1uVMfPzRWkCEu4kLmT9F8d3MXDMexXkpump",
+              "owner": "b5fbkVRNRTjZHgvQLU2QKyYUUBXEVgX7bwTc7eP5FGT",
+              "state": "initialized",
+              "tokenAmount": {
+                "amount": "0",
+                "decimals": 6,
+                "uiAmount": 0,
+                "uiAmountString": "0"
+              }
+            },
+            "type": "account"
+          },
+          "program": "spl-token-2022",
+          "space": 170
+        },
+        "executable": false,
+        "lamports": 1513840,
+        "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "rentEpoch": 18446744073709552000,
+        "space": 170
+      }
+    }
+  },
+  {
+    "method": "getAccountInfo",
+    "params": [
+      "jdTeAswyCfQuzupLEVNnyTYgtZmQ7U53Tt6YyGhRtUb",
+      {
+        "commitment": "confirmed",
+        "encoding": "jsonParsed"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473531667
+      },
+      "value": null
+    }
+  }
+]

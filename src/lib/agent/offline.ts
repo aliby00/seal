@@ -1,7 +1,9 @@
 import { readableNote } from '../plain-note';
-import { OTHER_LAUNCH_SALES_DAYS } from '../contracts/creator';
 import type { TokenReport } from '../contracts';
+import { isSolanaAddress, shortAddress } from '../solana/address';
 import type { SpecialistAnswer } from '../specialists/brief';
+import { CREATOR_FROM } from '../specialists/catalog';
+import { curveName, pct as sharePct, shareOf, solOf, solWords } from '../specialists/words';
 import { volumePerTrade } from '../market';
 import { READ_WORDS, readFailed } from '../failed-reads';
 import { toFacts } from '../facts';
@@ -11,11 +13,9 @@ function pct(value: number): string {
   return `${(value * 100).toFixed(1)} %`;
 }
 
-/** "0x780a…6cba": a full address in a sentence is read as noise, not as a fact. */
+/** "D234…X4e2": a full address in a sentence is read as noise, not as a fact. */
 function short(address: string): string {
-  return /^0x[0-9a-fA-F]{40}$/.test(address)
-    ? `${address.slice(0, 6)}…${address.slice(-4)}`
-    : address;
+  return isSolanaAddress(address) ? shortAddress(address) : address;
 }
 
 /** "14,580", not "14580". */
@@ -36,98 +36,152 @@ export function usdWords(value: number): string {
   return `$0.0${sub}${digits}`;
 }
 
-const ROLE: Record<'deployer' | 'launcher' | 'first-minter', string> = {
-  deployer: 'deployed by',
-  launcher: 'launched by',
-  'first-minter': 'first minted by',
-};
+/**
+ * What the mint lets someone do: every power someone holds, every rule in
+ * force, and what could not be read; the powers nobody holds are summed up
+ * in one sentence.
+ */
+function powersAccount(report: TokenReport): string | null {
+  if (report.mint.completeness === 'unavailable' || !report.mint.data) {
+    const note = report.mint.sources.find((s) => s.note)?.note;
+    return `Mint: not read${note ? ` (${readableNote(note)})` : ''}.`;
+  }
+  const creator = report.creator.data.creator;
+  const said = report.powers
+    .filter((p) => p.status !== 'none')
+    .map(
+      (p) =>
+        `${p.sentence}${p.status === 'held' && p.holder ? ` Held by ${short(p.holder)}${p.holder === creator ? ', the creator' : ''}.` : ''}`,
+    );
+  const none = (kind: string) => report.powers.some((p) => p.power === kind && p.status === 'none');
+  const nobody = [
+    none('mint') ? 'create new tokens' : '',
+    none('freeze') ? 'freeze holders’ tokens' : '',
+    none('metadata-update') ? 'change its name, symbol or image' : '',
+  ].filter(Boolean);
+  const nobodyWords =
+    nobody.length > 0
+      ? `No one can ${nobody.length === 1 ? nobody[0] : `${nobody.slice(0, -1).join(', ')} or ${nobody[nobody.length - 1]}`}.`
+      : '';
+  const program = report.mint.data.program === 'token-2022' ? 'Token-2022' : 'SPL Token';
+  return `Mint (${program}): ${[nobodyWords, ...said].filter(Boolean).join(' ') || 'no power over the token was read.'}`;
+}
 
-/** A token traced back to its first mint: who, through what, and what followed. */
-function deployerAccount(report: TokenReport): string {
-  const data = report.creator.data;
-  const origin = data.origin;
-  if (!origin) return '';
+/** The creator, its other tokens, what it did with this one, and the wallets it funded. */
+function creatorAccount(report: TokenReport): string {
+  const { creator, creatorHistory: history, creatorOnToken: onToken, linkedWallets } = report;
+  const address = creator.data.creator as string;
+  const supply = report.mint.data?.supply ?? report.holders.data.supply ?? null;
   const sentences: string[] = [
-    origin.launchpad
-      ? origin.creatorFrom === 'launch-record'
-        ? `Creator: this token was launched through ${origin.launchpad.name}, whose launch record names ${short(data.creator)}.`
-        : `Creator: this token was launched through ${origin.launchpad.name}, in a transaction sent by ${short(data.creator)}.`
-      : `Creator: no known launchpad recorded this token. It was ${ROLE[origin.role]} ${short(data.creator)}` +
-        (origin.launchContract ? ` through the contract ${short(origin.launchContract)}` : '') +
-        '.',
+    `Creator: ${short(address)}${creator.data.from ? `, ${CREATOR_FROM[creator.data.from]}` : ''}.`,
   ];
-  if (origin.role === 'first-minter') {
+  if (history && history.completeness !== 'unavailable') {
+    const c = history.data.counts;
+    // As the Creator History question counts them: a floor unless every curve and transaction was read.
+    const atLeast =
+      readFailed(report.failedReads, 'creator-launches') ||
+      history.completeness !== 'full' ||
+      !history.data.scanned.pumpCurvesListed
+        ? 'at least '
+        : '';
     sentences.push(
-      'That address sent the transaction of its first mint, after the contract already existed; this alone does not show who wrote it.',
+      c.launched === 0
+        ? history.data.scanned.transactionsRead === 0 && history.data.scanned.transactionsListed > 0
+          ? 'No other token by this address was found on pump.fun’s curves; none of its own transactions could be read.'
+          : 'No other token by this address was found on pump.fun’s curves or in its transactions read.'
+        : `This address launched ${atLeast}${c.launched} other token${c.launched === 1 ? '' : 's'}: ${c.graduated} graduated from their curve, ${c.active} traded in the last 24 hours, ${c.dead} launched over a day ago with no trade in the last 24 hours, ${c.unknown} not determined.`,
     );
+  } else if (history) {
+    sentences.push('Its other tokens could not be read this time.');
   }
-  if (origin.transactionCount !== null) {
-    sentences.push(
-      `The wallet has sent ${count(origin.transactionCount)} transaction${origin.transactionCount === 1 ? '' : 's'}.`,
-    );
-  }
-  const launched = data.counts.launched;
-  const where = origin.launchpadsRead?.length
-    ? `Looking on ${origin.launchpadsRead.join(', ')}`
-    : 'Through the same launch contract';
-  sentences.push(
-    readFailed(report.failedReads, 'creator-launches')
-      ? `This address launched at least ${launched} token${launched === 1 ? '' : 's'}; some of its launches could not be read this time.`
-      : origin.launchesListed
-        ? `${where}, this address launched ${launched} token${launched === 1 ? '' : 's'}.`
-        : origin.launchpad
-          ? 'Its other launches on this launchpad cannot be listed from the chain.'
-          : 'Its other launches cannot be listed from the chain.',
-  );
-  // Which launchpads cannot be read is listed with the sources: here, a list of
-  // names and contract addresses buried the facts (RBCAT, 16/11/2026).
-  const sales = data.tokens.filter((t) => t.creatorDumped !== null);
-  const liquidity = data.tokens.filter((t) => t.liquidityPulled !== null);
-  if (sales.length > 0) {
-    const own = sales.find((t) => String(t.address).toLowerCase() === report.token.toLowerCase());
-    const window = own?.salesWindow;
-    const ownWords = window
-      ? window.wholeLife
-        ? `this token over its whole life so far${window.days !== null ? ` (${window.days} days)` : ''}`
-        : `this token up to day ${window.days ?? '?'} after its launch`
-      : null;
-    const others = sales.length - (own ? 1 : 0);
-    const sold = sales.filter((t) => t.creatorDumped).length;
-    if (sales.length === 1 && own && ownWords) {
-      const over = ownWords.replace(/^this token /, 'its ');
+  if (onToken && onToken.completeness !== 'unavailable') {
+    const d = onToken.data;
+    const bought = shareOf(d.bought, supply);
+    if (d.bought !== '0' && bought !== null) {
+      const spent = solOf(d.solSpent);
       sentences.push(
-        sold === 1
-          ? `The creator sold into this token’s market (sales read over ${over}).`
-          : `The creator has not sold into this token’s market (read over ${over}).`,
+        `It bought ${sharePct(bought)} of the supply${spent ? ` for ${solWords(spent)}` : ''}.`,
       );
-    } else
+    }
+    // A sale read is a sale; "did not sell" only when every move was read.
+    if (d.sold !== '0') {
+      const sold = shareOf(d.sold, supply);
       sentences.push(
-        `Of ${sales.length} launch${sales.length === 1 ? '' : 'es'} checked, the creator sold into the market on ${sales.filter((t) => t.creatorDumped).length}` +
-          (ownWords
-            ? ` (sales read for ${ownWords}${others > 0 ? `, and in the first ${OTHER_LAUNCH_SALES_DAYS} days after each other launch` : ''}).`
-            : ` within the first ${OTHER_LAUNCH_SALES_DAYS} days after each launch.`),
+        `In the transactions read, the creator sold ${sold !== null ? `${sharePct(sold)} of the supply` : 'some of this token'}.`,
       );
+    } else {
+      sentences.push(
+        onToken.completeness === 'full'
+          ? d.transactions.read === 0
+            ? 'The creator has no move on this token: it did not sell any.'
+            : `The creator did not sell this token in the ${d.transactions.read} transaction${d.transactions.read === 1 ? '' : 's'} on its token accounts, all of them read.`
+          : d.transactions.read === 0 && d.transactions.listed > 0
+            ? `None of the ${d.transactions.listed} transactions on the creator’s token accounts could be read this time: whether it sold is not known.`
+            : `No sale by the creator was seen in the ${d.transactions.read} of ${d.transactions.listed} transactions read: not all of them, so a sale may be among the others.`,
+      );
+    }
+    if (d.holdsNow !== null) {
+      const holds = shareOf(d.holdsNow, supply) ?? d.holdsNowShare;
+      sentences.push(
+        d.holdsNow === '0' || holds === null
+          ? d.holdsNow === '0'
+            ? 'It holds none of it today.'
+            : ''
+          : `It holds ${sharePct(holds)} of the supply today.`,
+      );
+    }
+  } else if (onToken) {
+    // Unread is said: silence would read as "nothing to say".
+    sentences.push('What it did with this token could not be read this time.');
   }
-  if (liquidity.length === 1 && liquidity[0]!.liquidityPulled === false && sales.length <= 1) {
-    sentences.push(
-      `The creator removed no liquidity in the first ${OTHER_LAUNCH_SALES_DAYS} days after the launch.`,
+  if (linkedWallets && linkedWallets.completeness !== 'unavailable') {
+    const l = linkedWallets.data;
+    if (l.firstFunding) {
+      const sol = solOf(l.firstFunding.lamports);
+      sentences.push(
+        `Its first SOL came from ${short(l.firstFunding.from)}${sol !== null ? ` (${solWords(sol)})` : ''}; who is behind that address is not read.`,
+      );
+    }
+    const traded = l.funded.filter(
+      (f) => f.onToken && (f.onToken.bought !== '0' || f.onToken.sold !== '0'),
     );
-  } else if (liquidity.length > 0) {
-    sentences.push(
-      `Of ${liquidity.length} with a market that could be read, liquidity was removed on ${liquidity.filter((t) => t.liquidityPulled).length} in the first ${OTHER_LAUNCH_SALES_DAYS} days after each launch.`,
-    );
+    if (l.funded.length > 0) {
+      const sold = l.funded.reduce((n, f) => n + (shareOf(f.onToken?.sold, supply) ?? 0), 0);
+      // Some funded wallets' trades not read: what is said holds for those read.
+      const complete = l.funded.every((f) => f.onToken?.complete === true);
+      const within = complete ? '' : ' in what was read';
+      sentences.push(
+        `Around the launch it sent SOL to ${l.funded.length} wallet${l.funded.length === 1 ? '' : 's'}; ${traded.length === 0 ? `none of them traded this token${within}` : `${traded.length} of them traded this token${sold > 0 ? `, selling ${complete ? '' : 'at least '}${sharePct(sold)} of the supply` : ''}${within}`}. A transfer links the addresses; it does not show who controls them.`,
+      );
+    }
   }
-  const graduated = data.tokens.filter((t) => t.outcome === 'graduated').length;
-  sentences.push(
-    origin.graduationRead && data.tokens.length > 0
-      ? data.tokens.length === 1
-        ? `It ${graduated === 1 ? 'graduated' : 'has not graduated'} from its launch curve to an open market.`
-        : `${graduated} of the ${data.tokens.length} launches read in detail graduated from their launch curve to an open market.`
-      : origin.role === 'deployer' && !origin.launchpad
-        ? 'The token was deployed on its own, with no launch curve: graduation does not apply.'
-        : 'What became of these launches after their launch curve is not measured here.',
-  );
   return sentences.join(' ');
+}
+
+/** Wallets that got tokens together at launch, as the replay counted them. */
+function launchAccount(report: TokenReport): string | null {
+  const d = report.launch.data;
+  const parts: string[] = [];
+  const held = (x: number | null) =>
+    x === null ? 'an unread share' : x === 0 ? 'none of it' : pct(x);
+  if (d.sameSlot && d.sameSlot.share >= 0.001) {
+    parts.push(
+      `in the creation slot, ${d.sameSlot.wallets} wallet${d.sameSlot.wallets === 1 ? '' : 's'} other than the creator got ${pct(d.sameSlot.share)} of the supply and hold ${held(d.sameSlot.heldNow)} today`,
+    );
+  }
+  if (d.payerGroup && d.payerGroup.share >= 0.001) {
+    parts.push(
+      `${d.payerGroup.wallets} wallet${d.payerGroup.wallets === 1 ? '' : 's'} got ${pct(d.payerGroup.share)} of the supply in transactions paid by the creator or the creation’s fee payer, and hold ${held(d.payerGroup.heldNow)} today`,
+    );
+  }
+  const early = d.summary?.early;
+  if (early && early.wallets > 0) {
+    parts.push(
+      `in the first ${d.summary!.earlySeconds} seconds, ${early.wallets} address${early.wallets === 1 ? '' : 'es'} other than the creator bought ${pct(early.share)} of the supply`,
+    );
+  }
+  if (parts.length === 0) return null;
+  return `Launch: ${parts.join('; ')}.`;
 }
 
 /** Plain factual fallback. Explicitly does not claim to perform agent reasoning. */
@@ -143,102 +197,63 @@ export function offlineExplanation(report: TokenReport, specialists?: Specialist
       `Partial report: some reads failed this time (${[...new Set(failedReads.map((f) => READ_WORDS[f.read]))].join(', ')}). What they would have shown is not known. Try again in a minute.`,
     );
   }
-  // Where the supply went at launch, by role, comes first: it is what the
-  // rest is read against (SIRIUS: half to Virtuals' curve, a quarter to its
-  // capital-formation wallet, a quarter to the creator's lock).
-  const flow = toFacts(report).supplyFlow;
+  // Where the supply went at launch, by role, comes first when the launch
+  // handed it out beyond its curve: it is what the rest is read against.
+  // Not when the replay failed: "nobody bought" would state an absence it did not read.
+  const flow = readFailed(failedReads, 'launch-replay') ? undefined : toFacts(report).supplyFlow;
   if (flow) parts.push(`Launch: ${flowSentence(flow, report.creator.data.creator)}`);
+  const powers = powersAccount(report);
+  if (powers) parts.push(powers);
   const { creator, holders, market } = report;
   const rawCreatorNote = creator.sources[0]?.note;
   const creatorNote = rawCreatorNote && readableNote(rawCreatorNote);
-  if (creator.completeness === 'unavailable') {
-    // Say why: "not a pons launch" and "the node did not answer" are different facts.
+  if (creator.data.creator === null) {
+    // Say why: "nothing names one" and "the node did not answer" are different facts.
     parts.push(
-      creatorNote?.includes('first mint')
-        ? 'Creator: not found. No launch record names one, and the transaction of the token’s first mint could not be traced.'
-        : creatorNote?.startsWith('not a pons launch') ||
-            creatorNote?.startsWith('no launch record')
-          ? 'Creator history: no launch record names a creator for this token, so there is no history to read.'
-          : `Creator history could not be read${creatorNote ? ` (${creatorNote})` : ''}.`,
+      readFailed(failedReads, 'creator')
+        ? `Creator could not be read${creatorNote ? ` (${creatorNote})` : ''}.`
+        : 'Creator: no curve, creation transaction or metadata authority on the chain names one.',
     );
-  } else if (creator.data.origin?.source === 'deployer') {
-    parts.push(deployerAccount(report));
   } else {
-    const c = creator.data.counts;
-    if (c.launched === 0 && creator.completeness === 'partial') {
-      // The launch was found, but the creator's launches could not be read:
-      // "0 tokens launched" would contradict the token being analysed.
-      parts.push(
-        `Creator: ${short(creator.data.creator)}. Their other launches could not be read${creatorNote ? ` (${creatorNote})` : ''}.`,
-      );
-    } else {
-      const detailed = creator.data.tokens.length;
-      const outcomes =
-        detailed < c.launched
-          ? `of the ${detailed} most recent, ${c.graduated} graduated and ${c.abandoned} were abandoned`
-          : `including ${c.graduated} graduated and ${c.abandoned} abandoned`;
-      parts.push(
-        `Creator: ${readFailed(failedReads, 'creator-launches') ? 'at least ' : ''}${c.launched} token${c.launched === 1 ? '' : 's'} launched; ${outcomes}.` +
-          (creator.completeness === 'partial' && creatorNote ? ` Limit: ${creatorNote}.` : ''),
-      );
-    }
+    parts.push(creatorAccount(report));
   }
-  if (holders.completeness === 'unavailable') {
+  if (holders.completeness === 'unavailable' || holders.data.method === 'none') {
     parts.push(
       `Holder concentration: not measured (${noteOf(holders.sources[0]?.note) ?? 'source unavailable'}).`,
     );
   } else {
-    const largest = holders.data.top.find((h) => h.kind === 'wallet' || h.kind === 'contract');
-    const locks = (holders.data.setAside ?? []).filter((a) => a.role === 'vesting');
-    const lockWords = locks.length
-      ? ` ${locks.map((l) => `${l.share !== null ? pct(l.share) : 'Part'} of the supply sits in ${l.name ?? 'a vesting lock'}`).join('; ')}: locked, it is left out of these shares.`
-      : '';
+    const h = holders.data;
+    const setAside = h.pooledShare ?? null;
+    const largest = h.top.find((x) => x.kind === 'wallet' || x.kind === 'contract');
+    const aside =
+      setAside !== null && setAside > 0
+        ? ` ${pct(setAside)} of the supply sits on bonding curves, in pools, locks or with the incinerator, and is left out of these shares.`
+        : '';
     parts.push(
-      `Holders: the largest${largest?.name ? `, ${largest.name},` : ''} holds ${pct(holders.data.concentration.top1)} of ${holders.completeness === 'full' ? `the supply held outside pools${locks.length ? ', locks' : ''} and burn addresses` : 'the supply held by the holders that could be read'}; the top 10 hold ${pct(holders.data.concentration.top10)} combined.${lockWords}`,
+      `Holders: ${h.holderCount !== null ? `${count(h.holderCount)} in all` : `at least ${count(h.holdersAtLeast)}`}; the largest${largest?.name ? `, ${largest.name},` : ''} holds ${pct(h.concentration.top1)} of what circulates${h.method === 'largest-accounts' ? ' (from the largest token accounts only)' : ''}; the top 10 hold ${pct(h.concentration.top10)} combined.${aside}`,
     );
-    const links = holders.data.creatorLinks;
-    const linked = holders.data.top.filter((h) => h.fromCreator);
-    if (links && (linked.length > 0 || links.distributors.length > 0 || links.burned > 0)) {
-      const bits = [
-        ...linked
-          .slice(0, 3)
-          .map(
-            (h) =>
-              `${short(h.address)} received ${pct(h.fromCreator!.share)} of the supply ${h.fromCreator!.via ? `through ${h.fromCreator!.via}, a contract the creator sent tokens to` : 'directly from the creator'}`,
-          ),
-        ...links.distributors.map(
-          (d) =>
-            `the creator sent ${pct(d.share)} of the supply to ${short(d.address)}, which passed it on to ${d.recipients} addresses`,
-        ),
-        ...(links.burned > 0 ? [`the creator burned ${pct(links.burned)} of the supply`] : []),
-      ];
-      parts.push(`From the creator’s own transfers: ${bits.join('; ')}.`);
-    }
   }
+  const launch = launchAccount(report);
+  if (launch) parts.push(launch);
   if (market.completeness === 'unavailable') {
     parts.push(`Market: ${noteOf(market.sources[0]?.note) ?? 'no data available'}.`);
   } else {
     const m = market.data;
     const bits: string[] = [];
     if (m.priceUsd !== null) bits.push(`price ${usdWords(m.priceUsd)}`);
-    if (m.liquidityUsd !== null && m.liquidityCheck?.current === false) {
-      bits.push(
-        `a listed liquidity of ${usdWords(m.liquidityUsd)} that is not current: the token’s pools hold ${pct(m.liquidityCheck.poolsShare)} of its supply on chain`,
-      );
-    } else if (m.liquidityUsd !== null) bits.push(`liquidity ${usdWords(m.liquidityUsd)}`);
+    if (m.liquidityUsd !== null) bits.push(`liquidity ${usdWords(m.liquidityUsd)}`);
     if (m.quiet)
       bits.push(`no trade in the last ${m.quiet.hours === 1 ? 'hour' : `${m.quiet.hours} hours`}`);
-    if (m.graduation)
+    const graduation = report.graduation?.data;
+    const pad = report.launchpad.data.launchpad?.name;
+    if (graduation?.graduated) bits.push(`graduated from its ${pad ?? 'launch'} curve`);
+    else if (graduation && graduation.progress !== null) {
+      const sol = graduation.raised?.mint === null ? solOf(graduation.raised.raw) : null;
       bits.push(
-        `graduation at ${pct(m.graduation.progress)} of the ${m.graduation.thresholdEth} ETH threshold`,
-      );
-    if (bits.length) parts.push(`Market: ${bits.join(', ')}.`);
-    const pool = m.activity;
-    if (pool && m.pair === null) {
-      parts.push(
-        `Over 24 hours, counted from the launch pool’s own trades: ${pool.h24.buys} buys and ${pool.h24.sells} sells by ${pool.h24.traders} wallets (no price, as no trading pair is listed).`,
+        `${pct(graduation.progress)} of the way along its ${pad ? curveName(pad) : 'launch curve'}${sol !== null ? `, which holds ${solWords(sol)}` : ''}`,
       );
     }
+    if (bits.length) parts.push(`Market: ${bits.join(', ')}.`);
     const perTrade = volumePerTrade(market);
     if (perTrade !== null && m.txns) {
       const trades = m.txns.h24.buys + m.txns.h24.sells;
@@ -247,11 +262,15 @@ export function offlineExplanation(report: TokenReport, specialists?: Specialist
       );
     }
   }
-  // Who funded the creator, as the funding question says it: an exchange is
-  // named as one, so it is never read as a link between creators.
-  const funding = specialists?.find((a) => a.specialist === 'funding-trace');
-  if (funding && funding.signal !== 'unknown' && funding.facts.length > 0) {
-    parts.push(`Funding: ${funding.facts.join(' ')}`);
+  // What only the questions work out: the creator wallet's age at launch,
+  // and a name taken from a well-known token.
+  const answer = (id: SpecialistAnswer['specialist']) =>
+    specialists?.find((a) => a.specialist === id && a.signal !== 'unknown');
+  const age = answer('wallet-age');
+  if (age && age.facts[0]) parts.push(`Creator’s wallet: ${age.facts[0]}`);
+  const name = answer('name-clone');
+  if (name && (name.signal === 'concern' || name.signal === 'observation')) {
+    parts.push(`Name: ${name.facts.join(' ')}`);
   }
   // A failed read is already said at the top. Otherwise "not full" only means
   // a read covered part of the data by design (a page limit), stated above:

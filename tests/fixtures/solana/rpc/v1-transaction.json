@@ -1,0 +1,75 @@
+[
+  {
+    "method": "getTransaction",
+    "params": [
+      "3ABDoRCe7Bau69dSt8e5XFAeYtT9n2Md5kQSzczP9HfywSwdz5D36ea9d1WYt4tz6iDudkWRGUhwoXpULUGaJkWE",
+      {
+        "commitment": "confirmed",
+        "encoding": "json",
+        "maxSupportedTransactionVersion": 1
+      }
+    ],
+    "result": {
+      "blockTime": 1795559168,
+      "meta": {
+        "computeUnitsConsumed": 2063,
+        "costUnits": 3429,
+        "err": null,
+        "fee": 5000,
+        "innerInstructions": [],
+        "loadedAddresses": {
+          "readonly": [],
+          "writable": []
+        },
+        "logMessages": [
+          "Program tickUcsEQegChaAuo9VYQQztB4ZGApY6ZT4FkULWY6N invoke [1]",
+          "Program tickUcsEQegChaAuo9VYQQztB4ZGApY6ZT4FkULWY6N consumed 2063 of 5000 compute units",
+          "Program tickUcsEQegChaAuo9VYQQztB4ZGApY6ZT4FkULWY6N success"
+        ],
+        "postBalances": [9260333531, 1503360, 1141440],
+        "postTokenBalances": [],
+        "preBalances": [9260338531, 1503360, 1141440],
+        "preTokenBalances": [],
+        "rewards": [],
+        "status": {
+          "Ok": null
+        }
+      },
+      "slot": 473511251,
+      "transaction": {
+        "message": {
+          "accountKeys": [
+            "GBXtickacTmG5NL5kGszuZrvpd5yMU5r1yDNeuf4ERdT",
+            "4cG31VNF9TzFinNc7BmnjhFvGjxkY3sCETVMtMgbrhPs",
+            "tickUcsEQegChaAuo9VYQQztB4ZGApY6ZT4FkULWY6N"
+          ],
+          "header": {
+            "numReadonlySignedAccounts": 0,
+            "numReadonlyUnsignedAccounts": 1,
+            "numRequiredSignatures": 1
+          },
+          "instructions": [
+            {
+              "accounts": [1, 0],
+              "data": "XvZq33MowPocRXZRs2u8Cmo9QQD4h6it7",
+              "programIdIndex": 2,
+              "stackHeight": 1
+            }
+          ],
+          "recentBlockhash": "2eSPnKxcjmi5wh6JgvVbAFUgXHyNnW74frPvX1TbP4Hp",
+          "transactionConfig": {
+            "computeUnitLimit": 5000,
+            "heapSize": null,
+            "loadedAccountsDataSizeLimit": 262144,
+            "priorityFee": null
+          }
+        },
+        "signatures": [
+          "3ABDoRCe7Bau69dSt8e5XFAeYtT9n2Md5kQSzczP9HfywSwdz5D36ea9d1WYt4tz6iDudkWRGUhwoXpULUGaJkWE"
+        ]
+      },
+      "transactionIndex": 0,
+      "version": 1
+    }
+  }
+]

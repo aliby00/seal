@@ -1,23 +1,15 @@
 import { findViolations } from '../agent/guardrails';
-import { readTokenMetas } from '../chain/facts';
-import type { MarketIndex } from '../chain/pools';
-import { createRpcClient, type RpcClient } from '../chain/rpc';
 import type { TokenReport } from '../contracts';
-import { createBudget } from '../http';
 import type { FailedRead } from '../contracts/report';
-import {
-  HOOK_COUNT_UNREAD_NOTE,
-  QUESTION_FAILED as FAILED,
-  QUESTION_TIMED_OUT as TIMED_OUT,
-} from '../failed-reads';
+import { QUESTION_FAILED as FAILED, QUESTION_TIMED_OUT as TIMED_OUT } from '../failed-reads';
 import { log } from '../logger';
-import { CATALOG, HOOK_COUNT_UNREAD } from './catalog';
-import { discoverMarkets, fromReport, gatherContext, type MarketDiscovery } from './context';
-import { liveIndex } from './live-index';
+import { CATALOG } from './catalog';
+import { gatherContext } from './context';
 import { displayName } from './names';
 import {
   SPECIALIST_IDS,
   type FundingDisplay,
+  type Measures,
   type Signal,
   type SpecialistContext,
   type SpecialistId,
@@ -43,6 +35,11 @@ export type SpecialistAnswer = {
   funding?: FundingDisplay;
   /** The question does not apply to this token: not a gap in what was measured. */
   notApplicable?: true;
+  /**
+   * The numbers the question read, for the report's opening. Absent from
+   * answers cached before they were served, and when the question read none.
+   */
+  measures?: Measures;
 };
 
 export type SpecialistBrief = {
@@ -53,8 +50,9 @@ export type SpecialistBrief = {
    */
   unanswered: SpecialistId[];
   /**
-   * Reads a question answered without, falling back on less: the report is
-   * partial. Absent from briefs cached before it existed.
+   * Reads a question answered without, beyond the report's own failed reads:
+   * the report is then partial. The Solana questions read the report alone,
+   * so a read they lacked is already among its failed reads: absent.
    */
   partial?: FailedRead[];
   /** The token's own name and symbol, read on chain. `null` when unreadable. */
@@ -62,10 +60,12 @@ export type SpecialistBrief = {
   symbol: string | null;
 };
 
-/** Upper bound for the on-chain lookups; they run before the model writes, so they add to the wait. */
+/**
+ * Upper bound for the questions; they run before the model writes, so they
+ * add to the wait. They read the report alone and take milliseconds: the
+ * bound only guards against a question that would hang.
+ */
 export const SPECIALIST_TIMEOUT_MS = 12_000;
-/** Requests these lookups may spend, on top of the collection's own budget. */
-export const SPECIALIST_BUDGET = 20;
 
 export const WITHHELD_LINE = '(line withheld: its wording reads as a verdict or advice)';
 export { FAILED, TIMED_OUT };
@@ -75,13 +75,6 @@ export function unansweredOf(answers: readonly SpecialistAnswer[]): SpecialistId
   return answers
     .filter((a) => a.signal === 'unknown' && a.limits.some((l) => l === TIMED_OUT || l === FAILED))
     .map((a) => a.specialist);
-}
-
-/** The reads the answers fell back from: the hook's chain-wide count, for one. */
-export function partialOf(answers: readonly SpecialistAnswer[]): FailedRead[] {
-  return answers.some((a) => a.limits.includes(HOOK_COUNT_UNREAD))
-    ? [{ read: 'questions', note: HOOK_COUNT_UNREAD_NOTE }]
-    : [];
 }
 
 /** Served text passes the same guardrails as the explanation, line by line. */
@@ -119,6 +112,7 @@ export function answerAll(
     let facts: string[] = [];
     let limits: string[] = [FAILED];
     let funding: FundingDisplay | undefined;
+    let measures: Measures | undefined;
     let notApplicable = false;
     try {
       const finding = specialist.run(context);
@@ -126,6 +120,7 @@ export function answerAll(
       facts = finding.facts;
       limits = finding.limits;
       funding = finding.funding;
+      measures = finding.measures;
       notApplicable = finding.notApplicable === true;
     } catch (error) {
       log.warn('spécialiste en échec', { specialist: id, error: String(error) });
@@ -142,96 +137,56 @@ export function answerAll(
       limits: screened(limits),
       ...(funding ? { funding: screenedFunding(funding) } : {}),
       ...(notApplicable && !options.timedOut ? { notApplicable: true as const } : {}),
+      ...(measures ? { measures } : {}),
     };
   });
 }
 
 function within<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
   return Promise.race([
     work,
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
-  ]);
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('timeout')), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
 }
 
 /**
- * What the questions can read before the report is ready: the recent
- * markets, the token's own v4 markets, its name. Started alongside the
- * collection, so the questions do not wait for it and then for their own
- * reads one after the other (MEME: 39 s, two questions out of time).
+ * What the questions could read before the report is ready, started
+ * alongside the collection. Nothing: every question answers from the report
+ * itself. Kept so the analysis route starts them the same way if one ever
+ * needs a lookup of its own.
  */
-export type SpecialistStart = {
-  rpc: RpcClient;
-  index: Promise<MarketIndex | undefined>;
-  discovery: Promise<MarketDiscovery>;
-  metas: Promise<Awaited<ReturnType<typeof readTokenMetas>> | undefined>;
-};
+export type SpecialistStart = Record<string, never>;
 
-export function startSpecialists(
-  token: string,
-  options: { rpcUrl?: string } = {},
-): SpecialistStart {
-  const rpc = createRpcClient(options.rpcUrl, createBudget(SPECIALIST_BUDGET));
-  const index = liveIndex(rpc).catch(() => undefined);
-  const discovery = index.then((i) => discoverMarkets(rpc, token, i));
-  // Read once settled: a failure here is the question's own "not found".
-  discovery.catch(() => undefined);
-  const metas = readTokenMetas(rpc, [token]).catch(() => undefined);
-  return { rpc, index, discovery, metas };
+export function startSpecialists(token: string): SpecialistStart {
+  void token;
+  return {};
 }
 
-/**
- * Gathers what the specialists need beyond the report — the v4 market, its
- * rulebook, the creator's wallet, the recent markets — under a time and
- * request budget, then asks the ten questions. Never throws.
- */
+/** Asks the ten questions from the report, under a time limit. Never throws. */
 export async function briefSpecialists(
   token: string,
   report: TokenReport | undefined,
-  options: { rpcUrl?: string; timeoutMs?: number; started?: SpecialistStart } = {},
+  options: { timeoutMs?: number; started?: SpecialistStart } = {},
 ): Promise<SpecialistBrief> {
-  const started = options.started ?? startSpecialists(token, { rpcUrl: options.rpcUrl });
-  const { rpc } = started;
   const timeoutMs = options.timeoutMs ?? SPECIALIST_TIMEOUT_MS;
-
-  const metas = within(started.metas, timeoutMs).catch(() => undefined);
   let timedOut = false;
-  const context = await within(
-    (async () => {
-      const index = await started.index;
-      return gatherContext(rpc, token, report, index, started.discovery);
-    })(),
-    timeoutMs,
-  ).catch((error: unknown): SpecialistContext => {
-    timedOut = String(error).includes('timeout');
-    log.warn('contexte des spécialistes incomplet', { token, error: String(error) });
-    // What the report already holds is still answered: the main pool and
-    // its rules, read by the collection.
-    return {
-      token: token.toLowerCase(),
-      ...(report ? { report, ...fromReport(token, report) } : {}),
-    };
-  });
-
-  const meta = (await metas)?.get(token.toLowerCase());
-  const name = context.market?.name ?? meta?.name ?? null;
-  const symbol = context.market?.symbol ?? meta?.symbol ?? null;
+  const context = await within(gatherContext(token, report), timeoutMs).catch(
+    (error: unknown): SpecialistContext => {
+      timedOut = String(error).includes('timeout');
+      log.warn('contexte des spécialistes incomplet', { token, error: String(error) });
+      return { token, ...(report ? { report } : {}) };
+    },
+  );
+  const meta = report?.mint.data?.metadata;
   const answers = answerAll(context, { timedOut });
   return {
     answers,
     unanswered: unansweredOf(answers),
-    partial: [
-      ...partialOf(answers),
-      ...(context.unread?.length
-        ? [
-            {
-              read: 'questions' as const,
-              note: `some lookups of the ten questions could not be read this time (${[...new Set(context.unread)].join(', ')})`,
-            },
-          ]
-        : []),
-    ],
     // A token can name itself anything: cleaned, cut, and withheld when it reads as a verdict.
-    name: displayName(name),
-    symbol: displayName(symbol),
+    name: displayName(meta?.name),
+    symbol: displayName(meta?.symbol),
   };
 }

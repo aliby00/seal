@@ -25,9 +25,9 @@ export default function DisclaimerPage() {
 
       <h2>Public on-chain data</h2>
       <p>
-        The figures come from public blockchain data on Robinhood Chain and from public market
-        sources such as DexScreener and Blockscout. SEAL does not hold private information about
-        tokens, their creators or their holders.
+        The figures come from public blockchain data on Solana and from public market sources such
+        as DexScreener. SEAL does not hold private information about tokens, their creators or their
+        holders.
       </p>
 
       <h2>Limits of the sources</h2>
@@ -41,7 +41,7 @@ export default function DisclaimerPage() {
           A creator&apos;s history covers launches SEAL can trace on chain. Activity through other
           addresses or other chains is not seen.
         </li>
-        <li>SEAL does not audit contract code.</li>
+        <li>SEAL does not audit program code, a transfer hook&apos;s included.</li>
       </ul>
 
       <h2>Explanations written by a language model</h2>

@@ -4,9 +4,10 @@ import type { LaunchMove, LaunchReplayData } from './contracts/launch';
 export { BUNDLE_MIN_WALLETS, EARLY_SECONDS };
 
 /**
- * The first minutes of a token, told as a story a non-technical reader can
- * follow: what the creator took at launch, how fast the first buyers came,
- * and what they still hold today. Every number is read from the moves; a
+ * The first moments of a Solana token, told as a story a non-technical
+ * reader can follow: what the creator took in the creation slot, how fast
+ * the first buyers came, and what they still hold today. Every number is read
+ * from the moves of the launch replay (slot 0 is the creation slot); a
  * balance that could not be read is never counted as zero.
  */
 
@@ -31,7 +32,7 @@ export type Buyer = {
 export type StoryPoint = { seconds: number; bought: number; held: number };
 
 export type LaunchStory = {
-  /** What the creator received or bought in the launch block itself. */
+  /** What the creator received or bought in the creation slot itself. */
   creatorAtLaunch: number;
   /** Creator sales in the window, share of supply. */
   creatorSold: number;
@@ -66,7 +67,7 @@ export type LaunchStory = {
     contracts: number | null;
   } | null;
   /**
-   * What the launch block's transactions sent by the creator delivered to
+   * What the creation slot's transactions sent by the creator delivered to
    * other addresses than the creator's; `null` when none, or not read.
    */
   creatorTx: { share: number; addresses: number; contracts: number | null } | null;
@@ -104,14 +105,14 @@ export function buildStory(launch: LaunchReplayData): LaunchStory {
     )
     .reduce((sum, m) => sum + m.share, 0);
   const sales = moves.filter((m) => m.kind === 'sell' && m.actorIsCreator);
-  const kindOf = new Map(moves.map((m) => [m.actor.toLowerCase(), m.actorKind]));
+  const kindOf = new Map(moves.map((m) => [m.actor, m.actorKind]));
   const contractsAmong = (addresses: ReadonlySet<string>) =>
     [...addresses].filter((a) => kindOf.get(a) === 'contract').length;
 
   const byActor = new Map<string, Buyer>();
   for (const m of moves) {
     if (m.kind !== 'buy' || !isHolder(m)) continue;
-    const key = m.actor.toLowerCase();
+    const key = m.actor;
     const known = byActor.get(key);
     if (known) {
       known.bought += m.share;
@@ -120,7 +121,7 @@ export function buildStory(launch: LaunchReplayData): LaunchStory {
       byActor.set(key, {
         address: m.actor,
         isCreator: m.actorIsCreator,
-        transaction: m.transaction.toLowerCase(),
+        transaction: m.transaction,
         firstAt: m.seconds,
         bought: m.share,
         heldNow: m.heldNow,
@@ -141,7 +142,7 @@ export function buildStory(launch: LaunchReplayData): LaunchStory {
   for (const m of moves) {
     if (m.kind !== 'buy' || !isHolder(m)) continue;
     bought += m.share;
-    const key = m.actor.toLowerCase();
+    const key = m.actor;
     if (!counted.has(key)) {
       counted.add(key);
       held += keep(byActor.get(key)!);
@@ -157,9 +158,9 @@ export function buildStory(launch: LaunchReplayData): LaunchStory {
   const byTx = new Map<string, { wallets: Set<string>; share: number; seconds: number }>();
   for (const m of moves) {
     if (m.kind !== 'buy' || !isHolder(m) || m.actorIsCreator) continue;
-    const key = m.transaction.toLowerCase();
+    const key = m.transaction;
     const group = byTx.get(key) ?? { wallets: new Set<string>(), share: 0, seconds: m.seconds };
-    group.wallets.add(m.actor.toLowerCase());
+    group.wallets.add(m.actor);
     group.share += m.share;
     byTx.set(key, group);
   }
@@ -178,7 +179,7 @@ export function buildStory(launch: LaunchReplayData): LaunchStory {
   const summary = launch.summary;
   return {
     // The totals of every move read, when the replay kept them: the moves
-    // listed are a selection, and counting them alone understated a launch
+    // listed are a selection, and counting them alone would understate a
     // transaction serving 100 addresses as one serving 35.
     bundle: summary
       ? summary.bundle
@@ -208,7 +209,7 @@ export function buildStory(launch: LaunchReplayData): LaunchStory {
           within: early.length ? Math.max(...early.map((b) => b.firstAt)) : 0,
           heldNow: read.length ? read.reduce((sum, b) => sum + keep(b), 0) : null,
           unread: early.length - read.length,
-          contracts: contractsAmong(new Set(early.map((b) => b.address.toLowerCase()))),
+          contracts: contractsAmong(new Set(early.map((b) => b.address))),
         },
     creatorTx: summary?.creatorTx
       ? {
@@ -235,12 +236,14 @@ export function buildStory(launch: LaunchReplayData): LaunchStory {
 
 /**
  * What to call the addresses a purchase reached: wallets when none is a
- * contract, contracts when all are, addresses otherwise or when not known.
+ * program account, program accounts when all are, addresses otherwise or
+ * when not known.
  */
 export function addressesWord(count: number, contracts: number | null): string {
   const one = count === 1;
   if (contracts === 0) return one ? 'wallet' : 'wallets';
-  if (contracts !== null && contracts === count) return one ? 'contract' : 'contracts';
+  if (contracts !== null && contracts === count)
+    return one ? 'program account' : 'program accounts';
   return one ? 'address' : 'addresses';
 }
 
@@ -248,7 +251,7 @@ export function addressesWord(count: number, contracts: number | null): string {
  * What the round-trip count leaves out, said next to it: an address that
  * bought and sold back within one single transaction never held the token
  * (an arbitrage through it), and one that put its tokens back into a pool as
- * liquidity did not sell them (RH: 25 counted, 27 on chain).
+ * liquidity did not sell them.
  */
 export function roundTripsExcludedWords(
   excluded: { sameTransaction: number; liquidity: number } | undefined,

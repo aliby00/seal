@@ -1,0 +1,154 @@
+[
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/cuar9cygcsr4hvvbyctb1qhzkc8uugrt8rqrc4nbyaoa",
+    "pairAddress": "CuAr9cYgcSr4HVvByctB1qHzKC8UuGRt8rQRC4nByaoa",
+    "labels": ["CPMM"],
+    "baseToken": {
+      "address": "B4aJyVCibxP1J95RccZ57DPJWEfkkzUDbm9DuFD9bonk",
+      "name": "no one believes in this",
+      "symbol": "underdog"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.0000001541",
+    "priceUsd": "0.00001077",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h24": {
+        "buys": 10,
+        "sells": 5
+      }
+    },
+    "volume": {
+      "h24": 18.38,
+      "h6": 0.04,
+      "h1": 0.04
+    },
+    "priceChange": {
+      "h1": 1.66,
+      "h6": 1.66,
+      "h24": -2.76
+    },
+    "liquidity": {
+      "base": 441279156,
+      "quote": 68.02069,
+      "usd": 9505.21
+    },
+    "fdv": 10770,
+    "marketCap": 10770,
+    "pairCreatedAt": 1752428977000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/299b07272ee4ca1d1c0cd248d9a15d75dfcf7caa4951b3dec5f80c711a3c1bf4?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/9b3e91a7623cf994bf3ada9b1be14d73c7e5df8b452c8c8d9b1d5137e7283ee9?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/B4aJyVCibxP1J95RccZ57DPJWEfkkzUDbm9DuFD9bonk?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://www.underdogsol.com/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/i/communities/1948254437086269800",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/sol_underdog",
+          "type": "telegram"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/96yihy6gsvesrxkt4chysgg9v6u8rgptwn51mq51jsaq",
+    "pairAddress": "96yihy6gSVeSRXKT4Chysgg9v6U8RGptwn51MQ51JsAQ",
+    "labels": ["CLMM"],
+    "baseToken": {
+      "address": "B4aJyVCibxP1J95RccZ57DPJWEfkkzUDbm9DuFD9bonk",
+      "name": "no one believes in this",
+      "symbol": "underdog"
+    },
+    "quoteToken": {
+      "address": "USD1ttGY1N17NEEHLmELoaybftRBUSErhqYiQzvEmuB",
+      "name": "World Liberty Financial USD",
+      "symbol": "USD1"
+    },
+    "priceNative": "0.00001071",
+    "priceUsd": "0.00001071",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 1,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 1,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 6,
+        "sells": 9
+      }
+    },
+    "volume": {
+      "h24": 0.62,
+      "h6": 0.04,
+      "h1": 0.04
+    },
+    "priceChange": {
+      "h1": 0.6,
+      "h6": 0.6,
+      "h24": -3.23
+    },
+    "liquidity": {
+      "base": 10304592,
+      "quote": 30.3571,
+      "usd": 140.81
+    },
+    "fdv": 10719,
+    "marketCap": 10719,
+    "pairCreatedAt": 1764095736000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/299b07272ee4ca1d1c0cd248d9a15d75dfcf7caa4951b3dec5f80c711a3c1bf4?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/9b3e91a7623cf994bf3ada9b1be14d73c7e5df8b452c8c8d9b1d5137e7283ee9?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/B4aJyVCibxP1J95RccZ57DPJWEfkkzUDbm9DuFD9bonk?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://www.underdogsol.com/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/i/communities/1948254437086269800",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/sol_underdog",
+          "type": "telegram"
+        }
+      ]
+    }
+  }
+]

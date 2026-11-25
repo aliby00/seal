@@ -4,14 +4,14 @@ import type { AddressRoleKind, NamedAddress, VestingLock } from './contracts/rol
 
 /**
  * Where the supply went at launch, as a person would draw it: created, then
- * handed to its first holders (a curve, a pool, the creator, a launchpad's
- * wallet), then passed on by them to others — each with its share, its name
- * by role, and what it holds today.
+ * handed to its first holders (a bonding curve, a pool, the creator, a
+ * launchpad's account), then passed on by them to others — each with its
+ * share, its name by role, and what it holds today.
  *
  * Built from the launch replay's moves and the names read on chain; nothing
- * is inferred beyond them. SIRIUS: 50 % to Virtuals' launch curve, 50 % to
- * Virtuals' reserve wallet, which passed 25 % to Virtuals' capital-formation
- * wallet at +29 s and 25 % to the creator's TokenTable lock at +90 s.
+ * is inferred beyond them. A pump.fun launch creates its whole supply on its
+ * bonding curve, which is the market itself: nothing is drawn. A mint created
+ * on its own hands its supply to whoever it names, and that is drawn.
  */
 
 export type FlowNodeKind =
@@ -26,7 +26,7 @@ export type FlowNodeKind =
 export type FlowNode = {
   address: string;
   kind: FlowNodeKind;
-  /** Its name by role: "Virtuals’ team lock (TokenTable)", "the creator", "a wallet". */
+  /** Its name by role: "Jupiter Lock escrow", "the creator", "a wallet". */
   name: string;
   /** What it does with the token, when known. */
   detail?: string;
@@ -62,7 +62,8 @@ export const FLOW_MIN_SHARE = 0.001;
 /** Recipients drawn under one holder, at most. */
 export const FLOW_MAX_CHILDREN = 6;
 
-const lower = (a: string) => a.toLowerCase();
+/** Addresses keep their case: Solana addresses are case-sensitive (base58). */
+const lower = (a: string) => a;
 
 function plainName(
   address: string,
@@ -82,9 +83,9 @@ function plainName(
   }
   if (isCreator) return { kind: 'creator', name: 'the creator', tradable: true };
   if (kind === 'pool') return { kind: 'pool', name: 'a trading pool', tradable: false };
-  if (kind === 'burn') return { kind: 'burn', name: 'a burn address', tradable: false };
+  if (kind === 'burn') return { kind: 'burn', name: 'the incinerator', tradable: false };
   return kind === 'contract'
-    ? { kind: 'contract', name: 'a contract', tradable: null }
+    ? { kind: 'contract', name: 'a program account', tradable: null }
     : { kind: 'wallet', name: 'a wallet', tradable: true };
 }
 
@@ -146,9 +147,9 @@ export function buildSupplyFlow(
     if (m.kind === 'allocation') child.heldNow = m.heldNow;
   }
 
-  // The curve's outcome: what buyers took from it, and what its graduation
-  // moved to the market and to the launchpad's excess wallet (SIRIUS: 50 %
-  // in, about 35 % bought, 10.5 % to its Uniswap v2 pair, 4.5 % excess).
+  // The curve's outcome, when its graduation was read: what buyers took from
+  // it, and what the graduation moved to the trading pool and to the
+  // launchpad's own wallet.
   if (graduation) {
     const curve = [...roots.values()].find((r) => r.kind === 'curve' && r.children.length === 0);
     if (curve) {
@@ -188,7 +189,7 @@ export function buildSupplyFlow(
       }
       if (graduation.market) {
         curve.children.push(
-          child(graduation.market.address, graduation.market.share, 'its Uniswap v2 pair', 'pool'),
+          child(graduation.market.address, graduation.market.share, 'its trading pool', 'pool'),
         );
       }
       if (graduation.excess) {
@@ -196,7 +197,7 @@ export function buildSupplyFlow(
           child(
             graduation.excess.address,
             graduation.excess.share,
-            'the launchpad’s excess wallet',
+            'the launchpad’s wallet',
             'distributor',
           ),
         );
@@ -225,9 +226,9 @@ export function buildSupplyFlow(
     }))
     .sort((a, b) => b.received - a.received);
 
-  // Worth drawing only when part of the supply went somewhere other than its market.
-  // A curve moving its tokens into its own pools (MUT8: 0x7ed5's curve to the
-  // PoolManager and its lock contract) is the market's plumbing, not a hand-out.
+  // Worth drawing only when part of the supply went somewhere other than its
+  // market. A curve moving its tokens into its own pool at graduation is the
+  // market's plumbing, not a hand-out.
   const market = (k: FlowNodeKind) =>
     k === 'pool' || k === 'curve' || k === 'launchpad' || k === 'buyers';
   const handedOut = ordered.some(
@@ -308,7 +309,7 @@ function todayWords(n: FlowNode, creator?: string | null): string {
     : `, which holds ${flowPct(n.heldNow)} today`;
 }
 
-/** "the creator’s TokenTable lock", said lower-case inside a sentence. */
+/** "the creator’s lock", said lower-case inside a sentence. */
 const inSentence = (name: string) => name.replace(/^(The|A|An) /, (w) => w.toLowerCase());
 
 /**
@@ -339,7 +340,7 @@ export function flowSentence(flow: SupplyFlow, creator?: string | null): string 
       ? (parts[0] ?? '')
       : `${parts.slice(0, -1).join(', ')}, and ${parts[parts.length - 1]}`;
   const buys =
-    flow.buys === 0 ? ' Nobody bought in the first minutes: the supply was only handed out.' : '';
+    flow.buys === 0 ? ' No buy was read in the launch window: the supply was only handed out.' : '';
   return `${intro}At launch, ${list.replace(/^(\S+) to /, '$1 of the supply went to ')}.${buys}`;
 }
 
@@ -348,20 +349,19 @@ const yearOf = (iso: string) => new Date(iso).getUTCFullYear();
 
 /**
  * The flow in one short sentence, for the report's first line (at most about
- * 20 words), and the figure it is about: what a reader must know first.
- * SIRIUS: "Launched on Virtuals: 28.6% locked for the creator until 2028,
- * 18% held by Virtuals’ capital-formation wallet."
+ * 20 words), and the figure it is about: what a reader must know first
+ * ("Launched on pump.fun: 28.6% locked for the creator until 2028").
  */
 export function flowHeadline(
   flow: SupplyFlow,
   creator?: string | null,
 ): { figure: string; sentence: string; share: number; creatorKept: boolean } {
   const all = flow.roots.flatMap((r) => [r, ...r.children]);
-  // What the creator keeps comes first, locked or not, then what a launchpad will sell.
+  // What the creator keeps comes first, locked or not.
   const clauses: { share: number; words: string; rank: number }[] = [];
   for (const n of all) {
     if (n.lock && n.lock.locked > 0) {
-      const who = n.lock.schedules.every((s) => creator && s.beneficiary === creator.toLowerCase())
+      const who = n.lock.schedules.every((s) => creator && s.beneficiary === creator)
         ? ' for the creator'
         : '';
       const until = n.lock.fullyUnlockedAt ? ` until ${yearOf(n.lock.fullyUnlockedAt)}` : '';
@@ -370,11 +370,6 @@ export function flowHeadline(
         share: n.lock.locked,
         words: `${flowPct(n.lock.locked)} locked${who}${until}`,
       });
-    } else if (n.kind === 'capital-formation' && (n.heldNow ?? n.received) > 0) {
-      const held = n.heldNow ?? n.received;
-      const pad = flow.launchpad;
-      const owner = pad ? `${pad}${/s$/i.test(pad) ? '’' : '’s'}` : 'the launchpad’s';
-      clauses.push({ rank: 2, share: held, words: `${flowPct(held)} held by ${owner} ACF wallet` });
     } else if (n.kind === 'creator' && n.received >= 0.01) {
       clauses.push({
         rank: 1,
@@ -382,8 +377,8 @@ export function flowHeadline(
         words: `${flowPct(n.received)} to the creator at launch`,
       });
       // What the creator passed straight on to other addresses, outside any
-      // market: the first thing to know (0x137a…: 67.2 % to five wallets one
-      // second after the mint, said as "reassuring" by the text).
+      // market: the first thing to know (67.2 % to five wallets one second
+      // after the mint was once filed as "reassuring" by the text).
       const out = n.children.filter((c) => c.kind === 'wallet' || c.kind === 'contract');
       const passed = out.reduce((sum, c) => sum + c.received, 0);
       if (out.length > 0 && passed >= 0.05) {
@@ -409,7 +404,7 @@ export function flowHeadline(
     clauses.push({
       rank: 3,
       share,
-      words: `${flowPct(share)} handed to ${n === 1 ? inSentence(out[0]!.name) : `${n} addresses`} at launch, not sold`,
+      words: `${flowPct(share)} handed to ${n === 1 ? inSentence(out[0]!.name) : `${n} addresses`} at launch, outside any market`,
     });
   }
   const top = [...clauses].sort((a, b) => a.rank - b.rank || b.share - a.share).slice(0, 2);

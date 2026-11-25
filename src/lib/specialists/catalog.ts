@@ -1,1111 +1,1169 @@
-import { launchpadProse } from '../chain/launchpads';
-import { NATIVE } from '../chain/pools';
-import { OTHER_LAUNCH_SALES_DAYS } from '../contracts/creator';
-import { checkedByLaunchpad, checkedWords, joinClauses } from '../checked-sample';
-import { poolLabel, usdShort, volumePerTrade } from '../market';
-import { decodeHookPermissions, describeHookPermissions } from '../chain/hooks';
-import { feePayerWords, whereSetAside } from '../set-aside';
-import { lockWords } from '../supply-flow';
+import type { TokenReport } from '../contracts';
+import { volumePerTrade } from '../market';
+import { sourcesFailed } from '../failed-reads';
+import { readableNote } from '../plain-note';
+import type { SolanaHolder } from '../solana/holders';
+import { NATIVE_MINT } from '../solana/programs';
+import type { TokenPower, TokenPowerKind } from '../solana/token-types';
+import { addressesSoftware, imitatedName, normalizeName, quoteName } from './names';
 import {
-  addressesSoftware,
-  describeService,
-  imitatedName,
-  normalizeName,
-  quoteName,
-} from './names';
-import { SERVICE_TX_COUNT, type FunderKind } from '../chain/funder-kind';
-import { mostHoldersFromCreator } from '../contracts/holders';
-import { readFailed } from '../failed-reads';
+  BUYS_WITHOUT_SALE,
+  CREATOR_HOLDS_SHARE,
+  DEAD_LAUNCHES_MIN,
+  FRESH_WALLET_SECONDS,
+  GROUP_SHARE,
+  GROUP_SHARE_MIN,
+  LARGEST_WALLET_SHARE,
+  LOCKED_FOR_GOOD,
+  MOSTLY_SET_ASIDE,
+  RECENT_WALLET_SECONDS,
+  ROUND_TRIPS_MIN,
+  TRADES_MIN,
+  TRADES_PER_HOLDER,
+  WITHDRAWABLE_SHARE,
+} from './thresholds';
 import type {
   Finding,
-  FundingDisplay,
-  PoolRules,
-  FundingPathStep,
+  GroupMeasure,
+  Measures,
+  PowerMeasure,
   Signal,
   Specialist,
-  SpecialistContext,
   SpecialistId,
 } from './types';
+import {
+  count,
+  curveName,
+  dayOf,
+  durationWords,
+  pct,
+  shareOf,
+  short,
+  solOf,
+  solWords,
+} from './words';
 
 /**
- * Les dix spécialistes.
+ * The ten questions SEAL asks of every Solana token, each answered from the
+ * collected report alone: what the mint lets someone do, what its rules do
+ * to transfers, who holds it, what the creator did before and with this
+ * token, who funded the creator, how it trades, whether holders can sell,
+ * what became of its pools, and whether its name is borrowed.
  *
- * Tous déterministes : à entrée égale, sortie égale, sans appel de modèle.
- * Les seuils sont des constantes nommées, pas des réglages cachés — quelqu'un
- * qui conteste un constat doit pouvoir lire pourquoi il a été fait.
+ * Every fact is a sentence of what was read; every limit says what was not
+ * read and what that prevents saying. A block that could not be read leaves
+ * its question `unknown`, never `quiet`: an absence is said only when the
+ * read that would have found it answered.
  */
 
-const pct = (x: number): string => `${(x * 100).toFixed(1)}%`;
-/** A share near the ends: "<0.1%" and ">99.9%" rather than "0.0%" and "100.0%". */
-const pctBounded = (x: number): string =>
-  x > 0 && x < 0.001 ? '<0.1%' : x > 0.999 && x < 1 ? '>99.9%' : pct(x);
+/** The limit every question gives when the report itself could not be collected. */
+export const NO_REPORT = 'the token’s report could not be collected this time';
 
-function finding(
-  specialist: SpecialistId,
-  signal: Signal,
-  facts: string[],
-  limits: string[] = [],
-  followUps?: SpecialistId[],
-): Finding {
-  return { specialist, signal, facts, limits, ...(followUps?.length ? { followUps } : {}) };
-}
-
-const unknown = (id: SpecialistId, why: string): Finding => finding(id, 'unknown', [], [why]);
-
-/** A question that does not apply to this token: said so, never "not measured". */
-const notApplicable = (id: SpecialistId, why: string): Finding => ({
-  ...finding(id, 'unknown', [], [why]),
-  notApplicable: true,
+const unknown = (specialist: SpecialistId, limits: string[]): Finding => ({
+  specialist,
+  signal: 'unknown',
+  facts: [],
+  limits,
 });
 
-/**
- * The token's main market when it is a V2/V3 pair: a 20-byte pair address
- * (a v4 pool is a 32-byte id), with its version when the listing gives it.
- */
-export function pairMarket(
-  report: SpecialistContext['report'],
-): { label: string; version: 'v2' | 'v3' | null } | null {
-  const data = report?.market.data;
-  if (!data?.pair || !/^0x[0-9a-fA-F]{40}$/.test(data.pair)) return null;
-  if (data.graduation && !data.graduation.graduated) return null;
-  const listed = data.pools?.find((p) => p.id.toLowerCase() === data.pair!.toLowerCase());
-  const version = listed?.version === 'v2' || listed?.version === 'v3' ? listed.version : null;
-  return { label: poolLabel(data.pair), version };
+/** The first note of a block's sources, as a reader takes it. */
+function noteOf(
+  block: { sources: readonly { note?: string }[] } | null | undefined,
+): string | null {
+  const note = block?.sources.find((s) => s.note)?.note;
+  return note ? readableNote(note) : null;
 }
 
-/** "not applicable: this market has no trading-rules contract (Uniswap v2 pair 0x8285…dbA5)". */
-export function noRulesContract(pair: NonNullable<ReturnType<typeof pairMarket>>): string {
-  return `not applicable: this market has no trading-rules contract (Uniswap ${pair.version ?? 'v2/v3'} pair ${pair.label})`;
+/** "the mint could not be read (the source did not answer this time)". */
+function unread(what: string, block: { sources: readonly { note?: string }[] } | null): string {
+  const note = noteOf(block);
+  return `${what} could not be read${note ? ` (${note})` : ''}`;
 }
 
-/** A v4-only question on a token whose market is a V2/V3 pair does not apply; elsewhere it is unknown. */
-function v4Only(id: SpecialistId, report: SpecialistContext['report']): Finding {
-  const pair = pairMarket(report);
-  return pair ? notApplicable(id, noRulesContract(pair)) : unknown(id, noV4Market(report));
-}
-
-/**
- * Where the token trades when it has no Uniswap v4 market, said for a person:
- * the questions that read a v4 rulebook then say why there is nothing to read,
- * rather than a bare "not found".
- */
-export function marketElsewhere(report: SpecialistContext['report']): string | null {
-  const data = report?.market.data;
-  if (!data) return null;
-  if (data.graduation && !data.graduation.graduated) return 'its launch pool';
-  if (data.pair)
-    return `a trading pair listed by DexScreener (${data.pair.slice(0, 6)}…${data.pair.slice(-4)})`;
-  return null;
-}
-
-/** Why a v4-only question has no answer, in plain words. */
-export function noV4Market(report: SpecialistContext['report']): string {
-  const where = marketElsewhere(report);
-  return where
-    ? `this token trades on ${where}, not on a Uniswap v4 pool, so there are no Uniswap v4 trading rules (hook) for this question to read`
-    : 'no market was found for this token: no Uniswap v4 pool, no launch pool, and no pair listed by DexScreener';
-}
-
-/**
- * Why the name question has no answer. Its comparison runs over the v4 market
- * index, but it is about names, not trading rules: borrowing the v4 wording
- * told the reader there was no hook to read, which was beside the point.
- */
-export function namesNotCompared(report: SpecialistContext['report']): string {
-  const pair = pairMarket(report);
-  if (pair) {
-    return `the name was not checked: names are compared only across Uniswap v4 markets, and this token trades on a Uniswap ${pair.version ?? 'v2/v3'} pair (${pair.label})`;
+/** The strongest signal of a list, in the order a reader needs them. */
+function strongest(signals: Signal[], fallback: Signal): Signal {
+  for (const s of ['concern', 'observation', 'reassurance', 'quiet'] as const) {
+    if (signals.includes(s)) return s;
   }
-  const where = marketElsewhere(report);
-  return where
-    ? `the name was not checked: names are compared only across Uniswap v4 markets, and this token trades on ${where}`
-    : 'the name was not checked: no market was found for this token to compare it with earlier ones';
+  return fallback;
 }
 
-/**
- * Familles de tokens reconnues par leur beacon EIP-1967.
- *
- * Relevé le 11/10/2026 : les tokens « … • Robinhood Token » (AMZN, SPCX…)
- * sont des beacon proxies vers la même adresse ; le token « HOOD » observé le
- * même jour n'est pas un beacon proxy du tout. Ce n'est
- * pas une preuve d'émetteur — n'importe qui peut pointer un proxy vers un
- * beacon existant — d'où un constat `observation`, jamais `reassurance`.
- */
-export const RECOGNISED_BEACONS: Record<string, string> = {
-  '0xe10b6f6b275de231345c20d14ab812db62151b00': 'the tokenised stocks named "… • Robinhood Token"',
+/** "$47.35", "$2,912.64". */
+const usd = (x: number) =>
+  `$${x.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const supplyOf = (report: TokenReport): string | null =>
+  report.mint.data?.supply ?? report.holders.data.supply ?? null;
+
+// ── Powers and rules ────────────────────────────────────────────────────────
+
+/** The powers over the token itself. */
+const TOKEN_POWERS: ReadonlySet<TokenPowerKind> = new Set([
+  'mint',
+  'freeze',
+  'metadata-update',
+  'metadata-pointer',
+  'close-mint',
+  'interest-rate',
+  'ui-multiplier',
+  'permissioned-burn',
+  'confidential-mint-burn',
+  'unknown',
+]);
+
+/** What acts on transfers between holders. */
+const TRANSFER_RULES: ReadonlySet<TokenPowerKind> = new Set([
+  'permanent-delegate',
+  'transfer-hook',
+  'transfer-fee',
+  'transfer-fee-change',
+  'pause',
+  'default-account-state',
+  'non-transferable',
+  'confidential-transfers',
+]);
+
+/** Whether a power acts today, read from the mint's extension; `undefined` when that does not apply. */
+function activeOf(report: TokenReport, power: TokenPower): boolean | undefined {
+  const ext = (name: string) => report.mint.data?.extensions.find((e) => e.extension === name);
+  switch (power.power) {
+    case 'transfer-hook': {
+      const hook = ext('transferHook');
+      return hook?.extension === 'transferHook' ? hook.state.programId !== null : undefined;
+    }
+    case 'pause': {
+      const pause = ext('pausableConfig');
+      return pause?.extension === 'pausableConfig' ? pause.state.paused : undefined;
+    }
+    case 'default-account-state': {
+      const state = ext('defaultAccountState');
+      return state?.extension === 'defaultAccountState'
+        ? state.state.accountState === 'frozen'
+        : undefined;
+    }
+    case 'transfer-fee':
+      // The power exists only when a fee is charged or scheduled (token.ts).
+      return power.status === 'unknown' ? undefined : /pays a [\d.]+% fee/.test(power.sentence);
+    case 'non-transferable':
+      return true;
+    default:
+      return undefined;
+  }
+}
+
+function measureOf(report: TokenReport, power: TokenPower, creator: string | null): PowerMeasure {
+  const active = activeOf(report, power);
+  const fee =
+    power.power === 'transfer-fee' ? /pays a ([\d.]+%) fee/.exec(power.sentence)?.[1] : undefined;
+  return {
+    power: power.power,
+    status: power.status,
+    byCreator: creator !== null && power.holder === creator,
+    ...(active !== undefined ? { active } : {}),
+    ...(fee ? { fee } : {}),
+  };
+}
+
+/** A power's sentence, with who holds it when the sentence does not say. */
+function powerFact(power: TokenPower, creator: string | null): string {
+  if (power.status !== 'held' || !power.holder) return power.sentence;
+  const who =
+    creator && power.holder === creator
+      ? `${short(power.holder)}, the creator`
+      : short(power.holder);
+  return `${power.sentence} Held by ${who}.`;
+}
+
+/** Held powers first, then what is unknown, then rules in force, then what nobody holds. */
+const STATUS_ORDER: Record<TokenPower['status'], number> = {
+  held: 0,
+  unknown: 1,
+  fixed: 2,
+  none: 3,
 };
 
-/** À partir de combien de marchés un rulebook partagé devient un fait notable. */
-export const REUSE_NOTABLE = 5;
-/** Part des marchés frères ayant mal fini au-delà de laquelle la réutilisation devient un motif d'attention. */
-export const SIBLING_HARM_SHARE = 0.5;
-/** Un créateur sous ce nombre de transactions n'a pratiquement pas d'existence avant ce lancement. */
-export const FRESH_WALLET_NONCE = 3;
-export const TOP1_CONCERN = 0.2;
-export const TOP10_CONCERN = 0.5;
-export const TOP10_SPREAD = 0.25;
-export const SPREAD_MIN_HOLDERS = 50;
-/** En dessous de 10 % d'adresses distinctes par échange, le volume vient de peu de mains. */
-export const TRADERS_PER_TRADE_CONCERN = 0.1;
-export const MIN_TRADES_FOR_VOLUME = 20;
-
-/** Why the market questions stop: the main pool's rules were not read. */
-const MAIN_UNREAD =
-  'the trading rules (hook) of this token’s main pool could not be read this time';
-
-const hooked = (p: PoolRules) => typeof p.hook === 'string' && p.hook !== NATIVE;
-
-/** "0xf4a6…0935, $186.4k liquidity": a pool named with its size. */
-function poolDetail(pool: PoolRules): string {
-  return `${poolLabel(pool.id)}${pool.liquidityUsd !== null ? `, ${usdShort(pool.liquidityUsd)} liquidity` : ''}`;
+function powersRead(report: TokenReport, kinds: ReadonlySet<TokenPowerKind>) {
+  const creator = report.creator.data.creator;
+  const powers = report.powers
+    .filter((p) => kinds.has(p.power))
+    .sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]);
+  return {
+    powers,
+    facts: powers.map((p) => powerFact(p, creator)),
+    measures: powers.map((p) => measureOf(report, p, creator)),
+  };
 }
 
-/** "The main pool of this token (0xf4a6…0935, $186.4k liquidity)", or "This market" without a listing. */
-function mainSubject(context: SpecialistContext): string {
-  return context.mainPool
-    ? `The main pool of this token (${poolDetail(context.mainPool)})`
-    : 'This market';
-}
-
-const MAX_POOL_LINES = 3;
-
-/**
- * The other pools whose rules differ from the main pool's, one line each:
- * a hook where the main pool has none or another one, no hook where it has
- * one, rules that could not be read. Empty when they all match.
- */
-function otherPoolLines(context: SpecialistContext, mainHook: string | null): string[] {
-  const differ = (context.otherPools ?? []).filter((p) =>
-    p.hook === undefined ? true : hooked(p) ? p.hook !== mainHook : mainHook !== null,
-  );
-  // Pools with a hook first: they are the ones a sell can pass through.
-  differ.sort((a, b) => Number(hooked(b)) - Number(hooked(a)));
-  const lines = differ.slice(0, MAX_POOL_LINES).map((p) => {
-    const where = `Another pool of this token (${poolDetail(p)})`;
-    if (p.hook === undefined)
-      return `${where} is a Uniswap v4 pool whose trading rules (hook) could not be read this time.`;
-    if (hooked(p)) {
-      const alters = describeHookPermissions(decodeHookPermissions(p.hook as string)).some(
-        (c) => c.id === 'alters-swap-amounts',
-      );
-      return `${where} runs trading rules (hook) ${p.hook}${alters ? ', which may change the amount of a trade' : ''}: a trade in that pool passes through them.`;
-    }
-    return p.version === 'v4'
-      ? `${where} runs no trading rules (hook).`
-      : `${where} is a Uniswap ${p.version ?? 'v2/v3'} pair, with no hook.`;
-  });
-  if (differ.length > MAX_POOL_LINES) {
-    lines.push(
-      `${differ.length - MAX_POOL_LINES} more pool(s) of this token differ in the same way.`,
-    );
-  }
-  return lines;
-}
-
-/**
- * Pools beside the main one that run a hook, or whose rules could not be
- * read: either way, "no contract sits between a sell and the pool" is not
- * true of every pool the token trades in.
- */
-const otherHooks = (context: SpecialistContext): PoolRules[] =>
-  (context.otherPools ?? []).filter((p) => hooked(p) || p.hook === undefined);
-
-/** The limit given when the indexer's chain-wide count of a hook's markets could not be read. */
-export const HOOK_COUNT_UNREAD =
-  'the chain-wide count of markets on these trading rules could not be read from the SEAL indexer this time, so this is a partial read of a recent window';
-
-const codeReuse: Specialist = {
-  id: 'code-reuse',
-  title: 'Code Reuse',
-  question: 'Have this market’s trading rules (hook) already been used by other markets?',
-  run(context: SpecialistContext): Finding {
-    const { market, index, report, hookUse } = context;
-    if (context.mainRulesUnread) return unknown('code-reuse', MAIN_UNREAD);
-    if (!market) {
-      if (otherHooks(context).length > 0 && context.mainPool) {
-        return finding(
-          'code-reuse',
-          'observation',
-          [
-            `The main pool of this token (${poolLabel(context.mainPool.id)}) is a Uniswap ${context.mainPool.version ?? 'v2/v3'} pair, with no trading rules (hook).`,
-            ...otherPoolLines(context, null),
-          ],
-          [],
-          ['sell-path', 'rule-change'],
-        );
-      }
-      return v4Only('code-reuse', report);
-    }
-    if (market.hook === NATIVE) {
-      const others = otherPoolLines(context, null);
-      if (otherHooks(context).length > 0) {
-        return finding(
-          'code-reuse',
-          'observation',
-          [`${mainSubject(context)} runs without trading rules (hook).`, ...others],
-          [],
-          ['sell-path', 'rule-change'],
-        );
-      }
-      return finding('code-reuse', 'quiet', ['This market runs without trading rules (no hook).']);
-    }
-    const others = otherPoolLines(context, market.hook);
-    // The whole history, from the indexer: a recent window counted "1
-    // market" for each of four tokens on the same hook (0xe5e7…).
-    if (hookUse) {
-      const covered = market.blockNumber <= hookUse.indexedTo;
-      const total = hookUse.markets + (covered ? 0 : 1);
-      const facts = [
-        `The trading rules (hook) ${market.hook} are used by ${total} market(s) on Robinhood Chain, this one included (every Uniswap v4 market the SEAL indexer has read, up to block ${hookUse.indexedTo}).`,
-        ...others,
-      ];
-      if (total < REUSE_NOTABLE) return finding('code-reuse', 'quiet', facts);
-      return finding(
-        'code-reuse',
-        'observation',
-        facts,
-        [
-          'Shared trading rules can be a launchpad’s standard ones; reuse alone does not say what they do.',
-        ],
-        ['rule-change', 'sell-path'],
-      );
-    }
-    if (!index || index.size === 0) {
-      return unknown('code-reuse', 'the cross-market index was not loaded');
-    }
-    const siblings = index.onHook(market.hook).filter((m) => m.id !== market.id);
-    const range = index.all();
-    const from = range[0]?.blockNumber;
-    const window = `the markets created in about the last 50 minutes (blocks ${from} to ${range.at(-1)?.blockNumber})`;
-    const inWindow = from !== undefined && market.blockNumber >= from;
-    const windowLimit = `only ${window} were compared${inWindow ? '' : ', and this market was created before them'}: earlier markets on the same trading rules are not counted`;
-    // The indexer was asked and did not answer: this window is all there is,
-    // and the report says the count is partial (AML: "14 other markets", for
-    // a hook 210,175 markets run on).
-    const limitsFirst = hookUse === null ? [HOOK_COUNT_UNREAD] : [];
-    const counted = (n: number) =>
-      `Among ${window} only, ${n} other market${n === 1 ? '' : 's'} use${n === 1 ? 's' : ''} the trading rules (hook) ${market.hook}: a count of that recent window, not of the whole chain.`;
-    if (siblings.length + 1 < REUSE_NOTABLE) {
-      return finding(
-        'code-reuse',
-        'quiet',
-        [counted(siblings.length), ...others],
-        [...limitsFirst, windowLimit],
-      );
-    }
-    const facts = [counted(siblings.length)];
-    const tokens = new Set(siblings.map((s) => s.token));
-    facts.push(`Those markets list ${tokens.size} distinct other token(s).`);
-    facts.push(...others);
-    const judged = siblings.filter((s) => s.outcome === 'harmed' || s.outcome === 'unharmed');
-    const harmed = judged.filter((s) => s.outcome === 'harmed').length;
+const tokenPowers: Specialist = {
+  id: 'token-powers',
+  title: 'Token Powers',
+  question:
+    'Can someone still create more tokens, freeze holders’ tokens, or change the token’s name and image?',
+  run({ report }) {
+    if (!report) return unknown('token-powers', [NO_REPORT]);
+    const mint = report.mint.data;
+    if (!mint) return unknown('token-powers', [unread('the mint', report.mint)]);
+    const { powers, facts, measures } = powersRead(report, TOKEN_POWERS);
+    const held = (kind: TokenPowerKind) =>
+      powers.some((p) => p.power === kind && p.status === 'held');
+    const unknownOnes = powers.filter((p) => p.status === 'unknown');
     const limits = [
-      ...limitsFirst,
-      'Shared trading rules can be a launchpad’s standard ones; reuse alone does not say what they do.',
-      windowLimit,
+      ...mint.gaps,
+      ...(unknownOnes.length > 0
+        ? [
+            `${count(unknownOnes.length, 'part')} of what the mint allows could not be decoded: what it lets someone do is not known`,
+          ]
+        : []),
     ];
-    if (judged.length === 0) {
-      limits.push('What happened afterwards to the other markets is not known yet.');
-      return finding('code-reuse', 'observation', facts, limits, ['rule-change', 'sell-path']);
-    }
-    facts.push(
-      `Of the ${judged.length} sibling market(s) whose outcome is known, ${harmed} later saw liquidity removed or the creator sell.`,
-    );
-    const share = harmed / judged.length;
-    return finding(
-      'code-reuse',
-      share >= SIBLING_HARM_SHARE ? 'concern' : harmed === 0 ? 'reassurance' : 'observation',
+    const signal: Signal =
+      held('mint') || held('freeze')
+        ? 'concern'
+        : powers.some((p) => p.status === 'held') || unknownOnes.length > 0
+          ? 'observation'
+          : 'reassurance';
+    return {
+      specialist: 'token-powers',
+      signal,
       facts,
       limits,
-      ['rule-change', 'sell-path'],
-    );
+      followUps: [
+        ...(held('freeze') ? (['sell-path'] as const) : []),
+        ...(held('mint') ? (['holder-spread'] as const) : []),
+      ],
+      measures: { powers: measures },
+    };
   },
 };
+
+const transferRules: Specialist = {
+  id: 'transfer-rules',
+  title: 'Transfer Rules',
+  question:
+    'Do the token’s own rules take a fee on transfers, run a program that can refuse them, or let someone move holders’ tokens?',
+  run({ report }) {
+    if (!report) return unknown('transfer-rules', [NO_REPORT]);
+    const mint = report.mint.data;
+    if (!mint) return unknown('transfer-rules', [unread('the mint', report.mint)]);
+    if (mint.program === 'spl-token') {
+      return {
+        specialist: 'transfer-rules',
+        signal: 'reassurance',
+        facts: [
+          'It is an SPL Token mint: that token program has no transfer fee, transfer hook, permanent delegate, pause or default frozen accounts.',
+        ],
+        limits: [],
+        measures: { rules: [] },
+      };
+    }
+    const { powers, facts, measures } = powersRead(report, TRANSFER_RULES);
+    // An extension SEAL cannot decode may act on transfers: "none" is not said then.
+    const undecoded = report.powers.some((p) => p.power === 'unknown');
+    if (powers.length === 0 && undecoded) {
+      return {
+        specialist: 'transfer-rules',
+        signal: 'observation',
+        facts: [
+          'No extension SEAL can read acts on transfers (transfer fee, transfer hook, permanent delegate, pause, default account state, non-transferable).',
+        ],
+        limits: [
+          ...mint.gaps,
+          'the mint carries an extension SEAL cannot read: whether it acts on transfers is not known',
+        ],
+        measures: { rules: [] },
+      };
+    }
+    if (powers.length === 0) {
+      return {
+        specialist: 'transfer-rules',
+        signal: 'reassurance',
+        facts: [
+          'It is a Token-2022 mint without any extension that acts on transfers (transfer fee, transfer hook, permanent delegate, pause, default account state, non-transferable).',
+        ],
+        limits: mint.gaps,
+        measures: { rules: [] },
+      };
+    }
+    const acting = measures.filter(
+      (m) =>
+        (m.power === 'permanent-delegate' && m.status === 'held') ||
+        (m.status !== 'none' && m.active === true),
+    );
+    const someoneCan = measures.filter((m) => m.status === 'held');
+    const unknownOnes = measures.filter((m) => m.status === 'unknown');
+    const signal: Signal =
+      acting.length > 0
+        ? 'concern'
+        : someoneCan.length > 0 || unknownOnes.length > 0 || undecoded
+          ? 'observation'
+          : 'reassurance';
+    return {
+      specialist: 'transfer-rules',
+      signal,
+      facts,
+      limits: [
+        ...mint.gaps,
+        ...(unknownOnes.length > 0
+          ? ['part of the transfer rules could not be read: what they do now is not known']
+          : []),
+        ...(undecoded
+          ? [
+              'the mint carries an extension SEAL cannot read: whether it acts on transfers is not known',
+            ]
+          : []),
+      ],
+      ...(signal === 'concern' ? { followUps: ['sell-path' as const] } : {}),
+      measures: { rules: measures },
+    };
+  },
+};
+
+// ── Holders ─────────────────────────────────────────────────────────────────
+
+const holderSpread: Specialist = {
+  id: 'holder-spread',
+  title: 'Holder Spread',
+  question: 'How much of the supply sits in a few wallets, the creator’s included?',
+  run({ report }) {
+    if (!report) return unknown('holder-spread', [NO_REPORT]);
+    const holders = report.holders;
+    const h = holders.data;
+    if (holders.completeness === 'unavailable' || h.method === 'none') {
+      return unknown('holder-spread', [unread('the holders list', holders)]);
+    }
+    const exact = h.holderCount !== null;
+    const facts: string[] = [
+      exact
+        ? `Every token account was read: ${count(h.holderCount!, 'holder')}, curves, pools, locks and burn left out.`
+        : `The 20 largest token accounts were read: at least ${count(h.holdersAtLeast, 'holder')}, curves, pools, locks and burn left out.`,
+    ];
+    const o = h.ofSupply;
+    const aside = [
+      o.curves ? `${pct(o.curves)} on a bonding curve` : '',
+      o.pools ? `${pct(o.pools)} in trading pools` : '',
+      o.locked ? `${pct(o.locked)} in locks` : '',
+      o.burned ? `${pct(o.burned)} with the incinerator` : '',
+    ].filter(Boolean);
+    if (aside.length > 0) {
+      facts.push(
+        `Of the whole supply, ${aside.join(', ')}: held for trading or locked, these are left out of the shares below.`,
+      );
+    }
+    const setAside = h.pooledShare ?? null;
+    const wallets = (h.top as readonly SolanaHolder[]).filter(
+      (t) => t.kind === 'wallet' || t.kind === 'contract',
+    );
+    const largest = wallets[0];
+    if (largest) {
+      facts.push(
+        `The largest holder has ${pct(h.concentration.top1)} of what circulates (${pct(largest.ofSupply)} of the whole supply); the top 10 have ${pct(h.concentration.top10)}.`,
+      );
+    }
+    const creator = h.creator ?? null;
+    if (creator) {
+      // Shares are rounded to six places: a dust balance is "<0.01%", never "none".
+      const ofSupply = shareOf(creator.balance, h.supply) ?? creator.ofSupply;
+      facts.push(
+        creator.balance !== '0'
+          ? `The creator holds ${ofSupply > 0 ? pct(ofSupply) : '<0.01%'} of the supply (${creator.share > 0 ? pct(creator.share) : '<0.01%'} of what circulates).`
+          : 'The creator holds none of it today.',
+      );
+    }
+    const limits = [
+      ...(exact
+        ? []
+        : [
+            'only the largest token accounts were read: shares are floors and the holder count is a minimum',
+          ]),
+      ...(holders.completeness === 'partial' && noteOf(holders) ? [noteOf(holders)!] : []),
+    ];
+    const signals: Signal[] = [];
+    if (creator && creator.ofSupply >= CREATOR_HOLDS_SHARE) signals.push('concern');
+    if (setAside !== null && setAside >= MOSTLY_SET_ASIDE) signals.push('observation');
+    else if (largest && h.concentration.top1 >= LARGEST_WALLET_SHARE) signals.push('concern');
+    return {
+      specialist: 'holder-spread',
+      signal: strongest(signals, 'quiet'),
+      facts,
+      limits,
+      ...(creator && creator.ofSupply >= CREATOR_HOLDS_SHARE
+        ? { followUps: ['creator-history' as const] }
+        : {}),
+      measures: {
+        spread: {
+          top1: h.concentration.top1,
+          top10: h.concentration.top10,
+          setAside,
+          holders: h.holderCount ?? h.holdersAtLeast,
+          exact,
+          creator: creator ? creator.ofSupply : (report.creatorOnToken?.data.holdsNowShare ?? null),
+        },
+      },
+    };
+  },
+};
+
+// ── The creator ─────────────────────────────────────────────────────────────
+
+/** Where the creator was read, in plain words. */
+export const CREATOR_FROM: Record<NonNullable<TokenReport['creator']['data']['from']>, string> = {
+  'pump-curve': 'named by its pump.fun bonding curve',
+  'creation-transaction': 'the fee payer of the transaction that created the mint',
+  'metadata-update-authority':
+    'the address that can update its metadata (the creator’s choice at launch, not proof of authorship)',
+};
+
+const NO_CREATOR =
+  'no creator is named on the chain (no pump.fun curve, creation transaction or metadata authority names one)';
+
+/**
+ * A question about the creator, with no creator to ask about: "nobody is
+ * named" only when the creator read answered; a failed read says so.
+ */
+function withoutCreator(id: SpecialistId, report: TokenReport): Finding {
+  return report.creator.completeness === 'unavailable'
+    ? unknown(id, [unread('the creator', report.creator)])
+    : unknown(id, [NO_CREATOR]);
+}
+
+/** Whether the creator sold this token: a sale read is a sale; "no sale" only when every move was read. */
+function creatorSold(report: TokenReport): boolean | null {
+  const onToken = report.creatorOnToken;
+  if (!onToken || onToken.completeness === 'unavailable') return null;
+  if (onToken.data.sold !== '0') return true;
+  return onToken.completeness === 'full' ? false : null;
+}
+
+const creatorHistory: Specialist = {
+  id: 'creator-history',
+  title: 'Creator History',
+  question: 'What became of the creator’s other tokens, and what has it done with this one?',
+  run({ report }) {
+    if (!report) return unknown('creator-history', [NO_REPORT]);
+    const creator = report.creator.data.creator;
+    if (!creator) return withoutCreator('creator-history', report);
+    const facts: string[] = [];
+    const limits: string[] = [];
+    const signals: Signal[] = [];
+    const measures: Measures = {};
+
+    const history = report.creatorHistory;
+    if (!history || history.completeness === 'unavailable') {
+      limits.push(unread('the creator’s other tokens', history));
+    } else {
+      const c = history.data.counts;
+      const s = history.data.scanned;
+      const atLeast = history.completeness !== 'full' || !s.pumpCurvesListed;
+      if (c.launched === 0) {
+        facts.push(
+          s.transactionsRead > 0
+            ? `No other token by this creator was found on pump.fun’s curves or in the ${count(s.transactionsRead, 'transaction')} of its own read.`
+            : `No other token by this creator was found on pump.fun’s curves${s.transactionsListed > 0 ? '; none of its own transactions could be read' : ''}.`,
+        );
+      } else {
+        facts.push(
+          `It launched ${atLeast ? 'at least ' : ''}${count(c.launched, 'other token')}: ${c.graduated} graduated from their curve, ${c.active} traded in the last 24 hours, ${c.dead} launched over a day ago with no trade in the last 24 hours, ${c.unknown} not determined.`,
+        );
+        const pattern = c.dead >= DEAD_LAUNCHES_MIN && c.dead * 2 >= c.launched;
+        signals.push(pattern ? 'concern' : 'observation');
+      }
+      if (history.completeness !== 'full' && noteOf(history)) limits.push(noteOf(history)!);
+      if (!s.pumpCurvesListed)
+        limits.push('pump.fun’s curves naming the creator could not all be listed');
+      measures.history = { ...c, atLeast };
+    }
+
+    const onToken = report.creatorOnToken;
+    const supply = supplyOf(report);
+    if (!onToken || onToken.completeness === 'unavailable') {
+      limits.push(unread('what the creator did with this token', onToken));
+    } else {
+      const d = onToken.data;
+      const sold = creatorSold(report);
+      const bought = shareOf(d.bought, supply);
+      const soldShare = shareOf(d.sold, supply);
+      const spent = solOf(d.solSpent);
+      const got = solOf(d.solReceived);
+      const parts: string[] = [];
+      // A move read is said even when the supply is not known: "some", never left out.
+      const part = (raw: string) => {
+        const s = shareOf(raw, supply);
+        return s === null ? 'some' : pct(s);
+      };
+      if (d.bought !== '0') {
+        parts.push(
+          `bought ${part(d.bought)}${bought !== null ? ' of the supply' : ''}${spent ? ` for ${solWords(spent)}` : ''}`,
+        );
+      }
+      if (d.received !== '0') parts.push(`received ${part(d.received)} from other addresses`);
+      if (sold === true) {
+        parts.push(
+          `sold ${soldShare !== null ? pct(soldShare) : 'some'}${got ? ` for ${solWords(got)}` : ''}`,
+        );
+      }
+      // Tokens passed on outside any market: who got them is in the report, not who controls them.
+      if (d.sends.distinct > 0) {
+        const total = d.sends.total && d.sends.total !== '0' ? part(d.sends.total) : 'some';
+        parts.push(
+          `sent ${total} to ${count(d.sends.distinct, 'other address', 'other addresses')} outside any market`,
+        );
+      }
+      if (d.locked !== '0') parts.push(`put ${part(d.locked)} into a lock`);
+      if (d.burned !== '0') parts.push(`burned ${part(d.burned)}`);
+      const read = `${d.transactions.read} of ${count(d.transactions.listed, 'transaction')} on its token accounts read`;
+      const all = onToken.completeness === 'full';
+      // An absence is said only over what was read: "neither bought nor
+      // received" after 0 of 2 transactions read is not a fact (PYUSD, rate-limited).
+      if (parts.length > 0) facts.push(`On this token, the creator ${parts.join(', ')} (${read}).`);
+      else if (all)
+        facts.push(`On this token, the creator neither bought nor received any (${read}).`);
+      else if (d.transactions.read > 0)
+        facts.push(`No buy or receipt by the creator was seen in the ${read}.`);
+      if (sold === false) facts.push('The creator has not sold any of this token.');
+      if (sold === null) {
+        limits.push(
+          'not every move of the creator on this token was read: no sale was seen, but one may lie in the transactions not read',
+        );
+      }
+      if (!all && d.transactions.read === 0 && noteOf(onToken)) limits.push(noteOf(onToken)!);
+      const holds = d.holdsNow === null ? null : (shareOf(d.holdsNow, supply) ?? d.holdsNowShare);
+      if (d.holdsNow !== null && holds !== null) {
+        facts.push(
+          d.holdsNow !== '0'
+            ? `It holds ${pct(holds)} of the supply today.`
+            : 'It holds none of it today.',
+        );
+      }
+      if (sold === true) signals.push('concern');
+      measures.creator = {
+        bought,
+        sold: sold === true ? soldShare : sold === false ? 0 : null,
+        hasSold: sold,
+        holdsNow: holds,
+      };
+    }
+    const nothingRead = !measures.history && !measures.creator;
+    return {
+      specialist: 'creator-history',
+      signal: nothingRead ? 'unknown' : strongest(signals, 'quiet'),
+      facts,
+      limits,
+      ...(signals.includes('concern') ? { followUps: ['funding-trace' as const] } : {}),
+      measures,
+    };
+  },
+};
+
+/** When the token was created, Unix seconds; `null` when not read. */
+function createdAt(report: TokenReport): number | null {
+  const creation = report.creator.data.creation;
+  if (creation?.blockTime) return creation.blockTime;
+  const launched = report.launch.data.launchedAt;
+  return launched ? Math.floor(Date.parse(launched) / 1000) : null;
+}
 
 const walletAge: Specialist = {
   id: 'wallet-age',
   title: 'Wallet Age',
   question: 'Did the creator’s wallet exist before this launch?',
-  run({ creatorNonce, report }: SpecialistContext): Finding {
-    if (creatorNonce === null || creatorNonce === undefined) {
-      return unknown('wallet-age', 'the creator wallet was not identified or not readable');
-    }
-    // Un historique indisponible n'est pas un historique vide : on ne dit rien
-    // plutôt que « 0 lancement ».
-    const creator = report?.creator;
-    const launched =
-      creator && creator.completeness !== 'unavailable' ? creator.data.counts.launched : undefined;
-    const facts = [`The creator wallet has sent ${creatorNonce} transaction(s) in total.`];
-    // A count from a listing that failed is a minimum, said as one.
-    const unread = readFailed(report?.failedReads, 'creator-launches');
-    if (launched !== undefined)
+  run({ report }) {
+    if (!report) return unknown('wallet-age', [NO_REPORT]);
+    const creator = report.creator.data.creator;
+    if (!creator) return withoutCreator('wallet-age', report);
+    const linked = report.linkedWallets;
+    const history = report.creatorHistory;
+    const facts: string[] = [];
+    const limits: string[] = [];
+    let signal: Signal = 'unknown';
+    const created = createdAt(report);
+    if (!linked || linked.completeness === 'unavailable') {
+      limits.push(unread('the creator’s first funding', linked));
+    } else if (linked.data.funding === 'found' && linked.data.firstFunding) {
+      const first = linked.data.firstFunding;
+      if (first.blockTime !== null && created !== null) {
+        const age = created - first.blockTime;
+        facts.push(
+          age >= 0
+            ? `The creator’s wallet first received SOL on ${dayOf(first.blockTime)}, ${durationWords(age)} before the token was created.`
+            : `The creator’s wallet first received SOL on ${dayOf(first.blockTime)}, after the token was created.`,
+        );
+        // SOL first received after the creation: someone else paid for it, a
+        // fact to note, not a fresh wallet ("funded less than a day before").
+        signal =
+          age < 0
+            ? 'observation'
+            : age < FRESH_WALLET_SECONDS
+              ? 'concern'
+              : age < RECENT_WALLET_SECONDS
+                ? 'observation'
+                : 'quiet';
+      } else if (first.blockTime !== null) {
+        facts.push(`The creator’s wallet first received SOL on ${dayOf(first.blockTime)}.`);
+        limits.push(
+          'the token’s creation time was not read: the wallet’s age at launch is not known',
+        );
+        signal = 'quiet';
+      } else {
+        limits.push('the time of the creator’s first funding was not given by the node');
+      }
+    } else if (linked.data.funding === 'not-reached') {
       facts.push(
-        unread
-          ? `It launched at least ${launched} token(s); some of its launches could not be read this time.`
-          : `It launched ${launched} token(s) in the scanned range.`,
+        'The creator’s wallet has a longer history than SEAL reads: its first funding was not reached.',
       );
-    if (creatorNonce <= FRESH_WALLET_NONCE) {
-      facts.push('This launch is among the very first actions of that wallet.');
-      return finding('wallet-age', 'concern', facts, [], ['funding-trace']);
+      signal = 'quiet';
+    } else if (linked.data.funding === 'none-seen') {
+      facts.push('No incoming SOL was found in the creator’s transactions read.');
+      signal = 'observation';
+    } else {
+      limits.push('the creator’s first funding was found but its transfer was not given');
     }
-    return finding('wallet-age', 'quiet', facts);
+    if (history && history.completeness !== 'unavailable') {
+      const s = history.data.scanned;
+      if (s.signaturesComplete) {
+        facts.push(`Its wallet has ${count(s.signatures, 'transaction')} in all.`);
+      } else if (s.readSince !== null) {
+        facts.push(
+          `Its transactions read go back to ${dayOf(s.readSince)}, and it has more before.`,
+        );
+      }
+    }
+    return {
+      specialist: 'wallet-age',
+      signal,
+      facts,
+      limits,
+      ...(signal === 'concern' ? { followUps: ['funding-trace' as const] } : {}),
+    };
   },
 };
-
-const plural = (n: number, word: string) =>
-  `${n.toLocaleString('en-US')} ${word}${n === 1 ? '' : 's'}`;
-/** "1 address", "10100 addresses": the count as the data gives it. */
-const addresses = (n: number) => `${n} ${n === 1 ? 'address' : 'addresses'}`;
-
-/** A Blockscout contract name is chosen by its deployer: quoted as data, like a token name. */
-const contractName = (name: string | null | undefined): string =>
-  name ? quoteName(name) : 'unnamed';
-
-function fundingFinding(
-  signal: Signal,
-  facts: string[],
-  limits: string[],
-  display: FundingDisplay,
-  followUps?: SpecialistId[],
-): Finding {
-  return { ...finding('funding-trace', signal, facts, limits, followUps), funding: display };
-}
 
 const fundingTrace: Specialist = {
   id: 'funding-trace',
   title: 'Funding Trace',
-  question: 'Who paid for the creator’s wallet, and did they fund other creators?',
-  run({ funding }: SpecialistContext): Finding {
-    if (funding === undefined) {
-      return unknown(
-        'funding-trace',
-        'Who first sent money to the creator’s wallet was not looked up for this token.',
-      );
+  question:
+    'Who first sent SOL to the creator, and did wallets the creator funded around the launch trade this token?',
+  run({ report }) {
+    if (!report) return unknown('funding-trace', [NO_REPORT]);
+    if (!report.creator.data.creator) return withoutCreator('funding-trace', report);
+    const linked = report.linkedWallets;
+    if (!linked || linked.completeness === 'unavailable') {
+      return unknown('funding-trace', [unread('who funded the creator', linked)]);
     }
-    if (funding === null) {
-      return finding('funding-trace', 'quiet', [
-        'No incoming funding transfer was found for the creator.',
-      ]);
-    }
+    const d = linked.data;
     const facts: string[] = [];
     const limits: string[] = [];
-    // Who the funding really came from: the funder, or the sender behind a tool.
-    let who = funding.funder;
-    let kind: FunderKind = funding.funderKind;
-    let txCount = funding.funderTxCount ?? null;
-    let name = funding.funderName ?? null;
-    const viaTool = kind === 'tool';
-    if (viaTool) {
-      const tool = contractName(funding.funderName);
-      if (!funding.origin) {
-        facts.push(
-          `The creator wallet was first funded through a batch-sending tool (${tool}, ${funding.funder}).`,
-        );
-        limits.push(
-          'who sent the funding through that tool was not read, so the funder behind it is not known',
-        );
-        return fundingFinding('unknown', facts, limits, {
-          kind: 'unknown',
-          linkedCreators: 0,
-          launches: null,
-          depth: 0,
-          path: [
-            { address: funding.funder, kind: 'tool', name: funding.funderName ?? null, txCount },
-          ],
-        });
-      }
+    const first = d.firstFunding;
+    if (d.funding === 'found' && first) {
+      const sol = solOf(first.lamports);
+      const how =
+        first.how === 'system-transfer'
+          ? 'by a transfer'
+          : 'when an account was closed to it, in a transaction that address sent';
       facts.push(
-        `The creator wallet was first funded with a transfer sent through a batch-sending tool (${tool}) by ${funding.origin}.`,
+        `The creator’s first SOL came from ${short(first.from)}${sol !== null ? `: ${solWords(sol)}` : ''}${first.blockTime !== null ? ` on ${dayOf(first.blockTime)}` : ''}, ${how}.`,
       );
-      who = funding.origin;
-      kind = funding.originKind === 'tool' ? 'unknown' : (funding.originKind ?? 'unknown');
-      txCount = funding.originTxCount ?? null;
-      name = null;
-    }
-    const ownPath: FundingPathStep[] = [
-      {
-        address: who,
-        kind,
-        name,
-        txCount,
-        ...(viaTool ? { via: { address: funding.funder, name: funding.funderName ?? null } } : {}),
-      },
-    ];
-    const network = funding.network;
-    const path = network && network.path.length > 0 ? network.path : ownPath;
-    const display = (linked: number, launches: number | null, depth: number): FundingDisplay => ({
-      kind,
-      linkedCreators: linked,
-      launches,
-      depth,
-      path,
-    });
-
-    if (kind === 'service') {
-      // "High-volume" only when the count says so: a contract with 0
-      // transactions sent is a contract, and a contract links nobody.
-      const what = describeService(name, txCount);
-      const busy = txCount !== null && txCount >= SERVICE_TX_COUNT;
-      const tail = busy
-        ? ', such as an exchange, bridge or router. That says nothing about who is behind the wallet.'
-        : '. A contract is not a person: it links this creator to no one, and says nothing about who is behind the wallet.';
-      facts.push(
-        viaTool
-          ? `That sender is ${what}${tail}`
-          : `The creator wallet was first funded from ${what}${tail}`,
-      );
-      return fundingFinding('quiet', facts, limits, display(0, null, 0));
-    }
-    if (kind !== 'wallet') {
-      if (!viaTool) facts.push(`The creator wallet was first funded by ${who}.`);
       limits.push(
-        'what that address is (an exchange, another service or a private wallet) could not be read, so other creators it funded are not counted',
+        'who is behind the funding address is not read: an exchange, a service or a person',
       );
-      return fundingFinding('unknown', facts, limits, display(0, null, 0));
+    } else if (d.funding === 'not-reached') {
+      limits.push('the creator’s first funding lies beyond the transactions read');
+    } else if (d.funding === 'none-seen') {
+      facts.push('No incoming SOL was found in the creator’s transactions.');
+    } else {
+      limits.push('the creator’s first funding was found but its transfer was not given');
     }
 
-    const tx = txCount !== null ? `, ${plural(txCount, 'transaction')}` : '';
-    // The network walk, when it found more than the direct count, says more.
-    const walked = network && network.creators >= funding.otherCreatorsFunded ? network : undefined;
-    const linked = walked ? walked.creators : funding.otherCreatorsFunded;
-    if (network?.incomplete && network.reason) {
-      limits.push(`the funding chain could not be followed further: ${network.reason}`);
-    }
-    if (walked?.capped) limits.push('only the first linked creators were counted: there are more');
-    if (linked === 0) {
-      facts.push(
-        viaTool
-          ? `That sender is a wallet (${txCount !== null ? plural(txCount, 'transaction') : 'transaction count not read'}).`
-          : `The creator wallet was first funded by ${who}${tx}.`,
-      );
-      if (funding.otherCreatorsChecked === false) {
-        limits.push('whether that wallet funded other token creators was not looked up');
-      } else {
-        facts.push('No other token creator funded by that wallet is on record.');
-      }
-      return fundingFinding('quiet', facts, limits, display(0, null, walked?.depth ?? 1));
-    }
-    const depth = walked?.depth ?? 1;
-    const steps = depth > 1 ? `, linked through ${depth} funding steps` : '';
-    const launches = walked ? walked.launches : null;
-    facts.push(
-      `The wallet that funded the creator (${who}${tx}) also funded ${plural(linked, 'other token creator')}${steps}.` +
-        (launches !== null && launches > 0
-          ? ` Together they launched ${plural(launches, 'token')}.`
-          : ''),
+    const supply = supplyOf(report);
+    const traded = d.funded.filter(
+      (f) => f.onToken && (f.onToken.bought !== '0' || f.onToken.sold !== '0'),
     );
-    if (walked && launches !== null && launches > 0) {
-      const pads = Object.entries(walked.launchpads)
-        .map(([pad, n]) => `${n} on ${launchpadProse(pad)}`)
-        .join('; ');
-      if (pads) facts.push(`Their launches: ${pads}.`);
-    } else if (!walked) {
-      limits.push('the tokens those creators launched were not counted');
-    }
-    return fundingFinding('concern', facts, limits, display(linked, launches, depth), [
-      'creator-history',
-    ]);
-  },
-};
-
-const nameClone: Specialist = {
-  id: 'name-clone',
-  title: 'Name Clone',
-  question: 'Does the token borrow a name it does not own, or reuse an earlier token’s name?',
-  run({ market, index, tokenBeacon, report }: SpecialistContext): Finding {
-    if (!market) return unknown('name-clone', namesNotCompared(report));
-    const { name, symbol } = market;
-    const limits: string[] = [];
-    if (!name && !symbol) return unknown('name-clone', 'name and symbol could not be read');
-
-    const facts = [`Name ${quoteName(name)}, symbol ${quoteName(symbol)}.`];
-    let signal: Signal = 'quiet';
-
-    // Le nom est une donnée. S'il s'adresse à un logiciel, c'est en soi un fait.
-    if ((name && addressesSoftware(name)) || (symbol && addressesSoftware(symbol))) {
-      facts.push(
-        'The name contains wording addressed to automated software rather than to people.',
+    const sellers = d.funded.filter((f) => f.onToken && f.onToken.sold !== '0');
+    const sum = (pick: (f: (typeof d.funded)[number]) => string | null | undefined) =>
+      d.funded.reduce((n, f) => n + (shareOf(pick(f), supply) ?? 0), 0);
+    const bought = sum((f) => f.onToken?.bought);
+    const sold = sum((f) => f.onToken?.sold);
+    const heldRead = d.funded.every((f) => f.onToken && f.onToken.holdsNow !== null);
+    const held = heldRead ? sum((f) => f.onToken?.holdsNow) : null;
+    const complete = d.funded.every((f) => f.onToken?.complete === true);
+    if (d.window === null) {
+      limits.push(
+        'the launch time is not known: the wallets the creator funded around it were not looked for',
       );
-      signal = 'concern';
-    }
-
-    const imitated = imitatedName(name) ?? imitatedName(symbol);
-    const family = tokenBeacon ? RECOGNISED_BEACONS[tokenBeacon] : undefined;
-    if (imitated && family) {
-      // Un vrai token action porte aussi « Robinhood » dans son nom. Le
-      // signaler ferait du bruit sur les actifs les plus légitimes de la chaîne.
+    } else if (d.funded.length === 0) {
       facts.push(
-        `The name uses "${imitated}". The token shares its code family (beacon ${tokenBeacon}) with ${family}.`,
+        `Around the launch (${dayOf(d.window.from)} to ${dayOf(d.window.to)}), the creator sent SOL to no other wallet outside its trades${linked.completeness === 'full' ? '' : ', in the transactions read'}.`,
       );
-      limits.push('who deployed that code family was not verified independently here');
-      signal = 'observation';
-    } else if (imitated) {
+    } else {
+      const lamports = d.funded.reduce((n, f) => n + (solOf(f.lamports) ?? 0), 0);
       facts.push(
-        `The name uses "${imitated}", but the token does not belong to the code family of the issued Robinhood tokens.`,
+        `Around the launch, the creator sent ${solWords(lamports)} to ${count(d.funded.length, 'wallet')} outside its trades.`,
       );
-      signal = 'concern';
+      facts.push(
+        traded.length === 0
+          ? `None of them traded this token${complete ? '' : ' in what was read'}.`
+          : `${count(traded.length, 'of them', 'of them')} traded this token: they bought ${complete ? '' : 'at least '}${pct(bought)} of the supply${sellers.length > 0 ? ` and ${sellers.length === traded.length ? 'sold' : `${sellers.length} sold`} ${complete ? '' : 'at least '}${pct(sold)}` : ''}${held !== null ? `; the wallets it funded hold ${held === 0 ? 'none of it' : pct(held)} today` : ''}.`,
+      );
+      if (!complete) limits.push('not every funded wallet’s trades on this token were read');
     }
-
-    const named = index?.all().some((m) => m.name || m.symbol) ?? false;
-    if (index && !named) limits.push('earlier names were not compared: the index holds no names');
-    if (index && named) {
-      // An emoji- or digit-only name normalises to "": two of them are not a match.
-      const mine = [name, symbol]
-        .filter(Boolean)
-        .map((s) => normalizeName(s as string))
-        .filter((n) => n.length > 0);
-      const earlier = index
-        .all()
-        .filter((m) => m.token !== market.token && m.blockNumber < market.blockNumber)
-        .filter((m) =>
-          [m.name, m.symbol].filter(Boolean).some((s) => mine.includes(normalizeName(s as string))),
-        );
-      if (earlier.length > 0) {
-        facts.push(
-          `${earlier.length} earlier market(s) in the index used the same name or symbol.`,
-        );
-        signal = 'concern';
-      }
-    }
-    return finding(
-      'name-clone',
+    if (linked.completeness === 'partial' && noteOf(linked)) limits.push(noteOf(linked)!);
+    limits.push('a SOL transfer links the addresses; it does not show who controls them');
+    const signal: Signal =
+      traded.length > 0
+        ? 'concern'
+        : d.funded.length > 0
+          ? 'observation'
+          : facts.length > 0
+            ? 'quiet'
+            : 'unknown';
+    return {
+      specialist: 'funding-trace',
       signal,
       facts,
-      index ? limits : [...limits, 'earlier names were not compared: index not loaded'],
-    );
-  },
-};
-
-const holderSpread: Specialist = {
-  id: 'holder-spread',
-  title: 'Holder Spread',
-  question: 'How much of the supply sits in a few wallets?',
-  run({ report, token }: SpecialistContext): Finding {
-    const holders = report?.holders;
-    if (!holders || holders.completeness === 'unavailable') {
-      return unknown('holder-spread', holders?.sources[0]?.note ?? 'holder data not collected');
-    }
-    const { top1, top10 } = holders.data.concentration;
-    const count = holders.data.holderCount;
-    const pooled = holders.data.pooledShare ?? null;
-    const largest = holders.data.top.find((h) => h.kind === 'wallet' || h.kind === 'contract');
-    const creator = report?.creator.data.creator.toLowerCase();
-    // What the largest holder is, said: a contract is not "a wallet".
-    const what = !largest
-      ? ''
-      : creator && largest.address.toLowerCase() === creator
-        ? ' (the creator)'
-        : largest.name
-          ? ` (${largest.name}, ${largest.address})`
-          : largest.kind === 'contract'
-            ? ' (a contract)'
-            : ' (a wallet)';
-    // A lock is not anyone's position: said with what it locks, and until when.
-    const roles = report?.roles ?? [];
-    const locks = (holders.data.setAside ?? [])
-      .filter((s) => s.role === 'vesting')
-      .map((s) => ({ s, named: roles.find((r) => r.address === s.address.toLowerCase()) }));
-    const lockFacts = locks.map(({ s, named }) => {
-      const lock = named?.lock;
-      const manager =
-        lock && (lock.cancelable || lock.withdrawable)
-          ? ` Its manager${lock.owner ? ` (${roles.find((r) => r.address === lock.owner)?.name ?? lock.owner})` : ''} can still ${[lock.cancelable ? 'cancel schedules' : '', lock.withdrawable ? 'withdraw the deposit' : ''].filter(Boolean).join(' and ')}.`
-          : '';
-      return `${s.share !== null ? pctBounded(s.share) : 'Part'} of the supply is in ${s.name ?? 'a vesting lock'} (${s.address})${lock ? `: ${lockWords(lock, creator)}` : ''}. It is left out of the shares below, as it cannot be sold before it unlocks.${manager}`;
-    });
-    // The other holders the chain names: a launchpad's wallet is not a stranger.
-    const namedFacts = holders.data.top
-      .filter((h) => (h.kind === 'wallet' || h.kind === 'contract') && h.name)
-      .slice(0, 3)
-      .map((h) => {
-        const detail = roles.find((r) => r.address === h.address.toLowerCase())?.detail;
-        return `${h.address} is ${h.name}, with ${pct(h.share)} of the supply held outside pools and locks${detail ? `: ${detail}` : '.'}`;
-      });
-    const facts = [
-      // How much circulates at all comes first: 70 % of 1 % is not 70 % of the token.
-      ...(pooled !== null && pooled > 0
-        ? [
-            `${pctBounded(pooled)} of the whole supply sits in ${whereSetAside(holders.data.setAside)} and is left out: only ${pctBounded(1 - pooled)} is held outside ${/(curve|contract)$/.test(whereSetAside(holders.data.setAside)) ? 'it' : 'them'}.`,
-          ]
-        : []),
-      ...lockFacts,
-      ...(largest
-        ? [
-            `The largest holder${what} has ${pct(top1)} of the supply held outside pools${locks.length > 0 ? ' and locks' : ''}; the top 10 have ${pct(top10)}.`,
-          ]
-        : ['No address holds any of the supply outside pools and launch contracts.']),
-      ...namedFacts,
-      ...(count !== null ? [`${count} holder addresses in total.`] : []),
-    ];
-    // Thousands of holders who were sent the token by its creator are an
-    // airdrop, not thousands of buyers: said, and never read as a spread.
-    const own = report?.creator.data.tokens.find(
-      (t) => String(t.address).toLowerCase() === token.toLowerCase(),
-    );
-    const fromCreator = own?.creatorRecipients ?? null;
-    const airdropped = mostHoldersFromCreator(fromCreator, count);
-    const links = holders.data.creatorLinks;
-    if (airdropped) {
-      facts.push(
-        `The creator sent this token directly to ${addresses(fromCreator ?? 0)}: most of the holders received it from the creator rather than buying it.`,
-      );
-    } else if (fromCreator !== null && fromCreator > 0) {
-      // Every recipient, or their count and total: "the only transfer" must
-      // not be readable into a list that leaves one out (WAFER).
-      const listed = links?.recipients ?? [];
-      const total =
-        links?.sentShare !== undefined
-          ? `, ${pctBounded(links.sentShare)} of the supply in all`
-          : '';
-      const named =
-        listed.length > 0
-          ? `: ${listed.map((r) => `${r.address} (${pctBounded(r.share)}${r.listed ? ', still a holder' : ''})`).join(', ')}${fromCreator > listed.length ? `, and ${fromCreator - listed.length} more` : ''}`
-          : '';
-      facts.push(
-        `Outside its markets and burn addresses, the creator sent this token directly to ${addresses(fromCreator)}${total}${named}.`,
-      );
-    }
-    // Who among today's holders received from the creator: said, not left
-    // to be guessed (AGEM, moon, DELTA: the largest holder did).
-    if (links) {
-      const linked = holders.data.top.filter((h) => h.fromCreator);
-      for (const h of linked.slice(0, 3)) {
-        const f = h.fromCreator!;
-        facts.push(
-          f.via
-            ? `Holder ${h.address} received ${pctBounded(f.share)} of the supply from ${f.via}, a contract the creator sent tokens to.`
-            : `Holder ${h.address} received ${pctBounded(f.share)} of the supply directly from the creator.`,
-        );
-      }
-      for (const d of links.distributors) {
-        facts.push(
-          `The creator sent ${pctBounded(d.share)} of the supply to the contract ${d.address}, which passed it on to ${d.recipients} addresses.`,
-        );
-      }
-      if (links.burned >= 0.001) {
-        facts.push(`The creator sent ${pctBounded(links.burned)} of the supply to a burn address.`);
-      }
-    }
-    const limits = [
-      `Pools, launch curves, launch contracts${locks.length > 0 ? ', vesting locks' : ''} and burn addresses are excluded; shares are over the holders actually fetched.`,
-    ];
-    if (top1 >= TOP1_CONCERN || top10 >= TOP10_CONCERN) {
-      return finding('holder-spread', 'concern', facts, limits, ['creator-history']);
-    }
-    if (airdropped) return finding('holder-spread', 'observation', facts, limits);
-    if (top10 < TOP10_SPREAD && count !== null && count >= SPREAD_MIN_HOLDERS) {
-      return finding('holder-spread', 'reassurance', facts, limits);
-    }
-    return finding('holder-spread', 'quiet', facts, limits);
-  },
-};
-
-const creatorHistory: Specialist = {
-  id: 'creator-history',
-  title: 'Creator History',
-  question: 'What happened to the creator’s previous tokens?',
-  run({ report, token }: SpecialistContext): Finding {
-    const creator = report?.creator;
-    if (!creator || creator.completeness === 'unavailable') {
-      return unknown(
-        'creator-history',
-        creator?.sources[0]?.note ?? 'creator history not collected',
-      );
-    }
-    const others = creator.data.tokens.filter(
-      (t) => t.address.toLowerCase() !== token.toLowerCase(),
-    );
-    const limits =
-      creator.completeness === 'partial'
-        ? [creator.sources.find((s) => s.note)?.note ?? 'partial history']
-        : [];
-    // A listing that failed this time leaves the other launches unknown:
-    // never "no other launch" (AI: said of a creator with 80).
-    const unread = readFailed(report?.failedReads, 'creator-launches');
-    if (unread) {
-      const why = report?.failedReads?.find((f) => f.read === 'creator-launches')?.note;
-      limits.splice(0, limits.length, ...(why ? [why] : []));
-      limits.push('some of the creator’s launches could not be read this time: there may be more');
-    }
-    if (others.length === 0) {
-      if (unread) {
-        return finding(
-          'creator-history',
-          'unknown',
-          [],
-          [
-            'whether the creator launched other tokens could not be read this time',
-            ...limits.slice(0, 1),
-          ],
-        );
-      }
-      return finding(
-        'creator-history',
-        'quiet',
-        ['No other launch by this creator in the scanned range.'],
-        limits,
-      );
-    }
-    const pulled = others.filter((t) => t.liquidityPulled === true).length;
-    const dumped = others.filter((t) => t.creatorDumped === true).length;
-    const graduated = others.filter((t) => t.outcome === 'graduated').length;
-    // Counted over the other launches only: the most recent checked include
-    // this one, which ASTEROID's answer counted as "other" (10 of 10).
-    const salesChecked = others.filter((t) => t.creatorDumped !== null).length;
-    const liquidityChecked = others.filter((t) => t.liquidityPulled !== null).length;
-    // Which launches those are, launchpad by launchpad (AI: the ten checked
-    // were its latest Doppler launches, its pons ones, with sales, unread).
-    const by = checkedByLaunchpad(creator.data, token);
-    const which = (signal: 'sales' | 'liquidity') =>
-      by.length > 0 ? `: ${joinClauses(checkedWords(by, signal))}` : '';
-    const facts = [
-      `The creator launched ${others.length} other token(s): ${graduated} graduated; ` +
-        `the creator sold into the pool on ${dumped} of the ${salesChecked} checked for sales${which('sales')}; ` +
-        (liquidityChecked > 0
-          ? `liquidity was removed on ${pulled} of the ${liquidityChecked} checked for removals${which('liquidity')}`
-          : 'liquidity removals could not be checked on them') +
-        ` (each in the first ${OTHER_LAUNCH_SALES_DAYS} days after its launch; this token not counted).`,
-    ];
-    if (pulled + dumped > 0) return finding('creator-history', 'concern', facts, limits);
-    if (graduated > 0) return finding('creator-history', 'reassurance', facts, limits);
-    return finding('creator-history', 'quiet', facts, limits);
-  },
-};
-
-const sellPath: Specialist = {
-  id: 'sell-path',
-  title: 'Sell Path',
-  question: 'Can holders sell, and can the trading rules (hook) stand in the way?',
-  run(context: SpecialistContext): Finding {
-    const { hook, report, market } = context;
-    if (context.mainRulesUnread) return unknown('sell-path', MAIN_UNREAD);
-    const txns = report?.market.data.txns?.h24 ?? null;
-    const trades = txns
-      ? [`${txns.sells} sell(s) and ${txns.buys} buy(s) went through in the last 24 hours.`]
-      : [];
-    if (market && hook === null) {
-      // A v4 pool without a hook: nothing sits between a sell and that pool.
-      // Another pool with a hook is said beside it, and the answer is then
-      // no reassurance: a sell routed there passes through its rules.
-      const others = otherHooks(context);
-      if (others.length > 0) {
-        return finding(
-          'sell-path',
-          'observation',
-          [
-            `${mainSubject(context)} has no trading rules (hook): no contract sits between a sell in that pool and the pool.`,
-            ...otherPoolLines(context, null),
-            ...trades,
-          ],
-          txns ? [] : ['recent trades were not collected'],
-          ['rule-change'],
-        );
-      }
-      return finding(
-        'sell-path',
-        'reassurance',
-        [
-          'This token’s Uniswap v4 pool has no trading rules (hook): no contract sits between a sell and the pool.',
-          ...trades,
-        ],
-        txns ? [] : ['recent trades were not collected'],
-      );
-    }
-    if (hook === undefined || hook === null) {
-      // Not looked up (the lookups ran out of time): nothing is said of the rules.
-      if (market === undefined && context.mainPool === undefined) {
-        return unknown('sell-path', 'the trading rules of this token’s pools were not read');
-      }
-      const where = marketElsewhere(report);
-      if (!where) return unknown('sell-path', noV4Market(report));
-      const others = otherPoolLines(context, null);
-      const pair = pairMarket(report);
-      const facts = [
-        pair
-          ? `Its main market is a Uniswap ${pair.version ?? 'v2/v3'} pair (${pair.label}): it has no trading-rules contract that could stand in the way of a sale.`
-          : `No Uniswap v4 trading rules (hook) sit in front of trades in its main pool: this token trades on ${where}.`,
-        ...others,
-      ];
-      if (otherHooks(context).length > 0) {
-        return finding(
-          'sell-path',
-          'observation',
-          [...facts, ...trades],
-          ['the main pool’s own contract is not read here'],
-        );
-      }
-      if (txns && txns.sells > 0) {
-        return finding(
-          'sell-path',
-          'quiet',
-          [...facts, ...trades],
-          [
-            'the pool’s own contract is not read here; recent sells show that selling worked in that window',
-          ],
-        );
-      }
-      return finding('sell-path', 'unknown', facts, [
-        txns
-          ? 'no sell went through in the last 24 hours, so whether selling works is not shown either way'
-          : 'recent trades were not collected, so whether selling works is not shown',
-      ]);
-    }
-    const ids = new Set(hook.capabilities.map((c) => c.id));
-    const facts: string[] = [];
-    const limits = hook.inconsistent.length
-      ? [
-          'the permission bits of the trading rules (hook) are inconsistent with the Uniswap v4 spec; this reading is unreliable',
-        ]
-      : [];
-    if (txns)
-      facts.push(
-        `${txns.sells} sell(s) and ${txns.buys} buy(s) went through in the last 24 hours.`,
-      );
-    else limits.push('recent trades were not collected');
-
-    // The other pools come last: the lines above are about the main pool's rules.
-    const others = otherPoolLines(context, hook.hook);
-    if (ids.has('alters-swap-amounts')) {
-      facts.push(
-        'The trading rules (hook) may change the amount of any trade, which gives them the power to take a cut of a sell or to stop it; what they do with that power is not readable from their permissions.',
-      );
-      if (txns && txns.buys >= 10 && txns.sells === 0) {
-        facts.push('No sell has gone through despite repeated buys.');
-        return finding('sell-path', 'concern', [...facts, ...others], limits, ['rule-change']);
-      }
-      return finding('sell-path', 'observation', [...facts, ...others], limits, ['rule-change']);
-    }
-    if (ids.has('intercepts-swaps')) {
-      facts.push(
-        'The trading rules (hook) are called on every trade but cannot change trade amounts.',
-      );
-      return finding('sell-path', 'quiet', [...facts, ...others], limits);
-    }
-    facts.push('The trading rules (hook) have no permission over trades.');
-    return finding(
-      'sell-path',
-      others.some((l) => /runs trading rules|could not be read/.test(l))
-        ? 'observation'
-        : 'reassurance',
-      [...facts, ...others],
       limits,
-    );
+      ...(first
+        ? {
+            funding: {
+              kind: 'unknown' as const,
+              linkedCreators: 0,
+              launches: null,
+              depth: 1,
+              path: [{ address: first.from, kind: 'unknown' as const, name: null, txCount: null }],
+            },
+          }
+        : {}),
+      ...(d.window !== null
+        ? {
+            measures: {
+              linked: {
+                wallets: d.funded.length,
+                buyers: d.funded.filter((f) => f.onToken && f.onToken.bought !== '0').length,
+                sellers: sellers.length,
+                bought,
+                sold,
+                heldNow: held,
+                complete,
+              },
+            },
+          }
+        : {}),
+    };
   },
 };
+
+// ── Trading ─────────────────────────────────────────────────────────────────
+
+function group(
+  g: {
+    wallets: number;
+    share: number;
+    heldNow: number | null;
+    soldInWindow: number;
+  } | null,
+): GroupMeasure | null {
+  return g
+    ? { wallets: g.wallets, share: g.share, heldNow: g.heldNow, soldInWindow: g.soldInWindow }
+    : null;
+}
+
+function groupFact(where: string, g: GroupMeasure, transactions: number): string {
+  const held =
+    g.heldNow === null
+      ? ''
+      : g.heldNow === 0
+        ? '; they hold none of it today'
+        : `; they hold ${pct(g.heldNow)} today`;
+  const sold = g.soldInWindow > 0 ? `, ${g.soldInWindow} of them sold in the window read` : '';
+  return `${where}, ${count(g.wallets, 'wallet')} other than the creator got ${pct(g.share)} of the supply in ${count(transactions, 'transaction')}${sold}${held}.`;
+}
 
 const volumeReality: Specialist = {
   id: 'volume-reality',
   title: 'Volume Reality',
-  question: 'Does the trading come from many people, or from a few addresses going back and forth?',
-  run({ report }: SpecialistContext): Finding {
-    const market = report?.market;
-    if (!market || market.completeness === 'unavailable' || !market.data.txns) {
-      return unknown('volume-reality', market?.sources[0]?.note ?? 'market activity not collected');
-    }
-    const { buys, sells } = market.data.txns.h24;
-    const trades = buys + sells;
-    const perTrade = volumePerTrade(market);
-    // Counted by the indexer from the launch pool's swaps when no pair is listed.
-    const activity = market.data.activity;
+  question:
+    'Does the trading come from many people, or from a few addresses buying together or going back and forth?',
+  run({ report }) {
+    if (!report) return unknown('volume-reality', [NO_REPORT]);
+    const facts: string[] = [];
     const limits: string[] = [];
-    if (activity) {
-      const from = activity.coveredFrom ? Date.parse(activity.coveredFrom) : NaN;
-      const dayBefore = Date.parse(report.collectedAt) - 86_400_000;
-      if (Number.isFinite(from) && from > dayBefore) {
-        limits.push(
-          `the launch pool’s swaps are counted only from ${activity.coveredFrom}, less than 24 hours`,
+    const signals: Signal[] = [];
+    const market = report.market;
+    const txns = market.completeness === 'unavailable' ? null : market.data.txns;
+    const launch = report.launch.data;
+    const sameSlot = group(launch.sameSlot);
+    const payerGroup = group(launch.payerGroup);
+    if (launch.payerGroup && payerGroup && payerGroup.share >= GROUP_SHARE_MIN) {
+      facts.push(
+        groupFact(
+          'In transactions paid by the creator or by the creation’s fee payer',
+          payerGroup,
+          launch.payerGroup.transactions,
+        ),
+      );
+      signals.push(payerGroup.share >= GROUP_SHARE ? 'concern' : 'observation');
+    }
+    if (launch.sameSlot && sameSlot && sameSlot.share >= GROUP_SHARE_MIN) {
+      facts.push(groupFact('In the creation slot', sameSlot, launch.sameSlot.transactions));
+      signals.push(sameSlot.share >= GROUP_SHARE ? 'concern' : 'observation');
+    }
+    // What was got together at launch first: it is what the question is most often asked for.
+    if (txns) {
+      const trades = txns.h24.buys + txns.h24.sells;
+      const perTrade = volumePerTrade(market);
+      const h = report.holders;
+      const holders =
+        h.completeness !== 'unavailable' && h.data.holderCount !== null ? h.data.holderCount : null;
+      facts.push(
+        `${count(trades, 'trade')} in the last 24 hours on its listed pairs (${txns.h24.buys} buys, ${txns.h24.sells} sells)${perTrade !== null ? `, ${usd(perTrade)} per trade on average` : ''}${holders !== null ? `, while ${count(holders, 'wallet')} ${holders === 1 ? 'holds' : 'hold'} it today, curves and pools left out` : ''}.`,
+      );
+      if (
+        holders !== null &&
+        trades >= TRADES_MIN &&
+        trades >= TRADES_PER_HOLDER * Math.max(1, holders)
+      ) {
+        facts.push(
+          `That is at least ${TRADES_PER_HOLDER} trades in a day for each wallet holding it now.`,
         );
+        signals.push('concern');
       }
+    } else {
+      limits.push(unread('its trading over the last 24 hours', market));
     }
-    const facts = [
-      `${trades} trades in 24 hours` +
-        (activity ? ' in the token’s launch pool, counted from the pool’s own swaps' : '') +
-        (perTrade !== null ? `, averaging ${perTrade.toFixed(2)} USD each.` : '.'),
-    ];
-    if (trades < MIN_TRADES_FOR_VOLUME) {
-      return finding('volume-reality', 'quiet', facts, [
-        ...limits,
-        'too few trades to say anything about their origin',
-      ]);
+    const trips =
+      launch.summary?.roundTrips?.wallets ?? (launch.creation ? launch.roundTrips.length : null);
+    if (trips !== null && trips >= ROUND_TRIPS_MIN) {
+      facts.push(
+        `In the first ${launch.windowSeconds} seconds read, ${count(trips, 'address', 'addresses')} bought and then sold back.`,
+      );
+      signals.push('observation');
     }
-    const traders = activity?.h24.traders ?? report?.holders.data.distinctTraders ?? null;
-    if (traders !== null) {
-      facts.push(`They came from ${traders} distinct address(es).`);
-      if (traders / trades < TRADERS_PER_TRADE_CONCERN) {
-        return finding('volume-reality', 'concern', facts, limits, ['holder-spread']);
-      }
-      return finding('volume-reality', 'quiet', facts, limits);
+    if (report.launch.completeness === 'unavailable') {
+      limits.push(unread('the first transactions after the creation', report.launch));
+    } else if (report.launch.completeness === 'partial') {
+      limits.push('the launch window was read in part: later buys are not counted');
     }
-    return finding('volume-reality', 'quiet', facts, [...limits, 'distinct traders not collected']);
+    const answered = txns !== null || report.launch.completeness !== 'unavailable';
+    return {
+      specialist: 'volume-reality',
+      signal: answered ? strongest(signals, 'quiet') : 'unknown',
+      facts,
+      limits,
+      ...(signals.includes('concern') ? { followUps: ['funding-trace' as const] } : {}),
+      measures: {
+        launch: { sameSlot, payerGroup, roundTrips: trips },
+      },
+    };
   },
+};
+
+/** The curve a token still trades on, and what it holds, for the summary. */
+function curveOf(report: TokenReport): Measures['curve'] | undefined {
+  const g = report.graduation?.data;
+  const pad = report.launchpad.data.launchpad;
+  if (!g || !pad || g.graduated !== false) return undefined;
+  const sol = g.raised && g.raised.mint === null ? solOf(g.raised.raw) : null;
+  const m = report.market.data;
+  // The token's own price in SOL and in dollars give SOL's price where it trades.
+  const solUsd =
+    m.pairedWith?.address === NATIVE_MINT && m.priceUsd && m.priceNative
+      ? m.priceUsd / m.priceNative
+      : null;
+  return {
+    launchpad: pad.name,
+    graduated: g.graduated,
+    progress: g.progress,
+    sol,
+    usd: sol !== null && solUsd !== null ? sol * solUsd : null,
+  };
+}
+
+const sellPath: Specialist = {
+  id: 'sell-path',
+  title: 'Sell Path',
+  question: 'Can holders sell today, and can something in the token stand in their way?',
+  run({ report }) {
+    if (!report) return unknown('sell-path', [NO_REPORT]);
+    const mint = report.mint.data;
+    const facts: string[] = [];
+    const limits: string[] = [];
+    const signals: Signal[] = [];
+    /** The facts that deserve attention, said first. */
+    const lead: string[] = [];
+    const curve = curveOf(report);
+    if (curve) {
+      facts.push(
+        `It trades on its ${curveName(curve.launchpad)}${curve.progress !== null ? `, ${pct(curve.progress)} of the way to graduation` : ''}${curve.sol !== null ? `; the curve holds ${solWords(curve.sol)}` : ''}.`,
+      );
+    } else if (report.graduation?.data.graduated && report.graduation.data.destination) {
+      facts.push(
+        `It graduated from its curve to ${report.graduation.data.destination.name} ${short(report.graduation.data.destination.pool)}.`,
+      );
+    }
+    const market = report.market;
+    const txns = market.completeness === 'unavailable' ? null : market.data.txns;
+    if (txns) {
+      const { buys, sells } = txns.h24;
+      if (sells > 0) {
+        facts.push(
+          `${count(sells, 'sale')} went through in the last 24 hours on its listed pairs.`,
+        );
+      } else if (buys >= BUYS_WITHOUT_SALE) {
+        lead.push(
+          `${count(buys, 'buy', 'buys')} and no sale in the last 24 hours on its listed pairs.`,
+        );
+        signals.push('concern');
+      } else {
+        facts.push('No sale in the last 24 hours on its listed pairs.');
+      }
+    } else {
+      limits.push(unread('its recent trades', market));
+    }
+    if (!mint) {
+      limits.push(unread('the mint', report.mint));
+    } else {
+      const power = (kind: TokenPowerKind) => report.powers.find((p) => p.power === kind);
+      const blockers: TokenPower[] = [];
+      for (const kind of [
+        'non-transferable',
+        'pause',
+        'default-account-state',
+        'freeze',
+        'permanent-delegate',
+        'transfer-hook',
+      ] as const) {
+        const p = power(kind);
+        if (!p || p.status === 'none') continue;
+        const active = activeOf(report, p);
+        // A hook nobody set and nobody holds, or accounts that start usable with nobody to change it, block nothing.
+        if (kind === 'default-account-state' && active === false && p.status !== 'held') continue;
+        blockers.push(p);
+        const inForce =
+          kind === 'non-transferable' ||
+          (kind === 'pause' && active === true) ||
+          (kind === 'default-account-state' && active === true && p.status === 'fixed');
+        signals.push(inForce ? 'concern' : 'observation');
+        // What stops a sale today is the answer: said before the trades.
+        if (inForce) lead.push(p.sentence);
+        else facts.push(p.sentence);
+      }
+      // An extension SEAL cannot decode may block transfers: "nothing" is not said then.
+      const undecoded = report.powers.some((p) => p.power === 'unknown');
+      if (blockers.length === 0 && undecoded) {
+        facts.push(
+          'Nothing SEAL can read in the mint can stop a sale: no freeze authority, no permanent delegate, no transfer hook, no pause.',
+        );
+        limits.push(
+          'the mint carries an extension SEAL cannot read: whether it can stop a sale is not known',
+        );
+        signals.push('observation');
+      } else if (blockers.length === 0) {
+        facts.push(
+          'Nothing in the mint can stop a sale: no freeze authority, no permanent delegate, no transfer hook, no pause.',
+        );
+        if (txns && txns.h24.sells > 0) signals.push('reassurance');
+      }
+    }
+    facts.unshift(...lead);
+    const answered = mint !== null || txns !== null;
+    return {
+      specialist: 'sell-path',
+      signal: answered ? strongest(signals, 'quiet') : 'unknown',
+      facts,
+      limits,
+      ...(curve ? { measures: { curve } } : {}),
+    };
+  },
+};
+
+const POOL_NAME: Record<string, string> = {
+  pumpswap: 'PumpSwap pool',
+  'raydium-amm-v4': 'Raydium AMM v4 pool',
+  'raydium-cpmm': 'Raydium CPMM pool',
+  'meteora-damm-v2': 'Meteora DAMM v2 pool',
+  'raydium-clmm': 'Raydium CLMM pool',
+  'orca-whirlpool': 'Orca Whirlpool pool',
+  'meteora-dlmm': 'Meteora DLMM pool',
+  'meteora-damm-v1': 'Meteora DAMM v1 pool',
+  other: 'pool',
 };
 
 const liquidityMove: Specialist = {
   id: 'liquidity-move',
   title: 'Liquidity Move',
-  question: 'Has liquidity been taken out, and can the trading rules (hook) touch withdrawals?',
-  run({ report, token, hook }: SpecialistContext): Finding {
+  question: 'Can the liquidity of its pools be withdrawn, and by whom?',
+  run({ report }) {
+    if (!report) return unknown('liquidity-move', [NO_REPORT]);
+    const curve = curveOf(report);
+    if (curve) {
+      return {
+        specialist: 'liquidity-move',
+        signal: 'unknown',
+        facts: [],
+        limits: [
+          `not applicable: the token is still on its ${curveName(curve.launchpad)}, which has no pool shares to withdraw yet`,
+        ],
+        notApplicable: true,
+      };
+    }
+    const liquidity = report.liquidity;
+    const creator = report.creator.data.creator;
+    const known = liquidity.data.pools.filter((p) => p.known);
+    const unknownPools = liquidity.data.pools.filter((p) => !p.known);
+    if (known.length === 0) {
+      // "No pool" only when the market list it comes from answered.
+      const noPool =
+        liquidity.data.pools.length === 0 &&
+        liquidity.sources.some((s) => s.note === 'no pool to read') &&
+        !sourcesFailed(report.market.sources);
+      return unknown('liquidity-move', [
+        ...(unknownPools.length > 0
+          ? [...new Set(unknownPools.map((p) => p.note ?? 'this pool could not be described'))]
+          : noPool
+            ? ['no trading pool of this token was listed: there is no pool liquidity to read']
+            : [unread('what its pools hold', liquidity)]),
+      ]);
+    }
     const facts: string[] = [];
-    const limits: string[] = [];
-    const self = report?.creator.data.tokens.find(
-      (t) => t.address.toLowerCase() === token.toLowerCase(),
-    );
-    let signal: Signal = 'unknown';
-    // Two different things, said apart: liquidity the creator (or the launch
-    // position) took out, and other providers taking back their own
-    // positions. Said together as "no removal" next to a list of removals,
-    // the text called them a contradiction (MUT8, HYPURRT, WAFER, OWN, moon).
-    const deployer = report?.creator.data.origin?.source === 'deployer';
-    const whose = deployer ? 'sent by the creator' : 'from the launch position';
-    if (self?.liquidityPulled === true) {
-      facts.push(
-        deployer
-          ? 'The creator removed liquidity from this token’s pool: a removal transaction it sent.'
-          : 'Liquidity has already been removed from this token’s launch position.',
-      );
-      signal = 'concern';
-    } else if (self?.liquidityPulled === false) {
-      facts.push(
-        `No liquidity removal ${whose} was observed on this token’s pool in the first ${OTHER_LAUNCH_SALES_DAYS} days after its launch.`,
-      );
-      signal = 'quiet';
-    } else {
-      limits.push(`liquidity removals ${whose} on this token were not determined`);
-    }
-    const creator = report?.creator.data.creator.toLowerCase();
-    const byOthers = (self?.liquidityRemovals ?? []).filter(
-      (r) => r.sender.toLowerCase() !== creator,
-    );
-    if (byOthers.length > 0) {
-      const ownBack = byOthers.every((r) =>
-        r.returned.every((x) => x.address.toLowerCase() === r.sender.toLowerCase()),
-      );
-      facts.push(
-        `Separately, other liquidity providers removed liquidity they had added themselves: ${plural(byOthers.length, 'removal')} among the most recent read, sent by ${[...new Set(byOthers.map((r) => r.sender))].join(', ')}${ownBack ? ', the tokens going back to the address that removed them' : ''}. These are their own positions, not the creator’s or the launch liquidity: they do not contradict what is said of the creator’s liquidity.`,
-      );
-    }
-    // Fees taken out of the market's position are tokens the creator
-    // withdrew from it, without removing the liquidity itself.
-    const taken = self?.feesTaken;
-    if (taken && taken.transfers > 0) {
-      // Summed over every transfer the market's trading rules made to the
-      // creator, whenever it came (MEME: 28 transfers, 0.52 %).
-      facts.push(
-        `The creator received ${pctBounded(taken.share)} of the supply from ${feePayerWords(taken.payers, taken.hooks)}, in ${plural(taken.transfers, 'transfer')}: trading fees taken out of the market without removing its liquidity.`,
-      );
-      if (signal === 'quiet' || signal === 'unknown') signal = 'observation';
-    } else if (self?.feesCollected === true) {
-      facts.push(
-        'The creator collected trading fees from this token’s liquidity position, taking tokens out of the market without removing its liquidity.',
-      );
-      if (signal === 'quiet' || signal === 'unknown') signal = 'observation';
-    }
-
-    if (hook) {
-      const ids = new Set(hook.capabilities.map((c) => c.id));
-      if (ids.has('alters-liquidity-removal')) {
-        facts.push('The trading rules (hook) may change what comes out of a liquidity withdrawal.');
-        if (signal !== 'concern') signal = 'observation';
-      } else if (ids.has('intercepts-liquidity-removal')) {
-        facts.push('The trading rules (hook) are called whenever liquidity is withdrawn.');
-        if (signal === 'unknown') signal = 'quiet';
+    const signals: Signal[] = [];
+    for (const p of known) {
+      const name = `${p.programName ?? POOL_NAME[p.kind] ?? 'pool'} ${short(p.pool)}`;
+      const shares = [
+        p.burnedShare ? `${pct(p.burnedShare)} burned` : '',
+        p.lockedShare ? `${pct(p.lockedShare)} locked for good` : '',
+        p.withdrawableShare !== null ? `${pct(p.withdrawableShare)} withdrawable` : '',
+      ].filter(Boolean);
+      const wallets = p.holders
+        .filter((x) => x.kind === 'wallet')
+        .sort((a, b) => b.share - a.share);
+      const top = wallets[0];
+      const byCreator = wallets.filter((w) => creator && w.owner === creator);
+      const creatorShare = byCreator.reduce((n, w) => n + w.share, 0);
+      const who = `${
+        top
+          ? `; the largest holder of its liquidity, ${creator && top.owner === creator ? 'the creator' : `the wallet ${short(top.owner)}`}, has ${pct(top.share)}`
+          : ''
+      }${byCreator.length > 0 && top && top.owner !== creator ? `; the creator has ${pct(creatorShare)}` : ''}`;
+      const fact = `${name}: ${shares.join(', ') || 'shares not read'}${who}.`;
+      const forGood = (p.burnedShare ?? 0) + (p.lockedShare ?? 0);
+      // A pool whose liquidity one holder can withdraw is said first.
+      if (
+        byCreator.length > 0 ||
+        ((p.withdrawableShare ?? 0) >= WITHDRAWABLE_SHARE && top && top.share >= WITHDRAWABLE_SHARE)
+      ) {
+        signals.push('concern');
+        facts.splice(signals.filter((s) => s === 'concern').length - 1, 0, fact);
+      } else {
+        signals.push(forGood >= LOCKED_FOR_GOOD ? 'reassurance' : 'observation');
+        facts.push(fact);
       }
     }
-    return finding('liquidity-move', signal, facts, limits);
+    const limits = [
+      ...new Set(unknownPools.map((p) => p.note ?? 'a pool could not be described')),
+      'withdrawals already made are not read: only what each pool holds today',
+    ];
+    // Every pool read has its liquidity burned or locked for good: that rules out a pull.
+    const signal = strongest(signals, 'quiet');
+    return { specialist: 'liquidity-move', signal, facts, limits };
   },
 };
 
-const ruleChange: Specialist = {
-  id: 'rule-change',
-  title: 'Rule Change',
-  question: 'Can the trading rules (hook) be rewritten after people have bought?',
-  run(context: SpecialistContext): Finding {
-    const { market, hookCode, report } = context;
-    if (context.mainRulesUnread) return unknown('rule-change', MAIN_UNREAD);
-    const others = otherHooks(context);
-    const othersUnchecked = 'The code of the other pools’ trading rules is not checked here.';
-    if (!market) {
-      if (others.length > 0 && context.mainPool) {
-        return finding(
-          'rule-change',
-          'observation',
-          [
-            `The main pool of this token (${poolLabel(context.mainPool.id)}) is a Uniswap ${context.mainPool.version ?? 'v2/v3'} pair, with no trading rules (hook) to rewrite.`,
-            ...otherPoolLines(context, null),
-          ],
-          [othersUnchecked],
-        );
-      }
-      return v4Only('rule-change', report);
+// ── The name ────────────────────────────────────────────────────────────────
+
+const nameClone: Specialist = {
+  id: 'name-clone',
+  title: 'Name Clone',
+  question:
+    'Does the token use the name or symbol of a well-known token, or of an earlier token by the same creator?',
+  run({ report, token }) {
+    if (!report) return unknown('name-clone', [NO_REPORT]);
+    const mint = report.mint.data;
+    if (!mint) return unknown('name-clone', [unread('the mint', report.mint)]);
+    const meta = mint.metadata;
+    if (!meta) {
+      // A metadata account the mint points to, or a Metaplex account, that
+      // could not be read is not "no metadata".
+      const metadataGaps = mint.gaps.filter((g) => /metadata/i.test(g));
+      if (metadataGaps.length > 0) return unknown('name-clone', metadataGaps);
+      return {
+        specialist: 'name-clone',
+        signal: 'quiet',
+        facts: ['The mint carries no metadata: no name or symbol is set on chain.'],
+        limits: [],
+      };
     }
-    if (market.hook === NATIVE) {
-      // Only the absence of a hook is checked: the token's own contract may
-      // still be upgradeable or carry an owner's powers (MEME's text read
-      // "nothing can be rewritten later" into this).
-      if (others.length > 0) {
-        return finding(
-          'rule-change',
-          'observation',
-          [
-            `${mainSubject(context)} has no trading rules (hook), so that pool has no hook to rewrite.`,
-            ...otherPoolLines(context, null),
-          ],
-          [othersUnchecked, 'Whether the token’s own contract can be changed is not checked here.'],
-        );
-      }
-      return finding(
-        'rule-change',
-        'quiet',
-        ['This market has no trading rules (hook), so there is no hook to rewrite.'],
-        [
-          'Only the market’s trading rules are checked: whether the token’s own contract can be changed is not checked here.',
-        ],
+    const facts: string[] = [];
+    const signals: Signal[] = [];
+    const bySymbol = imitatedName(meta.symbol);
+    const byName = imitatedName(meta.name);
+    const borrowed = bySymbol ?? byName;
+    if (borrowed && borrowed.mint !== token) {
+      const which =
+        bySymbol === borrowed && byName === borrowed
+          ? `Its name ${quoteName(meta.name)} and symbol ${quoteName(meta.symbol)} use those of`
+          : bySymbol === borrowed
+            ? `Its symbol ${quoteName(meta.symbol)} uses that of`
+            : `Its name ${quoteName(meta.name)} uses that of`;
+      facts.push(
+        `${which} ${borrowed.label}, whose mint is ${short(borrowed.mint)}; this token is another mint.`,
       );
+      signals.push('concern');
     }
-    if (!hookCode || hookCode.codeSize === null) {
-      return unknown('rule-change', 'the code of the trading rules (hook) could not be read');
-    }
-    const differing = otherPoolLines(context, market.hook);
-    const limits = [
-      'Only the standard upgrade slot (EIP-1967) is checked; other upgrade patterns exist.',
-      ...(others.some((p) => p.hook !== market.hook) ? [othersUnchecked] : []),
-    ];
-    if (hookCode.codeSize === 0) {
-      return finding(
-        'rule-change',
-        'concern',
-        ['No code is deployed at the address of the trading rules (hook).'],
-        limits,
+    if (meta.otherMint) {
+      facts.push(
+        `Its metadata is the metadata of another mint, ${short(meta.otherMint)}: the name and image it shows are that mint’s.`,
       );
+      signals.push('observation');
     }
-    if (hookCode.implementation) {
-      const facts = [
-        `The trading rules (hook) are an upgradeable proxy: their code currently lives at ${hookCode.implementation} and can be replaced without changing address.`,
-      ];
-      if (hookCode.admin) facts.push(`The upgrade admin is ${hookCode.admin}.`);
-      return finding('rule-change', 'concern', [...facts, ...differing], limits);
+    if (addressesSoftware(`${meta.name} ${meta.symbol}`)) {
+      facts.push(
+        'Its name or symbol is worded as an instruction to software; it is quoted here as data only.',
+      );
+      signals.push('observation');
     }
-    return finding(
-      'rule-change',
-      'reassurance',
-      [
-        `The code of the trading rules (hook) (${hookCode.codeSize} bytes) has no standard upgrade slot set.`,
-        ...differing,
-      ],
-      limits,
+    const history = report.creatorHistory;
+    const mine = normalizeName(meta.name);
+    const symbol = normalizeName(meta.symbol);
+    const same = (history?.data.tokens ?? []).filter(
+      (t) =>
+        (t.name && mine && normalizeName(t.name) === mine) ||
+        (t.symbol && symbol && normalizeName(t.symbol) === symbol),
     );
+    if (same.length > 0) {
+      const first = same[0]!;
+      facts.push(
+        `The creator launched ${same.length === 1 ? 'another token' : `${same.length} other tokens`} with the same name or symbol before, such as ${short(first.mint)}${first.launchedAt ? ` on ${dayOf(Date.parse(first.launchedAt) / 1000)}` : ''}.`,
+      );
+      signals.push('observation');
+    }
+    const historyRead = Boolean(history && history.completeness !== 'unavailable');
+    if (facts.length === 0) {
+      facts.push(
+        `Its name ${quoteName(meta.name)} and symbol ${quoteName(meta.symbol)} match none of the well-known tokens SEAL compares with${historyRead ? ', nor the creator’s other launches found' : ''}.`,
+      );
+    }
+    return {
+      specialist: 'name-clone',
+      signal: strongest(signals, 'quiet'),
+      facts,
+      limits: [
+        'names are compared with a short list of well-known Solana tokens and the creator’s own launches only',
+        ...(historyRead
+          ? []
+          : [
+              'the creator’s other launches were not read: a name reused from them would not be seen',
+            ]),
+      ],
+    };
   },
 };
 
 export const CATALOG: Record<SpecialistId, Specialist> = {
-  'code-reuse': codeReuse,
-  'wallet-age': walletAge,
-  'funding-trace': fundingTrace,
-  'name-clone': nameClone,
+  'token-powers': tokenPowers,
+  'transfer-rules': transferRules,
   'holder-spread': holderSpread,
   'creator-history': creatorHistory,
-  'sell-path': sellPath,
+  'wallet-age': walletAge,
+  'funding-trace': fundingTrace,
   'volume-reality': volumeReality,
+  'sell-path': sellPath,
   'liquidity-move': liquidityMove,
-  'rule-change': ruleChange,
+  'name-clone': nameClone,
 };

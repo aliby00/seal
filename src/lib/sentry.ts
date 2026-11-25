@@ -18,6 +18,42 @@ export function sentryDsn(
   return dsn ? dsn : undefined;
 }
 
+/**
+ * A node URL can carry its key (Alchemy: `/v2/<key>`, others in a query
+ * parameter or a path token). The SDK records the URL of every outgoing
+ * request (fetch breadcrumbs, spans), so a key would reach Sentry with the
+ * first error of an analysis: every string it sends is cleared of them.
+ */
+const KEY_IN_PATH = /(\/(?:v\d+|rpc|key)\/)[A-Za-z0-9_-]{16,}/g;
+const KEY_IN_HOST_PATH = /(\.quiknode\.pro\/)[A-Za-z0-9_-]+/g;
+const KEY_IN_QUERY = /([?&](?:api[-_]?key|key|token|access[-_]?token)=)[^&#\s"']+/gi;
+
+/** `text` without the keys a URL in it may carry. */
+export function redactKeys(text: string): string {
+  return text
+    .replace(KEY_IN_PATH, '$1[key]')
+    .replace(KEY_IN_HOST_PATH, '$1[key]')
+    .replace(KEY_IN_QUERY, '$1[key]');
+}
+
+/** Every string of `value`, redacted; objects and arrays are changed in place. */
+function redactDeep(value: unknown, depth = 0): unknown {
+  if (typeof value === 'string') return redactKeys(value);
+  if (depth > 8 || value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i += 1) value[i] = redactDeep(value[i], depth + 1);
+    return value;
+  }
+  const record = value as Record<string, unknown>;
+  for (const key of Object.keys(record)) record[key] = redactDeep(record[key], depth + 1);
+  return value;
+}
+
+/** A breadcrumb (an outgoing request's URL, a log line) without keys. */
+export function scrubBreadcrumb<T>(breadcrumb: T): T {
+  return redactDeep(breadcrumb) as T;
+}
+
 type ScrubbableEvent = {
   user?: unknown;
   request?: {
@@ -39,7 +75,8 @@ export function scrubEvent<T extends ScrubbableEvent>(event: T): T {
     delete event.request.env;
     delete event.request.query_string;
   }
-  return event;
+  // Breadcrumbs, spans, messages: an outgoing request's URL may hold a key.
+  return redactDeep(event) as T;
 }
 
 /**
@@ -60,5 +97,6 @@ export function sentryOptions(dsn: string, environment: string) {
     sendDefaultPii: false,
     beforeSend: scrubEvent,
     beforeSendTransaction: scrubEvent,
+    beforeBreadcrumb: scrubBreadcrumb,
   };
 }

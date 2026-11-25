@@ -3,27 +3,15 @@ import type { Sourced } from './completeness';
 /**
  * Why an address is set aside rather than counted as a holder: it holds
  * tokens for trading or for the launch mechanism, not for anyone.
- *  - `pool`: a V2 pair or V3 pool (the launch pool, a pair listed since);
- *  - `pool-manager`: the Uniswap v4 PoolManager, holding every v4 market;
- *  - `curve`: a launchpad's bonding curve;
- *  - `launchpad`: a launchpad, its router or factory, or the contract the
- *    launch transaction called;
- *  - `locker`: a launchpad's lock contract, holding locked liquidity;
- *  - `vesting`: a vesting lock (TokenTable): its tokens unlock on a
- *    schedule, and cannot be sold before;
- *  - `burn`: the zero and dead addresses.
+ *  - `pool`: a trading pool (PumpSwap, Raydium, Meteora, Orca);
+ *  - `curve`: a launchpad's bonding curve (pump.fun, Meteora DBC, LaunchLab);
+ *  - `launchpad`: a launchpad's own account;
+ *  - `locker`: a lock contract holding locked liquidity;
+ *  - `vesting`: a lock or vesting program (Jupiter Lock, Streamflow): its
+ *    tokens unlock on a schedule, and cannot be sold before;
+ *  - `burn`: the incinerator, or any address nobody can spend from.
  */
-export type SetAsideRole =
-  | 'pool'
-  | 'pool-manager'
-  | 'curve'
-  | 'launchpad'
-  | 'locker'
-  /** A market's trading rules (Uniswap v4 hook), or a contract plugged into them. */
-  | 'hook'
-  /** A vesting lock: what it holds unlocks on a schedule, and cannot be sold before. */
-  | 'vesting'
-  | 'burn';
+export type SetAsideRole = 'pool' | 'curve' | 'launchpad' | 'locker' | 'vesting' | 'burn';
 
 export type Holder = {
   address: string;

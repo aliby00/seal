@@ -1,433 +1,115 @@
-import { isAddress, type Address } from 'viem';
-import {
-  createRpcClient,
-  fetchCreatorHistory,
-  fetchDeployerHistory,
-  fetchGraduationStatus,
-  findFirstMintLog,
-  findLaunchOf,
-  listCreatorLaunches,
-  readLaunchReplay,
-  traceTokenOrigin,
-  DIRECT_DEPLOYS,
-  mergeListings,
-  type CreatorListing,
-  type IndexedListing,
-  type RawLog,
-  type RpcClient,
-  type TokenOrigin,
-} from './chain';
-import { listSentTransactions } from './chain/funding';
-import { combineCompleteness, type Completeness, type CreatorOrigin } from './contracts';
-import type {
-  CreatorHistory,
-  FailedRead,
-  HolderDistribution,
-  LaunchReplay,
-  NamedAddress,
-  SetAsideRole,
-  FeePayer,
-  LaunchedToken,
-  ListedPool,
-  MarketState,
-  TokenReport,
-} from './contracts';
-import { IncompleteDataError, NotFoundError, RateLimitError, SealError } from './errors';
-import {
-  failedReadsOfSources,
-  mergeFailedReads,
-  noteFailed,
-  SALE_SEEN,
-  UNREAD,
-} from './failed-reads';
-import { LAUNCH_HOOKS } from './chain/launchpads';
-import { OWN_SALES_MAX_BLOCKS, TRANSFER_TOPIC, topicFor } from './chain/behavior';
-import { getLogsBatched } from './chain/logs';
-import { createBudget, type RequestBudget } from './http';
-import { fetchHolderDistribution, setAsideRoles } from './holders';
-import {
-  fetchHoldersFromChain,
-  findFirstMint,
-  readPoolsShare,
-  recheckContracts,
-  refreshBalances,
-} from './holders/chain';
-import {
-  checkLiquidity,
-  fetchPairs,
-  listedPools,
-  mainPool,
-  meaningfulPools,
-  pickPrimaryPair,
-  toMarketState,
-  venuesOf,
-  type DexScreenerPair,
-} from './market';
-import { findMarketsById, POOL_MANAGER, type V4Market } from './chain/pools';
-import { isContractCode } from './chain/code';
-import { linkCreatorToHolders, withLaunchLinks, withLinks } from './holders/links';
-import { withRoles } from './holders/roles';
-import { knownNames, readAddressRoles } from './chain/roles';
-import { readVirtualsGraduation, readVirtualsGraduations } from './chain/virtuals';
+import { combineCompleteness, type Completeness, type SourceRef, type Sourced } from './contracts';
+import type { FailedRead, ReadId, TokenReport } from './contracts/report';
+import { NotFoundError, SealError, TimeoutError } from './errors';
+import { failedReadOf, mergeFailedReads } from './failed-reads';
+import { BudgetExhaustedError, createBudget, requestJson } from './http';
 import { log } from './logger';
-import { TtlCache } from './cache';
-import {
-  indexer,
-  type IndexerAnswer,
-  type IndexerClient,
-  type IndexerMarkets,
-} from './indexer/client';
-import { indexedListing, withIndexedLaunches, withPoolActivity } from './indexer/merge';
-import { NOT_APPLICABLE, ReadLedger, reasonOf, valueOr } from './reads';
+import { readSolanaMarket, SOLANA_MARKET_DEADLINE_MS } from './market/solana';
+import type { SolanaMarketRead } from './market/solana-types';
+import { isSolanaAddress } from './solana/address';
+import { creatorHistory, creatorOnToken, findCreator, type DexFetch } from './solana/creator';
+import type {
+  SolanaCreator,
+  SolanaCreatorHistory,
+  SolanaCreatorOnToken,
+  SolanaLinkedWallets,
+} from './solana/creator-types';
+import { linkedWallets } from './solana/funding';
+import { readHolders, type SolanaHolders } from './solana/holders';
+import { replayLaunch } from './solana/launch';
+import type { SolanaLaunchReplay } from './solana/launch-types';
+import { abortable, createSolanaRpc, type SolanaRpc, type SolanaRpcClient } from './solana/rpc';
+import { readToken, tokenPowers, TOKEN_READ_TIMEOUT_MS } from './solana/token';
+import type { TokenRead } from './solana/token-types';
 
 /**
- * L'historique d'un créateur est la partie chère de l'analyse — 30 M blocs
- * scannés — et la plus lente à changer. Le marché, lui, bouge à la minute et
- * n'est jamais mis en cache.
+ * Orchestrator of the data pipeline, for a Solana token.
  *
- * Cinq minutes : assez pour que plusieurs tokens du même créateur analysés
- * d'affilée ne rescannent pas, assez court pour qu'un nouveau lancement
- * apparaisse vite.
- */
-const CREATOR_HISTORY_TTL_MS = 5 * 60_000;
-
-export const creatorHistoryCache = new TtlCache<CreatorHistory>({
-  ttlMs: CREATOR_HISTORY_TTL_MS,
-  maxEntries: 200,
-  // A history read still in flight after a minute is not waited on again:
-  // the next request reads afresh rather than hang on a read that never ends.
-  inflightMaxMs: 60_000,
-  // A history cut short (a window the node refused) would be served as is for
-  // five minutes: only a read that covered what it meant to cover is kept.
-  keep: (history) => !history.sources.some((s) => noteFailed(s.note)),
-});
-
-/**
- * Orchestrateur du pipeline de données.
+ * 1. At once, in parallel: the mint (readToken), the market zone (DexScreener,
+ *    then the launchpad, its graduation and the pools' liquidity), and the
+ *    creator (findCreator, which needs nothing from the other two).
+ * 2. Once the creator and the mint are known, in parallel: the holders (with
+ *    the creator's own balance), the launch replay (with the creator, its
+ *    creation transaction and time), the creator's other tokens, what it did
+ *    with this one, and the wallets linked to it by SOL transfers.
  *
- * Les trois modules tournent en parallèle et **aucun ne peut faire échouer les
- * autres** : un échec est converti en bloc `unavailable` porteur de son motif.
- * Deux sources sur trois restent une analyse, à condition de le dire — c'est
- * l'agent qui le dira, à partir des `completeness` qu'on lui remet.
+ * No block can make another fail: a reader that fails, runs out of calls or
+ * of time leaves its block `unavailable` or `partial` with the reason, and
+ * the reads that failed are listed in `failedReads`. One Solana client serves
+ * the whole analysis, with a global ceiling of calls; each reader adds its
+ * own cap and time limit, and every limit aborts the requests in flight
+ * (rpc.ts, `withSignal`). The whole collection aims at about 30 s.
  */
 
-/** Per-source request ceilings for one analysis. */
-export const RPC_BUDGET = 40;
-/** Blockscout pages, or RPC requests when holders are rebuilt from transfers. */
-export const HOLDERS_BUDGET = 20;
-export const MARKET_BUDGET = 4;
-/** One batch of balances: what the token's pools hold today. */
-const POOLS_BUDGET = 2;
-/** One batch of codes: the largest holders Blockscout calls contracts, re-read. */
-const RECHECK_BUDGET = 2;
-/** The largest holders' balances, read again: one batch, and its retry. */
-const REFRESH_BUDGET = 2;
-/**
- * The launch replay: the log read and the supply, then block times, codes and
- * balances in batches of 20 — up to 42 blocks, 60 codes and 100 balances
- * (the moves drawn, the addresses one transaction served, the first buyers),
- * so 11 at most, plus three batches of receipts and the halvings of a launch
- * too busy to read at once. Retries on a busy public node count too.
- */
-export const LAUNCH_BUDGET = 40;
-/** The pause before the replay is asked again of a node that turned it away. */
-const REPLAY_RETRY_MS = 4_000;
+/** Calls one analysis may spend on the Solana node, every reader together. */
+export const SOLANA_MAX_CALLS = 300;
+/** DexScreener requests of one analysis: the token's pairs, and the creator's other tokens. */
+export const DEX_BUDGET = 8;
+/** From the start, the collection is cut here: the route answers at 30 s. */
+export const COLLECT_DEADLINE_MS = 27_000;
+/** The creator lookup. */
+export const CREATOR_CALLS = 30;
+export const CREATOR_TIMEOUT_MS = 10_000;
+/** Each of the creator's three later reads (its other tokens, this token, linked wallets). */
+export const CREATOR_READ_CALLS = 50;
+export const CREATOR_READ_TIMEOUT_MS = 12_000;
+/** The holders. */
+export const HOLDERS_CALLS = 20;
+export const HOLDERS_TIMEOUT_MS = 12_000;
+/** The launch replay. */
+export const LAUNCH_CALLS = 90;
+export const LAUNCH_TIMEOUT_MS = 20_000;
+/** Kept before the collection's deadline, for the reads to wind up and the report to be built. */
+const WIND_UP_MS = 1_000;
 
-/**
- * The pauses before a rate-limited read on the critical path (the creator
- * lookup, the creator's history) is asked again. GNRG on 18/10/2026: one
- * refusal of the public node lost the whole creator for that report.
- */
-export const RATE_LIMIT_RETRY_MS: readonly number[] = [1_500, 3_000];
-/** No retry starts after this much of the collection: 30 s in all, the rest still has to run. */
-const RETRY_DEADLINE_MS = 15_000;
+/** Each reader's time limit, in ms; every one is also cut at the collection's deadline. */
+export type CollectTimeouts = {
+  mint: number;
+  market: number;
+  creator: number;
+  creatorReads: number;
+  holders: number;
+  launch: number;
+};
 
-/** A refusal that a pause may cure: a rate limit, or a read the node cut short. */
-function worthRetrying(error: unknown): boolean {
-  if (error instanceof RateLimitError) return true;
-  if (error instanceof IncompleteDataError) return error.source === 'robinhood-rpc';
-  return (
-    error instanceof SealError && /request limit|rate limit|too many requests/i.test(error.message)
-  );
-}
-
-/** `fn`, asked again after each pause while the node rate-limits it and time remains. */
-export async function retryRateLimited<T>(
-  fn: () => Promise<T>,
-  options: {
-    delaysMs?: readonly number[];
-    startedAt?: number;
-    deadlineMs?: number;
-    sleep?: (ms: number) => Promise<void>;
-    now?: () => number;
-  } = {},
-): Promise<T> {
-  const delays = options.delaysMs ?? RATE_LIMIT_RETRY_MS;
-  const clock = options.now ?? Date.now;
-  const startedAt = options.startedAt ?? clock();
-  const deadline = options.deadlineMs ?? RETRY_DEADLINE_MS;
-  const sleep = options.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
-  for (let attempt = 0; ; attempt += 1) {
-    try {
-      return await fn();
-    } catch (error) {
-      const delay = delays[attempt];
-      if (!worthRetrying(error) || delay === undefined) throw error;
-      if (clock() - startedAt + delay > deadline) throw error;
-      log.warn('lecture limitée, nouvelle tentative', { attempt: attempt + 1, delayMs: delay });
-      await sleep(delay);
-    }
-  }
-}
-
-/** The indexer's answer and whether it failed, from a client that may predate `*Answer`. */
-function answerOf<T>(
-  withFailure: (() => Promise<IndexerAnswer<T>>) | undefined,
-  plain: () => Promise<T | undefined>,
-): Promise<IndexerAnswer<T>> {
-  return withFailure ? withFailure() : plain().then((value) => ({ value, failed: false }));
-}
-
-/** A history whose source says that one of its reads could not be completed this time. */
-function withUnreadNote(history: CreatorHistory, note: string): CreatorHistory {
-  if (history.completeness === 'unavailable') return history;
-  if (history.sources.some((s) => s.note === note)) return history;
-  return {
-    ...history,
-    completeness: 'partial',
-    sources: [
-      ...history.sources,
-      {
-        name: 'robinhood-rpc',
-        fetchedAt: history.sources[0]?.fetchedAt ?? new Date().toISOString(),
-        note,
-      },
-    ],
-  };
-}
-
-/** A pons launch names its creator in its own launch record. */
-function ponsOrigin(factory: string, transactionCount: number | null = null): CreatorOrigin {
-  return {
-    source: 'pons',
-    role: 'launcher',
-    launchpad: { id: 'pons', name: 'pons', address: factory.toLowerCase() },
-    creatorFrom: 'launch-record',
-    launchesListed: true,
-    transactionCount,
-  };
-}
-
-/**
- * Transactions a creator's wallet has sent; `null` for a contract or when
- * unread. A wallet delegating under EIP-7702 has code and is still a wallet.
- * Read for pons creators too, so the facts and the wallet-age question
- * quote the same count (Mike: "1088 transactions" in the text, none in the facts).
- */
-export async function walletTransactionCount(
-  rpc: RpcClient,
-  creator: string,
-): Promise<number | typeof NOT_APPLICABLE> {
-  const [code, count] = await rpc.callBatch<string>([
-    { method: 'eth_getCode', params: [creator, 'latest'] },
-    { method: 'eth_getTransactionCount', params: [creator, 'latest'] },
-  ]);
-  if (!code?.ok) {
-    throw new IncompleteDataError('robinhood-rpc', 'the creator’s code could not be read');
-  }
-  // A contract sends no transaction of its own: not applicable.
-  if (isContractCode(code.value)) return NOT_APPLICABLE;
-  const n = Number(count?.ok ? count.value : NaN);
-  if (!Number.isFinite(n)) {
-    throw new IncompleteDataError('robinhood-rpc', 'the creator’s transaction count was not read');
-  }
-  return n;
-}
-
-/**
- * A pons creator's launches on the other launchpads: listed from their own
- * events, added as undetermined (graduation is read on pons only), their
- * sales not checked. The history says where it looked.
- */
-export function withOtherLaunchpads(
-  history: CreatorHistory,
-  listing: CreatorListing | undefined,
-): CreatorHistory {
-  if (!listing || history.completeness === 'unavailable') return history;
-  const origin = history.data.origin;
-  const known = new Set(history.data.tokens.map((t) => t.address.toLowerCase()));
-  const added: LaunchedToken[] = listing.launches
-    .filter((l) => !known.has(l.token))
-    .map((l) => ({
-      address: l.token,
-      pool: '0x',
-      launchedAtBlock: l.blockNumber,
-      launchedAt: null,
-      outcome: 'undetermined',
-      graduationProgress: 0,
-      liquidityPulled: null,
-      creatorDumped: null,
-      ...(l.launchpad ? { launchpad: l.launchpad.name } : {}),
-    }));
-  const withCoverage = origin
-    ? {
-        ...origin,
-        launchpadsRead: ['pons', ...listing.read],
-        launchpadsNotRead: [...listing.unread, DIRECT_DEPLOYS],
-      }
-    : origin;
-  return {
-    ...history,
-    completeness: added.length > 0 || listing.truncated ? 'partial' : history.completeness,
-    sources:
-      added.length > 0 || listing.truncated
-        ? [
-            ...history.sources,
-            {
-              name: 'robinhood-rpc',
-              fetchedAt: history.sources[0]?.fetchedAt ?? new Date().toISOString(),
-              note: listing.truncated
-                ? 'launches on other launchpads: some windows could not be read'
-                : `${added.length} launch${added.length === 1 ? '' : 'es'} on other launchpads; graduation is read on pons only, and their sales were not checked`,
-            },
-          ]
-        : history.sources,
-    data: {
-      ...history.data,
-      ...(withCoverage ? { origin: withCoverage } : {}),
-      tokens: [...history.data.tokens, ...added],
-      counts: {
-        ...history.data.counts,
-        launched: history.data.counts.launched + added.length,
-        undetermined: history.data.counts.undetermined + added.length,
-      },
-    },
-  };
-}
+export const COLLECT_TIMEOUTS: CollectTimeouts = {
+  mint: TOKEN_READ_TIMEOUT_MS,
+  market: SOLANA_MARKET_DEADLINE_MS,
+  creator: CREATOR_TIMEOUT_MS,
+  creatorReads: CREATOR_READ_TIMEOUT_MS,
+  holders: HOLDERS_TIMEOUT_MS,
+  launch: LAUNCH_TIMEOUT_MS,
+};
 
 export type CollectOptions = {
-  rpcUrl?: string;
-  blockscoutApiKey?: string;
   /**
-   * Request ceiling for the chain, per analysis. Each source has its own
-   * budget: with a shared one, a slow launch lookup spent all 150 requests and
-   * left DexScreener with none, on every token older than five days.
-   *
-   * Measured with batched reads: 4 to 8 HTTP requests for a creator with a
-   * few launches, sales and liquidity included.
+   * The Solana client. Created here otherwise: one per analysis, capped at
+   * `maxCalls` (SOLANA_MAX_CALLS). The tests hand the fake node.
    */
-  maxRequests?: number;
-  lookbackBlocks?: number;
+  rpc?: SolanaRpc;
+  /** The global ceiling of Solana calls, when the client is created here. */
+  maxCalls?: number;
+  /** DexScreener's base URL (tests). */
+  dexBaseUrl?: string;
   now?: () => Date;
-  /** The pauses before a rate-limited critical read is retried (tests pass zeros). */
-  retryDelaysMs?: readonly number[];
+  /** Cuts the whole collection: the route giving up. */
+  signal?: AbortSignal;
+  /** From the start, when every read still running is cut (COLLECT_DEADLINE_MS). */
+  deadlineMs?: number;
   /**
-   * After this long (ms from the start), a creator history still being read
-   * is reported as a read that did not finish: a partial report, served,
-   * instead of the route's 504. It keeps going and is cached for the next ask.
+   * The readers' own time limits (COLLECT_TIMEOUTS). Recording fixtures and
+   * replaying them set them long, so that only the call caps, which do not
+   * depend on the node's speed, end a read.
    */
-  historyDeadlineMs?: number;
-  /** After this long (ms from the start), any optional read still running did not finish. */
-  readsDeadlineMs?: number;
-  /** After this long (ms from the start), the launch replay is a read that did not finish. */
-  replayDeadlineMs?: number;
-  /** After this long (ms), a creator's other launches are listed but not checked. */
-  checkOthersWithinMs?: number;
+  timeouts?: Partial<CollectTimeouts>;
   /**
-   * Filled as the collection goes: the stages reached and each read's time.
-   * The route logs it when it cuts a collection at 30 s, which never reaches
-   * its own log line (0x2559…, 0x2e8c…: 504 with nothing to say where).
+   * Filled as the collection goes: the stages reached, in ms since the
+   * start. The route logs it when it cuts a collection at 30 s.
    */
   progress?: { stages: Record<string, number>; reads?: Record<string, number> };
 };
 
-/**
- * The route cuts collection at 30 s. The history gets 26, its other
- * launches' checks start within 14: what is read after that (the holders'
- * links, the fees) still fits (AI: 80 launches, cut at 30.2 s on staging).
- */
-export const HISTORY_DEADLINE_MS = 26_000;
-/** Every optional read still running here (ms from the start) is a read that did not finish. */
-export const READS_DEADLINE_MS = 28_000;
-/** The first minutes' replay is cut here (ms from the start): what follows it still fits in 30 s. */
-export const REPLAY_DEADLINE_MS = 24_000;
-export const CHECK_OTHERS_WITHIN_MS = 14_000;
-/** Time kept after the last batch of removal senders, before the history's deadline. */
-const SENDERS_MARGIN_MS = 4_000;
-
-/** A pons creator's launches elsewhere; `undefined` when they could not be read. */
-async function otherLaunchpads(
-  rpc: RpcClient,
-  creator: string,
-  latest: number,
-  indexed: IndexedListing | undefined,
-  ledger: ReadLedger,
-): Promise<CreatorListing | undefined> {
-  const skip = (l: { id: string }) => l.id === 'pons' || Boolean(indexed?.covered.has(l.id));
-  const outcome = await ledger.read('other-launchpads', () =>
-    listCreatorLaunches(rpc, creator, latest, { skip }),
-  );
-  // Not read is not "none": the history says so, and is not cached (GNRG).
-  if (outcome.status !== 'ok') return { launches: [], truncated: true, read: [], unread: [] };
-  const listing = outcome.value;
-  if (!indexed) return listing;
-  const merged = mergeListings(listing, {
-    covered: new Set([...indexed.covered].filter((id) => id !== 'pons')),
-    launches: indexed.launches.filter((l) => l.launchpad?.id !== 'pons'),
-  });
-  return merged;
-}
-
-/** Requests for the creator's links to its holders: a supply, a batch of codes, two log reads. */
-const LINKS_BUDGET = 6;
-
-/** The analysed token marked as sold by its creator. */
-function withOwnSale(history: CreatorHistory, own: (t: LaunchedToken) => boolean): CreatorHistory {
-  const tokens = history.data.tokens.map((t) => (own(t) ? { ...t, creatorDumped: true } : t));
-  return {
-    ...history,
-    data: {
-      ...history.data,
-      tokens,
-      counts: {
-        ...history.data.counts,
-        creatorDumped: tokens.filter((t) => t.creatorDumped === true).length,
-      },
-    },
-  };
-}
-
-/** An error as a source note: its kind first, so `noteFailed` can tell a failure. */
-const noteOf = reasonOf;
-
-function failed<T>(
-  name: 'robinhood-rpc' | 'blockscout' | 'dexscreener',
-  fetchedAt: string,
-  error: unknown,
-  data: T,
-): {
-  completeness: Completeness;
-  sources: { name: typeof name; fetchedAt: string; note: string }[];
-  data: T;
-} {
-  const note = noteOf(error);
-  log.warn('source indisponible', { source: name, note });
-  return { completeness: 'unavailable', sources: [{ name, fetchedAt, note }], data };
-}
-
-/** `promise`, or `late()` when it has not settled within `ms`. */
-async function withinDeadline<T>(promise: Promise<T>, ms: number, late: () => T): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const cut = new Promise<T>((resolve) => {
-    timer = setTimeout(() => resolve(late()), Math.max(0, ms));
-  });
-  try {
-    return await Promise.race([promise, cut]);
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
+/** `promise`; a failure it did not absorb itself becomes `fallback(error)`. */
 async function settled<T>(promise: Promise<T>, fallback: (error: unknown) => T): Promise<T> {
   try {
     return await promise;
@@ -436,1073 +118,405 @@ async function settled<T>(promise: Promise<T>, fallback: (error: unknown) => T):
   }
 }
 
-/**
- * Rassemble les trois familles de signaux pour un token.
- * Ne produit aucun agrégat : c'est l'agent qui croise.
- */
-export async function collect(token: string, options: CollectOptions = {}): Promise<TokenReport> {
-  if (!isAddress(token)) {
-    throw new NotFoundError('robinhood-rpc', `invalid address: ${token}`);
-  }
+/** An error, as a source note: its kind first, so `noteFailed` tells a failure. */
+function reasonOf(error: unknown): string {
+  if (error instanceof SealError) return `${error.kind} : ${error.message}`;
+  if (error instanceof BudgetExhaustedError) return error.message;
+  return 'unexpected error';
+}
 
-  const address = token as Address;
+function unavailable<T>(
+  name: SourceRef['name'],
+  fetchedAt: string,
+  error: unknown,
+  data: T,
+): Sourced<T> {
+  const note = reasonOf(error);
+  log.warn('lecture Solana en échec', { source: name, note, error: String(error) });
+  return { completeness: 'unavailable', sources: [{ name, fetchedAt, note }], data };
+}
+
+/** Unix seconds of an ISO date or of milliseconds; `null` when there is none. */
+function seconds(value: string | number | null | undefined): number | null {
+  if (value === null || value === undefined) return null;
+  const ms = typeof value === 'number' ? value : Date.parse(value);
+  return Number.isFinite(ms) ? Math.floor(ms / 1000) : null;
+}
+
+/**
+ * When the token was created, by DexScreener: its earliest listed pool (a
+ * pump.fun token's first pool is its curve, created with it). The replay
+ * checks it on chain; it only says where to look.
+ */
+function listedSince(read: SolanaMarketRead): number | null {
+  const times = read.market.data.pools
+    .map((p) => p.createdAt)
+    .filter((t): t is number => typeof t === 'number' && t > 0);
+  if (times.length > 0) return seconds(Math.min(...times));
+  return seconds(read.market.data.pairCreatedAt);
+}
+
+/** Collects every block of facts for a Solana token. No aggregate: the agent crosses them. */
+export async function collect(token: string, options: CollectOptions = {}): Promise<TokenReport> {
+  if (!isSolanaAddress(token)) {
+    throw new NotFoundError('solana-rpc', `invalid address: ${String(token).slice(0, 64)}`);
+  }
   const now = options.now ?? (() => new Date());
+  const nowMs = () => now().getTime();
   const collectedAt = now().toISOString();
   const startedAt = Date.now();
-  const retry = <T>(fn: () => Promise<T>) =>
-    retryRateLimited(fn, {
-      startedAt,
-      ...(options.retryDelaysMs ? { delaysMs: options.retryDelaysMs } : {}),
-    });
-  // Every read that failed this time: what it would have found is unknown.
-  // Each optional read goes through the ledger: it answered, it does not
-  // apply, or it failed — and a failure always lands in the failed reads.
-  const ledger = new ReadLedger(startedAt + (options.readsDeadlineMs ?? READS_DEADLINE_MS));
-  if (options.progress) options.progress.reads = ledger.timings;
-  // When each stage ended, in ms since the start: where a slow analysis spent its time.
+  const deadline = startedAt + (options.deadlineMs ?? COLLECT_DEADLINE_MS);
+  const timeouts = { ...COLLECT_TIMEOUTS, ...options.timeouts };
+  const left = (cap: number) => Math.max(0, Math.min(cap, deadline - WIND_UP_MS - Date.now()));
   const stages: Record<string, number> = options.progress?.stages ?? {};
   const stage = (name: string) => {
     stages[name] = Date.now() - startedAt;
   };
-  const failures = { push: (...f: FailedRead[]) => ledger.push(...f) };
-  const budget: RequestBudget = createBudget(options.maxRequests ?? RPC_BUDGET);
-  const rpc = createRpcClient(options.rpcUrl, budget);
-  const holdersBudget = createBudget(HOLDERS_BUDGET);
-  const marketBudget = createBudget(MARKET_BUDGET);
-  // The listed pairs say where the token trades now, beyond the markets its
-  // launch created: started at once, read by the history and the market.
-  const pairsRead: Promise<{ pairs: DexScreenerPair[] } | { error: unknown }> = fetchPairs(
-    address,
-    { budget: marketBudget },
-  ).then(
-    (pairs) => ({ pairs }),
-    (error: unknown) => ({ error }),
+
+  // The whole collection's own cut: at its deadline, or when the caller gives up.
+  const cut = new AbortController();
+  const timer = setTimeout(
+    () => cut.abort(new TimeoutError('solana-rpc', deadline - startedAt)),
+    Math.max(0, deadline - Date.now()),
   );
+  const onCallerAbort = () => cut.abort(new TimeoutError('solana-rpc', Date.now() - startedAt));
+  if (options.signal?.aborted) onCallerAbort();
+  options.signal?.addEventListener('abort', onCallerAbort, { once: true });
 
-  // La chaîne d'abord : elle donne le créateur, le pool et l'état de graduation,
-  // dont le module marché a besoin pour calculer la progression.
-  //
-  // On ne connaît au départ que l'adresse du token. Le créateur se lit dans le
-  // `TokenLaunched` de ce token — il faut donc le retrouver AVANT de pouvoir
-  // interroger l'historique du créateur. Filtrer les lancements sur l'adresse
-  // du token au lieu de celle du deployer ne renvoie évidemment jamais rien.
-  // An unreachable node and a token that is not a pons launch both leave no
-  // launch, but they do not mean the same thing and must not be reported alike.
-  let lookupError: unknown;
-  let latest = 0;
-  const launch = await settled(
-    retry(async () => {
-      latest = Number(await rpc.call<string>('eth_blockNumber', []));
-      return findLaunchOf(rpc, address, latest, options.lookbackBlocks);
-    }),
-    (error) => {
-      lookupError = error;
-      return undefined;
-    },
-  );
+  try {
+    const client: SolanaRpc =
+      options.rpc ??
+      createSolanaRpc({ maxCalls: options.maxCalls ?? SOLANA_MAX_CALLS, signal: cut.signal });
+    const rpc = abortable(client, cut.signal);
+    const dexBudget = createBudget(DEX_BUDGET);
+    const dex: DexFetch = (url) =>
+      requestJson<unknown>(url, {
+        source: 'dexscreener-solana',
+        timeoutMs: 6_000,
+        retries: 1,
+        budget: dexBudget,
+        init: { signal: cut.signal },
+      });
 
-  // The indexer knows pons launches (their pool's trades too) and the other
-  // launchpads' launches: asked for in parallel, it never blocks the rest.
-  const ix: IndexerClient | undefined = indexer();
-  const indexedToken: Promise<IndexerAnswer<Awaited<ReturnType<IndexerClient['token']>>>> =
-    launch && ix
-      ? answerOf(ix.tokenAnswer ? () => ix.tokenAnswer!(address) : undefined, () =>
-          ix.token(address),
-        )
-      : Promise.resolve({ value: undefined, failed: false });
-  // The token's v4 markets as the indexer read them: their trading rules
-  // (hooks) hold the token for the market, never for a person.
-  const indexedMarkets: Promise<IndexerMarkets['markets']> = ix
-    ? ledger
-        .read('indexer-markets', async () => {
-          const answer = await answerOf(
-            ix.marketsAnswer ? () => ix.marketsAnswer!(address) : undefined,
-            () => ix.markets(address),
-          );
-          if (answer.failed) {
-            throw new Error('the SEAL indexer did not answer');
-          }
-          return answer.value?.markets ?? [];
-        })
-        .then((outcome) => valueOr(outcome, []))
-    : Promise.resolve([]);
-  const indexedHooks: Promise<string[]> = indexedMarkets.then((markets) =>
-    markets
-      .map((m) => m.hook.toLowerCase())
-      .filter((h) => /^0x[0-9a-f]{40}$/.test(h) && !/^0x0{40}$/.test(h)),
-  );
+    // ── 1. Mint, market zone and creator, at once ─────────────────────────
+    const mintRead: Promise<TokenRead> = settled(
+      readToken(token, rpc, { now, timeoutMs: left(timeouts.mint) }),
+      (error) => unavailable('solana-rpc', collectedAt, error, null),
+    ).finally(() => stage('mint'));
 
-  // Not a pons launch: the creator is traced from the transaction of the
-  // token's first mint — the launch event of a known launchpad when there is
-  // one — and their other launches from every launchpad's own record. Only
-  // when the node answered: a failed lookup is not "not pons".
-  let mintLog: RawLog | undefined;
-  // A mint that could not be read is not a mint that does not exist (MEME:
-  // "first mint not found" on a rate-limited node, its creator lost).
-  let originError: unknown;
-  const origin: TokenOrigin | undefined =
-    !launch && lookupError === undefined && latest > 0
-      ? await settled(
-          retry(async () => {
-            mintLog = await findFirstMintLog(rpc, address, latest);
-            if (!mintLog) return undefined;
-            const traced = await traceTokenOrigin(rpc, address, mintLog);
-            if (!traced) {
-              throw new IncompleteDataError(
-                'robinhood-rpc',
-                'the transaction of the token’s first mint could not be read',
-              );
-            }
-            return traced;
-          }),
-          (error) => {
-            originError = error;
-            return undefined;
-          },
-        )
-      : undefined;
-
-  // La clé porte la profondeur : deux analyses avec des fenêtres différentes
-  // ne décrivent pas le même historique et ne doivent pas se partager une entrée.
-  // The analysed token is always checked for sales and liquidity, so it is part
-  // of the key: another token of the same creator may not have been.
-  const cacheKey = launch
-    ? `${launch.deployer.toLowerCase()}:${address.toLowerCase()}:${options.lookbackBlocks ?? 'default'}`
-    : `deployer:${origin?.creator}:${address.toLowerCase()}`;
-  const creatorAddress = launch?.deployer ?? origin?.creator;
-  const [indexedAnswer, coverageAnswer] =
-    ix && creatorAddress
-      ? await Promise.all([
-          answerOf(ix.creatorAnswer ? () => ix.creatorAnswer!(creatorAddress) : undefined, () =>
-            ix.creator(creatorAddress),
-          ),
-          answerOf(ix.coverageAnswer ? () => ix.coverageAnswer!() : undefined, () => ix.coverage()),
-        ])
-      : [undefined, undefined];
-  const indexed = indexedAnswer?.value;
-  const coverage = coverageAnswer?.value;
-  // The indexer lists the launchpads the node cannot: its silence leaves them unread (AI).
-  const indexerFailed = Boolean(indexedAnswer?.failed || coverageAnswer?.failed);
-  const noteIndexer = (history: CreatorHistory) =>
-    indexerFailed ? withUnreadNote(history, UNREAD.indexer) : history;
-  // Launchpads the indexer has read to the head are not asked of the node.
-  const listedByIndexer = latest > 0 ? indexedListing(indexed, coverage, latest) : undefined;
-  const pairs = await pairsRead;
-  stage('pairs');
-  const listedVenues = 'pairs' in pairs ? venuesOf(address, pairs.pairs) : undefined;
-  // Every listed pool, and the trading rules (hook) of each v4 one: the
-  // checks of a market's rules read the main pool and weigh the others.
-  const poolsRead: Promise<ListedPool[] | undefined> =
-    'pairs' in pairs
-      ? ledger
-          .read('pool-rules', () =>
-            readPoolRules(
-              createRpcClient(options.rpcUrl, createBudget(POOL_RULES_BUDGET)),
-              listedPools(address, pairs.pairs),
-              indexedMarkets,
-              latest,
-              pickPrimaryPair(
-                pairs.pairs.filter(
-                  (p) => p.baseToken?.address?.toLowerCase() === address.toLowerCase(),
-                ),
-              )?.pairAddress?.toLowerCase() ?? null,
-              (error) => ledger.fail('pool-rules', error),
-            ),
-          )
-          .then((outcome) => valueOr(outcome, undefined))
-      : Promise.resolve(undefined);
-  let historyFromCache = false;
-  let historyError: unknown;
-
-  const emptyHistory = (creator: string) => ({
-    creator,
-    tokens: [],
-    counts: {
-      launched: 0,
-      graduated: 0,
-      abandoned: 0,
-      undetermined: 0,
-      liquidityPulled: 0,
-      creatorDumped: 0,
-    },
-    scannedRange: { fromBlock: 0, toBlock: 0 },
-  });
-
-  const chainReading: Promise<CreatorHistory> = launch
-    ? settled(
-        creatorHistoryCache
-          .resolve(cacheKey, async () => {
-            const history = await retry(() =>
-              fetchCreatorHistory(launch.deployer, {
-                focus: address,
-                rpcUrl: options.rpcUrl,
-                budget,
-                lookbackBlocks: options.lookbackBlocks,
-                now,
-              }),
-            );
-            // After the pons read, not alongside it: both are log queries
-            // on a node that paces them.
-            const [others, count] = await Promise.all([
-              otherLaunchpads(rpc, launch.deployer, latest, listedByIndexer, ledger),
-              ledger.read('creator-wallet', () => walletTransactionCount(rpc, launch.deployer)),
-            ]);
-            const listed = noteIndexer(
-              withOtherLaunchpads(
-                {
-                  ...history,
-                  data: {
-                    ...history.data,
-                    origin: history.data.origin ?? ponsOrigin(launch.factory, valueOr(count, null)),
-                  },
-                },
-                others,
-              ),
-            );
-            // A count not read is said in the history, so it is not cached as "no count".
-            return count.status === 'failed' ? withUnreadNote(listed, UNREAD.walletCount) : listed;
-          })
-          .then(({ value, cached }) => {
-            historyFromCache = cached;
-            return value;
-          }),
-        (error) => {
-          historyError = error;
-          return failed(
-            'robinhood-rpc',
-            collectedAt,
-            error,
-            emptyHistory(launch.deployer),
-          ) as CreatorHistory;
-        },
-      )
-    : origin
-      ? settled(
-          creatorHistoryCache
-            .resolve(cacheKey, async () =>
-              noteIndexer(
-                await retry(() =>
-                  fetchDeployerHistory(rpc, origin, {
-                    latestBlock: latest,
-                    checkOthersBy:
-                      startedAt + (options.checkOthersWithinMs ?? CHECK_OTHERS_WITHIN_MS),
-                    // The removals' details and the rest of the history still
-                    // fit before its deadline.
-                    sendersBy:
-                      startedAt +
-                      (options.historyDeadlineMs ?? HISTORY_DEADLINE_MS) -
-                      SENDERS_MARGIN_MS,
-                    ...(listedByIndexer ? { indexed: listedByIndexer } : {}),
-                    ...(listedVenues ? { venues: listedVenues } : {}),
-                    // The creator's own transactions settle its removals
-                    // without reading every removal's sender.
-                    ...(options.blockscoutApiKey
-                      ? {
-                          creatorSent: (wallet: string) =>
-                            listSentTransactions(wallet, options.blockscoutApiKey as string),
-                        }
-                      : {}),
-                    now,
-                  }),
-                ),
-              ),
-            )
-            .then(({ value, cached }) => {
-              historyFromCache = cached;
-              return value;
-            }),
-          (error) => {
-            historyError = error;
-            return failed(
-              'robinhood-rpc',
-              collectedAt,
-              error,
-              emptyHistory(origin.creator),
-            ) as CreatorHistory;
-          },
-        )
-      : Promise.resolve(
-          failed(
-            'robinhood-rpc',
-            collectedAt,
-            lookupError ??
-              originError ??
-              new Error(
-                'no launch record found, and the token’s first mint was not found — creator not available',
-              ),
-            emptyHistory('0x'),
-          ) as CreatorHistory,
-        );
-
-  /**
-   * Holders, the launch replay and the pools' balances: they need only the
-   * creator and the launch block. A token traced from its first mint knows
-   * both before its creator's history is read, and reads them alongside it
-   * (MEME: 24 s of history, then 10 s of these, one after the other).
-   */
-  async function readRest(chainCreator: string, launchBlock: number | undefined) {
-    // Every address that holds the token for trading or for its launch, and
-    // why: none of them is a holder. The launch pool alone was passed before,
-    // and a launchpad's curve (99.9 % of a flap.sh token), the pairs listed
-    // since, the launchpad's own contracts and its lock contract all read as
-    // the largest holders.
-    // The later entries win: a launch contract that is also the curve (the
-    // flap.sh portal) is named for the curve.
-    const setAside: { address: string; role: SetAsideRole }[] = [
-      ...(origin?.launchContract
-        ? [{ address: origin.launchContract, role: 'launchpad' as const }]
-        : []),
-      ...(launch?.pool && launch.pool !== '0x'
-        ? [{ address: launch.pool, role: 'pool' as const }]
-        : []),
-      ...(origin?.venues.pools ?? []).map((address) => ({ address, role: 'pool' as const })),
-      ...(listedVenues?.pools ?? []).map((address) => ({ address, role: 'pool' as const })),
-      ...(origin?.venues.curves ?? []).map((address) => ({ address, role: 'curve' as const })),
-      ...[...new Set([...(origin?.venues.hooks ?? []), ...(await indexedHooks)])].map(
-        (address) => ({
-          address,
-          role: 'hook' as const,
-        }),
-      ),
-    ];
-    const hooks = setAside.filter((s) => s.role === 'hook').map((s) => s.address);
-    // Without a Blockscout key, a pons token's holders are rebuilt from its
-    // transfers since launch — free, and exact when the whole history is read.
-    function readHolders(): Promise<HolderDistribution> {
-      if (!options.blockscoutApiKey && latest > 0) {
-        return (async () => {
-          const holdersRpc = createRpcClient(options.rpcUrl, holdersBudget);
-          // Not a pons launch: start from the token's first mint instead.
-          const from =
-            launchBlock ??
-            (mintLog
-              ? Number(mintLog.blockNumber)
-              : await findFirstMint(holdersRpc, address, latest));
-          if (from === undefined) {
-            throw new IncompleteDataError(
-              'robinhood-rpc',
-              'the start of this token’s history could not be found',
-            );
-          }
-          return fetchHoldersFromChain(holdersRpc, address, {
-            fromBlock: from,
-            toBlock: latest,
-            setAside,
-            now,
-          });
-        })();
-      }
-      return fetchHolderDistribution(address, {
-        apiKey: options.blockscoutApiKey,
-        budget: holdersBudget,
-        setAside,
+    const marketRead: Promise<SolanaMarketRead> = settled(
+      readSolanaMarket(token, {
+        rpc,
+        budget: dexBudget,
         now,
-      }).then(async (distribution) =>
-        distribution.completeness === 'unavailable' || latest === 0
-          ? distribution
-          : {
-              ...distribution,
-              // Blockscout calls a wallet delegating under EIP-7702 a contract.
-              data: valueOr(
-                await ledger.read('holder-codes', async () => {
-                  const rpc = createRpcClient(options.rpcUrl, createBudget(RECHECK_BUDGET));
-                  const checked = await recheckContracts(
-                    rpc,
-                    distribution.data,
-                    undefined,
-                    (error) => ledger.fail('holder-codes', error),
-                  );
-                  // Blockscout's balances can lag: the largest are read again, never left stale.
-                  // Not read again, Blockscout's figures stand, as they did before.
-                  return refreshBalances(
-                    createRpcClient(options.rpcUrl, createBudget(REFRESH_BUDGET)),
-                    checked,
-                  ).catch((error: unknown) => {
-                    log.warn('soldes des détenteurs non relus', {
-                      token: address,
-                      error: String(error),
-                    });
-                    return checked;
-                  });
-                }),
-                distribution.data,
-              ),
-            },
-      );
-    }
-
-    // The first minutes, read on their own budget: they never cost the three blocks anything.
-    const launchFrom = launchBlock ?? (mintLog ? Number(mintLog.blockNumber) : undefined);
-    const replayOptions = {
-      launchBlock: launchFrom ?? 0,
-      latestBlock: latest,
-      // Every place the token's supply sits for trading: the launch pool,
-      // the pairs created at launch and since, a launchpad's curve.
-      pools: [
-        launch?.pool,
-        ...(origin?.venues.pools ?? []),
-        ...(origin?.venues.curves ?? []),
-        ...(listedVenues?.pools ?? []),
-      ].filter((pool): pool is string => Boolean(pool) && pool !== '0x'),
-      hooks,
-      creator: chainCreator,
-      now,
-    };
-    // The replay runs alongside the holders' rebuild, the busiest read of all:
-    // a node that turned it away is asked once more, after a pause.
-    const readReplay = async () => {
-      try {
-        return await readLaunchReplay(
-          createRpcClient(options.rpcUrl, createBudget(LAUNCH_BUDGET)),
-          address,
-          replayOptions,
-        );
-      } catch (error) {
-        if (!(error instanceof RateLimitError)) throw error;
-        await new Promise((resolve) => setTimeout(resolve, REPLAY_RETRY_MS));
-        return readLaunchReplay(
-          createRpcClient(options.rpcUrl, createBudget(LAUNCH_BUDGET)),
-          address,
-          replayOptions,
-        );
-      }
-    };
-    // A replay still reading at its deadline is a read that did not finish:
-    // the report goes out partial instead of the route's 504 (0x2e8c…: 31 s
-    // of replay, the analysis cut at 38 s on staging, 07/11/2026).
-    const replayLeft = startedAt + (options.replayDeadlineMs ?? REPLAY_DEADLINE_MS) - Date.now();
-    const replay =
-      launchFrom !== undefined && latest > 0
-        ? ledger
-            .read('launch-replay', () =>
-              Promise.race([
-                readReplay(),
-                new Promise<never>((_, reject) =>
-                  setTimeout(
-                    () =>
-                      reject(
-                        new IncompleteDataError(
-                          'robinhood-rpc',
-                          'the first minutes of trading took too long to read this time',
-                        ),
-                      ),
-                    Math.max(0, replayLeft),
-                  ),
-                ),
-              ]),
-            )
-            .then((outcome) => valueOr(outcome, undefined))
-        : Promise.resolve(undefined);
-
-    // What the token's pools hold today, against what DexScreener lists: a
-    // removal is on chain at once, the listed liquidity can lag it by hours.
-    const poolsShare =
-      latest > 0
-        ? ledger
-            .read('pools-share', () =>
-              readPoolsShare(
-                createRpcClient(options.rpcUrl, createBudget(POOLS_BUDGET)),
-                address,
-                // Every market the token trades on: its pairs, its curve, the v4 PoolManager.
-                [
-                  ...setAside
-                    .filter((s) => s.role === 'pool' || s.role === 'curve')
-                    .map((s) => s.address),
-                  POOL_MANAGER,
-                ],
-              ),
-            )
-            .then((outcome) => valueOr(outcome, null))
-        : Promise.resolve(null);
-
-    const [holders, launchReplay, pooledNow] = await Promise.all([
-      settled<HolderDistribution>(readHolders(), (error) => {
-        failures.push({ read: 'holders', note: noteOf(error) });
-        return failed(
-          options.blockscoutApiKey ? 'blockscout' : 'robinhood-rpc',
-          collectedAt,
-          error,
-          {
-            token: address,
-            countedSupply: '0',
-            holderCount: null,
-            top: [],
-            concentration: { top1: 0, top10: 0 },
-            distinctTraders: null,
-          },
-        ) as HolderDistribution;
+        deadlineMs: left(timeouts.market),
+        signal: cut.signal,
+        ...(options.dexBaseUrl ? { baseUrl: options.dexBaseUrl } : {}),
       }),
-      replay,
-      poolsShare,
-    ]);
-    return { holders, launchReplay, pooledNow, setAside, launchFrom };
-  }
-
-  // Every transfer of the token to its creator over the window its sales are
-  // read on: the fees a market's hook paid out. A token traced from its first
-  // mint knows that window now, so it is read alongside the history rather
-  // than after it (AI, 80 launches: 8 s more once the history was done).
-  const incomingOf = (client: RpcClient, to: string, fromBlock: number, toBlock: number) =>
-    getLogsBatched(
-      client,
-      {
-        addresses: [{ address, fromBlock, toBlock }],
-        topics: [TRANSFER_TOPIC, null, topicFor(to)],
-      },
-      { fromBlock, toBlock },
-    );
-  const earlyIncoming = (() => {
-    const fromBlock = origin?.blockNumber ?? 0;
-    const toBlock = Math.min(latest, fromBlock + OWN_SALES_MAX_BLOCKS - 1);
-    return {
-      creator: origin?.creator.toLowerCase(),
-      fromBlock,
-      toBlock,
-      // Settled here so an early failure is not unhandled; thrown again when used.
-      read:
-        origin && latest > 0
-          ? incomingOf(
-              createRpcClient(options.rpcUrl, createBudget(FEES_BUDGET)),
-              origin.creator,
-              fromBlock,
-              toBlock,
-            ).then(
-              (value) => ({ value }),
-              (error: unknown) => ({ error }),
-            )
-          : Promise.resolve({ error: new Error('no window to read') }),
-    };
-  })();
-
-  // Not a pons launch: started now, alongside the history.
-  const early = launch ? undefined : readRest(origin?.creator ?? '0x', origin?.blockNumber);
-  const chainRead = await withinDeadline(
-    chainReading,
-    startedAt + (options.historyDeadlineMs ?? HISTORY_DEADLINE_MS) - Date.now(),
-    () => {
-      historyError = new IncompleteDataError(
-        'robinhood-rpc',
-        'the creator’s history did not finish in time this time; try again in a minute',
-      );
-      return failed(
-        'robinhood-rpc',
-        collectedAt,
-        historyError,
-        emptyHistory(creatorAddress ?? '0x'),
-      ) as CreatorHistory;
-    },
-  );
-  stage('creator-history');
-  const chain = withIndexedLaunches(chainRead, indexed, collectedAt);
-
-  const graduation = launch
-    ? valueOr(
-        await ledger.read('graduation', async () => {
-          const status = await fetchGraduationStatus(rpc, launch.factory, address);
-          // A call that reverts: this factory does not know the token, not a failure.
-          if (!status) return NOT_APPLICABLE;
-          return {
-            thresholdEth: status.thresholdEth,
-            pairedEth: status.pairedEth,
-            graduated: status.graduated,
-          };
+      (error) => ({
+        market: unavailable('dexscreener-solana', collectedAt, error, emptyMarket(token)),
+        launch: unavailable('solana-rpc', collectedAt, error, {
+          mint: token,
+          launchpad: null,
+          account: null,
+          foundBy: null,
         }),
-        undefined,
-      )
-    : undefined;
-
-  const own = (t: LaunchedToken) => t.address.toLowerCase() === address.toLowerCase();
-  const { holders, launchReplay, pooledNow, setAside, launchFrom } = await (early ??
-    readRest(chain.data.creator, chain.data.tokens.find(own)?.launchedAtBlock));
-  stage('holders-replay');
-  const marketRead = await settled<MarketState>(
-    (async () => {
-      if ('error' in pairs) throw pairs.error;
-      return toMarketState(address, pairs.pairs, { graduation, now });
-    })(),
-    (error) => {
-      failures.push({ read: 'market', note: noteOf(error) });
-      return failed('dexscreener', collectedAt, error, {
-        token: address,
-        pair: null,
-        priceUsd: null,
-        liquidityUsd: null,
-        pairedEth: null,
         graduation: null,
-        volumeUsd: null,
-        txns: null,
-        fdvUsd: null,
-        pairCreatedAt: null,
-      }) as MarketState;
-    },
-  );
-  stage('market');
+        liquidity: unavailable('solana-rpc', collectedAt, error, { mint: token, pools: [] }),
+      }),
+    ).finally(() => stage('market'));
 
-  // A creator sale the launch replay saw confirmed by a trade is a sale in
-  // the history too: the replay and the history must not disagree (AML).
-  const sold =
-    launchReplay?.data.summary?.creatorSaleConfirmed &&
-    chain.data.tokens.some((t) => own(t) && t.creatorDumped !== true)
-      ? withOwnSale(chain, own)
-      : chain;
+    const creatorRead: Promise<SolanaCreator> = settled(
+      findCreator(token, rpc, {
+        maxCalls: CREATOR_CALLS,
+        timeoutMs: left(timeouts.creator),
+        now: nowMs,
+      }),
+      (error) =>
+        unavailable('solana-rpc', collectedAt, error, {
+          mint: token,
+          creator: null,
+          from: null,
+          account: null,
+          creation: null,
+          pumpCurve: null,
+        }),
+    ).finally(() => stage('creator'));
 
-  // The supply, read once: from the replay, else from the token.
-  let supplyRead: Promise<bigint> | undefined;
-  const supplyOf = (client: RpcClient): Promise<bigint> =>
-    (supplyRead ??= launchReplay
-      ? Promise.resolve(BigInt(launchReplay.data.supply))
-      : client
-          .call<string>('eth_call', [{ to: address, data: '0x18160ddd' }, 'latest'])
-          .then((raw) => (raw && raw !== '0x' ? BigInt(raw) : 0n)));
+    const mint = await mintRead;
+    // An address that holds no mint is not a token: nothing else is worth reading.
+    if (mint.completeness === 'full' && mint.data === null) {
+      cut.abort(new NotFoundError('solana-rpc', 'token mint'));
+      throw new NotFoundError('solana-rpc', `token mint at ${token}`);
+    }
+    const creator = await creatorRead;
+    const creatorAddress = creator.data.creator;
+    const creation = creator.data.creation;
 
-  // Tokens the market's trading rules (hooks) paid out to the creator: its
-  // fees, taken out of the market without removing its liquidity. Every such
-  // transfer over the token's life, summed (MEME: 0.52 % over 28 transfers
-  // from Doppler's hook; AML and KEL the same pattern).
-  const ownToken = sold.data.tokens.find(own);
-  const feeHooks = [
-    ...new Set(
-      [
-        ...setAside.filter((s) => s.role === 'hook').map((s) => s.address),
-        ...LAUNCH_HOOKS.map((h) => h.address),
-      ].map((a) => a.toLowerCase()),
-    ),
-  ];
-  // Read alongside the holders' links, not after them.
-  // ASTEROID: this read cut short answered "no fees" (6.907 % in 52 transfers really).
-  const feesRead =
-    ownToken && sold.completeness !== 'unavailable' && latest > 0 && launchFrom !== undefined
-      ? ledger
-          .read('creator-fees', async () => {
-            const feesRpc = createRpcClient(options.rpcUrl, createBudget(FEES_BUDGET));
-            const fromBlock = ownToken.salesWindow?.fromBlock ?? launchFrom;
-            const toBlock = Math.min(latest, ownToken.salesWindow?.toBlock ?? latest);
-            const same =
-              early &&
-              earlyIncoming.creator === sold.data.creator.toLowerCase() &&
-              earlyIncoming.fromBlock === fromBlock &&
-              earlyIncoming.toBlock === toBlock;
-            const incoming = same
-              ? await earlyIncoming.read
-              : { value: await incomingOf(feesRpc, sold.data.creator, fromBlock, toBlock) };
-            if ('error' in incoming) throw incoming.error;
-            const { logs, truncated } = incoming.value;
-            // Windows the node did not answer: the fees in them are unknown, not none.
-            if (truncated) {
-              throw new IncompleteDataError(
-                'robinhood-rpc',
-                'some windows of the creator’s incoming transfers could not be read',
-              );
+    // ── 2. What needs the creator ─────────────────────────────────────────
+    const holdersRead: Promise<SolanaHolders> = settled(
+      readHolders(token, rpc, {
+        ...(mint.data
+          ? {
+              mint: {
+                program: mint.data.program,
+                decimals: mint.data.decimals,
+                supply: mint.data.supply,
+              },
             }
-            const supply = await supplyOf(feesRpc);
-            return feesFromHooks(logs, feeHooks, launchFrom, supply);
-          })
-          .then((outcome) => valueOr(outcome, null))
+          : {}),
+        ...(creatorAddress ? { creator: creatorAddress } : {}),
+        maxCalls: HOLDERS_CALLS,
+        timeoutMs: left(timeouts.holders),
+        now,
+      }),
+      (error) => unavailable('solana-rpc', collectedAt, error, emptyHolders(token)),
+    ).finally(() => stage('holders'));
+
+    const launchRead: Promise<SolanaLaunchReplay> = (async () => {
+      // The creation time says where to look when the creation itself was
+      // not reached: the creator's read gives it, else DexScreener's pools.
+      const createdAt = creation?.blockTime ?? listedSince(await marketRead);
+      return replayLaunch(token, rpc, {
+        creator: creatorAddress,
+        ...(creation ? { creationSignature: creation.signature } : {}),
+        ...(createdAt !== null ? { createdAt } : {}),
+        maxCalls: LAUNCH_CALLS,
+        deadlineMs: left(timeouts.launch),
+        now: nowMs,
+      });
+    })();
+    const launch = settled(launchRead, (error) =>
+      unavailable('solana-rpc', collectedAt, error, emptyLaunch(token)),
+    ).finally(() => stage('launch'));
+
+    const limits = () => ({
+      maxCalls: CREATOR_READ_CALLS,
+      timeoutMs: left(timeouts.creatorReads),
+      now: nowMs,
+    });
+    const historyRead: Promise<SolanaCreatorHistory | null> = creatorAddress
+      ? settled(
+          creatorHistory(creatorAddress, rpc, { ...limits(), exclude: token, dex }),
+          (error) => unavailable('solana-rpc', collectedAt, error, emptyHistory(creatorAddress)),
+        ).finally(() => stage('creator-history'))
+      : Promise.resolve(null);
+    const onTokenRead: Promise<SolanaCreatorOnToken | null> = creatorAddress
+      ? settled(creatorOnToken(creatorAddress, token, rpc, limits()), (error) =>
+          unavailable('solana-rpc', collectedAt, error, emptyOnToken(creatorAddress, token)),
+        ).finally(() => stage('creator-on-token'))
+      : Promise.resolve(null);
+    const linkedRead: Promise<SolanaLinkedWallets | null> = creatorAddress
+      ? settled(
+          linkedWallets(creatorAddress, token, rpc, {
+            ...limits(),
+            ...(creation?.blockTime ? { launchTime: creation.blockTime } : {}),
+          }),
+          (error) =>
+            unavailable('solana-rpc', collectedAt, error, {
+              creator: creatorAddress,
+              mint: token,
+              firstFunding: null,
+              funding: 'not-reached' as const,
+              window: null,
+              funded: [],
+            }),
+        ).finally(() => stage('linked-wallets'))
       : Promise.resolve(null);
 
-  // Which holders received from the creator: its own transfers, set against the list.
-  const sends = sold.data.tokens.find(own)?.creatorSends;
-  // `null`: the creator's transfers were not all read, so neither are its links to the holders.
-  if (sends === null && holders.completeness !== 'unavailable') {
-    ledger.fail(
-      'holder-links',
-      new IncompleteDataError('robinhood-rpc', 'the creator’s transfers were not all read'),
-    );
-  }
-  const linkedRead =
-    sends && holders.completeness !== 'unavailable' && latest > 0
-      ? valueOr(
-          await ledger.read('holder-links', async () => {
-            const linksRpc = createRpcClient(options.rpcUrl, createBudget(LINKS_BUDGET));
-            const supply = await supplyOf(linksRpc);
-            if (supply === 0n) {
-              throw new IncompleteDataError(
-                'robinhood-rpc',
-                'the token’s supply could not be read',
-              );
-            }
-            const links = await linkCreatorToHolders(linksRpc, {
-              token: address.toLowerCase(),
-              sends,
-              holders: holders.data,
-              supply,
-              setAside: new Set(
-                [...setAsideRoles({ setAside }).keys(), ...setAside.map((s) => s.address)].map(
-                  (a) => a.toLowerCase(),
-                ),
-              ),
-              fromBlock: launchFrom ?? 0,
-              toBlock: latest,
-              onUnread: (error) => ledger.fail('holder-links', error),
-            });
-            return { ...holders, data: withLinks(holders.data, links) };
-          }),
-          holders,
-        )
-      : holders;
+    const [market, holders, launchReplay, history, onToken, linked] = await Promise.all([
+      marketRead,
+      holdersRead,
+      launch,
+      historyRead,
+      onTokenRead,
+      linkedRead,
+    ]);
 
-  // What the replay saw the creator hand out at launch links holders too.
-  const linkedHolders =
-    launchReplay && linkedRead.completeness !== 'unavailable'
-      ? {
-          ...linkedRead,
-          data: withLaunchLinks(linkedRead.data, launchReplay.data.moves, Boolean(sends)),
-        }
-      : linkedRead;
-
-  // What the largest holders and the launch's recipients are: a lock, a pool
-  // no listing names, a launchpad's wallet (SIRIUS: its "largest holder, a
-  // contract" was Virtuals' TokenTable lock for the creator).
-  const named =
-    latest > 0 && linkedHolders.completeness !== 'unavailable'
-      ? valueOr(
-          await ledger.read('address-roles', async () => {
-            const rolesRpc = createRpcClient(options.rpcUrl, createBudget(ROLES_BUDGET));
-            const supply = await supplyOf(rolesRpc);
-            const names = await readAddressRoles(
-              rolesRpc,
-              roleCandidates(linkedHolders.data, launchReplay),
-              {
-                token: address,
-                supply,
-                launchpad: origin?.launchpad?.id ?? null,
-                curves: origin?.venues.curves ?? [],
-                now,
-              },
-            );
-            return { names, supply };
-          }),
-          null,
-        )
-      : null;
-  // A failed read still leaves what is known without one: a launchpad's
-  // wallets and contracts, the launch's curve (the read is filed as failed).
-  const roles: NamedAddress[] =
-    named?.names ??
-    knownNames(roleCandidates(linkedHolders.data, launchReplay), {
-      launchpad: origin?.launchpad?.id ?? null,
-      curves: origin?.venues.curves ?? [],
-    });
-  const namedHolders: HolderDistribution =
-    roles.length > 0
-      ? {
-          ...linkedHolders,
-          data: withRoles(
-            linkedHolders.data,
-            roles,
-            named?.supply ?? (launchReplay ? BigInt(launchReplay.data.supply) : null),
-          ),
-        }
-      : linkedHolders;
-
-  // A Virtuals launch that graduated: when, and where its curve's tokens went
-  // (SIRIUS: 10.47 % to its Uniswap v2 pair, 4.45 % to the excess wallet).
-  const graduatedRead =
-    origin?.launchpad?.id === 'virtuals' && latest > 0 && origin.blockNumber !== undefined
-      ? valueOr(
-          await ledger.read('graduation', async () => {
-            const gradRpc = createRpcClient(options.rpcUrl, createBudget(GRADUATION_BUDGET));
-            const found = await readVirtualsGraduations(
-              gradRpc,
-              [{ token: address.toLowerCase(), blockNumber: origin.blockNumber }],
-              latest,
-            );
-            const log = found.get(address.toLowerCase());
-            if (!log) return NOT_APPLICABLE;
-            return readVirtualsGraduation(gradRpc, address, log, await supplyOf(gradRpc), [
-              ...(origin.venues.pools ?? []),
-              ...(listedVenues?.pools ?? []),
-            ]);
-          }),
-          null,
-        )
-      : null;
-
-  // What graduation moved, named too (the market, Virtuals' excess wallet).
-  const graduationNames = graduatedRead
-    ? knownNames(
-        [graduatedRead.market, graduatedRead.excess]
-          .filter((m): m is { address: string; share: number } => m !== null)
-          .filter((m) => !roles.some((r) => r.address === m.address)),
-        {
-          launchpad: origin?.launchpad?.id ?? null,
-          curves: origin?.venues.curves ?? [],
-        },
+    const failedReads = mergeFailedReads(
+      (
+        [
+          ['token', mint],
+          ['creator', creator],
+          ['creator-launches', history],
+          ['creator-sales', onToken],
+          ['linked-wallets', linked],
+          ['holders', holders],
+          ['market', market.market],
+          ['graduation', market.launch],
+          ['graduation', market.graduation],
+          ['liquidity', market.liquidity],
+          ['launch-replay', launchReplay],
+        ] as [ReadId, Parameters<typeof failedReadOf>[1]][]
       )
-    : [];
-  const allRoles = [...roles, ...graduationNames];
+        .map(([read, block]) => failedReadOf(read, block))
+        .filter((f): f is FailedRead => f !== null),
+    );
 
-  const fees = await feesRead;
-  stage('fees');
-  const pools = await poolsRead;
-  const creator: CreatorHistory =
-    fees && fees.transfers > 0
-      ? {
-          ...sold,
-          data: {
-            ...sold.data,
-            tokens: sold.data.tokens.map((t) =>
-              own(t)
-                ? {
-                    ...t,
-                    feesCollected: true,
-                    feesTaken: {
-                      ...fees,
-                      payers: feePayers(fees.hooks, marketRead.data.pair, pools),
-                    },
-                  }
-                : t,
-            ),
-          },
-        }
-      : sold;
+    const completeness: Completeness = combineCompleteness([
+      mint.completeness,
+      creator.completeness,
+      holders.completeness,
+      market.market.completeness,
+    ]);
 
-  // No listed pair: the launch pool's own trades, counted by the indexer.
-  const tokenAnswer = await indexedToken;
-  stage('indexer-token');
-  const market = checkLiquidity(
-    withPoolActivity(
-      pools && pools.length > 0 && marketRead.data.pair !== null
-        ? { ...marketRead, data: { ...marketRead.data, pools } }
-        : marketRead,
-      tokenAnswer.value,
+    log.info('analyse collectée', {
+      token,
+      completeness,
+      ms: Date.now() - startedAt,
+      stages,
+      calls: (client as Partial<SolanaRpcClient>).usage?.(),
+      dex: dexBudget.spent,
+      failed: failedReads.map((f) => f.read),
+    });
+
+    return {
+      chain: 'solana',
+      token,
       collectedAt,
-      now,
-    ),
-    pooledNow,
-  );
-  // A pons token no pair lists trades only where the indexer counts it.
-  if (tokenAnswer.failed && market.data.pair === null) ledger.fail('indexer-token');
-
-  // The creator, its history and its sales: each read that failed is named.
-  if (historyError !== undefined || lookupError !== undefined || originError !== undefined) {
-    failures.push({
-      read: 'creator',
-      note: creator.sources.find((s) => s.note)?.note ?? noteOf(historyError),
-    });
-  }
-  // Every source note that says its read failed is a failed read: the same
-  // test the cache applies, so a failed source is never left out (Wheel Smith).
-  failures.push(
-    ...failedReadsOfSources({
+      mint,
+      powers: mint.data ? tokenPowers(mint.data) : [],
       creator,
-      holders: namedHolders,
-      market,
-      ...(launchReplay ? { launch: launchReplay } : {}),
-    }),
-  );
-  // Without the creator's history, the launch block of a pons token is not
-  // known and its first minutes are not read either.
-  if (!launchReplay && launchFrom === undefined && historyError !== undefined) {
-    failures.push({
-      read: 'launch-replay',
-      note: 'the first minutes after the launch were not read: the launch block could not be read this time',
-    });
+      creatorHistory: history,
+      creatorOnToken: onToken,
+      linkedWallets: linked,
+      holders,
+      market: market.market,
+      launchpad: market.launch,
+      graduation: market.graduation,
+      liquidity: market.liquidity,
+      launch: launchReplay,
+      completeness,
+      ...(failedReads.length > 0 ? { failedReads } : {}),
+    };
+  } finally {
+    clearTimeout(timer);
+    options.signal?.removeEventListener('abort', onCallerAbort);
+    // Every block is settled: a request a reader left behind when its own cap
+    // fired is no longer wanted. Clearing the deadline's timer alone left it
+    // running (until fetch's own 15 s timeout) once the report was out.
+    if (!cut.signal.aborted) {
+      cut.abort(new TimeoutError('solana-rpc', Date.now() - startedAt));
+    }
   }
-  // A sale confirmed anyway (by a trade in the launch's first minutes) stands:
-  // the read is still said to be partial, and that the sale was seen.
-  const saleSeen = creator.data.tokens.some((t) => own(t) && t.creatorDumped === true);
-  const failedReads = mergeFailedReads(
-    ledger.all.map((f) =>
-      f.read === 'creator-sales' && saleSeen ? { ...f, note: `${f.note}${SALE_SEEN}` } : f,
-    ),
-  );
+}
 
-  const completeness = combineCompleteness([
-    creator.completeness,
-    namedHolders.completeness,
-    market.completeness,
-  ]);
+// ── Empty blocks, for a reader that failed outright ─────────────────────────
 
-  log.info('analyse collectée', {
-    token: address,
-    completeness,
-    requests: { rpc: budget.spent, holders: holdersBudget.spent, market: marketBudget.spent },
-    creatorHistoryCached: historyFromCache,
-    ms: Date.now() - startedAt,
-    stages,
-    reads: ledger.timings,
-  });
-
+function emptyMarket(token: string): SolanaMarketRead['market']['data'] {
   return {
-    token: address,
-    collectedAt,
-    creator,
-    holders: namedHolders,
-    market,
-    ...(launchReplay ? { launch: launchReplay } : {}),
-    ...(allRoles.length > 0 ? { roles: allRoles } : {}),
-    ...(graduatedRead ? { graduated: graduatedRead } : {}),
-    completeness,
-    ...(failedReads.length > 0 ? { failedReads } : {}),
+    chain: 'solana',
+    token,
+    pair: null,
+    dex: null,
+    pairedWith: null,
+    priceUsd: null,
+    priceNative: null,
+    liquidityUsd: null,
+    volumeUsd: null,
+    txns: null,
+    fdvUsd: null,
+    marketCapUsd: null,
+    pairCreatedAt: null,
+    pools: [],
   };
 }
 
-/** Requests for a Virtuals graduation: its event over the windows since launch, its receipt. */
-const GRADUATION_BUDGET = 4;
-
-/** Requests for the roles: the supply, codes, probes, a lock's schedules, pools — small batches. */
-const ROLES_BUDGET = 10;
-
-/**
- * The addresses worth naming: the largest holders outside pools, then every
- * address the launch moved supply to or from.
- */
-export function roleCandidates(
-  holders: HolderDistribution['data'],
-  launch: LaunchReplay | undefined,
-): { address: string; isContract: boolean | null }[] {
-  const out = new Map<string, boolean | null>();
-  for (const h of holders.top
-    .filter((h) => h.kind === 'wallet' || h.kind === 'contract')
-    .slice(0, 10)) {
-    out.set(h.address.toLowerCase(), h.kind === 'contract');
-  }
-  for (const m of launch?.data.moves ?? []) {
-    if (m.kind !== 'mint' && m.kind !== 'allocation') continue;
-    if (m.actorKind === 'wallet' || m.actorKind === 'contract' || m.actorKind === 'pool') {
-      if (!out.has(m.actor.toLowerCase())) {
-        out.set(
-          m.actor.toLowerCase(),
-          m.actorKind === 'wallet' ? false : m.actorKind === 'contract' ? true : null,
-        );
-      }
-    }
-    if (m.kind === 'allocation' && !out.has(m.counterparty.toLowerCase())) {
-      out.set(m.counterparty.toLowerCase(), null);
-    }
-  }
-  return [...out].map(([address, isContract]) => ({ address, isContract }));
+function emptyHolders(token: string): SolanaHolders['data'] {
+  return {
+    token,
+    chain: 'solana',
+    program: null,
+    decimals: 0,
+    supply: '0',
+    method: 'none',
+    accountsRead: 0,
+    countedSupply: '0',
+    holderCount: null,
+    holdersAtLeast: 0,
+    top: [],
+    concentration: { top1: 0, top10: 0 },
+    pooledShare: null,
+    setAside: [],
+    distinctTraders: null,
+    ofSupply: {
+      largestWallet: null,
+      top10Wallets: null,
+      pools: null,
+      curves: null,
+      burned: null,
+      locked: null,
+    },
+  };
 }
 
-/** One batch of `Initialize` queries, one per 10 M blocks, and a retry. */
-const POOL_RULES_BUDGET = 3;
-
-/**
- * The trading rules (hook) of each listed v4 pool: from the indexer's
- * markets first, then from the PoolManager's `Initialize`, by id, over the
- * whole chain. A pool whose `Initialize` could not be read keeps `v4: null`:
- * its rules are unknown, never "none".
- */
-export async function readPoolRules(
-  rpc: RpcClient,
-  pools: readonly ListedPool[],
-  indexed: Promise<IndexerMarkets['markets']>,
-  latest: number,
-  mainPair: string | null,
-  /** Told when the `Initialize` of a weighed pool could not be read: its rules stay unknown. */
-  onUnread?: (error: unknown) => void,
-): Promise<ListedPool[]> {
-  const known = new Map<string, NonNullable<ListedPool['v4']>>();
-  for (const m of await indexed) {
-    known.set(m.id.toLowerCase(), {
-      hook: m.hook.toLowerCase(),
-      currency0: m.currency0.toLowerCase(),
-      currency1: m.currency1.toLowerCase(),
-      fee: m.fee,
-      tickSpacing: m.tickSpacing,
-      blockNumber: m.block,
-      transactionHash: m.txHash,
-    });
-  }
-  // The main pool and the pools that weigh beside it; dust pools are not read.
-  const listed = { pools: [...pools], pair: mainPair };
-  const weighed = new Set(
-    [mainPool(listed), ...meaningfulPools(listed)].filter(Boolean).map((p) => p!.id),
-  );
-  const missing = pools.filter((p) => p.version === 'v4' && weighed.has(p.id) && !known.has(p.id));
-  if (missing.length > 0 && latest > 0) {
-    // The main pool first: it alone is searched over the whole chain if needed.
-    missing.sort((a, b) => Number(b.id === mainPair) - Number(a.id === mainPair));
-    const { markets, failed } = await findMarketsById(rpc, missing, latest, {
-      fullScanFor: missing[0]?.id === mainPair ? 1 : 0,
-    }).catch((error: unknown) => {
-      onUnread?.(error);
-      return { markets: [] as V4Market[], failed: false };
-    });
-    if (failed) {
-      onUnread?.(new IncompleteDataError('robinhood-rpc', 'a pool’s Initialize was not read'));
-    }
-    for (const m of markets) {
-      known.set(m.id, {
-        hook: m.hook,
-        currency0: m.currency0,
-        currency1: m.currency1,
-        fee: m.fee,
-        tickSpacing: m.tickSpacing,
-        blockNumber: m.blockNumber,
-        transactionHash: m.transactionHash,
-      });
-    }
-  }
-  // A dust pool not read is left without rules, not marked unread.
-  return pools.map((p) =>
-    p.version !== 'v4'
-      ? p
-      : known.has(p.id)
-        ? { ...p, v4: known.get(p.id)! }
-        : weighed.has(p.id)
-          ? { ...p, v4: null }
-          : p,
-  );
+function emptyLaunch(token: string): SolanaLaunchReplay['data'] {
+  return {
+    chain: 'solana',
+    token,
+    tokenProgram: null,
+    decimals: null,
+    supply: null,
+    creation: null,
+    launchBlock: null,
+    launchedAt: null,
+    windowSeconds: 0,
+    windowSlots: 0,
+    moves: [],
+    movesInWindow: 0,
+    summary: null,
+    sameSlot: null,
+    payerGroup: null,
+    roundTrips: [],
+    transactions: {
+      wanted: 0,
+      read: 0,
+      failed: 0,
+      withoutChange: 0,
+      beyond: 0,
+      wholeHistory: false,
+    },
+    calls: 0,
+    story: [],
+  };
 }
 
-/**
- * What each contract that paid the creator fees is to this token: the
- * trading rules (hook) of its main pool, of another of its pools, or a
- * launchpad's contract that is neither (MEME: Doppler's 0x4e34… paid fees
- * while its main pool runs no hook).
- */
-export function feePayers(
-  payers: readonly string[],
-  mainPair: string | null,
-  pools: readonly ListedPool[] | undefined,
-): FeePayer[] {
-  const main = mainPair ? pools?.find((p) => p.id === mainPair.toLowerCase())?.v4?.hook : undefined;
-  const others = new Set(
-    (pools ?? [])
-      .filter((p) => p.id !== mainPair?.toLowerCase())
-      .map((p) => p.v4?.hook)
-      .filter((h): h is string => Boolean(h)),
-  );
-  return payers.map((address) => {
-    const a = address.toLowerCase();
-    const launch = LAUNCH_HOOKS.find((h) => h.address === a);
-    const role: FeePayer['role'] =
-      main === a ? 'main-hook' : launch ? 'launch' : others.has(a) ? 'pool-hook' : 'hook';
-    return { address: a, role };
-  });
+function emptyHistory(creator: string): SolanaCreatorHistory['data'] {
+  return {
+    creator,
+    tokens: [],
+    counts: { launched: 0, graduated: 0, dead: 0, active: 0, unknown: 0 },
+    scanned: {
+      pumpCurvesListed: false,
+      curvesWithoutMint: 0,
+      signatures: 0,
+      signaturesComplete: false,
+      transactionsListed: 0,
+      transactionsRead: 0,
+      readSince: null,
+    },
+  };
 }
 
-/** Requests for the fees read: the creator's incoming transfers, in a few windows, and the supply. */
-const FEES_BUDGET = 8;
-
-/**
- * What the market's trading rules (hooks) sent the creator, outside the
- * launch block (where a launchpad hands out allocations): summed, with the
- * number of transfers and the hooks that paid.
- */
-export function feesFromHooks(
-  logs: readonly RawLog[],
-  hooks: readonly string[],
-  launchBlock: number,
-  supply: bigint,
-): { share: number; transfers: number; hooks: string[] } {
-  const from = new Set(hooks.map((h) => topicFor(h)));
-  let total = 0n;
-  let transfers = 0;
-  const paid = new Set<string>();
-  for (const l of logs) {
-    if (l.topics.length !== 3 || !from.has((l.topics[1] ?? '').toLowerCase())) continue;
-    if (Number(l.blockNumber) <= launchBlock) continue;
-    const raw = l.data.startsWith('0x') ? l.data.slice(2) : l.data;
-    if (raw.length < 64) continue;
-    const value = BigInt(`0x${raw.slice(0, 64)}`);
-    if (value === 0n) continue;
-    total += value;
-    transfers += 1;
-    paid.add(`0x${(l.topics[1] ?? '').slice(26)}`.toLowerCase());
-  }
-  const share = supply > 0n ? Number((total * 1_000_000n) / supply) / 1_000_000 : 0;
-  return { share, transfers, hooks: [...paid] };
+function emptyOnToken(creator: string, mint: string): SolanaCreatorOnToken['data'] {
+  return {
+    wallet: creator,
+    mint,
+    bought: '0',
+    sold: '0',
+    received: '0',
+    burned: '0',
+    locked: '0',
+    unlocked: '0',
+    solSpent: '0',
+    solReceived: '0',
+    holdsNow: null,
+    holdsNowShare: null,
+    moves: [],
+    accountsRead: [],
+    transactions: { listed: 0, read: 0 },
+    supply: null,
+    decimals: null,
+    sends: { recipients: [], distinct: 0, burned: '0', total: '0' },
+  };
 }

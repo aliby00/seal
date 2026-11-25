@@ -1,0 +1,144 @@
+[
+  {
+    "chainId": "solana",
+    "dexId": "raydium",
+    "url": "https://dexscreener.com/solana/hv1i8wrxehl8djbuxhfgjxxtt4qeupywwkfsggb5a7w6",
+    "pairAddress": "Hv1i8WrxEhL8djBuxhFGJxXTt4qEupywWKFSgGB5A7w6",
+    "baseToken": {
+      "address": "CDBdbNqmrLu1PcgjrFG52yxg71QnFhBZcUE6PSFdbonk",
+      "name": "Let's BONK",
+      "symbol": "LetsBONK"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.00003106",
+    "priceUsd": "0.002150",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 2
+      },
+      "h24": {
+        "buys": 6,
+        "sells": 7
+      }
+    },
+    "volume": {
+      "h24": 197.81,
+      "h6": 27.59
+    },
+    "priceChange": {
+      "h6": 0.42,
+      "h24": -3.89
+    },
+    "liquidity": {
+      "base": 22355815,
+      "quote": 695.8171,
+      "usd": 96236.05
+    },
+    "fdv": 148370,
+    "marketCap": 148370,
+    "pairCreatedAt": 1745605267000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/c49a9132cb91ffa66d1c447b3945b7c5de3c3a7a5a6ccab43b7eaa5a49316e0d?width=800&height=800&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CDBdbNqmrLu1PcgjrFG52yxg71QnFhBZcUE6PSFdbonk?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://letsbonk.fun",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/i/communities/1932099862163521775",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/Lets_bonkonsol",
+          "type": "telegram"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "pumpswap",
+    "url": "https://dexscreener.com/solana/gidovkejsdzpiukgy7scpjqb7vnky8syyqnjacy62ni6",
+    "pairAddress": "GidovkejSdZpiukGY7ScpJqb7VNKy8sYyqnjAcY62Ni6",
+    "baseToken": {
+      "address": "CDBdbNqmrLu1PcgjrFG52yxg71QnFhBZcUE6PSFdbonk",
+      "name": "Let's BONK",
+      "symbol": "LetsBONK"
+    },
+    "quoteToken": {
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "name": "USDT",
+      "symbol": "USDT"
+    },
+    "priceNative": "0.002196",
+    "priceUsd": "0.002196",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 0,
+        "sells": 2
+      }
+    },
+    "volume": {
+      "h24": 0.02
+    },
+    "priceChange": {
+      "h24": -3.4
+    },
+    "liquidity": {
+      "base": 341.8179,
+      "quote": 0.7352,
+      "usd": 1.48
+    },
+    "fdv": 151535,
+    "marketCap": 151535,
+    "pairCreatedAt": 1765881746000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/c49a9132cb91ffa66d1c447b3945b7c5de3c3a7a5a6ccab43b7eaa5a49316e0d?width=800&height=800&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CDBdbNqmrLu1PcgjrFG52yxg71QnFhBZcUE6PSFdbonk?timestamp=1795561800000",
+      "websites": [
+        {
+          "url": "https://letsbonk.fun",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/i/communities/1932099862163521775",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/Lets_bonkonsol",
+          "type": "telegram"
+        }
+      ]
+    }
+  }
+]

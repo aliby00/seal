@@ -9,12 +9,13 @@
 const [, , rawUrl, expectedEnv] = process.argv;
 
 /**
- * Token pons réel, utilisé uniquement pour vérifier que la route d'analyse
- * répond. Si ce token disparaît des sources, le test signalera une analyse
+ * Token Solana réel (JUP), utilisé uniquement pour vérifier que la route
+ * d'analyse répond. Une adresse 0x est refusée en 400 depuis le passage à
+ * Solana : la sonde ferait échouer chaque déploiement. Si ce token disparaît des sources, le test signalera une analyse
  * incomplète — ce qui reste une réponse valide et ne doit pas faire échouer
  * le déploiement. On vérifie la FORME de la réponse, pas son contenu.
  */
-const PROBE_TOKEN = '0xd0c538e01a22ebf8502b4dc3a92026cec870cec6';
+const PROBE_TOKEN = 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN';
 
 if (!rawUrl) {
   console.error('usage: node scripts/smoke.mjs <url> [env]');

@@ -1,22 +1,24 @@
 'use client';
 
 import { useEffect, useRef, type CSSProperties } from 'react';
-import type { FunderKind } from '@/lib/chain/funder-kind';
+import type { FunderKind } from '@/lib/specialists/types';
 import type { SpecialistAnswer } from '@/lib/specialists/brief';
 import type { FundingPathStep } from '@/lib/specialists/types';
 import { describeService } from '@/lib/specialists/names';
 import { PLAIN_LABEL, shortAnswer } from '@/lib/specialists/plain';
+import { short } from './explorer';
 import { SIGNAL_LABEL } from './signal-labels';
 import { SignalIcon } from './signals';
 
 const KIND_LABEL: Record<FunderKind, string> = {
   wallet: 'wallet',
-  service: 'service or contract',
+  service: 'service or program',
   tool: 'batch-sending tool',
   unknown: 'not identified',
 };
 
-const shortAddress = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+/** Base58, first and last four characters, case kept. */
+const shortAddress = (a: string) => short(a);
 
 /** Who funded the creator, then who funded that wallet, up to three steps. */
 function FundingPath({ path }: { path: FundingPathStep[] }) {

@@ -1,0 +1,92 @@
+[
+  {
+    "method": "getMultipleAccounts",
+    "params": [
+      [
+        "ANDLpP3C7tFXEpqRBmmnbS4usmQthHfs93N5oHGpump",
+        "JD1TGuTWNVonxTiro86YG8oXzVisZfUG4bQvsknpYNPy"
+      ],
+      {
+        "commitment": "confirmed",
+        "encoding": "base64"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473520389
+      },
+      "value": [
+        {
+          "data": [
+            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIDGpH6NAwAGAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARIAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJmNnCudQ2lRWfnskb2QzljlQZMOfmhCCieNABaA6M/EwChAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAmY2cK51DaVFZ+eyRvZDOWOVBkw5+aEIKJ40AFoDoz8HAAAAQm91bmNlcgcAAABCT1VOQ0VSQwAAAGh0dHBzOi8vaXBmcy5pby9pcGZzL1FtWkpUSm1IQXpNelBjYjRONzJ2TlpIQ2ozd1ZOa01SZmI3ZktWUDc0RW00REMAAAAA",
+            "base64"
+          ],
+          "executable": false,
+          "lamports": 2677160,
+          "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "rentEpoch": 18446744073709552000,
+          "space": 399
+        },
+        null
+      ]
+    }
+  },
+  {
+    "method": "getAccountInfo",
+    "params": [
+      "ANDLpP3C7tFXEpqRBmmnbS4usmQthHfs93N5oHGpump",
+      {
+        "commitment": "confirmed",
+        "encoding": "jsonParsed"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 473520391
+      },
+      "value": {
+        "data": {
+          "parsed": {
+            "info": {
+              "decimals": 6,
+              "extensions": [
+                {
+                  "extension": "metadataPointer",
+                  "state": {
+                    "authority": null,
+                    "metadataAddress": "ANDLpP3C7tFXEpqRBmmnbS4usmQthHfs93N5oHGpump"
+                  }
+                },
+                {
+                  "extension": "tokenMetadata",
+                  "state": {
+                    "additionalMetadata": [],
+                    "mint": "ANDLpP3C7tFXEpqRBmmnbS4usmQthHfs93N5oHGpump",
+                    "name": "Bouncer",
+                    "symbol": "BOUNCER",
+                    "updateAuthority": null,
+                    "uri": "https://ipfs.io/ipfs/QmZJTJmHAzMzPcb4N72vNZHCj3wVNkMRfb7fKVP74Em4DC"
+                  }
+                }
+              ],
+              "freezeAuthority": null,
+              "isInitialized": true,
+              "mintAuthority": null,
+              "supply": "1000000000000000"
+            },
+            "type": "mint"
+          },
+          "program": "spl-token-2022",
+          "space": 399
+        },
+        "executable": false,
+        "lamports": 2677160,
+        "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "rentEpoch": 18446744073709552000,
+        "space": 399
+      }
+    }
+  }
+]

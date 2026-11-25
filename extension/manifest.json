@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "SEAL · In short",
   "short_name": "SEAL",
-  "version": "0.1.0",
-  "description": "SEAL's In short for Robinhood Chain tokens, right on DexScreener, Blockscout and pons. Evidence and context, never a score.",
+  "version": "0.2.0",
+  "description": "SEAL's In short for Solana tokens, right on DexScreener, Solscan, the Solana Explorer and pump.fun. Evidence and context, never a score.",
   "homepage_url": "https://sealauth.dev",
   "icons": {
     "16": "icons/seal-16.png",
@@ -26,18 +26,20 @@
   "permissions": ["storage"],
   "host_permissions": [
     "https://sealauth.dev/*",
-    "https://dexscreener.com/robinhood*",
-    "https://robinhoodchain.blockscout.com/*",
-    "https://ponsfamily.com/*",
-    "https://www.ponsfamily.com/*"
+    "https://dexscreener.com/solana*",
+    "https://solscan.io/*",
+    "https://explorer.solana.com/*",
+    "https://pump.fun/*",
+    "https://www.pump.fun/*"
   ],
   "content_scripts": [
     {
       "matches": [
-        "https://dexscreener.com/robinhood*",
-        "https://robinhoodchain.blockscout.com/*",
-        "https://ponsfamily.com/*",
-        "https://www.ponsfamily.com/*"
+        "https://dexscreener.com/solana*",
+        "https://solscan.io/*",
+        "https://explorer.solana.com/*",
+        "https://pump.fun/*",
+        "https://www.pump.fun/*"
       ],
       "js": [
         "src/config.js",

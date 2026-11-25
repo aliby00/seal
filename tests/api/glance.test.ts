@@ -1,11 +1,9 @@
-import { getAddress } from 'viem';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { MINT, PAIR, solanaReport } from '../helpers/solana-report';
 
 const collect = vi.hoisted(() => vi.fn());
-const readTokenMetas = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/collect', () => ({ collect }));
-vi.mock('@/lib/chain/facts', () => ({ readTokenMetas }));
 
 const { GET, OPTIONS } = await import('../../src/app/api/glance/route');
 const { RateLimitError, NotFoundError } = await import('../../src/lib/errors');
@@ -13,72 +11,33 @@ const { resetRateLimits, GLANCE_LIMIT } = await import('../../src/lib/guard');
 const { analysisCache } = await import('../../src/lib/analysis-cache');
 const { resetGlanceState } = await import('../../src/lib/glance-service');
 
-const TOKEN = '0x494ddf6f7b4b045ede0abbb9ae86e4d59fa62ec9';
-const PAIR_V4 = `0x${'7f'.repeat(32)}`;
+const TOKEN = MINT;
 const EXTENSION = 'chrome-extension://abcdefghijklmnopabcdefghijklmnop';
+const AT = '2026-10-01T00:00:00.000Z';
 
-const launch = (dumped: boolean, pulled: boolean, i: number) => ({
-  address: `0x${String(i).padStart(40, '0')}`,
-  pool: '0xpool',
-  launchedAtBlock: i,
-  launchedAt: null,
-  outcome: 'abandoned',
-  graduationProgress: 0,
-  creatorDumped: dumped,
-  liquidityPulled: pulled,
-});
-
+/** A token whose creator sold some of it; holders not read. */
 function report(notes: { creator?: string } = {}) {
-  return {
-    token: getAddress(TOKEN),
-    collectedAt: '2026-10-01T00:00:00.000Z',
+  const base = solanaReport();
+  return solanaReport({
+    collectedAt: AT,
     completeness: 'partial',
     creator: {
-      completeness: 'full',
-      sources: [{ name: 'robinhood-rpc', fetchedAt: 'x', note: notes.creator }],
-      data: {
-        creator: '0x00000000000000000000000000000000000000c0',
-        tokens: [launch(true, false, 1), launch(true, false, 2), launch(false, false, 3)],
-        counts: {
-          launched: 3,
-          graduated: 0,
-          abandoned: 3,
-          undetermined: 0,
-          liquidityPulled: 0,
-          creatorDumped: 2,
-        },
-        scannedRange: { fromBlock: 0, toBlock: 1 },
-      },
+      ...base.creator,
+      sources: [
+        { name: 'solana-rpc', fetchedAt: AT, ...(notes.creator ? { note: notes.creator } : {}) },
+      ],
+    },
+    creatorOnToken: base.creatorOnToken && {
+      ...base.creatorOnToken,
+      data: { ...base.creatorOnToken.data, bought: '120000000000000', sold: '120000000000000' },
     },
     holders: {
+      ...base.holders,
       completeness: 'unavailable',
-      sources: [{ name: 'blockscout', fetchedAt: 'x', note: 'no API key' }],
-      data: {
-        token: TOKEN,
-        countedSupply: '0',
-        holderCount: null,
-        top: [],
-        concentration: { top1: 0, top10: 0 },
-        distinctTraders: null,
-      },
+      sources: [{ name: 'solana-rpc', fetchedAt: AT, note: 'not a token mint' }],
+      data: { ...base.holders.data, top: [], setAside: [], holderCount: null, pooledShare: null },
     },
-    market: {
-      completeness: 'unavailable',
-      sources: [{ name: 'dexscreener', fetchedAt: 'x' }],
-      data: {
-        token: TOKEN,
-        pair: null,
-        priceUsd: null,
-        liquidityUsd: null,
-        pairedEth: null,
-        graduation: null,
-        volumeUsd: null,
-        txns: null,
-        fdvUsd: null,
-        pairCreatedAt: null,
-      },
-    },
-  };
+  });
 }
 
 function get(query: string, headers: Record<string, string> = {}): Request {
@@ -106,24 +65,29 @@ describe('GET /api/glance', () => {
     expect((await GET(get(`token=0x${'ab'.repeat(32)}`))).status).toBe(400);
   });
 
+  // Solana only: an EVM address, or an EVM pair, is refused before anything is read.
+  it('rejects an EVM address as a token or as a pair', async () => {
+    expect((await GET(get('token=0x494ddf6f7b4b045ede0abbb9ae86e4d59fa62ec9'))).status).toBe(400);
+    expect((await GET(get(`pair=0x${'7f'.repeat(32)}`))).status).toBe(400);
+    expect(collect).not.toHaveBeenCalled();
+  });
+
   it('returns the In short, the name and a deep link, without any model call', async () => {
     collect.mockResolvedValue(report());
-    readTokenMetas.mockResolvedValue(new Map([[TOKEN, { name: 'Alpha Token', symbol: 'ALP' }]]));
     const res = await GET(get(`token=${TOKEN}`));
     expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, unknown> & {
       glance: { headline: string; items: { id: string; tone: string }[]; unseen: string[] };
     };
-    expect(body.token).toBe(getAddress(TOKEN));
-    expect(body.name).toBe('Alpha Token');
-    expect(body.symbol).toBe('ALP');
-    expect(body.collectedAt).toBe('2026-10-01T00:00:00.000Z');
-    expect(body.glance.items[0]).toMatchObject({ id: 'sales', tone: 'attention' });
-    expect(body.glance.headline).toBe(
-      'The creator sold into the pool on 2 of 3 launches checked. On its other launches: 2 of its 3 launches on pons.',
-    );
+    // The address keeps its case: base58 is case-sensitive.
+    expect(body.token).toBe(TOKEN);
+    // Name and symbol come from the mint's own metadata, read with the mint.
+    expect(body.name).toBe('Test Token');
+    expect(body.symbol).toBe('TEST');
+    expect(body.collectedAt).toBe(AT);
+    expect(body.glance.headline.length).toBeGreaterThan(0);
     expect(body.glance.unseen).toContain('who holds it');
-    expect(body.url).toBe(`http://localhost/?token=${getAddress(TOKEN)}#analysis`);
+    expect(body.url).toBe(`http://localhost/?token=${TOKEN}#analysis`);
     expect(body.cached).toBe(false);
     expect(JSON.stringify(body)).not.toMatch(/score|safe|risky|scam|rug/i);
   });
@@ -131,16 +95,14 @@ describe('GET /api/glance', () => {
   it('links to the configured site when one is set', async () => {
     vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://sealauth.dev');
     collect.mockResolvedValue(report());
-    readTokenMetas.mockResolvedValue(new Map());
     const body = (await (await GET(get(`token=${TOKEN}`))).json()) as { url: string };
-    expect(body.url).toBe(`https://sealauth.dev/?token=${getAddress(TOKEN)}#analysis`);
+    expect(body.url).toBe(`https://sealauth.dev/?token=${TOKEN}#analysis`);
   });
 
   it('serves the second request from the cache', async () => {
     collect.mockResolvedValue(report());
-    readTokenMetas.mockResolvedValue(new Map());
     await GET(get(`token=${TOKEN}`));
-    const body = (await (await GET(get(`token=${getAddress(TOKEN)}`))).json()) as {
+    const body = (await (await GET(get(`token=${TOKEN}`))).json()) as {
       cached: boolean;
     };
     expect(body.cached).toBe(true);
@@ -149,7 +111,6 @@ describe('GET /api/glance', () => {
 
   it('does not cache a read that a source cut short', async () => {
     collect.mockResolvedValue(report({ creator: 'timeout : node did not answer' }));
-    readTokenMetas.mockResolvedValue(new Map());
     await GET(get(`token=${TOKEN}`));
     await GET(get(`token=${TOKEN}`));
     expect(collect).toHaveBeenCalledTimes(2);
@@ -162,11 +123,10 @@ describe('GET /api/glance', () => {
       failedReads: [
         {
           read: 'launch-replay',
-          note: 'the first minutes after the launch could not be read this time (rate-limit : robinhood-rpc : request limit reached)',
+          note: 'the first minutes after the launch could not be read this time (rate-limit : solana-rpc : request limit reached)',
         },
       ],
     });
-    readTokenMetas.mockResolvedValue(new Map());
     const first = (await (await GET(get(`token=${TOKEN}`))).json()) as {
       glance: { partial?: string[] };
     };
@@ -178,7 +138,6 @@ describe('GET /api/glance', () => {
   it('collects a token once when several overlays ask at the same time', async () => {
     let release: (value: unknown) => void = () => {};
     collect.mockReturnValue(new Promise((resolve) => (release = resolve)));
-    readTokenMetas.mockResolvedValue(new Map());
     const first = GET(get(`token=${TOKEN}`));
     const second = GET(get(`token=${TOKEN}`));
     await vi.waitFor(() => expect(collect).toHaveBeenCalled());
@@ -191,7 +150,7 @@ describe('GET /api/glance', () => {
   it('derives the glance from a cached full analysis without collecting', async () => {
     const { toFacts } = await import('../../src/lib/facts');
     await analysisCache.set(TOKEN, {
-      token: getAddress(TOKEN),
+      token: TOKEN,
       explanation: 'x',
       completeness: 'partial',
       sources: [],
@@ -210,40 +169,38 @@ describe('GET /api/glance', () => {
     const fetch = vi.fn(async () => Response.json({ pairs: [{ baseToken: { address: TOKEN } }] }));
     vi.stubGlobal('fetch', fetch);
     collect.mockResolvedValue(report());
-    readTokenMetas.mockResolvedValue(new Map());
-    const res = await GET(get(`pair=${PAIR_V4}`));
+    const res = await GET(get(`pair=${PAIR}`));
     expect(res.status).toBe(200);
     expect(String((fetch.mock.calls[0] as unknown[])[0])).toContain(
-      `/latest/dex/pairs/robinhood/${PAIR_V4}`,
+      `/latest/dex/pairs/solana/${PAIR}`,
     );
-    expect(collect.mock.calls[0]?.[0]).toBe(getAddress(TOKEN));
+    expect(collect.mock.calls[0]?.[0]).toBe(TOKEN);
   });
 
-  it('treats an unknown 40-character pair as the token itself', async () => {
+  // A DexScreener URL may carry the mint itself: a pool and a mint look alike on Solana.
+  it('treats an unknown pair as the token itself', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => Response.json({ pairs: null })),
     );
     collect.mockResolvedValue(report());
-    readTokenMetas.mockResolvedValue(new Map());
     expect((await GET(get(`pair=${TOKEN}`))).status).toBe(200);
-    expect(collect.mock.calls[0]?.[0]).toBe(getAddress(TOKEN));
+    expect(collect.mock.calls[0]?.[0]).toBe(TOKEN);
   });
 
-  it('answers 404 for an unknown v4 pool id', async () => {
+  it('answers 404 for an unknown pair that holds no mint', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => Response.json({ pairs: null })),
     );
-    expect((await GET(get(`pair=${PAIR_V4}`))).status).toBe(404);
-    expect(collect).not.toHaveBeenCalled();
+    collect.mockRejectedValue(new NotFoundError('solana-rpc', 'token mint'));
+    expect((await GET(get(`pair=${PAIR}`))).status).toBe(404);
   });
 
   it('translates upstream failures into plain JSON errors', async () => {
-    readTokenMetas.mockResolvedValue(new Map());
-    collect.mockRejectedValueOnce(new RateLimitError('robinhood-rpc'));
+    collect.mockRejectedValueOnce(new RateLimitError('solana-rpc'));
     expect((await GET(get(`token=${TOKEN}`))).status).toBe(429);
-    collect.mockRejectedValueOnce(new NotFoundError('dexscreener', 'token'));
+    collect.mockRejectedValueOnce(new NotFoundError('solana-rpc', 'token mint'));
     expect((await GET(get(`token=${TOKEN}`))).status).toBe(404);
     collect.mockRejectedValueOnce(new Error('stack trace interne'));
     const res = await GET(get(`token=${TOKEN}`));
@@ -253,7 +210,6 @@ describe('GET /api/glance', () => {
 
   it('applies its own per-address budget', async () => {
     collect.mockResolvedValue(report());
-    readTokenMetas.mockResolvedValue(new Map());
     const headers = { 'x-real-ip': '203.0.113.9' };
     for (let i = 0; i < GLANCE_LIMIT.capacity; i += 1) {
       expect((await GET(get(`token=${TOKEN}`, headers))).status).toBe(200);
@@ -267,7 +223,6 @@ describe('GET /api/glance', () => {
 describe('CORS', () => {
   it('echoes an extension origin, never with credentials', async () => {
     collect.mockResolvedValue(report());
-    readTokenMetas.mockResolvedValue(new Map());
     const res = await GET(get(`token=${TOKEN}`, { origin: EXTENSION }));
     expect(res.headers.get('access-control-allow-origin')).toBe(EXTENSION);
     expect(res.headers.get('access-control-allow-credentials')).toBeNull();

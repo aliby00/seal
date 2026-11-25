@@ -1,16 +1,15 @@
-import { getAddress, isAddress } from 'viem';
 import { analysisCache, sourcesFailed, type CachedAnalysis } from './analysis-cache';
-import { createRpcClient } from './chain';
-import { readTokenMetas } from './chain/facts';
 import { collect } from './collect';
 import type { TokenReport } from './contracts';
-import { toFacts, toTimeline, type ReportFacts, type TimelineLaunch } from './facts';
+import { launchView, toFacts, toTimeline, type ReportFacts, type TimelineLaunch } from './facts';
 import { buildGlance, type Glance } from './glance';
-import { createBudget, requestJson } from './http';
+import { requestJson } from './http';
 import { log } from './logger';
-import { DEXSCREENER_BASE, ROBINHOOD_SLUG } from './market/dexscreener';
+import { solanaPairsUrl } from './market/dexscreener';
+import { isSolanaAddress } from './solana/address';
 import { SharedCache } from './shared-cache';
 import { TtlCache } from './cache';
+import { answerAll } from './specialists/brief';
 import { displayName } from './specialists/names';
 
 /**
@@ -37,8 +36,13 @@ export type CachedGlance = Omit<GlanceResponse, 'url' | 'cached'>;
 /** Four minutes: the overlay is glanced at, then left; holders and prices move. */
 export const GLANCE_TTL_MS = 4 * 60_000;
 
+/**
+ * The prefixes name the chain: `sol1` entries hold Solana readings only, so
+ * a reading of the chain read before, cached under the old prefixes, is
+ * never served.
+ */
 export const glanceCache = new SharedCache<CachedGlance>({
-  prefix: 'seal:glance:v1',
+  prefix: 'seal:glance:sol1',
   ttlMs: GLANCE_TTL_MS,
 });
 
@@ -50,7 +54,7 @@ export const glanceCache = new SharedCache<CachedGlance>({
 export const CARD_TTL_MS = 30 * 60_000;
 
 export const cardCache = new SharedCache<CachedGlance>({
-  prefix: 'seal:card:v1',
+  prefix: 'seal:card:sol1',
   ttlMs: CARD_TTL_MS,
 });
 
@@ -58,7 +62,7 @@ export const cardCache = new SharedCache<CachedGlance>({
 export async function rememberCard(analysis: CachedAnalysis): Promise<void> {
   try {
     const card = fromAnalysis(analysis);
-    if (card) await cardCache.set(analysis.token.toLowerCase(), card);
+    if (card) await cardCache.set(analysis.token, card);
   } catch (error) {
     log.warn('carte non gardée', { error: String(error) });
   }
@@ -113,16 +117,11 @@ function timeline(report: TokenReport): TimelineLaunch[] | undefined {
   }
 }
 
-/** Name and symbol as the token states them: two calls, never a failure. */
-async function names(token: string): Promise<{ name: string | null; symbol: string | null }> {
-  try {
-    const rpc = createRpcClient(process.env.RPC_URL || undefined, createBudget(4));
-    const meta = (await readTokenMetas(rpc, [token])).get(token.toLowerCase());
-    // A token can name itself anything: cleaned, cut, and withheld when it reads as a verdict.
-    return { name: displayName(meta?.name), symbol: displayName(meta?.symbol) };
-  } catch {
-    return { name: null, symbol: null };
-  }
+/** Name and symbol as the mint's metadata states them: read with the mint, no extra call. */
+export function namesOf(report: TokenReport): { name: string | null; symbol: string | null } {
+  const meta = report.mint.data?.metadata;
+  // A token can name itself anything: cleaned, cut, and withheld when it reads as a verdict.
+  return { name: displayName(meta?.name), symbol: displayName(meta?.symbol) };
 }
 
 export class GlanceUnavailableError extends Error {
@@ -133,22 +132,24 @@ export class GlanceUnavailableError extends Error {
 }
 
 async function compute(token: string): Promise<CachedGlance> {
-  const [report, meta] = await Promise.all([
-    Promise.race([
-      collect(token, {
-        rpcUrl: process.env.RPC_URL || undefined,
-        blockscoutApiKey: process.env.BLOCKSCOUT_API_KEY || undefined,
-      }),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('timeout global')), GLANCE_COLLECT_TIMEOUT_MS),
-      ),
-    ]),
-    names(token),
+  const giveUp = AbortSignal.timeout(GLANCE_COLLECT_TIMEOUT_MS);
+  const report = await Promise.race([
+    collect(token, { signal: giveUp }),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('timeout global')), GLANCE_COLLECT_TIMEOUT_MS),
+    ),
   ]);
+  const meta = namesOf(report);
+  const launch = launchView(report.launch);
+  // The questions read the report alone and call no model: their measures
+  // (the mint's powers, the creator's part, launch groups, the curve) feed
+  // the summary's first lines here as on the report page.
+  const specialists = answerAll({ token, report, creator: report.creator.data.creator });
   const glance = buildGlance({
     facts: facts(report),
     timeline: timeline(report),
-    launch: report.launch?.data,
+    ...(launch ? { launch } : {}),
+    specialists,
   });
   if (!glance) throw new GlanceUnavailableError();
   const body: CachedGlance = {
@@ -158,11 +159,16 @@ async function compute(token: string): Promise<CachedGlance> {
     glance,
     collectedAt: report.collectedAt,
   };
-  await cardCache.set(token.toLowerCase(), body).catch(() => undefined);
-  const sources = [...report.creator.sources, ...report.holders.sources, ...report.market.sources];
+  await cardCache.set(token, body).catch(() => undefined);
+  const sources = [
+    ...report.mint.sources,
+    ...report.creator.sources,
+    ...report.holders.sources,
+    ...report.market.sources,
+  ];
   // A read cut short is worth retrying on the next hover, not repeating for minutes.
   if (!sourcesFailed(sources) && (report.failedReads?.length ?? 0) === 0) {
-    await glanceCache.set(token.toLowerCase(), body);
+    await glanceCache.set(token, body);
   }
   return body;
 }
@@ -172,7 +178,8 @@ async function compute(token: string): Promise<CachedGlance> {
  * analysis, then collected. Throws what `collect` throws.
  */
 export async function glanceOf(token: string): Promise<CachedGlance & { cached: boolean }> {
-  const key = token.toLowerCase();
+  // Solana addresses are case-sensitive: the key is the address as given.
+  const key = token;
   const hit = await glanceCache.get(key);
   if (hit) return { ...hit, cached: true };
   const analysis = await analysisCache.get(key);
@@ -187,8 +194,10 @@ export async function glanceOf(token: string): Promise<CachedGlance & { cached: 
   return { ...(await pending), cached: false };
 }
 
-/** A DexScreener page names a pair (a v2/v3 pool or a v4 pool id), not the token. */
-export const PAIR_PATTERN = /^0x(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$/;
+/** A DexScreener page names a pair (a pool account), not the token: a Solana address too. */
+export function isPairAddress(pair: string): boolean {
+  return isSolanaAddress(pair);
+}
 
 type PairsAnswer = {
   pairs?: { baseToken?: { address?: string } }[] | null;
@@ -204,15 +213,15 @@ const pairCache = new TtlCache<string | null>({ ttlMs: 60 * 60_000, maxEntries: 
  */
 export async function tokenOfPair(pair: string): Promise<string | null> {
   // Checked here too, not only by the route: this value ends up in a URL.
-  if (!PAIR_PATTERN.test(pair)) return null;
-  const id = pair.toLowerCase();
-  const { value } = await pairCache.resolve(id, async () => {
-    const answer = await requestJson<PairsAnswer>(
-      `${DEXSCREENER_BASE}/latest/dex/pairs/${ROBINHOOD_SLUG}/${encodeURIComponent(id)}`,
-      { source: 'dexscreener', timeoutMs: 6_000, retries: 1 },
-    );
+  if (!isPairAddress(pair)) return null;
+  const { value } = await pairCache.resolve(pair, async () => {
+    const answer = await requestJson<PairsAnswer>(solanaPairsUrl([pair]), {
+      source: 'dexscreener-solana',
+      timeoutMs: 6_000,
+      retries: 1,
+    });
     const address = answer.pairs?.[0]?.baseToken?.address;
-    return address && isAddress(address) ? getAddress(address) : null;
+    return address && isSolanaAddress(address) ? address : null;
   });
   return value;
 }
