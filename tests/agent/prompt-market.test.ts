@@ -37,7 +37,7 @@ describe('the market block of the model input', () => {
         pairedWith: { address: 'WXMRyRZhsa19ety5erZhHg4N3xj3EVN92u94422teJp', symbol: 'XMR' },
       }),
     );
-    expect(text).toContain('Main pair on pumpfun, against "XMR"');
+    expect(text).toContain('Main pair on pump.fun, against "XMR"');
     const verdict = renderReport(
       withMarket({
         pairedWith: { address: 'WXMRyRZhsa19ety5erZhHg4N3xj3EVN92u94422teJp', symbol: 'SAFE' },

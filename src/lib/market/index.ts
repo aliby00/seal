@@ -58,6 +58,21 @@ export function quietFor(
  * pair", "on 26 of its listed pairs". `undefined` (a report from before the
  * counts were added up): "on its main pair", which is what they were.
  */
+const DEX_NAMES: Record<string, string> = {
+  pumpfun: 'pump.fun',
+  pumpswap: 'PumpSwap',
+  pancakeswap: 'PancakeSwap',
+  meteora: 'Meteora',
+  meteoradbc: 'Meteora DBC',
+  raydium: 'Raydium',
+  orca: 'Orca',
+};
+
+/** "pump.fun", "PancakeSwap": DexScreener's venue id as a reader knows it; an unknown id as is. */
+export function dexName(id: string): string {
+  return DEX_NAMES[id] ?? id;
+}
+
 export function pairsWords(pairsCounted: number | undefined): string {
   return pairsCounted === undefined || pairsCounted <= 1
     ? 'on its main pair'
@@ -99,8 +114,9 @@ export function poolLabel(id: string): string {
   return `${id.slice(0, 4)}…${id.slice(-4)}`;
 }
 
-/** "$186.4k", "$1.2M": a pool's liquidity in a few characters. */
+/** "$186.4k", "$1.2M", "$2.3B": a pool's liquidity in a few characters. */
 export function usdShort(x: number): string {
+  if (x >= 999_950_000) return `$${(x / 1_000_000_000).toFixed(1)}B`;
   if (x >= 1_000_000) return `$${(x / 1_000_000).toFixed(1)}M`;
   if (x >= 1_000) return `$${(x / 1_000).toFixed(1)}k`;
   return `$${Math.round(x)}`;

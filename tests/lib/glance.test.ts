@@ -352,6 +352,33 @@ describe('In short: a market with next to nothing in it', () => {
   });
 });
 
+describe('In short: the market of a token traded in many pools', () => {
+  it('writes counts with separators and says where the trades were counted', () => {
+    // USDC, 25/11/2026: "over 141028 trades, none in the last hour", from its main pair alone.
+    const report = solanaReport({
+      graduation: null,
+      market: {
+        ...base.market,
+        data: {
+          ...base.market.data,
+          liquidityUsd: 2_237_040.67,
+          volumeUsd: { m5: 0, h1: 167_180.78, h6: 450_547.5, h24: 15_693_112.68 },
+          txns: { h1: { buys: 128, sells: 73 }, h24: { buys: 94_218, sells: 94_746 } },
+          pairsCounted: 25,
+          quiet: null,
+        },
+      },
+    });
+    const facts = toFacts(report);
+    const item = buildGlance({ facts })!.items.find((i) => i.id === 'market');
+    expect(item).toMatchObject({
+      figure: '$15.7M',
+      title: '$15.7M traded in the last 24 hours, over 188,964 trades.',
+      detail: 'From DexScreener: its main pair and its other pairs against SOL, USDC or USDT.',
+    });
+  });
+});
+
 describe('In short: the creator’s other tokens', () => {
   const history = (counts: {
     launched: number;

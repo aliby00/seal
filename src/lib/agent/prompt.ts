@@ -1,7 +1,7 @@
 import type { LaunchMove, LaunchReplayData, SourceRef, TokenReport } from '../contracts';
 import { launchView, toFacts, toTimeline } from '../facts';
 import { buildGlance } from '../glance';
-import { pairsWords } from '../market';
+import { dexName, pairsWords } from '../market';
 import { flowDate, flowPct, flowSentence, lockWords, type FlowNode } from '../supply-flow';
 import { roundTripsExcludedWords } from '../launch-story';
 import type { SpecialistAnswer } from '../specialists/brief';
@@ -297,7 +297,7 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
     ]),
     ...block('Market (DexScreener)', report.market, () => [
       // The paired token's symbol is chosen by whoever made that token: quoted, as every name.
-      `Main pair on ${m.dex ?? 'an unnamed venue'}${m.pairedWith?.symbol ? `, against ${quoteName(m.pairedWith.symbol)}` : ''}${m.pairCreatedAt ? `, created ${m.pairCreatedAt}` : ''}.`,
+      `Main pair on ${m.dex ? dexName(m.dex) : 'an unnamed venue'}${m.pairedWith?.symbol ? `, against ${quoteName(m.pairedWith.symbol)}` : ''}${m.pairCreatedAt ? `, created ${m.pairCreatedAt}` : ''}.`,
       `Price ${m.priceUsd ?? 'not given'} USD; liquidity ${m.liquidityUsd === null ? 'not given' : `${m.liquidityUsd} USD`}; FDV ${m.fdvUsd ?? 'not given'} USD (the main pair's).`,
       ...((m.pairsCounted ?? 1) > 1
         ? [

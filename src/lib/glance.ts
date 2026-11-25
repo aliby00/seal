@@ -615,8 +615,9 @@ function launchBuysItem(
 
 // ── The market ──────────────────────────────────────────────────────────────
 
-/** "$337", "$61.9k", "$7.3M": a figure a reader takes in at once. */
+/** "$337", "$61.9k", "$7.3M", "$9.1B": a figure a reader takes in at once. */
 export function usdShort(value: number): string {
+  if (value >= 999_950_000) return `$${(value / 1_000_000_000).toFixed(1)}B`;
   if (value >= 999_950) return `$${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1000) return `$${(value / 1000).toFixed(1)}k`;
   // "$0" would say a market held nothing when it held 39 cents.
