@@ -159,6 +159,25 @@ describe('offlineExplanation', () => {
     expect(text).toMatch(/across 70 trades/);
   });
 
+  it('says where the market figures were read: the main pair, or the pairs added up', () => {
+    expect(text).toContain('Over 24 hours on its main pair: ');
+    const summed = solanaReport({
+      market: {
+        ...base.market,
+        data: { ...base.market.data, pairsCounted: 28, quiet: { hours: 1 } },
+      },
+    });
+    const said = offlineExplanation(summed);
+    expect(said).toContain('Over 24 hours on 28 of its listed pairs: ');
+    expect(said).toContain('no trade on any of its listed pairs in the last hour');
+    expect(findViolations(said)).toEqual([]);
+    // A report from before the pairs were added up: its figures are the main pair's.
+    const older = solanaReport({
+      market: { ...base.market, data: { ...base.market.data, quiet: { hours: 3 } } },
+    });
+    expect(offlineExplanation(older)).toContain('no trade on its main pair in the last 3 hours');
+  });
+
   it('says a failed read once, at the top', () => {
     const failed: TokenReport = {
       ...report,

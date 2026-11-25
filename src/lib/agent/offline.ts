@@ -12,7 +12,7 @@ import {
   solOf,
   solWords,
 } from '../specialists/words';
-import { volumePerTrade } from '../market';
+import { pairsWords, volumePerTrade } from '../market';
 import { READ_WORDS, readFailed } from '../failed-reads';
 import { toFacts } from '../facts';
 import { flowSentence } from '../supply-flow';
@@ -267,8 +267,12 @@ export function offlineExplanation(report: TokenReport, specialists?: Specialist
     const bits: string[] = [];
     if (m.priceUsd !== null) bits.push(`price ${usdWords(m.priceUsd)}`);
     if (m.liquidityUsd !== null) bits.push(`liquidity ${usdWords(m.liquidityUsd)}`);
+    // "Quiet" is read on every listed pair since the pairs are added up
+    // (pairsCounted), on the main pair before.
     if (m.quiet)
-      bits.push(`no trade in the last ${m.quiet.hours === 1 ? 'hour' : `${m.quiet.hours} hours`}`);
+      bits.push(
+        `no trade ${m.pairsCounted === undefined ? pairsWords(undefined) : 'on any of its listed pairs'} in the last ${m.quiet.hours === 1 ? 'hour' : `${m.quiet.hours} hours`}`,
+      );
     const graduation = report.graduation?.data;
     const pad = report.launchpad.data.launchpad?.name;
     if (graduation?.graduated) bits.push(`graduated from its ${pad ?? 'launch'} curve`);
@@ -283,7 +287,7 @@ export function offlineExplanation(report: TokenReport, specialists?: Specialist
     if (perTrade !== null && m.txns) {
       const trades = m.txns.h24.buys + m.txns.h24.sells;
       parts.push(
-        `Over 24 hours: ${usdWords(m.volumeUsd?.h24 ?? 0)} in volume across ${count(trades)} trade${trades === 1 ? '' : 's'}, averaging ${usdWords(perTrade)} per trade.`,
+        `Over 24 hours ${pairsWords(m.pairsCounted)}: ${usdWords(m.volumeUsd?.h24 ?? 0)} in volume across ${count(trades)} trade${trades === 1 ? '' : 's'}, averaging ${usdWords(perTrade)} per trade.`,
       );
     }
   }
