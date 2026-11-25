@@ -36,6 +36,7 @@ import {
   curveName,
   dayOf,
   durationWords,
+  paidWords,
   pct,
   shareOf,
   short,
@@ -481,7 +482,6 @@ const creatorHistory: Specialist = {
       const sold = creatorSold(report);
       const bought = shareOf(d.bought, supply);
       const soldShare = shareOf(d.sold, supply);
-      const spent = solOf(d.solSpent);
       const got = solOf(d.solReceived);
       const parts: string[] = [];
       // A move read is said even when the supply is not known: "some", never left out.
@@ -491,7 +491,7 @@ const creatorHistory: Specialist = {
       };
       if (d.bought !== '0') {
         parts.push(
-          `bought ${part(d.bought)}${bought !== null ? ' of the supply' : ''}${spent ? ` for ${solWords(spent)}` : ''}`,
+          `bought ${part(d.bought)}${bought !== null ? ' of the supply' : ''}${paidWords(d, part)}`,
         );
       }
       if (d.received !== '0') parts.push(`received ${part(d.received)} from other addresses`);

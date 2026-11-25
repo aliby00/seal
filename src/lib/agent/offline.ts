@@ -3,7 +3,14 @@ import type { TokenReport } from '../contracts';
 import { isSolanaAddress, shortAddress } from '../solana/address';
 import type { SpecialistAnswer } from '../specialists/brief';
 import { CREATOR_FROM } from '../specialists/catalog';
-import { curveName, pct as sharePct, shareOf, solOf, solWords } from '../specialists/words';
+import {
+  curveName,
+  paidWords,
+  pct as sharePct,
+  shareOf,
+  solOf,
+  solWords,
+} from '../specialists/words';
 import { volumePerTrade } from '../market';
 import { READ_WORDS, readFailed } from '../failed-reads';
 import { toFacts } from '../facts';
@@ -98,10 +105,8 @@ function creatorAccount(report: TokenReport): string {
     const d = onToken.data;
     const bought = shareOf(d.bought, supply);
     if (d.bought !== '0' && bought !== null) {
-      const spent = solOf(d.solSpent);
-      sentences.push(
-        `It bought ${sharePct(bought)} of the supply${spent ? ` for ${solWords(spent)}` : ''}.`,
-      );
+      const part = (raw: string) => sharePct(shareOf(raw, supply) ?? 0);
+      sentences.push(`It bought ${sharePct(bought)} of the supply${paidWords(d, part)}.`);
     }
     // A sale read is a sale; "did not sell" only when every move was read.
     if (d.sold !== '0') {

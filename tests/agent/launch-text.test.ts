@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { LaunchMove, LaunchSummary } from '../../src/lib/contracts';
 import { offlineExplanation } from '../../src/lib/agent/offline';
-import { renderLaunch } from '../../src/lib/agent/prompt';
+import { renderLaunch, renderSolanaBlocks } from '../../src/lib/agent/prompt';
+import { answerAll } from '../../src/lib/specialists/brief';
 import { findViolations } from '../../src/lib/agent/guardrails';
 import { solanaReport } from '../helpers/solana-report';
 
@@ -115,5 +116,64 @@ describe('the first buyers: a sum of purchases, and what they hold today', () =>
       withSummary(summary({ early: { ...early.early, heldNow: null, unread: 24 } })),
     );
     expect(out).toContain('bought a total of 94.3 % of the supply across their purchases.');
+  });
+});
+
+describe('what the creator paid for its buys, said only for what SOL paid', () => {
+  // AskGrok's creator (b5fb…FGT): 2.79 % bought, 2.10 % of it at launch paid in SPCX.
+  const onToken = (over: { bought: string; boughtForSol?: string; solSpent: string }) =>
+    solanaReport({
+      creatorOnToken: base.creatorOnToken && {
+        ...base.creatorOnToken,
+        data: { ...base.creatorOnToken.data, ...over },
+      },
+    });
+
+  it('offline: the SOL price for the part SOL paid, the rest said as paid in another token', () => {
+    const out = offlineExplanation(
+      onToken({ bought: '27949733952554', boughtForSol: '6949733952554', solSpent: '1002345678' }),
+    );
+    expect(out).toContain(
+      'It bought 2.8% of the supply (0.69% for 1.00 SOL, the rest paid in another token than SOL).',
+    );
+    expect(out).not.toMatch(/2\.8% of the supply for/);
+  });
+
+  it('offline: no SOL price at all when no buy was paid in SOL', () => {
+    const out = offlineExplanation(
+      onToken({ bought: '21000000000000', boughtForSol: '0', solSpent: '0' }),
+    );
+    expect(out).toContain('It bought 2.1% of the supply (paid in another token than SOL).');
+  });
+
+  it('offline: a price as before when every buy was paid in SOL', () => {
+    const out = offlineExplanation(onToken({ bought: '21000000000000', solSpent: '500000000' }));
+    expect(out).toContain('It bought 2.1% of the supply for 0.5000 SOL.');
+  });
+
+  it('prompt: the same, for the model', () => {
+    const report = onToken({
+      bought: '27949733952554',
+      boughtForSol: '6949733952554',
+      solSpent: '1002345678',
+    });
+    const text = renderSolanaBlocks(report).join('\n');
+    expect(text).toContain(
+      'Bought 2.8% of the supply (0.69% of the supply for 1.00 SOL, the rest paid in another token than SOL);',
+    );
+  });
+
+  it('creator-history: the same in the question’s facts', () => {
+    const report = onToken({
+      bought: '27949733952554',
+      boughtForSol: '6949733952554',
+      solSpent: '1002345678',
+    });
+    const answer = answerAll({ token: report.token, report }).find(
+      (a) => a.specialist === 'creator-history',
+    );
+    expect(answer?.facts.join(' ')).toContain(
+      'bought 2.8% of the supply (0.69% for 1.00 SOL, the rest paid in another token than SOL)',
+    );
   });
 });

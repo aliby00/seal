@@ -10,6 +10,7 @@ import {
   INCINERATOR,
   KNOWN_PROGRAMS,
   knownProgram,
+  NATIVE_MINT,
   metadataAddress,
   PUMP_FUN_PROGRAM,
   pumpBondingCurveAddress,
@@ -1321,10 +1322,17 @@ export async function readWalletOnToken(
   }
   const sum = (kind: SolanaTokenMove['kind']) =>
     moves.filter((m) => m.kind === kind).reduce((n, m) => n + BigInt(m.amount), 0n);
+  // A buy paid in another token than SOL: its SOL change is rent and fees
+  // only, and adding it would price in SOL tokens SOL did not pay for.
+  const paidInSol = (m: SolanaTokenMove) =>
+    !m.otherTokens.some((t) => t.mint !== NATIVE_MINT && BigInt(t.change) < 0n);
+  const buys = moves.filter((m) => m.kind === 'buy');
+  const solBuys = buys.filter(paidInSol);
   const sol = (kind: 'buy' | 'sell') =>
-    moves
-      .filter((m) => m.kind === kind)
-      .reduce((n, m) => n + (kind === 'buy' ? -BigInt(m.sol) : BigInt(m.sol)), 0n);
+    (kind === 'buy' ? solBuys : moves.filter((m) => m.kind === kind)).reduce(
+      (n, m) => n + (kind === 'buy' ? -BigInt(m.sol) : BigInt(m.sol)),
+      0n,
+    );
   const holds = held.ok ? held.value.reduce((n, a) => n + a.amount, 0n) : null;
   return {
     wallet,
@@ -1336,6 +1344,9 @@ export async function readWalletOnToken(
     locked: sum('locked').toString(),
     unlocked: sum('unlocked').toString(),
     solSpent: sol('buy').toString(),
+    ...(solBuys.length < buys.length
+      ? { boughtForSol: solBuys.reduce((n, m) => n + BigInt(m.amount), 0n).toString() }
+      : {}),
     solReceived: sol('sell').toString(),
     holdsNow: holds === null ? null : holds.toString(),
     holdsNowShare: holds === null ? null : share6(holds, supply),

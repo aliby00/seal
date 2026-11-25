@@ -6,7 +6,7 @@ import { roundTripsExcludedWords } from '../launch-story';
 import type { SpecialistAnswer } from '../specialists/brief';
 import { CREATOR_FROM } from '../specialists/catalog';
 import { quoteName } from '../specialists/names';
-import { dayOf, pct, shareOf, solOf, solWords } from '../specialists/words';
+import { dayOf, paidWords, pct, shareOf, solOf, solWords } from '../specialists/words';
 import { READ_WORDS, readFailed } from '../failed-reads';
 import type { SolanaHolder } from '../solana/holders';
 import type { SolanaLaunchGroup } from '../solana/launch-types';
@@ -215,7 +215,6 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
     }),
     ...block('What the creator did with this token', onToken, () => {
       const d = onToken!.data;
-      const spent = solOf(d.solSpent);
       const got = solOf(d.solReceived);
       // On a partial read a zero is what was seen, not an absence.
       const seen = (raw: string) =>
@@ -225,7 +224,7 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
             : 'none seen in the transactions read (not all of them)'
           : share(raw, supply);
       return [
-        `Bought ${seen(d.bought)}${spent ? ` for ${solWords(spent)}` : ''}; sold ${seen(d.sold)}${d.sold !== '0' && got ? ` for ${solWords(got)}` : ''}; received ${seen(d.received)}; put in a lock ${seen(d.locked)}; burned ${seen(d.burned)}.`,
+        `Bought ${seen(d.bought)}${d.bought === '0' ? '' : paidWords(d, (raw) => share(raw, supply))}; sold ${seen(d.sold)}${d.sold !== '0' && got ? ` for ${solWords(got)}` : ''}; received ${seen(d.received)}; put in a lock ${seen(d.locked)}; burned ${seen(d.burned)}.`,
         `Holds today: ${d.holdsNow === null ? 'not read' : holding(d.holdsNow, supply)}. Sent ${d.sends.distinct === 0 ? (onToken!.completeness === 'full' ? 'nothing' : 'nothing seen') : `${d.sends.total ? share(d.sends.total, supply) : 'some'} to ${d.sends.distinct} other address${d.sends.distinct === 1 ? '' : 'es'}`} outside markets.`,
         `Transactions on its token accounts: ${d.transactions.read} read of ${d.transactions.listed}.`,
       ];
