@@ -84,7 +84,7 @@ export type SolanaLaunchCreation = {
   /**
    * How it was found: given by the caller, as the oldest transaction of the
    * creator's token account, as the oldest of the mint's whole history, or
-   * as the oldest before a block found from the creation time given.
+   * as the oldest before a slot found from the creation time given.
    */
   foundBy: 'given' | 'creator-account' | 'history' | 'creation-time';
 };

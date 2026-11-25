@@ -359,7 +359,7 @@ async function earliestFromTime(
 ): Promise<Earliest | null> {
   const slot = await slotAtTime(rpc, time, currentSlot);
   if (slot === null) {
-    notes.push('no block was found at the creation time given');
+    notes.push('no slot was found at the creation time given');
     return null;
   }
   for (const margin of HINT_MARGIN_SLOTS) {
@@ -371,7 +371,7 @@ async function earliestFromTime(
     if (page.signatures.length === 0) continue;
     if (!page.reached) {
       notes.push(
-        `more than ${(HINT_PAGES * MAX_SIGNATURES_PAGE).toLocaleString('en-US')} transactions came before the block found from the creation time given`,
+        `more than ${(HINT_PAGES * MAX_SIGNATURES_PAGE).toLocaleString('en-US')} transactions came before the slot found from the creation time given`,
       );
       return null;
     }
@@ -382,7 +382,7 @@ async function earliestFromTime(
     };
   }
   notes.push(
-    'no transaction of the token came before the blocks found from the creation time given',
+    'no transaction of the token came before the slots found from the creation time given',
   );
   return null;
 }
@@ -677,7 +677,7 @@ export async function replayLaunch(
         }
         knownUntil = coveredBefore(anchor, creationSlot, creationTime);
       }
-      if (!bounded) failedParts.push('no block after the creation could bound the window');
+      if (!bounded) failedParts.push('no slot after the creation could bound the window');
     } catch (error) {
       if (!absorbed(error)) throw error;
       failedParts.push('the transactions after the creation could not all be listed');
