@@ -4,6 +4,7 @@ import { AtAGlance } from './AtAGlance';
 import { Explanation } from './Explanation';
 import { FactsBoard, namesOf, plainNote } from './FactsBoard';
 import { LaunchReplay } from './LaunchReplay';
+import { sourceLimits, sourceName } from './report-sources';
 import { ReportHeader } from './ReportHeader';
 import { SolanaFacts } from './SolanaFacts';
 import { SpecialistsPanel } from './SpecialistsPanel';
@@ -76,7 +77,7 @@ export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
               .filter((source) => source.note)
               .map((source, index) => (
                 <p className="source-limit" key={`${source.name}-${index}`}>
-                  <strong>{source.name}</strong> — {source.note}
+                  <strong>{sourceName(source.name)}</strong> — {source.note}
                 </p>
               ))}
         </section>
@@ -88,12 +89,9 @@ export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
         </div>
         {/* A note on how the text was made, kept with the text rather than at the top. */}
         {result.offline && (
-          <section className="offline-note" aria-label="Offline mode">
-            <h3>Offline mode</h3>
-            <p>
-              Written without the reasoning agent: the observed facts are listed, not cross-examined
-              or interpreted.
-            </p>
+          <section className="offline-note" aria-label="Facts only">
+            <h3>Facts only</h3>
+            <p>Written from the facts alone: the explanation model was not used this time.</p>
           </section>
         )}
         <div className="reading-layout">
@@ -108,10 +106,15 @@ export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
               </summary>
               <p className="sources-intro">Sources apply to the report as a whole.</p>
               {result.sources.length === 0 && <p>No sources provided.</p>}
-              {result.sources.map((source, index) => (
-                <div className="source" key={`${source.name}-${index}`}>
-                  <h3>{source.name}</h3>
-                  <p>{plainNote(source.note) ?? 'No limitations reported by this source.'}</p>
+              {/* One entry per source, every limit its reads reported, partial reads included. */}
+              {sourceLimits(result.sources, result.solana, plainNote).map((group) => (
+                <div className="source" key={group.source}>
+                  <h3>{group.name}</h3>
+                  {group.limits.length === 0 ? (
+                    <p>No limitations reported by this source.</p>
+                  ) : (
+                    group.limits.map((limit) => <p key={limit}>{limit}</p>)
+                  )}
                 </div>
               ))}
             </details>

@@ -436,7 +436,8 @@ for (const completeness of ['full', 'unavailable']) {
     const article = page.getByRole('article');
     await expect(article).toBeVisible();
     const text = await article.innerText();
-    expect(text.indexOf('Offline mode')).toBeLessThan(text.indexOf('Raw facts.'));
+    expect(text.indexOf('Written from the facts alone')).toBeGreaterThanOrEqual(0);
+    expect(text.indexOf('Written from the facts alone')).toBeLessThan(text.indexOf('Raw facts.'));
     await expect(page.locator('.divergent')).toHaveCount(0);
     await expect(page.locator('.explanation p')).toHaveCount(3);
     // With measured facts the short version stands in for the banner, except when nothing is usable.
