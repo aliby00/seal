@@ -133,9 +133,9 @@ export function SourceStudy() {
           <em>Not a number to follow.</em>
         </h3>
         <p>
-          The report explains reassuring observations, points that deserve attention and where the
-          signals diverge. Missing evidence stays visible. In offline mode, facts are presented
-          without model interpretation.
+          The report opens on the figures a trader reads first, then says what stands out about
+          the token and what is clean about it. What could not be read is said. In offline mode,
+          the same facts are worded without the model.
         </p>
       </div>
     </section>

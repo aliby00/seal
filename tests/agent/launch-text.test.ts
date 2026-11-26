@@ -88,9 +88,9 @@ describe('the creator’s transfers are not sales', () => {
   it('offline: says the transfers, never a sale', () => {
     const out = offlineExplanation(withSummary(sent));
     expect(out).toContain(
-      'the creator transferred 20.1 % of the supply to other addresses with no payment read in return (19.1 % of it into or out of a lock or vesting program): transfers, not sales',
+      'passed 20.1% to other addresses with nothing paid back (19.1% of it into or out of a lock)',
     );
-    expect(out).not.toMatch(/creator (sold|selling)/);
+    expect(out).not.toMatch(/(?:creator|dev) (?:sold|selling)|sold all/);
     expect(findViolations(out)).toEqual([]);
   });
 });
@@ -106,16 +106,16 @@ describe('the first buyers: a sum of purchases, and what they hold today', () =>
   it('offline: a total across their purchases, with what they still hold', () => {
     const out = offlineExplanation(withSummary(early));
     expect(out).toContain(
-      'in the first 3 seconds, 24 addresses other than the creator bought a total of 94.3 % of the supply across their purchases, and hold none of it today',
+      'Snipers: 24 wallets bought 94.3% in the first 3 seconds; they hold none of it today.',
     );
-    expect(out).not.toMatch(/addresses other than the creator bought 94\.3 %/);
   });
 
   it('offline: an unread holding is not said', () => {
     const out = offlineExplanation(
       withSummary(summary({ early: { ...early.early, heldNow: null, unread: 24 } })),
     );
-    expect(out).toContain('bought a total of 94.3 % of the supply across their purchases.');
+    // The window of the replay's totals: 10 seconds in this summary.
+    expect(out).toContain('Snipers: 24 wallets bought 94.3% in the first 10 seconds.');
   });
 });
 
@@ -134,7 +134,7 @@ describe('what the creator paid for its buys, said only for what SOL paid', () =
       onToken({ bought: '27949733952554', boughtForSol: '6949733952554', solSpent: '1002345678' }),
     );
     expect(out).toContain(
-      'It bought 2.8% of the supply (0.69% for 1.00 SOL, the rest paid in another token than SOL).',
+      'The dev bought 2.8% of the supply (0.69% for 1.00 SOL, the rest paid in another token than SOL)',
     );
     expect(out).not.toMatch(/2\.8% of the supply for/);
   });
@@ -143,12 +143,12 @@ describe('what the creator paid for its buys, said only for what SOL paid', () =
     const out = offlineExplanation(
       onToken({ bought: '21000000000000', boughtForSol: '0', solSpent: '0' }),
     );
-    expect(out).toContain('It bought 2.1% of the supply (paid in another token than SOL).');
+    expect(out).toContain('The dev bought 2.1% of the supply (paid in another token than SOL)');
   });
 
   it('offline: a price as before when every buy was paid in SOL', () => {
     const out = offlineExplanation(onToken({ bought: '21000000000000', solSpent: '500000000' }));
-    expect(out).toContain('It bought 2.1% of the supply for 0.5000 SOL.');
+    expect(out).toContain('The dev bought 2.1% of the supply for 0.5000 SOL');
   });
 
   it('prompt: the same, for the model', () => {
@@ -213,7 +213,7 @@ describe('the creation the launch replay found is not said unreached', () => {
   it('offline: names the address that paid for the creation, not as the creator', () => {
     const out = offlineExplanation(noCreator);
     expect(out).toContain(
-      'Creator: no curve or metadata authority on the chain names one; JUPh…wFbq paid for the creation (transaction 4h5i…tzbZ).',
+      'No curve or metadata authority names a dev; JUPh…wFbq paid for the creation.',
     );
     expect(out).not.toMatch(/not reached/);
     expect(findViolations(out)).toEqual([]);

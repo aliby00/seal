@@ -1,3 +1,4 @@
+import { figuresOf } from '@/lib/figures';
 import { buildGlance } from '@/lib/glance';
 import type { AnalyzeResponse } from '../api/analyze/route';
 import { AtAGlance } from './AtAGlance';
@@ -50,7 +51,7 @@ export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
   return (
     <article className="report" aria-labelledby="report-title">
       <ReportHeader result={result} headline={glance?.items[0]?.title} />
-      {glance && <AtAGlance glance={glance} />}
+      {glance && <AtAGlance glance={glance} figures={figuresOf(result)} />}
       {/* Where the supply went comes right after the summary: what the rest is read against. */}
       {result.facts?.supplyFlow && (
         <SupplyFlow flow={result.facts.supplyFlow} creator={result.facts.creator.address} />

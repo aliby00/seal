@@ -14,6 +14,7 @@ import {
   EXAMPLES,
   isTokenAddress,
   readingUrl,
+  tokenFromInput,
 } from './components/analyze-request';
 import { short } from './components/explorer';
 import { requestError } from './requestErrors';
@@ -196,7 +197,9 @@ export function AnalyzeForm() {
   }
 
   async function analyze(value: string = token) {
-    const address = value.trim();
+    const address = tokenFromInput(value);
+    // A pasted link becomes the address it carries, shown in the field.
+    if (address !== value) setToken(address);
     if (!isTokenAddress(address)) {
       setValidation(addressHint(address));
       input.current?.focus();
@@ -349,11 +352,25 @@ export function AnalyzeForm() {
           <div className="error-state" role="alert">
             <h2>{state.title ?? 'The analysis could not be completed.'}</h2>
             <p>{state.message}</p>
-            {state.retry && (
-              <Button variant="ghost" type="button" onClick={() => void analyze()}>
-                Try again <span aria-hidden="true">↗</span>
+            <div className="error-retry">
+              {state.retry && (
+                <Button variant="ghost" type="button" onClick={() => void analyze()}>
+                  Try again <span aria-hidden="true">↗</span>
+                </Button>
+              )}
+              {/* The field is scrolled out of view by now: the way back to it. */}
+              <Button
+                variant="ghost"
+                type="button"
+                onClick={() => {
+                  input.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  input.current?.select();
+                  input.current?.focus({ preventScroll: true });
+                }}
+              >
+                Paste another address
               </Button>
-            )}
+            </div>
           </div>
         )}
         {state.status === 'done' && <AnalysisReport result={state.result} />}

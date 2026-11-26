@@ -240,7 +240,7 @@ test('a recorded Solana reading draws the mint, the supply by role, the launch a
   await expect(board).toBeVisible();
   const mint = board.locator('#fact-mint');
   await expect(mint).toContainText('Token-2022');
-  await expect(mint).toContainText('metadataPointer');
+  await expect(mint).toContainText('Points to its metadata');
   await expect(mint.getByRole('list', { name: 'What the mint lets someone do' })).toContainText(
     'Create more tokens',
   );

@@ -1,3 +1,4 @@
+import type { Figure } from '@/lib/figures';
 import { partialNotice, type Glance, type GlanceTone } from '@/lib/glance';
 import type { Signal } from '@/lib/specialists/types';
 import { SignalIcon } from './signals';
@@ -13,13 +14,25 @@ const TONE: Record<GlanceTone, { label: string; signal: Signal }> = {
  * The report's first screen: the few facts a reader needs, each in one
  * sentence with its number, and a link to where it is shown in full.
  */
-export function AtAGlance({ glance }: { glance: Glance }) {
+export function AtAGlance({ glance, figures = [] }: { glance: Glance; figures?: Figure[] }) {
   const [lead, ...rest] = glance.items;
   return (
     <section className="glance" aria-labelledby="glance-title">
       <h3 id="glance-title" className="glance-kicker">
         In short
       </h3>
+      {/* The figures a trader reads first, measured: only those read are shown. */}
+      {figures.length > 0 && (
+        <ul className="figures-row" aria-label="Key figures">
+          {figures.map((f) => (
+            <li key={f.id} data-figure={f.id}>
+              <span className="figure-label">{f.label}</span>
+              <strong className="figure-value">{f.value}</strong>
+              {f.sub && <span className="figure-sub">{f.sub}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
       {lead ? (
         <a className="glance-lead" href={lead.href} data-tone={lead.tone}>
           <span className="glance-tone" data-signal={TONE[lead.tone].signal}>

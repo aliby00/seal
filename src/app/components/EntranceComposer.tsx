@@ -1,7 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { addressHint, EXAMPLE_TOKEN, isTokenAddress, requestAnalysis } from './analyze-request';
+import {
+  addressHint,
+  EXAMPLE_TOKEN,
+  isTokenAddress,
+  requestAnalysis,
+  tokenFromInput,
+} from './analyze-request';
 
 /**
  * The address field, on the first screen. It does not run the analysis
@@ -30,7 +36,9 @@ export function EntranceComposer() {
       noValidate
       onSubmit={(event) => {
         event.preventDefault();
-        start(value.trim());
+        const address = tokenFromInput(value);
+        if (address !== value) setValue(address);
+        start(address);
       }}
     >
       <label htmlFor="entrance-token" className="sr-only">

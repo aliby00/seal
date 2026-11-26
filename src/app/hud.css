@@ -2779,3 +2779,86 @@ tr[data-kind='withdraw'] .launch-kind::before {
     justify-content: space-between;
   }
 }
+
+/* ── The figures row: what a trader reads first, measured, never written by the model. ── */
+.figures-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 8.6rem), 1fr));
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--hud-line);
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--hud-line);
+}
+.figures-row li {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  min-width: 0;
+  padding: 11px 14px 12px;
+  background: rgb(6 10 12 / 0.92);
+}
+.figure-label {
+  font: 500 11px/1.3 var(--font-data);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hud-dim);
+}
+.figure-value {
+  font: 600 20px/1.15 var(--font-display);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--hud-text);
+  overflow-wrap: anywhere;
+}
+.figure-sub {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--hud-dim);
+}
+@media (max-width: 540px) {
+  .figures-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .figure-value {
+    font-size: 18px;
+  }
+}
+
+/* The closing line on what was not read: quiet, apart from the findings. */
+.prose-block.prose-limits {
+  padding: 4px 0 0;
+  border: 0;
+  background: none;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--hud-dim);
+}
+
+/* The form's message reads on the dark card, as the entrance's does (contrast over 4.5:1). */
+.analysis-world .validation-message,
+.validation-message {
+  border-color: var(--hud-amber);
+  color: var(--hud-amber);
+  font-weight: 500;
+}
+.analysis-world input[aria-invalid='true'] {
+  border-color: var(--hud-amber);
+}
+
+/* The error card's way back to the field. */
+.error-retry {
+  margin-top: 14px;
+}
+
+/* Legal pages and the 404 in the product's dark colours, not the cream of the old site. */
+.legal {
+  --background: #05080b;
+  --foreground: #e6ebee;
+  --muted-foreground: #9aa6ae;
+  --border: rgb(255 255 255 / 0.12);
+  --primary: #ff9d4a;
+}

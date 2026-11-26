@@ -85,7 +85,7 @@ describe('share card', () => {
     const response = await GET(new Request(`http://localhost/api/card?token=${TOKEN}`));
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toBe('image/png');
-    expect(response.headers.get('cache-control')).toBe('public, max-age=600, s-maxage=600');
+    expect(response.headers.get('cache-control')).toBe('public, max-age=180, s-maxage=180');
     expect((await response.arrayBuffer()).byteLength).toBeGreaterThan(10_000);
   });
 

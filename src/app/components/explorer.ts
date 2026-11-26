@@ -31,3 +31,33 @@ export function short(address: string, keep = 4): string {
   if (address.length <= keep * 2 + 1) return address;
   return `${address.slice(0, keep)}…${address.slice(-keep)}`;
 }
+
+/**
+ * Token-2022 extensions in plain words: "metadataPointer" and
+ * "tokenMetadata" read as code on the mint card (CAT, 26/11/2026). Harmless
+ * ones are named for what they hold; the ones that act on holders say so.
+ */
+const EXTENSION_WORDS: Record<string, string> = {
+  metadataPointer: 'Points to its metadata',
+  tokenMetadata: 'Name and image stored in the mint',
+  transferFeeConfig: 'Transfer fee',
+  transferHook: 'Transfer hook (a program runs on every transfer)',
+  permanentDelegate: 'Permanent delegate (can move anyone’s tokens)',
+  pausableConfig: 'Transfers can be paused',
+  defaultAccountState: 'New accounts can start frozen',
+  nonTransferable: 'Cannot be transferred',
+  mintCloseAuthority: 'Mint can be closed',
+  interestBearingConfig: 'Interest-bearing display',
+  scaledUiAmountConfig: 'Scaled display amount',
+  confidentialTransferMint: 'Confidential transfers',
+  confidentialTransferFeeConfig: 'Confidential transfer fees',
+  confidentialMintBurn: 'Confidential mint and burn',
+  groupPointer: 'Points to a token group',
+  groupMemberPointer: 'Points to a group membership',
+  tokenGroup: 'Token group',
+  tokenGroupMember: 'Member of a token group',
+  permissionedBurnConfig: 'Burns need permission',
+  unknown: 'An extension SEAL does not decode',
+};
+
+export const extensionWords = (name: string) => EXTENSION_WORDS[name] ?? name;

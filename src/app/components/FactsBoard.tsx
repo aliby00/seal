@@ -7,6 +7,7 @@ import { displayName } from '@/lib/specialists/names';
 import { creatorFrom } from './creator-from';
 import { addressUrl, short } from './explorer';
 import type { SolanaView } from './solana-view';
+import { timelinePositions } from './timeline';
 
 /**
  * The measured numbers, drawn. Three cards — creator, holders, market — each
@@ -200,22 +201,21 @@ const OUTCOME_LABEL: Record<TimelineLaunch['outcome'], string> = {
  * launch it happened to. The token being read is ringed.
  */
 function Timeline({ launches }: { launches: TimelineLaunch[] }) {
-  if (launches.length < 2) return null;
-  const first = launches[0]!.block;
-  const last = launches.at(-1)!.block;
-  const span = Math.max(1, last - first);
+  const marks = timelinePositions(launches);
+  if (marks.length < 2) return null;
   const date = (iso: string | null) =>
     iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null;
-  const from = date(launches[0]!.launchedAt);
-  const to = date(launches.at(-1)!.launchedAt);
+  const from = date(marks[0]!.launch.launchedAt);
+  const to = date(marks.at(-1)!.launch.launchedAt);
+  const undated = launches.length - marks.length;
   return (
     <figure className="timeline">
       <figcaption className="timeline-caption">
         Launches read in detail, in time order{from && to ? ` · ${from} → ${to}` : ''}
+        {undated > 0 ? ` · ${undated} with no date not drawn` : ''}
       </figcaption>
       <ol className="timeline-track">
-        {launches.map((l, i) => {
-          const x = 2 + ((l.block - first) / span) * 96;
+        {marks.map(({ launch: l, x }, i) => {
           const events = [l.sold ? 'the creator sold' : '', l.pulled ? 'liquidity removed' : '']
             .filter(Boolean)
             .join(', ');
@@ -368,7 +368,9 @@ function CreatorCard({
   // The analysed token is in the counts only when its own curve is complete.
   const ownCounted = solana?.graduation?.data.graduated === true;
   // The facts do not name every origin (the metadata's update authority): the Solana creator does.
-  const origin = creatorOrigin(creator) ?? (solana ? creatorFrom(solana.creator.data.from) : null);
+  const origin =
+    creatorOrigin(creator) ??
+    (solana ? creatorFrom(solana.creator.data.from, solana.powers) : null);
   return (
     <section className="fact-card" data-wide={wide || undefined} aria-labelledby="fact-creator">
       <h3 id="fact-creator">Creator</h3>
