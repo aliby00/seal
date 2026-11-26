@@ -3,9 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Figure } from '@/lib/figures';
 import type { Flag } from '@/lib/flags';
+import { Flags } from './Flags';
 import { agoWords } from './useLive';
-
-const TONE_WORD: Record<Flag['tone'], string> = { red: 'Red', orange: 'Orange', green: 'Green' };
 
 /** "14:02:11", in the reader's own time. */
 const clock = (iso: string) =>
@@ -71,18 +70,7 @@ export function TopRead({
       <h3 id="top-read-title" className="glance-kicker">
         In short
       </h3>
-      {flags.length > 0 && (
-        <ul className="flag-list" aria-label="Flags, one fact each">
-          {flags.map((f) => (
-            <li key={f.id} className="flag" data-tone={f.tone}>
-              <span className="flag-dot" aria-hidden="true" />
-              <span className="sr-only">{TONE_WORD[f.tone]}: </span>
-              <strong className="flag-label">{f.label}</strong>
-              {f.text && <span className="flag-text">{f.text}</span>}
-            </li>
-          ))}
-        </ul>
-      )}
+      <Flags flags={flags} />
       {sentence && <p className="top-sentence">{sentence}</p>}
       {figures.length > 0 && (
         <ul className="figures-row" aria-label="Key figures">

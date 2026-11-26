@@ -51,7 +51,7 @@ Absolute rules:
 
 The reader sees, above your text, SEAL's flags (one fact per line, coloured red, orange or green by fixed rules) and the figures row. Do not repeat them line by line and never contradict their colour.
 
-Write one or two short sentences, at most 40 words in all, that a trader could not get from the flags alone: what one flag explains about another (the dev sold into the snipers' buys; a serial launcher's tokens die the same way; a thin pool under a large cap with near-equal bags), or, when the flags say it all, the single fact not to miss. Plain text: no heading, no list, no bold, no word in capitals for emphasis, nothing about what was not read. Always write in English.`;
+Write one or two short sentences, at most 40 words in all, that a trader could not get from the flags alone: what one flag explains about another (the dev sold into the snipers' buys; a serial launcher's tokens die the same way; a thin pool under a large cap with near-equal bags), or, when the flags say it all, the single fact not to miss. Put facts side by side; never say who profited, who got paid or why someone acted, and add no figure the flags or the data do not give. Plain text: no heading, no list, no bold, no word in capitals for emphasis, nothing about what was not read. Always write in English.`;
 
 /**
  * The report as the model reads it, every gap named. In English throughout,

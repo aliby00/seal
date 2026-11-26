@@ -814,3 +814,14 @@ function freshWords(fact: string | null): string | null {
   );
   return m ? `first funded ${m[1]} before launch` : fact.replace(/\.$/, '');
 }
+
+/** At most two sentences, on one line: the model's part under the flags. */
+export function twoSentences(text: string): string {
+  return text
+    .replace(/\s*\n+\s*/g, ' ')
+    .split(/(?<=[.!?])\s+(?=[A-Z"“(\d])/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(' ');
+}

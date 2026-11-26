@@ -3022,6 +3022,23 @@ tr[data-kind='withdraw'] .launch-kind::before {
   grid-template-columns: minmax(0, 1fr);
 }
 
+/* On a phone: a denser figures row, so the flags and the figures fit one screen. */
+@media (max-width: 540px) {
+  .figures-row li {
+    flex-basis: 30%;
+    padding: 8px 10px 9px;
+  }
+  .figures-row .figure-value {
+    font-size: 16px;
+  }
+  .figures-row .figure-sub {
+    font-size: 11px;
+  }
+  .top-sentence {
+    font-size: 15.5px;
+  }
+}
+
 /* ── Live cards: how fresh each card is, and a flash on a value that moved. ── */
 .card-stamp {
   margin: -4px 0 10px;
