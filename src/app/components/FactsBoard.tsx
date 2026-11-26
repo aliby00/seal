@@ -7,7 +7,8 @@ import { whereSetAside } from '@/lib/set-aside';
 import { displayName } from '@/lib/specialists/names';
 import { creatorFrom } from './creator-from';
 import { addressUrl, short } from './explorer';
-import { Flash, LiveStamp, type LiveTimes } from './LiveStamp';
+import { chainLiquidity, DEX_DELAY, SOURCE_WORDS, type Source } from './live-labels';
+import { Flash, HoldersLiveStamp, LiveStamp, MarketStamp, type LiveTimes } from './LiveStamp';
 import type { SolanaView } from './solana-view';
 import { timelinePositions } from './timeline';
 
@@ -526,9 +527,7 @@ function HoldersCard({
   return (
     <section className="fact-card" aria-labelledby="fact-holders">
       <h3 id="fact-holders">Holders</h3>
-      {live && (
-        <LiveStamp at={live.holdersAt} collectedAt={live.collectedAt} paused={live.paused} />
-      )}
+      {live && <HoldersLiveStamp live={live} />}
       {!holders.measured || !listRead ? (
         <Missing note={holders.note} />
       ) : (
@@ -627,10 +626,19 @@ function MarketCard({
   const trades = (market.buys24h ?? 0) + (market.sells24h ?? 0);
   const graduation = solana?.graduation?.data;
   const listed = solana?.market.data;
+  const read = live?.market ?? null;
+  const onChain = Boolean(read?.chain);
+  /** A tiny tag beside a figure's name: where its value comes from. */
+  const tag = (source: Source | null) =>
+    source && (
+      <span className="figure-source" data-source={source}>
+        {SOURCE_WORDS[source]}
+      </span>
+    );
   return (
     <section className="fact-card" aria-labelledby="fact-market">
       <h3 id="fact-market">Market</h3>
-      {live && <LiveStamp at={live.marketAt} collectedAt={live.collectedAt} paused={live.paused} />}
+      {live && <MarketStamp live={live} />}
       {graduation && (graduation.graduated || graduation.progress !== null) && (
         <Ring
           value={graduation.graduated ? 1 : (graduation.progress ?? 0)}
@@ -649,25 +657,28 @@ function MarketCard({
         <>
           <dl className="fact-pairs">
             <div>
-              <dt>Price</dt>
+              <dt>Price {tag(onChain ? 'chain' : null)}</dt>
               <dd>
                 <Flash value={usd(market.priceUsd)} />
               </dd>
             </div>
             <div>
-              <dt>Liquidity</dt>
+              <dt>
+                Liquidity{' '}
+                {tag(!market.staleLiquidity && chainLiquidity(read, false) ? 'chain' : null)}
+              </dt>
               <dd>
                 <Flash value={market.staleLiquidity ? 'not current' : usd(market.liquidityUsd)} />
               </dd>
             </div>
             <div>
-              <dt>Volume 24h</dt>
+              <dt>Volume 24h {tag('dex')}</dt>
               <dd>
                 <Flash value={usd(market.volume24hUsd)} />
               </dd>
             </div>
             <div>
-              <dt>FDV</dt>
+              <dt>FDV {tag(onChain ? 'chain' : null)}</dt>
               <dd>
                 <Flash value={usd(market.fdvUsd)} />
               </dd>
@@ -675,9 +686,9 @@ function MarketCard({
           </dl>
           {live && (
             <p className="fact-note">
-              {live.marketAt && live.marketSlot != null
-                ? `Price, liquidity and FDV read from the main pool on chain (slot ${live.marketSlot.toLocaleString('en-US')}); volume and trades from DexScreener, about 30 s behind the chain.`
-                : 'Price, liquidity, volume and trades from DexScreener, which runs 10 to 60 s behind the chain.'}
+              {onChain
+                ? `Price and FDV read from the main pool on chain${chainLiquidity(read, false) ? ', liquidity too' : ''}; volume, buys and sells from DexScreener (${DEX_DELAY}).`
+                : `Price, liquidity, volume, buys and sells from DexScreener (${DEX_DELAY} behind the chain).`}
             </p>
           )}
           {listed?.pair && (
@@ -706,7 +717,7 @@ function MarketCard({
           )}
           {trades > 0 && (
             <Split
-              label={`${(market.buys24h ?? 0).toLocaleString('en-US')} buys and ${(market.sells24h ?? 0).toLocaleString('en-US')} sells in 24 hours`}
+              label={`${(market.buys24h ?? 0).toLocaleString('en-US')} buys and ${(market.sells24h ?? 0).toLocaleString('en-US')} sells in 24 hours, via DexScreener`}
               parts={[
                 { value: market.buys24h ?? 0, tone: 'calm', name: 'buys' },
                 { value: market.sells24h ?? 0, tone: 'warm', name: 'sells' },

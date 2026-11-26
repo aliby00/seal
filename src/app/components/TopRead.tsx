@@ -4,15 +4,15 @@ import { useEffect, useRef, useState } from 'react';
 import type { Figure } from '@/lib/figures';
 import type { Flag } from '@/lib/flags';
 import { Flags } from './Flags';
-import { agoWords } from './useLive';
-
-/** "14:02:11", in the reader's own time. */
-const clock = (iso: string) =>
-  new Date(iso).toLocaleTimeString('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
+import {
+  clockOf as clock,
+  figureSource,
+  holdersLine,
+  marketLines,
+  SOURCE_WORDS,
+  type MarketRead,
+} from './live-labels';
+import { useNow } from './LiveStamp';
 
 /** A value that flashes when it changes, so a live move is seen. */
 function FigureValue({ value }: { value: string }) {
@@ -32,16 +32,6 @@ function FigureValue({ value }: { value: string }) {
   );
 }
 
-/** Seconds since the last live read, ticking. */
-function Since({ at }: { at: string }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  return <>{agoWords(now - Date.parse(at))}</>;
-}
-
 /**
  * The report's first screen: SEAL's flags, one fact each, red, orange or
  * green by fixed rules; the figures row, its market live; and at most two
@@ -53,9 +43,7 @@ export function TopRead({
   figures,
   sentence,
   collectedAt,
-  marketAt,
-  chain = null,
-  dexAt = null,
+  market,
   holdersAt,
   partial,
 }: {
@@ -63,14 +51,12 @@ export function TopRead({
   figures: Figure[];
   sentence: string | null;
   collectedAt: string;
-  marketAt: string | null;
-  /** The slot the live price was read at, when it was read on chain. */
-  chain?: { slot: number; readAt: string } | null;
-  /** When DexScreener's figures (volume, trades) were last read. */
-  dexAt?: string | null;
+  /** The last live market read: its chain slot when the pool was read on chain. */
+  market: MarketRead | null;
   holdersAt: string | null;
   partial: string | null;
 }) {
+  const now = useNow();
   return (
     <section className="top-read" aria-labelledby="top-read-title">
       <h3 id="top-read-title" className="glance-kicker">
@@ -80,36 +66,34 @@ export function TopRead({
       {sentence && <p className="top-sentence">{sentence}</p>}
       {figures.length > 0 && (
         <ul className="figures-row" aria-label="Key figures">
-          {figures.map((f) => (
-            <li key={f.id} data-figure={f.id}>
-              <span className="figure-label">{f.label}</span>
-              <FigureValue value={f.value} />
-              {f.sub && <span className="figure-sub">{f.sub}</span>}
-            </li>
-          ))}
+          {figures.map((f) => {
+            const source = figureSource(f, market);
+            return (
+              <li key={f.id} data-figure={f.id}>
+                <span className="figure-label">{f.label}</span>
+                <FigureValue value={f.value} />
+                {f.sub && <span className="figure-sub">{f.sub}</span>}
+                {source && (
+                  <span className="figure-source" data-source={source}>
+                    {SOURCE_WORDS[source]}
+                  </span>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
       <p className="freshness">
-        {chain ? (
-          <>
-            <span className="live-badge">
-              <span className="live-dot" aria-hidden="true" /> Price live from the chain · slot{' '}
-              {chain.slot.toLocaleString('en-US')} · <Since at={chain.readAt} />
+        {marketLines(market, collectedAt, now).map((line) =>
+          line.live ? (
+            <span key={line.text.slice(0, 12)} className="live-badge">
+              <span className="live-dot" aria-hidden="true" /> {line.text}
             </span>
-            <span>
-              Volume and trades via DexScreener (~30 s behind) · read{' '}
-              <Since at={dexAt ?? chain.readAt} />
-            </span>
-          </>
-        ) : marketAt ? (
-          <span className="live-badge">
-            <span className="live-dot" aria-hidden="true" /> Market via DexScreener (~30 s behind
-            the chain) · read <Since at={dexAt ?? marketAt} />
-          </span>
-        ) : (
-          <span>Market as of {clock(collectedAt)} (DexScreener)</span>
+          ) : (
+            <span key={line.text.slice(0, 12)}>{line.text}</span>
+          ),
         )}
-        <span>Holders and dev read from the chain · as of {clock(holdersAt ?? collectedAt)}</span>
+        <span>{holdersLine(holdersAt, collectedAt, now)}</span>
         <span>Launch and creator history as of {clock(collectedAt)}</span>
       </p>
       {partial && (

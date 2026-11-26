@@ -41,7 +41,7 @@ export function AnalysisReport({ result: served }: { result: AnalyzeResponse }) 
     ? {
         collectedAt: served.collectedAt,
         marketAt: live.market?.at ?? null,
-        marketSlot: live.market?.chain?.slot ?? null,
+        market: live.market,
         holdersAt: live.holders?.at ?? null,
         paused: live.paused,
       }
@@ -91,9 +91,7 @@ export function AnalysisReport({ result: served }: { result: AnalyzeResponse }) 
           figures={figures}
           sentence={sentence}
           collectedAt={result.collectedAt}
-          marketAt={live.market?.at ?? null}
-          chain={live.market?.chain ?? null}
-          dexAt={live.market?.dexAt ?? null}
+          market={live.market}
           holdersAt={live.holders?.at ?? null}
           partial={glance?.partial?.length ? partialNotice(glance.partial) : null}
         />

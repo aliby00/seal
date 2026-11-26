@@ -3048,6 +3048,22 @@ tr[data-kind='withdraw'] .launch-kind::before {
 .card-stamp.live-badge {
   display: flex;
 }
+/* Where a figure comes from: "chain" (read slot by slot) or "via DexScreener" (lagging). */
+.figure-source {
+  display: block;
+  margin-top: 2px;
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  color: var(--hud-dim);
+}
+.figure-source[data-source='chain'] {
+  color: #4fd9a8;
+}
+dt .figure-source {
+  display: inline;
+  margin: 0 0 0 4px;
+  text-transform: none;
+}
 .live-value[data-flash] {
   animation: figure-flash 0.9s ease-out;
 }

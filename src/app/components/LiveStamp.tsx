@@ -1,25 +1,51 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { clockOf, holdersStamp, marketStamp, type MarketRead, type Stamp } from './live-labels';
 import { agoWords } from './useLive';
+
+export { clockOf };
 
 /** When each part of a report was last read: live reads, and the report itself. */
 export type LiveTimes = {
   collectedAt: string;
   marketAt: string | null;
-  /** The slot the live price was read at on chain; `null` or absent: DexScreener's. */
-  marketSlot?: number | null;
+  /** The last live market read, for where its figures come from; absent: none yet. */
+  market?: MarketRead | null;
   holdersAt: string | null;
   paused: boolean;
 };
 
-/** "14:02:11", in the reader's own time. */
-export function clockOf(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
+/** The time now, ticking every second. */
+export function useNow(): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  return now;
+}
+
+function StampLine({ stamp }: { stamp: Stamp }) {
+  return stamp.live ? (
+    <p className="card-stamp live-badge">
+      <span className="live-dot" aria-hidden="true" /> {stamp.text}
+    </p>
+  ) : (
+    <p className="card-stamp">{stamp.text}</p>
+  );
+}
+
+/** The market card's stamp: the price's slot on chain, or DexScreener's delay. */
+export function MarketStamp({ live }: { live: LiveTimes }) {
+  const now = useNow();
+  return <StampLine stamp={marketStamp(live.market ?? null, live.collectedAt, live.paused, now)} />;
+}
+
+/** The holders' stamp: read on chain with the report, refreshed every 20 s. */
+export function HoldersLiveStamp({ live }: { live: LiveTimes }) {
+  const now = useNow();
+  return <StampLine stamp={holdersStamp(live.holdersAt, live.collectedAt, live.paused, now)} />;
 }
 
 /** A value that flashes when it changes, so a live move is seen. */
@@ -41,11 +67,7 @@ export function Flash({ value, children }: { value: string; children?: ReactNode
 }
 
 function Since({ at }: { at: string }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
+  const now = useNow();
   return <>{agoWords(now - Date.parse(at))}</>;
 }
 

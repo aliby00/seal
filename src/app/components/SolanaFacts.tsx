@@ -3,7 +3,7 @@ import { share } from '@/lib/figures';
 import { creatorFrom } from './creator-from';
 import { NamedLine, plainNote } from './FactsBoard';
 import { addressUrl, extensionWords, short, txUrl } from './explorer';
-import { clockOf, Flash, LiveStamp, type LiveTimes } from './LiveStamp';
+import { clockOf, Flash, HoldersLiveStamp, type LiveTimes } from './LiveStamp';
 import type {
   FundedView,
   GroupView,
@@ -284,9 +284,7 @@ function MintCard({ view }: { view: SolanaView }) {
 }
 
 function HoldersStamp({ live }: { live?: LiveTimes }) {
-  return live ? (
-    <LiveStamp at={live.holdersAt} collectedAt={live.collectedAt} paused={live.paused} />
-  ) : null;
+  return live ? <HoldersLiveStamp live={live} /> : null;
 }
 
 function SupplyCard({ view, live }: { view: SolanaView; live?: LiveTimes }) {
