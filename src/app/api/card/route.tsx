@@ -129,7 +129,11 @@ type CardData = {
   flags?: Flag[];
 };
 
-const FLAG_COLOR: Record<Flag['tone'], string> = { red: '#ff5c5c', orange: '#ffb347', green: '#4fd9a8' };
+const FLAG_COLOR: Record<Flag['tone'], string> = {
+  red: '#ff5c5c',
+  orange: '#ffb347',
+  green: '#4fd9a8',
+};
 
 /** The flags, one line each, as the page opens on them. */
 function FlagLines({ flags }: { flags: Flag[] }) {
