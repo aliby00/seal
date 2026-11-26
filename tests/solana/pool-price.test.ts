@@ -153,7 +153,16 @@ describe('the live market laid together', () => {
     expect(m.liquidityUsd).toBe(22_000);
     expect(m.liquidityToMarketCap).toBe(0.2);
     expect(m.volume24hUsd).toBe(1_000_000);
-    expect(m.chain).toEqual({ slot: 474_190_660, at: AT, pool: 'pool', kind: 'pumpswap' });
+    expect(m.chain).toEqual({
+      priceUsd: 0.00011,
+      priceSol: 0.0000015,
+      marketCapUsd: m.marketCapUsd,
+      liquidityUsd: 22_000,
+      slot: 474_190_660,
+      readAt: AT,
+      pool: 'pool',
+      kind: 'pumpswap',
+    });
     expect(m.dexAt).toBe(dex.at);
     expect(m.at).toBe(AT);
   });
@@ -175,6 +184,7 @@ describe('the live market laid together', () => {
     const m = liveMarketOf('mint', { ...dex, liquidityUsd: null }, curve, AT);
     expect(m.liquidityUsd).toBeNull();
     expect(m.curveLiquidityUsd).toBe(5_500);
+    expect(m.chain?.liquidityUsd).toBe(5_500);
     expect(m.liquidityToMarketCap).toBe(0.05);
   });
 

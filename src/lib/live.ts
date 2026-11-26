@@ -2,6 +2,7 @@ import { log } from './logger';
 import { fetchSolanaPairs, toSolanaMarketState } from './market/solana';
 import { SharedCache } from './shared-cache';
 import { readHolders } from './solana/holders';
+import { NATIVE_MINT } from './solana/programs';
 import { readPoolPrice, type LivePoolKind, type PoolPrice } from './solana/pool-price';
 import { createSolanaRpc } from './solana/rpc';
 
@@ -32,11 +33,28 @@ export type LiveMarket = {
    * chain at `slot`; `null` when the pool is not of a kind read here or the
    * read failed, and they are DexScreener's. Absent from older answers.
    */
-  chain?: { slot: number; at: string; pool: string; kind: LivePoolKind } | null;
+  chain?: LiveChain | null;
   /** When DexScreener's figures were read (they lag the chain by 10 to 60 s). */
   dexAt?: string;
   /** The quote on the token's curve in dollars, when the main pair is its curve (DexScreener gives none). */
   curveLiquidityUsd?: number | null;
+};
+
+/**
+ * What the main pool said on chain at `slot`, read at `readAt`. The market
+ * cap keeps DexScreener's supply (the report's); `liquidityUsd` is both
+ * sides of a pool, or the SOL a curve holds in dollars.
+ */
+export type LiveChain = {
+  priceUsd: number;
+  /** The price in SOL; `null` for a pool quoted in USDC or USDT. */
+  priceSol: number | null;
+  marketCapUsd: number | null;
+  liquidityUsd: number | null;
+  slot: number;
+  readAt: string;
+  pool: string;
+  kind: LivePoolKind;
 };
 
 export type LiveHolders = {
@@ -176,7 +194,16 @@ export function liveMarketOf(
     liquidityUsd,
     liquidityToMarketCap: ratioOf(liquidityUsd ?? chain.curveLiquidityUsd, marketCapUsd ?? fdvUsd),
     ...volume,
-    chain: { slot: chain.slot, at, pool: chain.pool, kind: chain.kind },
+    chain: {
+      priceUsd: chain.priceUsd,
+      priceSol: chain.quoteMint === NATIVE_MINT ? chain.priceQuote : null,
+      marketCapUsd: marketCapUsd ?? fdvUsd,
+      liquidityUsd: chain.liquidityUsd ?? chain.curveLiquidityUsd,
+      slot: chain.slot,
+      readAt: at,
+      pool: chain.pool,
+      kind: chain.kind,
+    },
     dexAt: dex.at,
     ...(chain.curveLiquidityUsd !== null ? { curveLiquidityUsd: chain.curveLiquidityUsd } : {}),
   };
