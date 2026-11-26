@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { LiveHolders, LiveMarket } from '@/lib/live';
 
-/** The market every 4 s, the holders every 20 s, while the tab is visible. */
-export const MARKET_EVERY_MS = 4_000;
+/** The market every 2 s (the price is read on chain), the holders every 20 s, while the tab is visible. */
+export const MARKET_EVERY_MS = 2_000;
 export const HOLDERS_EVERY_MS = 20_000;
 /** After failed polls the wait doubles, up to this. */
 export const MAX_BACKOFF_MS = 60_000;
@@ -18,7 +18,7 @@ export type Live = {
   paused: boolean;
 };
 
-/** The wait before the next poll: 4 s, then doubled per failed poll in a row, 60 s at most. */
+/** The wait before the next poll: 2 s, then doubled per failed poll in a row, 60 s at most. */
 export function nextDelay(failures: number): number {
   if (failures <= 0) return MARKET_EVERY_MS;
   return Math.min(MAX_BACKOFF_MS, MARKET_EVERY_MS * 2 ** Math.min(failures, 10));

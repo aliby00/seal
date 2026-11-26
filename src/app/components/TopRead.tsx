@@ -54,6 +54,8 @@ export function TopRead({
   sentence,
   collectedAt,
   marketAt,
+  chain = null,
+  dexAt = null,
   holdersAt,
   partial,
 }: {
@@ -62,6 +64,10 @@ export function TopRead({
   sentence: string | null;
   collectedAt: string;
   marketAt: string | null;
+  /** The slot the live price was read at, when it was read on chain. */
+  chain?: { slot: number; readAt: string } | null;
+  /** When DexScreener's figures (volume, trades) were last read. */
+  dexAt?: string | null;
   holdersAt: string | null;
   partial: string | null;
 }) {
@@ -84,18 +90,26 @@ export function TopRead({
         </ul>
       )}
       <p className="freshness">
-        {marketAt ? (
+        {chain ? (
+          <>
+            <span className="live-badge">
+              <span className="live-dot" aria-hidden="true" /> Price live from the chain · slot{' '}
+              {chain.slot.toLocaleString('en-US')} · <Since at={chain.readAt} />
+            </span>
+            <span>
+              Volume and trades via DexScreener (~30 s behind) · read{' '}
+              <Since at={dexAt ?? chain.readAt} />
+            </span>
+          </>
+        ) : marketAt ? (
           <span className="live-badge">
-            <span className="live-dot" aria-hidden="true" /> Market live · updated{' '}
-            <Since at={marketAt} />
+            <span className="live-dot" aria-hidden="true" /> Market via DexScreener (~30 s behind
+            the chain) · read <Since at={dexAt ?? marketAt} />
           </span>
         ) : (
-          <span>Market as of {clock(collectedAt)}</span>
+          <span>Market as of {clock(collectedAt)} (DexScreener)</span>
         )}
-        <span>
-          Holders and dev{' '}
-          {holdersAt ? `refreshed ${clock(holdersAt)}` : `as of ${clock(collectedAt)}`}
-        </span>
+        <span>Holders and dev read from the chain · as of {clock(holdersAt ?? collectedAt)}</span>
         <span>Launch and creator history as of {clock(collectedAt)}</span>
       </p>
       {partial && (
