@@ -6,6 +6,7 @@ import { whereSetAside } from '@/lib/set-aside';
 import { displayName } from '@/lib/specialists/names';
 import { creatorFrom } from './creator-from';
 import { addressUrl, short } from './explorer';
+import { Flash, LiveStamp, type LiveTimes } from './LiveStamp';
 import type { SolanaView } from './solana-view';
 import { timelinePositions } from './timeline';
 
@@ -359,10 +360,12 @@ function CreatorCard({
   creator,
   timeline,
   solana,
+  live,
 }: {
   creator: ReportFacts['creator'];
   timeline?: TimelineLaunch[];
   solana?: SolanaView;
+  live?: LiveTimes;
 }) {
   const wide = creator.measured && (timeline?.length ?? 0) >= 2;
   // The analysed token is in the counts only when its own curve is complete.
@@ -374,6 +377,7 @@ function CreatorCard({
   return (
     <section className="fact-card" data-wide={wide || undefined} aria-labelledby="fact-creator">
       <h3 id="fact-creator">Creator</h3>
+      {live && <LiveStamp at={null} collectedAt={live.collectedAt} />}
       {!creator.measured ? (
         <Missing note={creator.note} />
       ) : !creator.address ? (
@@ -440,7 +444,9 @@ function HoldersCard({
   creator,
   names,
   listRead = true,
+  live,
 }: {
+  live?: LiveTimes;
   holders: ReportFacts['holders'];
   creator: string | null;
   /** What the chain names an address, by address (case kept). */
@@ -456,6 +462,9 @@ function HoldersCard({
   return (
     <section className="fact-card" aria-labelledby="fact-holders">
       <h3 id="fact-holders">Holders</h3>
+      {live && (
+        <LiveStamp at={live.holdersAt} collectedAt={live.collectedAt} paused={live.paused} />
+      )}
       {!holders.measured || !listRead ? (
         <Missing note={holders.note} />
       ) : (
@@ -471,8 +480,10 @@ function HoldersCard({
           <p className="sr-only">{`Concentration: largest ${pct(holders.top1)} · top 10 ${pct(holders.top10)}`}</p>
           {holders.holderCount !== null && (
             <p className="fact-line">
-              <strong>{holders.holderCount.toLocaleString('en-US')}</strong> holders outside curves,
-              pools, locks and burn addresses
+              <strong>
+                <Flash value={holders.holderCount.toLocaleString('en-US')} />
+              </strong>{' '}
+              holders outside curves, pools, locks and burn addresses
             </p>
           )}
           {holders.note && <p className="fact-note">{plainNote(holders.note)}</p>}
@@ -512,13 +523,22 @@ const BASIS_WORD = {
   'quote-raised': 'of the target raised',
 } as const;
 
-function MarketCard({ market, solana }: { market: ReportFacts['market']; solana?: SolanaView }) {
+function MarketCard({
+  market,
+  solana,
+  live,
+}: {
+  market: ReportFacts['market'];
+  solana?: SolanaView;
+  live?: LiveTimes;
+}) {
   const trades = (market.buys24h ?? 0) + (market.sells24h ?? 0);
   const graduation = solana?.graduation?.data;
   const listed = solana?.market.data;
   return (
     <section className="fact-card" aria-labelledby="fact-market">
       <h3 id="fact-market">Market</h3>
+      {live && <LiveStamp at={live.marketAt} collectedAt={live.collectedAt} paused={live.paused} />}
       {graduation && (graduation.graduated || graduation.progress !== null) && (
         <Ring
           value={graduation.graduated ? 1 : (graduation.progress ?? 0)}
@@ -538,19 +558,27 @@ function MarketCard({ market, solana }: { market: ReportFacts['market']; solana?
           <dl className="fact-pairs">
             <div>
               <dt>Price</dt>
-              <dd>{usd(market.priceUsd)}</dd>
+              <dd>
+                <Flash value={usd(market.priceUsd)} />
+              </dd>
             </div>
             <div>
               <dt>Liquidity</dt>
-              <dd>{market.staleLiquidity ? 'not current' : usd(market.liquidityUsd)}</dd>
+              <dd>
+                <Flash value={market.staleLiquidity ? 'not current' : usd(market.liquidityUsd)} />
+              </dd>
             </div>
             <div>
               <dt>Volume 24h</dt>
-              <dd>{usd(market.volume24hUsd)}</dd>
+              <dd>
+                <Flash value={usd(market.volume24hUsd)} />
+              </dd>
             </div>
             <div>
               <dt>FDV</dt>
-              <dd>{usd(market.fdvUsd)}</dd>
+              <dd>
+                <Flash value={usd(market.fdvUsd)} />
+              </dd>
             </div>
           </dl>
           {listed?.pair && (
@@ -606,7 +634,10 @@ export function FactsBoard({
   timeline,
   solana,
   index = '02',
+  live,
 }: {
+  /** When the live reads last landed: each card says how fresh it is. */
+  live?: LiveTimes;
   facts: ReportFacts;
   timeline?: TimelineLaunch[];
   /** The Solana blocks, when the response carries them. */
@@ -621,8 +652,9 @@ export function FactsBoard({
         <h3 id="facts-title">What the chain and the market show.</h3>
       </div>
       <div className="facts-board" role="region" aria-label="Measured facts">
-        <CreatorCard creator={facts.creator} timeline={timeline} solana={solana} />
+        <CreatorCard creator={facts.creator} timeline={timeline} solana={solana} live={live} />
         <HoldersCard
+          live={live}
           holders={facts.holders}
           creator={facts.creator.address}
           names={namesOf(solana)}
@@ -632,7 +664,7 @@ export function FactsBoard({
               : facts.holders.top.length > 0 || facts.holders.holderCount !== null
           }
         />
-        <MarketCard market={facts.market} solana={solana} />
+        <MarketCard market={facts.market} solana={solana} live={live} />
       </div>
     </section>
   );
