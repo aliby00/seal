@@ -3033,3 +3033,21 @@ tr[data-kind='withdraw'] .launch-kind::before {
     font-size: 15.5px;
   }
 }
+
+/* ── Live cards: how fresh each card is, and a flash on a value that moved. ── */
+.card-stamp {
+  margin: -4px 0 10px;
+  font-size: 12px;
+  color: var(--hud-dim);
+}
+.card-stamp.live-badge {
+  display: flex;
+}
+.live-value[data-flash] {
+  animation: figure-flash 0.9s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-value[data-flash] {
+    animation: none;
+  }
+}

@@ -13,7 +13,7 @@ import { ReportHeader } from './ReportHeader';
 import { SolanaFacts } from './SolanaFacts';
 import { SpecialistsPanel } from './SpecialistsPanel';
 import { SupplyFlow } from './SupplyFlow';
-import { liveFacts, liveValues } from './live-merge';
+import { liveFacts, liveSolanaView, liveValues } from './live-merge';
 import { TopRead } from './TopRead';
 import { useLive } from './useLive';
 
@@ -32,9 +32,19 @@ export function AnalysisReport({ result: served }: { result: AnalyzeResponse }) 
   // The flags and the live market: answers cached before them keep the old layout.
   const flagged = Boolean(served.flagInputs && served.facts);
   const live = useLive(served.token, served.facts?.creator.address ?? null, flagged);
-  const result: AnalyzeResponse = served.facts
-    ? { ...served, facts: liveFacts(served.facts, live.market, live.holders) }
-    : served;
+  const result: AnalyzeResponse = {
+    ...served,
+    ...(served.facts ? { facts: liveFacts(served.facts, live.market, live.holders) } : {}),
+    ...(served.solana && flagged ? { solana: liveSolanaView(served.solana, live.holders) } : {}),
+  };
+  const liveTimes = flagged
+    ? {
+        collectedAt: served.collectedAt,
+        marketAt: live.market?.at ?? null,
+        holdersAt: live.holders?.at ?? null,
+        paused: live.paused,
+      }
+    : undefined;
   const glance = buildGlance(result);
   const flags = served.flagInputs
     ? computeFlags(served.flagInputs, liveValues(live.market, live.holders))
@@ -165,9 +175,10 @@ export function AnalysisReport({ result: served }: { result: AnalyzeResponse }) 
           timeline={result.timeline}
           solana={result.solana}
           index={factsIndex}
+          live={liveTimes}
         />
       )}
-      {result.solana && <SolanaFacts view={result.solana} index={solanaIndex} />}
+      {result.solana && <SolanaFacts view={result.solana} index={solanaIndex} live={liveTimes} />}
       {replay && result.launch && (
         <LaunchReplay
           launch={result.launch}
