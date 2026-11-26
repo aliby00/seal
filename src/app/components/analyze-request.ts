@@ -162,8 +162,45 @@ export async function resolveInput(
  */
 export const ANALYZE_EVENT = 'seal:analyze';
 
+/**
+ * Fired by the entrance just before it asks for an analysis: the scene plays
+ * its passage through the gate while the request runs.
+ */
+export const PASSAGE_EVENT = 'seal:passage';
+
 export function requestAnalysis(address: string) {
+  window.dispatchEvent(new Event(PASSAGE_EVENT));
   window.dispatchEvent(new CustomEvent<string>(ANALYZE_EVENT, { detail: address }));
+}
+
+/**
+ * The passage through the gate, while it plays. The request starts at once;
+ * only its outcome waits until the light covers the screen (`released`), so
+ * the report is drawn behind the light and never cuts the passage short.
+ */
+let passage: { released: Promise<void> } | null = null;
+
+export function beginPassage() {
+  let release: () => void = () => undefined;
+  const current = { released: new Promise<void>((resolve) => (release = resolve)) };
+  passage = current;
+  return {
+    release: () => release(),
+    end() {
+      release();
+      if (passage === current) passage = null;
+    },
+  };
+}
+
+/** Resolves once the passage, if one plays, lets the outcome show. */
+export function passageReleased(): Promise<void> {
+  return passage?.released ?? Promise.resolve();
+}
+
+/** Whether the entrance is moving the page itself. */
+export function inPassage(): boolean {
+  return passage !== null;
 }
 
 /** The address a reading can be shared and reopened at. */

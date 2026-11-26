@@ -2935,3 +2935,98 @@
 #report-title:focus {
   outline: none;
 }
+
+/* Le passage : après l'envoi d'une adresse depuis l'entrée, la caméra avance
+   jusqu'à la porte, sa lumière remplit l'écran, puis l'espace de lecture monte.
+   Seuls l'opacité et les transformations changent à chaque image. */
+.immersive-root {
+  --passage-glow: 0;
+}
+.gate-glow {
+  position: absolute;
+  left: 50%;
+  top: var(--gate-y);
+  width: calc(var(--gate-h) * 3.4);
+  height: calc(var(--gate-h) * 2.6);
+  transform: translate(-50%, -56%);
+  background: radial-gradient(
+    ellipse at 50% 55%,
+    rgb(255 247 232 / 0.9),
+    rgb(242 128 28 / 0.3) 36%,
+    transparent 68%
+  );
+  opacity: var(--passage-glow);
+  visibility: hidden;
+}
+.passage-light {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  /* Light adds to what is behind it: as it clears, the reading glows through
+     instead of showing through a grey veil. */
+  mix-blend-mode: screen;
+  overflow: hidden;
+  pointer-events: none;
+  visibility: hidden;
+}
+.passage-light::before,
+.passage-light::after {
+  content: '';
+  position: absolute;
+}
+/* The bloom: born in the opening, it grows until it covers the frame. */
+.passage-light::before {
+  left: 50%;
+  top: var(--gate-y);
+  width: 160vmax;
+  height: 160vmax;
+  margin: -80vmax 0 0 -80vmax;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    #fffdf8,
+    #fff4e2 40%,
+    rgb(255 226 186 / 0.55) 70%,
+    rgb(255 226 186 / 0) 100%
+  );
+  opacity: var(--bloom, 0);
+  transform: scale(var(--bloom-scale, 0.08));
+}
+/* The wash: the whole frame turns to light, warmest at the gate. */
+.passage-light::after {
+  inset: 0;
+  background: radial-gradient(ellipse at 50% var(--gate-y), #fffcf5 0%, #f6efe2 45%, #e4dccb 100%);
+  opacity: var(--wash, 0);
+}
+.immersive-root[data-passage] .gate-glow,
+.immersive-root[data-passage] .passage-light {
+  visibility: visible;
+}
+.immersive-root[data-passage] .passage-light::before {
+  will-change: transform, opacity;
+}
+.immersive-root[data-passage] .passage-light::after {
+  will-change: opacity;
+}
+.immersive-root[data-passage] .world-content {
+  opacity: calc(1 - var(--rise, 0) * 0.85);
+  transform: translate3d(0, var(--rise-y, 0px), 0);
+  will-change: transform, opacity;
+}
+.immersive-root[data-passage] .entrance-field {
+  box-shadow:
+    0 0 0 1px rgb(255 214 170 / 0.75),
+    0 0 42px rgb(242 128 28 / 0.42);
+  transition: box-shadow 450ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+/* A reading that arrives after the passage rises in, never pops. */
+.immersive-root[data-awaiting] #analysis-result > * {
+  animation: result-in 700ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+@keyframes result-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 24px, 0);
+  }
+}
