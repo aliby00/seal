@@ -64,9 +64,18 @@ export const PUBLIC_BURST = 3;
 export const KEYED_RATE = 10;
 export const KEYED_BURST = 20;
 
-/** A node that failed is tried after the others for this long; ten minutes after a 429. */
+/** A node that failed is tried after the others for this long. */
 export const SET_ASIDE_MS = 60_000;
-export const REFUSED_ASIDE_MS = 10 * 60_000;
+/**
+ * A keyed node that still answers 429 after its retries: a few seconds only.
+ * Its limit is per second; ten minutes (before 26/11/2026) put a whole
+ * instance on the public node, three calls a second, for one busy second.
+ */
+export const RATE_LIMITED_ASIDE_MS = 5_000;
+/** Tries a keyed node gets after a 429 before the call is handed over. */
+export const KEYED_RATE_LIMIT_RETRIES = 2;
+/** The longest a keyed node's `Retry-After` is waited before the call is handed over instead. */
+export const KEYED_RETRY_AFTER_MAX_MS = 2_000;
 /** A node that is not the last one gets this long before the next is tried. */
 export const HANDOVER_TIMEOUT_MS = 8_000;
 /** After a 429 the public node needs seconds, not the generic 0.4 s backoff. */
@@ -772,6 +781,36 @@ export function createSolanaRpc(options: SolanaRpcOptions = {}): SolanaRpcClient
     }
   }
 
+  /**
+   * A node with someone to hand over to. A keyed node's 429 is its per-second
+   * limit, over in a moment: it is asked again, after its `Retry-After` (2 s
+   * at most) or a short backoff, before the call goes to the next node, the
+   * public one, which serves three calls a second. Every try is a call spent.
+   */
+  async function sendFirst(
+    node: SolanaNode,
+    method: string,
+    params: readonly unknown[],
+    signal: AbortSignal | undefined,
+  ) {
+    const wait = options.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await send(node, method, params, false, signal);
+      } catch (error) {
+        const again =
+          error instanceof RateLimitError &&
+          !node.public &&
+          attempt < KEYED_RATE_LIMIT_RETRIES &&
+          !signal?.aborted;
+        if (!again) throw error;
+        const asked = error.retryAfterSeconds;
+        if (asked !== undefined && asked * 1000 > KEYED_RETRY_AFTER_MAX_MS) throw error;
+        await wait(asked !== undefined ? Math.max(100, asked * 1000) : 250 * 2 ** attempt);
+      }
+    }
+  }
+
   const call: SolanaCall = async <T>(
     method: string,
     params: readonly unknown[],
@@ -794,7 +833,7 @@ export function createSolanaRpc(options: SolanaRpcOptions = {}): SolanaRpcClient
       try {
         const body = last
           ? await sendLast(node, method, params, signal)
-          : await send(node, method, params, false, signal);
+          : await sendFirst(node, method, params, signal);
         options.record?.({ method, params: [...params], result: body.result });
         return body.result as T;
       } catch (error) {
@@ -819,7 +858,7 @@ export function createSolanaRpc(options: SolanaRpcOptions = {}): SolanaRpcClient
         if (!last && nodeWide) {
           setAside.set(
             node.url,
-            Date.now() + (error instanceof RateLimitError ? REFUSED_ASIDE_MS : SET_ASIDE_MS),
+            Date.now() + (error instanceof RateLimitError ? RATE_LIMITED_ASIDE_MS : SET_ASIDE_MS),
           );
         }
       }

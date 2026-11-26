@@ -10,6 +10,7 @@ import {
   MAX_TRANSACTION_VERSION,
   MethodUnavailableError,
   PUBLIC_SOLANA_RPC_URL,
+  RATE_LIMITED_ASIDE_MS,
   resetSolanaNodes,
   solanaRpcNodes,
   solanaRpcUrl,
@@ -138,15 +139,78 @@ describe('the params each helper sends', () => {
 });
 
 describe('failures', () => {
-  it('hands a refused call to the next node, and sets the refusing one aside', async () => {
+  it('hands a call still refused after its retries to the next node, and sets the refusing one aside', async () => {
     const sent = node(({ url }) =>
       url === ALCHEMY.url ? new Response('slow down', { status: 429 }) : ok(7),
     );
     const rpc = createSolanaRpc({ nodes: [ALCHEMY, PUBLIC], ...fast });
     await expect(rpc.getSlot()).resolves.toBe(7);
     await expect(rpc.getSlot()).resolves.toBe(7);
-    // The second call starts on the public node: Alchemy is aside for ten minutes.
-    expect(sent.map((s) => s.url)).toEqual([ALCHEMY.url, PUBLIC.url, PUBLIC.url]);
+    // Alchemy asked three times, then the public node; the second call starts
+    // on the public node: Alchemy is aside for a few seconds.
+    expect(sent.map((s) => s.url)).toEqual([
+      ALCHEMY.url,
+      ALCHEMY.url,
+      ALCHEMY.url,
+      PUBLIC.url,
+      PUBLIC.url,
+    ]);
+  });
+
+  // Prod audit 26/11/2026: one 429 put a whole instance on the public node
+  // (three calls a second) for ten minutes.
+  it('asks a keyed node again after a 429, waiting what its Retry-After says', async () => {
+    const waits: number[] = [];
+    let refused = 0;
+    const sent = node(({ url }) => {
+      if (url === ALCHEMY.url && refused < 1) {
+        refused += 1;
+        return new Response('slow down', { status: 429, headers: { 'retry-after': '1' } });
+      }
+      return ok(7);
+    });
+    const rpc = createSolanaRpc({
+      nodes: [ALCHEMY, PUBLIC],
+      rate: () => 1e6,
+      sleep: async (ms) => {
+        waits.push(ms);
+      },
+    });
+    await expect(rpc.getSlot()).resolves.toBe(7);
+    await expect(rpc.getSlot()).resolves.toBe(7);
+    // Never the public node: the 429 was over in a second.
+    expect(sent.map((s) => s.url)).toEqual([ALCHEMY.url, ALCHEMY.url, ALCHEMY.url]);
+    expect(waits).toContain(1_000);
+  });
+
+  it('hands over at once when a keyed node asks for a longer wait than it is worth', async () => {
+    const sent = node(({ url }) =>
+      url === ALCHEMY.url
+        ? new Response('slow down', { status: 429, headers: { 'retry-after': '30' } })
+        : ok(7),
+    );
+    const rpc = createSolanaRpc({ nodes: [ALCHEMY, PUBLIC], ...fast });
+    await expect(rpc.getSlot()).resolves.toBe(7);
+    expect(sent.map((s) => s.url)).toEqual([ALCHEMY.url, PUBLIC.url]);
+  });
+
+  it('sets a rate-limited keyed node aside for seconds, not minutes', async () => {
+    vi.useFakeTimers();
+    try {
+      let busy = true;
+      const sent = node(({ url }) =>
+        url === ALCHEMY.url && busy ? new Response('slow down', { status: 429 }) : ok(7),
+      );
+      const rpc = createSolanaRpc({ nodes: [ALCHEMY, PUBLIC], ...fast });
+      await expect(rpc.getSlot()).resolves.toBe(7);
+      busy = false;
+      vi.advanceTimersByTime(RATE_LIMITED_ASIDE_MS + 1);
+      sent.length = 0;
+      await expect(rpc.getSlot()).resolves.toBe(7);
+      expect(sent.map((s) => s.url)).toEqual([ALCHEMY.url]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('retries the last node on a 429 with a wait, then gives up with a rate-limit error', async () => {

@@ -17,7 +17,10 @@ const { POST } = await import('../../src/app/api/analyze/route');
 briefSpecialists.mockResolvedValue({ answers: [], unanswered: [], name: null, symbol: null });
 const { RateLimitError, NotFoundError } = await import('../../src/lib/errors');
 const { resetRateLimits } = await import('../../src/lib/guard');
-const { analysisCache } = await import('../../src/lib/analysis-cache');
+const { analysisCache, analysisTtlMs, justServed, ANALYSIS_TTL_MS, SETTLED_ANALYSIS_TTL_MS } =
+  await import('../../src/lib/analysis-cache');
+const { resetAnalysisLocks } = await import('../../src/lib/analysis-lock');
+const { NotFungibleError } = await import('../../src/lib/errors');
 
 const TOKEN = MINT;
 const AT = '2026-11-25T00:00:00.000Z';
@@ -55,6 +58,8 @@ afterEach(() => {
   briefSpecialists.mockResolvedValue(answered);
   resetRateLimits();
   analysisCache.clear();
+  justServed.clear();
+  resetAnalysisLocks();
 });
 
 describe('POST /api/analyze', () => {
@@ -159,6 +164,16 @@ describe('POST /api/analyze', () => {
   it('traduit un rate limit en 429', async () => {
     collect.mockRejectedValue(new RateLimitError('solana-rpc'));
     expect((await POST(post({ token: TOKEN }))).status).toBe(429);
+  });
+
+  it('refuses an NFT mint with a 422 that says so', async () => {
+    collect.mockRejectedValue(new NotFungibleError('solana-rpc', TOKEN));
+    const res = await POST(post({ token: TOKEN }));
+    expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: string }).error).toBe(
+      'This is an NFT; SEAL reads fungible tokens.',
+    );
+    expect(explain).not.toHaveBeenCalled();
   });
 
   it('traduit un not-found en 404', async () => {
@@ -338,5 +353,85 @@ describe('specialists and timeline', () => {
     expect(res.status).toBe(200);
     expect(body.specialists).toBeUndefined();
     expect(body.explanation).toBe('ok');
+  });
+});
+
+describe('launch traffic (prod audit, 26/11/2026)', () => {
+  const ok = { text: 'ok', cost: { costUsd: 0.01 }, violations: [], offline: false };
+  const from = (ip: string) =>
+    new Request('http://localhost/api/analyze', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-real-ip': ip },
+      body: JSON.stringify({ token: TOKEN }),
+    });
+
+  // Behind a mobile carrier many readers share one address: an answer served
+  // from the cache spent nothing, and does not count against it.
+  it('does not count answers served from the cache against the address', async () => {
+    // A fresh report: the route marks a partial one in place.
+    collect.mockImplementation(async () => solanaReport());
+    explain.mockResolvedValue(ok);
+    for (let i = 0; i < 12; i += 1) {
+      expect((await POST(from('198.51.100.4'))).status).toBe(200);
+    }
+    expect(collect).toHaveBeenCalledTimes(1);
+  });
+
+  it('still limits the readings an address pays for', async () => {
+    // A report with a failed read is never cached: every request is a reading.
+    collect.mockResolvedValue({
+      ...report,
+      failedReads: [{ read: 'creator-launches', note: 'cut' }],
+    });
+    explain.mockResolvedValue(ok);
+    const statuses: number[] = [];
+    for (let i = 0; i < 8; i += 1) statuses.push((await POST(from('198.51.100.5'))).status);
+    expect(statuses.filter((s) => s === 200).length).toBe(5);
+    const last = await POST(from('198.51.100.5'));
+    expect(last.status).toBe(429);
+    expect(((await last.json()) as { error: string }).error).toMatch(/from your network/);
+  });
+
+  // A mint posted in a group: everyone asks in the same seconds. One reading,
+  // the others wait for its answer.
+  it('reads a token once when several ask at the same time', async () => {
+    let finish: (value: unknown) => void = () => undefined;
+    collect.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    explain.mockResolvedValue(ok);
+    const first = POST(from('198.51.100.6'));
+    const second = POST(from('198.51.100.7'));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    finish(solanaReport());
+    const [a, b] = await Promise.all([first, second]);
+    expect(a.status).toBe(200);
+    expect(b.status).toBe(200);
+    expect(((await b.json()) as { cached?: boolean }).cached).toBe(true);
+    expect(collect).toHaveBeenCalledTimes(1);
+    expect(explain).toHaveBeenCalledTimes(1);
+  });
+
+  it('hands a partial answer to the requests that waited on it, not to the next one', async () => {
+    let finish: (value: unknown) => void = () => undefined;
+    const partial = { ...report, failedReads: [{ read: 'creator-launches', note: 'cut' }] };
+    collect.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)));
+    explain.mockResolvedValue(ok);
+    const first = POST(from('198.51.100.8'));
+    const second = POST(from('198.51.100.9'));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    finish(partial);
+    await Promise.all([first, second]);
+    expect(collect).toHaveBeenCalledTimes(1);
+    // Asked again afterwards, it is read again.
+    collect.mockResolvedValue(partial);
+    await POST(from('198.51.100.10'));
+    expect(collect).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps a token past its first day longer than a young one', () => {
+    const now = Date.parse('2026-11-26T12:00:00.000Z');
+    expect(analysisTtlMs('2026-11-20T00:00:00.000Z', now)).toBe(SETTLED_ANALYSIS_TTL_MS);
+    expect(analysisTtlMs('2026-11-26T11:00:00.000Z', now)).toBe(ANALYSIS_TTL_MS);
+    expect(analysisTtlMs(null, now)).toBe(ANALYSIS_TTL_MS);
+    expect(SETTLED_ANALYSIS_TTL_MS).toBeGreaterThanOrEqual(10 * 60_000);
   });
 });

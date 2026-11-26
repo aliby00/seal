@@ -36,7 +36,25 @@ export type CachedAnalysis = {
  * twice — a shared link, a refresh — costs one model call, not two. Short,
  * because prices and holders move.
  */
-const ANALYSIS_TTL_MS = 3 * 60_000;
+export const ANALYSIS_TTL_MS = 3 * 60_000;
+/**
+ * A token past its first day moves slowly enough to be served again for
+ * longer: the blue chips most people will ask about are read, and paid for,
+ * a few times an hour instead of every three minutes.
+ */
+export const SETTLED_ANALYSIS_TTL_MS = 12 * 60_000;
+/** Age past which a token counts as settled. */
+export const SETTLED_AGE_MS = 24 * 60 * 60_000;
+
+/**
+ * How long an analysis is served again: three minutes for a young token, or
+ * one whose launch time could not be read; twelve past its first day.
+ */
+export function analysisTtlMs(launchedAt: string | null | undefined, now = Date.now()): number {
+  const at = launchedAt ? Date.parse(launchedAt) : Number.NaN;
+  if (!Number.isFinite(at)) return ANALYSIS_TTL_MS;
+  return now - at > SETTLED_AGE_MS ? SETTLED_ANALYSIS_TTL_MS : ANALYSIS_TTL_MS;
+}
 
 /**
  * Only a complete answer is kept: a read the node cut short, or a text that
@@ -63,4 +81,17 @@ export const analysisCache = new SharedCache<CachedAnalysis>({
   prefix: 'seal:analysis:sol1',
   ttlMs: ANALYSIS_TTL_MS,
   keep: (body) => keepAnalysis(body, resolveProvider() !== undefined),
+});
+
+/**
+ * The last answer served for a token, whatever its completeness, for 45
+ * seconds. Read only by the requests that waited on another one reading the
+ * same token (`analysis-lock`): a partial answer is not repeated to the next
+ * visitor, but the ones who asked at the same moment get it instead of each
+ * starting their own collection and model call.
+ */
+export const JUST_SERVED_TTL_MS = 45_000;
+export const justServed = new SharedCache<CachedAnalysis>({
+  prefix: 'seal:analysis:served:sol1',
+  ttlMs: JUST_SERVED_TTL_MS,
 });

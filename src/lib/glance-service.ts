@@ -174,17 +174,26 @@ async function compute(token: string): Promise<CachedGlance> {
 }
 
 /**
+ * The glance of a token without reading anything upstream: from the glance
+ * cache, then from a cached full analysis. `null` when only a collection
+ * would tell, which the routes charge to the caller's collection bucket.
+ */
+export async function cachedGlance(token: string): Promise<CachedGlance | null> {
+  const hit = await glanceCache.get(token);
+  if (hit) return hit;
+  const analysis = await analysisCache.get(token);
+  return analysis ? fromAnalysis(analysis) : null;
+}
+
+/**
  * The glance of a token: from the glance cache, then from a cached full
  * analysis, then collected. Throws what `collect` throws.
  */
 export async function glanceOf(token: string): Promise<CachedGlance & { cached: boolean }> {
   // Solana addresses are case-sensitive: the key is the address as given.
   const key = token;
-  const hit = await glanceCache.get(key);
-  if (hit) return { ...hit, cached: true };
-  const analysis = await analysisCache.get(key);
-  const derived = analysis ? fromAnalysis(analysis) : null;
-  if (derived) return { ...derived, cached: true };
+  const known = await cachedGlance(key);
+  if (known) return { ...known, cached: true };
 
   let pending = inflight.get(key);
   if (!pending) {

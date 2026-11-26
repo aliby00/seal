@@ -53,6 +53,11 @@ export async function GET() {
       reasoningFailingSince: failure ? failure.at : null,
       at: new Date().toISOString(),
     },
-    { status: solana.slotOk ? 200 : 503 },
+    {
+      status: solana.slotOk ? 200 : 503,
+      // Each probe costs a getSlot and a store read: a healthy answer is
+      // shared by the CDN for ten seconds, a failing one never.
+      headers: { 'Cache-Control': solana.slotOk ? 'public, max-age=0, s-maxage=10' : 'no-store' },
+    },
   );
 }

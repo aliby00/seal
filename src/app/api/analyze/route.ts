@@ -10,12 +10,18 @@ import {
 } from '@/lib/facts';
 import { isSolanaAddress } from '@/lib/solana/address';
 import { toSolanaView, type SolanaView } from '@/app/components/solana-view';
-import { SealError } from '@/lib/errors';
-import { ANALYZE_LIMIT, guardedJson } from '@/lib/guard';
+import { failureStatus, NOT_FUNGIBLE_MESSAGE, SealError } from '@/lib/errors';
+import { ANALYZE_LIMIT, COLLECT_LIMIT, guardedJson, overLimit } from '@/lib/guard';
 import { log } from '@/lib/logger';
 import { overBudget, recordSpend } from '@/lib/spend';
 import { funderOf } from '@/lib/agent/prompt';
-import { analysisCache, type CachedAnalysis } from '@/lib/analysis-cache';
+import {
+  analysisCache,
+  analysisTtlMs,
+  justServed,
+  type CachedAnalysis,
+} from '@/lib/analysis-cache';
+import { analysisHeld, claimAnalysis } from '@/lib/analysis-lock';
 import { rememberCard } from '@/lib/glance-service';
 import { mergeFailedReads, questionsFailed } from '@/lib/failed-reads';
 import {
@@ -51,6 +57,12 @@ const MODEL_ALLOWANCE_MS = 25_000;
 const MIN_MODEL_MS = 5_000;
 /** The questions always get a short chance, even after a slow collection. */
 const MIN_SPECIALIST_MS = 1_000;
+/** A request waiting on another reading of the same token looks for its answer this often... */
+const FOLLOW_POLL_MS = 1_000;
+/** ...for this long at most, under the deadline with a margin. */
+const FOLLOW_MAX_MS = 45_000;
+/** Past this wait, there is no time left to read the token itself. */
+const FOLLOW_READ_SELF_MS = 12_000;
 
 /**
  * The response body. Its shape is kept with the cache, which stores it as is.
@@ -63,8 +75,37 @@ export type AnalyzeResponse = CachedAnalysis & { solana?: SolanaView };
 const PUBLIC_MESSAGE: Record<string, string> = {
   'rate-limit': 'A data source is rate-limiting requests. Try again in a minute.',
   'not-found': 'Nothing was found for this address',
+  'not-fungible': NOT_FUNGIBLE_MESSAGE,
   timeout: 'A data source did not answer in time',
 };
+
+/** A cached answer, as served: never its cost, which is ours to track. */
+function fromCache(hit: CachedAnalysis): Response {
+  // An entry written before the cost left the response loses it here.
+  const served: AnalyzeResponse & { costUsd?: number } = { ...(hit as AnalyzeResponse) };
+  delete served.costUsd;
+  return NextResponse.json({ ...served, cached: true } satisfies AnalyzeResponse);
+}
+
+const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Another request is reading this token: its answer, once it is in the
+ * cache. `null` when the other reading ended without one (an error) or took
+ * too long.
+ */
+async function followReading(token: string, started: number): Promise<CachedAnalysis | null> {
+  while (Date.now() - started < FOLLOW_MAX_MS) {
+    await pause(FOLLOW_POLL_MS);
+    const done = (await analysisCache.get(token)) ?? (await justServed.get(token));
+    if (done) return done;
+    if (!(await analysisHeld(token))) {
+      // Released between the two reads: its answer may have just landed.
+      return (await analysisCache.get(token)) ?? (await justServed.get(token)) ?? null;
+    }
+  }
+  return null;
+}
 
 /** The charts are a bonus on top of the text: a malformed report must not fail the response. */
 function chartable(
@@ -96,6 +137,19 @@ function timeline(report: Parameters<typeof toTimeline>[0]): TimelineLaunch[] | 
   } catch (error) {
     log.warn('chronologie non représentable', { error: String(error) });
     return undefined;
+  }
+}
+
+/** When the token was launched, as the timeline dates it; `null` when unread. */
+function launchedAt(report: Parameters<typeof toTimeline>[0]): string | null {
+  try {
+    const creation = report.creator.data.creation;
+    return (
+      report.launch.data.launchedAt ??
+      (creation?.blockTime ? new Date(creation.blockTime * 1000).toISOString() : null)
+    );
+  } catch {
+    return null;
   }
 }
 
@@ -139,7 +193,10 @@ export async function POST(request: Request): Promise<Response> {
 }
 
 async function analyze(request: Request, started: number): Promise<Response> {
-  const guarded = await guardedJson(request, ANALYZE_LIMIT, 'analyze');
+  // The rate limit is charged below, once the answer is known not to be in
+  // the cache: an answer served from it spends nothing, and is not counted
+  // (behind a mobile carrier, many readers share one address).
+  const guarded = await guardedJson(request, null, 'analyze');
   if ('response' in guarded) return guarded.response;
   const token = (guarded.body as { token?: unknown } | null)?.token;
 
@@ -148,17 +205,43 @@ async function analyze(request: Request, started: number): Promise<Response> {
     return errorResponse(400, 'Invalid token address');
   }
 
-  const cacheKey = token;
-  const hit = await analysisCache.get(cacheKey);
+  const hit = await analysisCache.get(token);
   if (hit) {
     log.info('analyse servie depuis le cache', { token, ms: Date.now() - started });
-    // The cost is ours to track, never part of what a reader is served: an
-    // entry written before it left the response loses it here.
-    const served: AnalyzeResponse & { costUsd?: number } = { ...(hit as AnalyzeResponse) };
-    delete served.costUsd;
-    return NextResponse.json({ ...served, cached: true } satisfies AnalyzeResponse);
+    return fromCache(hit);
   }
 
+  // A reading to pay for: the address's analyses, and its collections on
+  // every route together.
+  const limited = await overLimit(request, [
+    ['analyze', ANALYZE_LIMIT],
+    ['collect', COLLECT_LIMIT],
+  ]);
+  if (limited) return limited;
+
+  // Someone else is reading this token right now: its answer, not a second reading.
+  let lock = await claimAnalysis(token);
+  if (!lock) {
+    const followed = await followReading(token, started);
+    if (followed) {
+      log.info('analyse servie après une lecture en cours', { token, ms: Date.now() - started });
+      return fromCache(followed);
+    }
+    if (Date.now() - started > FOLLOW_READ_SELF_MS) {
+      return errorResponse(503, 'This token is being read right now. Try again in a moment.');
+    }
+    lock = await claimAnalysis(token);
+  }
+  try {
+    return await read(token, started);
+  } finally {
+    await lock?.release();
+  }
+}
+
+/** Collects the token, has its questions answered and its text written, and serves it. */
+async function read(token: string, started: number): Promise<Response> {
+  const cacheKey = token;
   // Where the collection got to, logged if it is cut at 30 s.
   const progress: NonNullable<CollectOptions['progress']> = { stages: {} };
   try {
@@ -237,7 +320,12 @@ async function analyze(request: Request, started: number): Promise<Response> {
     };
 
     // A report a failed read left partial is worth asking again, never repeating.
-    if ((report.failedReads?.length ?? 0) === 0) await analysisCache.set(cacheKey, body);
+    // A token past its first day is kept longer: it moves slowly.
+    if ((report.failedReads?.length ?? 0) === 0) {
+      await analysisCache.set(cacheKey, body, analysisTtlMs(launchedAt(report)));
+    }
+    // Whatever it is, for the requests that waited on this one.
+    await justServed.set(cacheKey, body);
     // The share card shows what was served, partial or not.
     await rememberCard(body);
     log.info('analyse servie', {
@@ -257,7 +345,7 @@ async function analyze(request: Request, started: number): Promise<Response> {
     return NextResponse.json(body);
   } catch (error) {
     if (error instanceof SealError) {
-      const status = error.kind === 'rate-limit' ? 429 : error.kind === 'not-found' ? 404 : 502;
+      const status = failureStatus(error.kind);
       log.warn('analyse en échec', { token, kind: error.kind, message: error.message });
       // Upstream wording (node error text, provider messages) stays in the logs.
       return errorResponse(status, PUBLIC_MESSAGE[error.kind] ?? 'A data source failed');

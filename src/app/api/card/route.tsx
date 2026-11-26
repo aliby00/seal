@@ -2,9 +2,9 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ImageResponse } from 'next/og';
 import { isSolanaAddress, shortAddress } from '@/lib/solana/address';
-import { cardCache, glanceOf } from '@/lib/glance-service';
+import { cachedGlance, cardCache, glanceOf } from '@/lib/glance-service';
 import type { GlanceItem, GlanceTone } from '@/lib/glance';
-import { allowShared, clientKey, type RateLimit } from '@/lib/guard';
+import { allowShared, clientKey, COLLECT_LIMIT, type RateLimit } from '@/lib/guard';
 import { log } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -267,11 +267,21 @@ export async function GET(request: Request): Promise<Response> {
   // One caller past its limit: the CDN must not serve that empty card to everyone.
   const limited = 'private, no-store';
 
-  if (!(await allowShared(`card:${clientKey(request)}`, CARD_LIMIT))) return render(plain, limited);
+  const caller = clientKey(request);
+  if (!(await allowShared(`card:${caller}`, CARD_LIMIT))) return render(plain, limited);
 
   try {
-    const glance =
+    // The card of the analysis just served, then any cached reading of the
+    // token (its analysis, its glance): no collection for those.
+    const known =
       (await cardCache.get(token).catch(() => null)) ??
+      (await cachedGlance(token).catch(() => null));
+    // Not in a cache: a full collection, counted with the address's others (analyze, glance).
+    if (!known && !(await allowShared(`collect:${caller}`, COLLECT_LIMIT))) {
+      return render(plain, limited);
+    }
+    const glance =
+      known ??
       (await Promise.race([
         glanceOf(token),
         new Promise<null>((resolve) => setTimeout(() => resolve(null), CARD_WAIT_MS)),
