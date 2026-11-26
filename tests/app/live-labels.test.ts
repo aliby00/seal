@@ -20,15 +20,34 @@ const dexOnly: MarketRead = {
   dexAt: '2026-11-26T12:00:07.000Z',
   liquidityUsd: 12_000,
 };
+const chainRead = {
+  priceUsd: 0.0001,
+  priceSol: 0.0000006,
+  marketCapUsd: 100_000,
+  liquidityUsd: 40_000,
+};
 const pumpswap: MarketRead = {
   at: '2026-11-26T12:00:09.000Z',
-  chain: { slot: 412_345_678, at: '2026-11-26T12:00:08.000Z', pool: 'P', kind: 'pumpswap' },
+  chain: {
+    ...chainRead,
+    slot: 412_345_678,
+    readAt: '2026-11-26T12:00:08.000Z',
+    pool: 'P',
+    kind: 'pumpswap',
+  },
   dexAt: '2026-11-26T12:00:05.000Z',
   liquidityUsd: 40_000,
 };
 const curve: MarketRead = {
   at: '2026-11-26T12:00:09.000Z',
-  chain: { slot: 412_345_679, at: '2026-11-26T12:00:09.000Z', pool: 'C', kind: 'pump-curve' },
+  chain: {
+    ...chainRead,
+    liquidityUsd: 9_000,
+    slot: 412_345_679,
+    readAt: '2026-11-26T12:00:09.000Z',
+    pool: 'C',
+    kind: 'pump-curve',
+  },
   dexAt: '2026-11-26T12:00:05.000Z',
   liquidityUsd: null,
   curveLiquidityUsd: 9_000,

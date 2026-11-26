@@ -51,7 +51,7 @@ export function marketLines(
   if (market.chain) {
     return [
       {
-        text: `Price live from the chain · ${slotWords(market.chain.slot)} · ${since(market.chain.at, now)}`,
+        text: `Price live from the chain · ${slotWords(market.chain.slot)} · ${since(market.chain.readAt, now)}`,
         live: true,
       },
       { text: `Volume via DexScreener (${DEX_DELAY})`, live: false },
@@ -79,7 +79,7 @@ export function marketStamp(
   if (paused) {
     return chain
       ? {
-          text: `Price from the chain at ${clock(chain.at)} (${slotWords(chain.slot)}) · live paused`,
+          text: `Price from the chain at ${clock(chain.readAt)} (${slotWords(chain.slot)}) · live paused`,
           live: false,
         }
       : {
@@ -89,7 +89,7 @@ export function marketStamp(
   }
   return chain
     ? {
-        text: `Price live from the chain · ${slotWords(chain.slot)} · ${since(chain.at, now)}`,
+        text: `Price live from the chain · ${slotWords(chain.slot)} · ${since(chain.readAt, now)}`,
         live: true,
       }
     : {
