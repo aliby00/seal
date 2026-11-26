@@ -137,6 +137,8 @@ export type SolanaView = {
       | 'launchpad-account'
       | 'mint-key-signer'
       | null;
+    /** The address the pump.fun curve names, when another one signed and paid for the creation. */
+    named: string | null;
     creation: { signature: string; slot: number; at: string | null; payer: string } | null;
   }>;
   onToken: ViewBlock<{
@@ -146,6 +148,8 @@ export type SolanaView = {
     burned: number | null;
     locked: number | null;
     holdsNow: number | null;
+    /** A minor sale is a fact, not a signal; `null` when nothing was sold. */
+    saleSize: 'minor' | 'material' | null;
     moves: MoveView[];
     more: number;
     transactions: { listed: number; read: number };
@@ -327,7 +331,10 @@ export function toSolanaView(report: TokenReport): SolanaView {
   const onTokenView: SolanaView['onToken'] = onToken
     ? (() => {
         const d = onToken.data;
-        const s = d.supply ?? supply;
+        const today = d.supply ?? supply;
+        // Moves against what was minted when that is more than today's supply
+        // (tokens burned since): GIGA's creator "received 104%" of today's.
+        const s = d.shareBase ?? today;
         const complete = onToken.completeness === 'full';
         return block(onToken, {
           bought: moved(d.bought, s, complete),
@@ -335,7 +342,8 @@ export function toSolanaView(report: TokenReport): SolanaView {
           received: moved(d.received, s, complete),
           burned: moved(d.burned, s, complete),
           locked: moved(d.locked, s, complete),
-          holdsNow: d.holdsNow === null ? null : shareOf(d.holdsNow, s),
+          holdsNow: d.holdsNow === null ? null : shareOf(d.holdsNow, today),
+          saleSize: d.saleSize ?? null,
           moves: d.moves.slice(0, MOVES_SHOWN).map((m) => ({
             signature: m.signature,
             kind: m.kind,
@@ -431,6 +439,7 @@ export function toSolanaView(report: TokenReport): SolanaView {
     creator: block(report.creator, {
       address: report.creator.data.creator,
       from: report.creator.data.from,
+      named: report.creator.data.named?.address ?? null,
       creation: creation
         ? {
             signature: creation.signature,

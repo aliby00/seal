@@ -569,7 +569,7 @@
     font-size: 12px;
   }
   .edition-line {
-    font-size: 10px;
+    font-size: 11px;
   }
   .hero {
     padding-top: 48px;
@@ -1162,7 +1162,7 @@
     padding-top: 32px;
   }
   .workspace-edition {
-    font-size: 9px;
+    font-size: 11px;
     gap: 8px;
   }
   .workspace-intro {
@@ -1196,7 +1196,7 @@
   }
   .world-footer p {
     width: calc(100% - 80px);
-    font-size: 10px;
+    font-size: 11px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -1415,7 +1415,7 @@
 }
 .analysis-world .analysis-entry .form-caption {
   margin-top: 18px;
-  font-size: 10px;
+  font-size: 11.5px;
   color: #c6d0ca;
   gap: 12px;
 }

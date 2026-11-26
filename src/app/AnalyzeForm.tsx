@@ -13,7 +13,10 @@ import {
   ANALYZE_EVENT,
   EXAMPLES,
   isTokenAddress,
+  PAIR_HINT,
+  pairFromInput,
   readingUrl,
+  resolveInput,
   tokenFromInput,
 } from './components/analyze-request';
 import { short } from './components/explorer';
@@ -197,11 +200,13 @@ export function AnalyzeForm() {
   }
 
   async function analyze(value: string = token) {
-    const address = tokenFromInput(value);
+    // A pair link (DexScreener, Photon) is looked up for the token its pool trades.
+    const resolved = pairFromInput(value) ? await resolveInput(value) : tokenFromInput(value);
+    const address = resolved ?? value.trim();
     // A pasted link becomes the address it carries, shown in the field.
     if (address !== value) setToken(address);
-    if (!isTokenAddress(address)) {
-      setValidation(addressHint(address));
+    if (resolved === null || !isTokenAddress(address)) {
+      setValidation(resolved === null ? PAIR_HINT : addressHint(address));
       input.current?.focus();
       return;
     }

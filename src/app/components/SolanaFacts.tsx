@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
+import { share } from '@/lib/figures';
 import { creatorFrom } from './creator-from';
-import { plainNote } from './FactsBoard';
+import { NamedLine, plainNote } from './FactsBoard';
 import { addressUrl, extensionWords, short, txUrl } from './explorer';
 import { clockOf, Flash, LiveStamp, type LiveTimes } from './LiveStamp';
 import type {
@@ -22,13 +23,14 @@ import type {
  * and links to it; what was not read is said, never drawn as zero.
  */
 
+/**
+ * One rounding rule for every share on the page, the figures row's
+ * (lib/figures.ts): POPCAT's largest holder read 18 %, 17.5 % and 17 % in
+ * three places (26/11/2026).
+ */
 export function pct(value: number | null): string {
   if (value === null) return 'not read';
-  if (value === 0) return '0%';
-  if (value > 0 && value < 0.001) return '<0.1%';
-  if (value > 0.999 && value < 1) return '>99.9%';
-  // Above 99 %, one decimal: 99.79 % is not the whole supply.
-  return `${(value * 100).toFixed(value < 0.1 || (value > 0.99 && value < 1) ? 1 : 0)}%`;
+  return share(value);
 }
 
 /** A raw amount in whole tokens, compact: "1B", "983.99M". */
@@ -312,15 +314,17 @@ function SupplyCard({ view, live }: { view: SolanaView; live?: LiveTimes }) {
                 <strong>
                   <Flash value={h.data.holderCount.toLocaleString('en-US')} />
                 </strong>{' '}
-                holders
+                holders outside curves, pools, locks and burn addresses.
               </>
+            ) : h.data.method === 'largest-accounts' ? (
+              // "At least 19 holders" read as a fact about POPCAT, which has tens of thousands.
+              <>Holder count not known: only the largest token accounts were read.</>
             ) : (
               <>
                 At least <strong>{h.data.holdersAtLeast.toLocaleString('en-US')}</strong> holders
+                outside curves, pools, locks and burn addresses.
               </>
-            )}{' '}
-            outside curves, pools, locks and burn addresses
-            {h.data.method === 'largest-accounts' ? ', from the largest accounts only' : ''}.
+            )}
           </p>
           {shown.length > 0 && (
             <ol className="holder-bars" aria-label="Parts of the whole supply">
@@ -590,6 +594,7 @@ function CreatorTokenCard({ view, live }: { view: SolanaView; live?: LiveTimes }
           {creatorFrom(creator.from, view.powers) && (
             <p className="fact-line">{creatorFrom(creator.from, view.powers)}</p>
           )}
+          {creator.named && <NamedLine named={creator.named} creator={creator.address} />}
           {on && on.read !== 'unavailable' ? (
             <>
               <HoldersStamp live={live} />
@@ -601,6 +606,11 @@ function CreatorTokenCard({ view, live }: { view: SolanaView; live?: LiveTimes }
                 {(on.data.locked ?? 0) > 0 && <Amount label="Locked" value={on.data.locked} />}
                 {(on.data.burned ?? 0) > 0 && <Amount label="Burned" value={on.data.burned} />}
               </dl>
+              {on.data.saleSize === 'minor' && (
+                <p className="fact-line">
+                  A minor sale: under 0.5% of the supply, or under 1 SOL on a token over a week old.
+                </p>
+              )}
               <p className="fact-note">
                 Shares of the whole supply. {on.data.transactions.read} of{' '}
                 {on.data.transactions.listed} transaction
@@ -679,7 +689,8 @@ function OtherTokensCard({ view }: { view: SolanaView }) {
               {d.tokens.map((t) => (
                 <li key={t.mint}>
                   <span>
-                    {t.name ?? t.symbol ?? short(t.mint)}
+                    {/* The address is the link beside it: not said twice. */}
+                    {t.name ?? t.symbol ?? 'Unnamed token'}
                     {t.launchpad ? ` · ${t.launchpad}` : ''}
                     {t.launchedAt ? ` · ${t.launchedAt.slice(0, 10)}` : ''}
                   </span>

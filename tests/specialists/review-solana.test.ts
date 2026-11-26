@@ -408,8 +408,10 @@ describe('Volume Reality, one line', () => {
           },
         },
       });
-    expect(answer(0.3, 0.02)).toBe('2 wallets got 30.0% in the creation slot');
-    expect(answer(0.02, 0.3)).toBe('3 wallets got 30.0% in transactions the creator paid for');
+    expect(answer(0.3, 0.02)).toBe('At launch, 2 wallets got 30% in the creation slot');
+    expect(answer(0.02, 0.3)).toBe(
+      'At launch, 3 wallets got 30% in transactions the creator paid for',
+    );
   });
 });
 

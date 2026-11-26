@@ -120,6 +120,8 @@ export type Measures = {
     /** Whether a sale was read: `null` when a partial read saw none. */
     hasSold: boolean | null;
     holdsNow: number | null;
+    /** Its sales are minor (saleSize): a fact, not a signal. Absent otherwise. */
+    minorSale?: boolean;
   };
   /** Funding Trace: the wallets the creator sent SOL to around the launch. */
   linked?: {
