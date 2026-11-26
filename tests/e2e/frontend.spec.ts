@@ -375,7 +375,7 @@ test('a running analysis can be cancelled', async ({ page }) => {
   await page.goto('/');
   await submit(page);
   const status = page.getByRole('status');
-  await expect(status).toContainText('usually 20 to 40 s');
+  await expect(status).toContainText('usually 10 to 20 s');
   await expect(status).toContainText('Supply held by a few');
   await status.getByRole('button', { name: 'Cancel' }).click();
   await expect(page.getByRole('status')).toHaveCount(0);

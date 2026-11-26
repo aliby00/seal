@@ -3,6 +3,7 @@
 import { useEffect, useRef, type CSSProperties, type ReactNode, type Ref } from 'react';
 import { preload } from 'react-dom';
 import { Arch, Wordmark } from './brand';
+import { beginPassage, PASSAGE_EVENT } from './analyze-request';
 import { EntranceComposer } from './EntranceComposer';
 import { LegalLinks } from './LegalPage';
 
@@ -113,6 +114,36 @@ function coverScale(vw: number, vh: number, gateHeight: number, gateY: number) {
 const clamp = (n: number) => Math.max(0, Math.min(1, n));
 const range = (p: number, from: number, to: number) => clamp((p - from) / (to - from));
 const smooth = (n: number) => n * n * (3 - 2 * n);
+const inOut = (n: number) => (n < 0.5 ? 4 * n * n * n : 1 - (-2 * n + 2) ** 3 / 2);
+const easeOut = (n: number) => 1 - (1 - n) ** 3;
+/** Where along the journey the camera is inside the gate (the same as in render). */
+const insideAt = (cover: number) => ((1 - 1 / cover) / (1 - 1 / (cover * 1.35))) * 0.42;
+
+/**
+ * The passage after an address is sent from the entrance, in ms from the
+ * submit. The request is already running: its outcome is drawn behind the
+ * light, then the light clears onto it.
+ */
+const PASSAGE = {
+  /** The field confirms, the gate's light brightens. */
+  glow: [0, 450],
+  /** The camera pushes slowly into the valley, up to the gate. */
+  push: [300, 1750],
+  /** The gate's light blooms out of the opening... */
+  bloom: [1300, 2000],
+  /** ...and covers the frame. */
+  wash: [1650, 1950],
+  /** Behind the light, the page reaches the workspace. */
+  dive: [1950, 2200],
+  /** The outcome may show from here: it is drawn behind the light. */
+  release: 2050,
+  /** The light clears and the workspace rises in; the wash goes first. */
+  reveal: [2200, 3200],
+  clear: [2200, 2850],
+} as const;
+const PASSAGE_END = PASSAGE.reveal[1];
+/** How far below its place the workspace starts rising. */
+const RISE = 64;
 
 /** Keys that scroll the page: pressing one means the reader takes over. */
 const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ']);
@@ -293,6 +324,123 @@ export function ImmersiveEntrance({
       setFlag('mist', fog > 0.001 ? 'on' : 'off');
       setFlag('entered', String(p > 0.6));
     }
+    // The passage: after an address is sent from the entrance, the camera
+    // travels into the gate on its own timeline, the gate's light fills the
+    // frame, and the workspace rises in as it clears. The scene still reads
+    // only the scroll position; the light and the rise are layers of their own.
+    const light = element.querySelector<HTMLElement>('.passage-light');
+    const content = element.querySelector<HTMLElement>('.world-content');
+    let endPassage: (() => void) | null = null;
+    let riseNow = 0;
+    function goal() {
+      const target =
+        element!.querySelector<HTMLElement>('.loading-state') ??
+        document.getElementById('analysis-result') ??
+        document.getElementById('analysis');
+      if (!target) return window.scrollY;
+      // Never under the navigation, which stays on top of the workspace.
+      const nav = element!.querySelector<HTMLElement>('.world-nav');
+      const margin = Math.max(
+        parseFloat(getComputedStyle(target).scrollMarginTop) || 0,
+        nav ? nav.getBoundingClientRect().bottom + 12 : 0,
+      );
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      // The rise is a transform: the place to reach is where it will rest.
+      const y = target.getBoundingClientRect().top - riseNow * RISE + window.scrollY - margin;
+      return Math.max(0, Math.min(max, y));
+    }
+    function passage() {
+      endPassage?.();
+      stopScroll?.();
+      if (reduced.matches) {
+        // Reduced motion: no travel, the workspace only fades in.
+        element!
+          .querySelector('.analysis-world')
+          ?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 240, easing: 'ease-out' });
+        return;
+      }
+      const run = beginPassage();
+      following.current = true;
+      element!.dataset.passage = 'on';
+      delete element!.dataset.awaiting;
+      const from = window.scrollY;
+      const gateY = top + Math.min(0.6, insideAt(cover) + 0.015) * distance;
+      let start = 0;
+      let frame = 0;
+      let released = false;
+      let resting = -1;
+      function finish() {
+        cancelAnimationFrame(frame);
+        window.clearTimeout(guard);
+        window.removeEventListener('wheel', finish, true);
+        window.removeEventListener('touchstart', finish, true);
+        window.removeEventListener('keydown', onKey, true);
+        riseNow = 0;
+        write(scene, '--passage-glow', '0');
+        write(light, '--bloom', '0');
+        write(light, '--wash', '0');
+        write(content, '--rise', '0');
+        write(content, '--rise-y', '0px');
+        delete element!.dataset.passage;
+        // Still loading: the reading, when it comes, rises in behind the panel.
+        if (element!.querySelector('.loading-state')) element!.dataset.awaiting = 'on';
+        following.current = false;
+        run.end();
+        if (endPassage === finish) endPassage = null;
+      }
+      function onKey(event: KeyboardEvent) {
+        if (SCROLL_KEYS.has(event.key)) finish();
+      }
+      function step(now: number) {
+        if (!start) start = now;
+        const t = now - start;
+        const clearing = inOut(range(t, ...PASSAGE.reveal));
+        const glow = easeOut(range(t, ...PASSAGE.glow)) * (1 - smooth(range(t, 1500, 2000)));
+        write(scene, '--passage-glow', glow.toFixed(3));
+        write(light, '--bloom', (inOut(range(t, ...PASSAGE.bloom)) * (1 - clearing)).toFixed(3));
+        const washed = inOut(range(t, ...PASSAGE.wash)) * (1 - inOut(range(t, ...PASSAGE.clear)));
+        write(light, '--wash', washed.toFixed(3));
+        const scale =
+          0.08 + 0.92 * easeOut(range(t, PASSAGE.bloom[0], PASSAGE.reveal[0])) + 0.4 * clearing;
+        write(light, '--bloom-scale', scale.toFixed(4));
+        riseNow = 1 - easeOut(range(t, PASSAGE.reveal[0], PASSAGE_END));
+        write(content, '--rise', riseNow.toFixed(4));
+        write(content, '--rise-y', `${(riseNow * RISE).toFixed(2)}px`);
+
+        let y: number;
+        if (t < PASSAGE.dive[0]) {
+          y = from + (gateY - from) * inOut(range(t, ...PASSAGE.push));
+        } else if (resting >= 0) {
+          y = resting;
+        } else {
+          // Followed while the light still covers the screen, so a report
+          // drawn in the meantime is met exactly; then the page holds still.
+          y = gateY + (goal() - gateY) * inOut(range(t, ...PASSAGE.dive));
+          if (t > PASSAGE.reveal[0] + 250) resting = y;
+        }
+        if (Math.abs(window.scrollY - y) > 0.5) window.scrollTo({ top: y, behavior: 'instant' });
+        shown = y;
+        render(y);
+        if (!released && t >= PASSAGE.release) {
+          released = true;
+          run.release();
+        }
+        if (t >= PASSAGE_END) return finish();
+        frame = requestAnimationFrame(step);
+      }
+      // A hidden tab draws no frames: the outcome is never held for long.
+      const guard = window.setTimeout(finish, PASSAGE_END + 800);
+      // Scrolling on purpose hands the page back at once.
+      window.addEventListener('wheel', finish, { capture: true, passive: true });
+      window.addEventListener('touchstart', finish, { capture: true, passive: true });
+      window.addEventListener('keydown', onKey, true);
+      endPassage = finish;
+      frame = requestAnimationFrame(step);
+    }
+    function stopPassage() {
+      endPassage?.();
+    }
+
     let scrolled = 0;
     function tick(now: number) {
       frame = 0;
@@ -339,6 +487,8 @@ export function ImmersiveEntrance({
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', resize);
     reduced.addEventListener('change', resize);
+    window.addEventListener(PASSAGE_EVENT, passage);
+    window.addEventListener('pagehide', stopPassage);
     measure();
     tick(performance.now());
     return () => {
@@ -347,6 +497,9 @@ export function ImmersiveEntrance({
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', resize);
       reduced.removeEventListener('change', resize);
+      window.removeEventListener(PASSAGE_EVENT, passage);
+      window.removeEventListener('pagehide', stopPassage);
+      stopPassage();
     };
   }, []);
 
@@ -406,6 +559,7 @@ export function ImmersiveEntrance({
         <div className="ambient-clouds" />
         <div className="gate-anchor">
           <div className="gate-halo" />
+          <div className="gate-glow" />
           <Gate ref={gate} />
           <div className="gate-fog" />
         </div>
@@ -413,6 +567,7 @@ export function ImmersiveEntrance({
           <div className="cloud-current" />
         </div>
       </div>
+      <div className="passage-light" aria-hidden="true" />
       <header className="world-nav">
         <a className="world-brand" href="#entrance" aria-label="SEAL">
           <Arch className="brand-arch" strips={5} />

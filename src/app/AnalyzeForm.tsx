@@ -12,9 +12,11 @@ import {
   addressHint,
   ANALYZE_EVENT,
   EXAMPLES,
+  inPassage,
   isTokenAddress,
   PAIR_HINT,
   pairFromInput,
+  passageReleased,
   readingUrl,
   resolveInput,
   tokenFromInput,
@@ -108,7 +110,7 @@ function Loading({
       </div>
       <div className="loading-scale" aria-hidden="true">
         <span>0 s</span>
-        <span>usually 20 to 40 s</span>
+        <span>usually 10 to 20 s</span>
       </div>
       <ol className="loading-phases" aria-label="What happens during the wait, in its usual order">
         {PHASES.map((phase, i) => (
@@ -157,7 +159,8 @@ export function AnalyzeForm() {
   // A finished report takes the focus: a screen reader starts at its title
   // instead of hearing the whole report read out as one live announcement.
   useEffect(() => {
-    if (state.status === 'done') document.getElementById('report-title')?.focus();
+    if (state.status === 'done')
+      document.getElementById('report-title')?.focus({ preventScroll: inPassage() });
   }, [state]);
   // The wait is shown where the reader is looking: the panel takes the focus
   // and comes into view, wherever the analysis was started from.
@@ -166,6 +169,8 @@ export function AnalyzeForm() {
     const panel = loadingPanel.current;
     if (!loading || !panel) return;
     panel.focus({ preventScroll: true });
+    // Sent from the entrance: the passage through the gate brings it there.
+    if (inPassage()) return;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     panel.scrollIntoView({ behavior: reduced ? 'instant' : 'smooth', block: 'start' });
   }, [loading]);
@@ -224,11 +229,14 @@ export function AnalyzeForm() {
         body: JSON.stringify({ token: address }),
         signal: controller.signal,
       });
+      // From the entrance, the outcome shows once the gate's light covers the screen.
       if (!response.ok) {
+        await passageReleased();
         setState({ status: 'error', ...requestError(response.status) });
         return;
       }
       const result = (await response.json()) as AnalyzeResponse;
+      await passageReleased();
       setState({ status: 'done', result });
       // The address bar now holds a link that reopens this reading.
       window.history.replaceState(null, '', readingUrl(address));
@@ -238,6 +246,7 @@ export function AnalyzeForm() {
         setTimeout(() => input.current?.focus(), 0);
         return;
       }
+      await passageReleased();
       setState({
         status: 'error',
         message: controller.signal.aborted

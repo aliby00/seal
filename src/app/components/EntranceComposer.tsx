@@ -91,7 +91,7 @@ export function EntranceComposer() {
         </p>
       )}
       <p className="entrance-meta">
-        <span id="entrance-help">Public data · no wallet · about 30 s</span>
+        <span id="entrance-help">Public data · no wallet · about 15 s</span>
         <button
           type="button"
           className="entrance-example"
