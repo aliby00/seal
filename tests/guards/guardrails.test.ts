@@ -140,3 +140,22 @@ describe('links and claims of a guarantee', () => {
     expect(findViolations(text)).toEqual([]);
   });
 });
+
+describe('trader advice, now that the flags speak trader', () => {
+  it.each([
+    'Avoid this token.',
+    'Ape in now.',
+    'Buy now before it runs.',
+    'Stay away from this coin.',
+  ])('refuse « %s »', (text) => {
+    expect(findViolations(text).map((v) => v.kind)).toContain('advice');
+  });
+
+  it.each([
+    'Chart dead: mcap $2.0k after $38.5k traded in 24 h',
+    'Dev sold everything: bought 21.5%, sold it all within 4 minutes',
+    '16 buys and 3 sells in the last hour.',
+  ])('laisse passer « %s »', (text) => {
+    expect(findViolations(text)).toEqual([]);
+  });
+});

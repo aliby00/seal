@@ -28,6 +28,10 @@ const ADVICE_PATTERNS: RegExp[] = [
   /\b(?:not\s+)?(?:a\s+)?good\s+(?:buy|investment)\b/gi,
   /\b(?:you\s+)?should\s+(?:buy|sell|invest|avoid)\b/gi,
   /\b(?:i|we)\s+recommend\b/gi,
+  // Trader advice, since the flags speak trader: a flag says what a fact is, never what to do.
+  /\b(?:avoid|stay\s+away\s+from|get\s+out\s+of|ape\s+into)\s+(?:it|this|the\s+token|this\s+token|this\s+coin)\b/gi,
+  /\b(?:buy|ape|sell)\s+(?:it\s+)?now\b/gi,
+  /\bape\s+in\b/gi,
   /\b(?:bon|mauvais)\s+investissement\b/gi,
   /\b(?:tu\s+)?(?:devrais|devriez)\s+(?:acheter|vendre|investir)\b/gi,
   /\bje\s+(?:te\s+)?(?:recommande|conseille)\b/gi,

@@ -33,6 +33,8 @@ export type Figure = {
 export type FiguresInput = GlanceInput & {
   /** When the reading was made: the token's age is counted to it. */
   collectedAt?: string;
+  /** What the dev holds as read live, over the report's figure. */
+  liveDevHolds?: number | null;
 };
 
 /** "41.9%", "0.92%", "<0.01%": one rule everywhere in the row. */
@@ -69,7 +71,7 @@ function measuresOf(specialists: GlanceInput['specialists']): Measures {
 }
 
 /** What the dev bought, sold and holds, shares of the supply; `null` parts not read. */
-export function devNumbers(input: GlanceInput): {
+export function devNumbers(input: FiguresInput): {
   bought: number | null;
   sold: number | null;
   hasSold: boolean | null;
@@ -96,7 +98,7 @@ export function devNumbers(input: GlanceInput): {
     bought: bought > 0 ? bought : c && c.bought !== null ? 0 : null,
     sold: hasSold ? sold : hasSold === false ? 0 : null,
     hasSold,
-    holds: c?.holdsNow ?? null,
+    holds: input.liveDevHolds ?? c?.holdsNow ?? null,
     minorSale: facts.creator.saleSize === 'minor',
   };
 }

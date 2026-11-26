@@ -11,7 +11,8 @@ import { dayOf, paidWords, pct, shareOf, solOf, solWords } from '../specialists/
 import { READ_WORDS, readFailed } from '../failed-reads';
 import { withLaunchCreation } from '../solana/creator';
 import { figuresLine } from '../figures';
-import { traderReading } from './trader-text';
+import { flagInputsOf, traderReading } from './trader-text';
+import { flagLine, flagsOf } from '../flags';
 import type { SolanaHolder } from '../solana/holders';
 import type { SolanaLaunchGroup } from '../solana/launch-types';
 
@@ -43,24 +44,14 @@ Absolute rules:
 - Quote holder shares of the whole supply (the data gives them, pools, curves, locks and the incinerator left out). Say "of what circulates" only when you also say how little circulates.
 - Never write that the dev launched only this token or that it is its first: say "no other launch found".
 - When the data says the dev sold, never call its record clean. "Has not sold" is a fact only when the data says every move of the dev was read.
-- A token "with no trade in the last 24 hours" is just that: never call it dead or abandoned. Give the market cap and the volume instead.
+- Say a chart is dead only when SEAL's flags say so, with its market cap and volume.
 - When the data lists reads that failed, never state an absence one of them would have settled.
 - Quote counts as the data gives them (wallets, buyers, launches, holders).
 - Write about the token, never about the data or yourself: no "I", no "the reads", no "the report", no "these reads do not agree", no "completeness", no "partial", no "floor", no count of transactions read.
 
-Write exactly this, with the two headings alone on their own lines and a blank line between blocks:
+The reader sees, above your text, SEAL's flags (one fact per line, coloured red, orange or green by fixed rules) and the figures row. Do not repeat them line by line and never contradict their colour.
 
-What stands out
-
-Two to four short sentences, one fact each, the strongest first, about what tells THIS token apart: what the dev did with it (bought, sold, when, what it holds), the bundle and the snipers and whether they still hold, a serial launcher and what became of its other launches, the market cap against the volume and the liquidity, the largest holders of the supply, a power over holders someone still holds, a lock and when it ends. The lines under "SEAL's reading" are SEAL's own facts, strongest first: say the first three in your words (a serial launcher, a dev sale or a bundle is never left out), connect them when one explains another, and never open with a fact that is true of every launchpad token. Leave out what changes nothing for a trader: a few round trips, dust pools, a holder share under 1%, pair names, how many transactions were read.
-
-What is clean
-
-One sentence, only with facts that tell this token apart in its favour (the clean clauses the data lists). Leave out mint and freeze authority and the LP burn of a launchpad token. When nothing is listed, write "Nothing beyond what every launchpad token has."
-
-Write nothing after it: SEAL adds the line on reads that failed itself.
-
-The reader sees the figures row above your text: do not list it again, use its figures where they say something. Keep the whole answer between 70 and 140 words. Plain text: no bold, no bullet lists, no tables, no word in capitals for emphasis. Always write in English.`;
+Write one or two short sentences, at most 40 words in all, that a trader could not get from the flags alone: what one flag explains about another (the dev sold into the snipers' buys; a serial launcher's tokens die the same way; a thin pool under a large cap with near-equal bags), or, when the flags say it all, the single fact not to miss. Plain text: no heading, no list, no bold, no word in capitals for emphasis, nothing about what was not read. Always write in English.`;
 
 /**
  * The report as the model reads it, every gap named. In English throughout,
@@ -658,22 +649,17 @@ export function renderSupplyFlow(report: TokenReport): string[] {
  */
 export function renderReading(report: TokenReport, specialists?: SpecialistAnswer[]): string[] {
   const reading = traderReading(report, specialists);
-  const lines = ['## The figures row the reader sees above your text'];
+  const flags = flagsOf(flagInputsOf(report, specialists));
+  const lines = ["## SEAL's flags, shown above your text (colour: fact)"];
+  if (flags.length === 0) lines.push('- No flag.');
+  for (const f of flags) lines.push(`- ${f.tone}: ${flagLine(f)}`);
+  lines.push('', '## The figures row the reader sees above your text');
   lines.push(
     reading.figures.length > 0 ? figuresLine(reading.figures) : 'No figure could be measured.',
   );
-  lines.push(
-    '',
-    '## SEAL\'s reading, strongest first (facts in trader words; use them for "What stands out")',
-  );
+  lines.push('', '## The facts behind the flags, in trader words, strongest first');
   if (reading.standsOut.length === 0) lines.push('- Nothing measured stands out.');
   for (const l of reading.standsOut) lines.push(`- ${l.text}`);
-  lines.push('', '## Clean clauses (only these may go under "What is clean")');
-  lines.push(
-    reading.clean.length > 0
-      ? `- ${reading.clean.join('; ')}.`
-      : '- None: write "Nothing beyond what every launchpad token has."',
-  );
   lines.push('');
   return lines;
 }
