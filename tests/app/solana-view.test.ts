@@ -184,9 +184,12 @@ describe('amounts', () => {
   it('formats shares, whole tokens and SOL plainly', () => {
     expect(pct(null)).toBe('not read');
     expect(pct(0)).toBe('0%');
-    expect(pct(0.0004)).toBe('<0.1%');
-    expect(pct(0.119065)).toBe('12%');
-    expect(pct(0.05)).toBe('5.0%');
+    // One rule with the figures row: POPCAT read 18 %, 17.5 % and 17 % for one figure.
+    expect(pct(0.0004)).toBe('0.04%');
+    expect(pct(0.000019)).toBe('<0.01%');
+    expect(pct(0.119065)).toBe('11.9%');
+    expect(pct(0.175)).toBe('17.5%');
+    expect(pct(0.05)).toBe('5%');
     // 99.79 % is not the whole supply, and must not read "100%" next to "the other 0.2%".
     expect(pct(0.997896)).toBe('99.8%');
     expect(pct(0.9996)).toBe('>99.9%');
@@ -287,7 +290,7 @@ describe('what the screen must not claim', () => {
     });
     expect(v.launch.data.sameSlot?.unread).toBe(2);
     const html = text(render(v));
-    expect(html).toMatch(/today 3\.0% is held by the 3 of them read \(2 not read\)/);
+    expect(html).toMatch(/today 3% is held by the 3 of them read \(2 not read\)/);
     expect(html).not.toMatch(/they hold 3\.0% today/);
   });
 

@@ -5,7 +5,10 @@ import {
   addressHint,
   EXAMPLE_TOKEN,
   isTokenAddress,
+  PAIR_HINT,
+  pairFromInput,
   requestAnalysis,
+  resolveInput,
   tokenFromInput,
 } from './analyze-request';
 
@@ -36,9 +39,21 @@ export function EntranceComposer() {
       noValidate
       onSubmit={(event) => {
         event.preventDefault();
-        const address = tokenFromInput(value);
-        if (address !== value) setValue(address);
-        start(address);
+        if (!pairFromInput(value)) {
+          const address = tokenFromInput(value);
+          if (address !== value) setValue(address);
+          start(address);
+          return;
+        }
+        // A pair link (DexScreener, Photon): the token its pool trades, looked up.
+        void resolveInput(value).then((address) => {
+          if (address === null) {
+            setError(PAIR_HINT);
+            return;
+          }
+          setValue(address);
+          start(address);
+        });
       }}
     >
       <label htmlFor="entrance-token" className="sr-only">

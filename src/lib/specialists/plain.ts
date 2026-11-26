@@ -21,7 +21,15 @@ export const PLAIN_LABEL: Record<SpecialistId, string> = {
   'name-clone': 'Borrowed name',
 };
 
-const pc = (x: number) => `${(x * 100).toFixed(x < 0.01 ? 2 : 1)}%`;
+/** The page's one rounding rule (lib/figures.ts share): never "0.00%" for a dust sale. */
+const pc = (x: number) => {
+  if (x === 0) return '0%';
+  if (x === 1) return '100%';
+  if (x > 0 && x < 0.0001) return '<0.01%';
+  const p = x * 100;
+  if (p >= 99.95 && x < 1) return '>99.9%';
+  return `${p.toFixed(p < 1 ? 2 : 1).replace(/\.?0+$/, '')}%`;
+};
 
 /** What a held power lets someone do, in a few words. */
 const CAN: Partial<Record<PowerMeasure['power'], string>> = {
@@ -78,6 +86,8 @@ export function shortAnswer(answer: SpecialistAnswer): string {
     case 'creator-history': {
       const c = m?.creator;
       const h = m?.history;
+      // A minor sale is a fact, not the line's headline (POPCAT, 26/11/2026).
+      if (c?.hasSold === true && c.minorSale) return 'The creator sold only a few tokens of it';
       if (c?.hasSold === true)
         return c.sold !== null
           ? `The creator sold ${pc(c.sold)} of the supply`
@@ -104,9 +114,9 @@ export function shortAnswer(answer: SpecialistAnswer): string {
       const slot = m?.launch?.sameSlot;
       const wallets = (n: number) => `${n} wallet${n === 1 ? '' : 's'}`;
       if (paid && paid.share >= GROUP_SHARE_MIN && (!slot || paid.share >= slot.share))
-        return `${wallets(paid.wallets)} got ${pc(paid.share)} in transactions the creator paid for`;
+        return `At launch, ${wallets(paid.wallets)} got ${pc(paid.share)} in transactions the creator paid for`;
       if (slot && slot.share >= GROUP_SHARE_MIN)
-        return `${wallets(slot.wallets)} got ${pc(slot.share)} in the creation slot`;
+        return `At launch, ${wallets(slot.wallets)} got ${pc(slot.share)} in the creation slot`;
       if (signal === 'concern') return 'Many trades for few holders';
       break;
     }
@@ -123,5 +133,5 @@ export function shortAnswer(answer: SpecialistAnswer): string {
       break;
   }
   const text = first ?? answer.limits[0] ?? '';
-  return text.length > 96 ? `${text.slice(0, 93).trimEnd()}…` : text;
+  return text.length > 160 ? `${text.slice(0, 157).trimEnd()}…` : text;
 }

@@ -431,7 +431,7 @@
 }
 .source-signatures {
   gap: 10px;
-  font-size: 10px;
+  font-size: 11px;
 }
 .source-signatures span {
   display: inline-flex;
@@ -1298,6 +1298,11 @@ tr[data-kind='withdraw'] .launch-kind::before {
   color: var(--tone);
   filter: drop-shadow(0 0 4px color-mix(in srgb, var(--tone) 60%, transparent));
 }
+/* A whole-supply donut: what sits in curves, pools, locks and burn addresses. */
+.donut-aside {
+  stroke: rgb(255 255 255 / 0.22);
+  background: rgb(255 255 255 / 0.22);
+}
 .check-icon[data-signal='quiet'],
 .check-icon[data-signal='unknown'] {
   color: var(--hud-dim);
@@ -1628,7 +1633,7 @@ tr[data-kind='withdraw'] .launch-kind::before {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .entrance-copy .scene-eyebrow {
-    font-size: 9.5px;
+    font-size: 11px;
     letter-spacing: 0.16em;
   }
   .entrance-copy .scene-eyebrow::before,

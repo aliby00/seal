@@ -578,6 +578,7 @@ const creatorHistory: Specialist = {
         sold: sold === true ? soldShare : sold === false ? 0 : null,
         hasSold: sold,
         holdsNow: holds,
+        ...(sold === true && d.saleSize === 'minor' ? { minorSale: true } : {}),
       };
     }
     const nothingRead = !measures.history && !measures.creator;
