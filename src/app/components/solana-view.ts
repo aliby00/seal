@@ -60,7 +60,16 @@ export type PoolView = {
 
 export type MoveView = {
   signature: string;
-  kind: 'buy' | 'sell' | 'locked' | 'unlocked' | 'sent' | 'received' | 'burned';
+  kind:
+    | 'buy'
+    | 'sell'
+    | 'locked'
+    | 'unlocked'
+    | 'sent'
+    | 'received'
+    | 'burned'
+    | 'provided'
+    | 'withdrawn';
   /** Part of the supply, when the supply was read. */
   share: number | null;
   at: string | null;
@@ -121,7 +130,13 @@ export type SolanaView = {
   powers: PowerView[];
   creator: ViewBlock<{
     address: string | null;
-    from: 'pump-curve' | 'creation-transaction' | 'metadata-update-authority' | null;
+    from:
+      | 'pump-curve'
+      | 'creation-transaction'
+      | 'metadata-update-authority'
+      | 'launchpad-account'
+      | 'mint-key-signer'
+      | null;
     creation: { signature: string; slot: number; at: string | null; payer: string } | null;
   }>;
   onToken: ViewBlock<{

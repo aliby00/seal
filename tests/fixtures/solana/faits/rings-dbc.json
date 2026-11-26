@@ -1,0 +1,21 @@
+{
+  "method": "getAccountInfo",
+  "params": [
+    "36PZCZWHTZEVCLDwPCKjuChBtJ8g3w2yNCv9KJR9nVNA",
+    { "commitment": "confirmed", "encoding": "base64" }
+  ],
+  "result": {
+    "context": { "apiVersion": "4.4.0", "slot": 474133225 },
+    "value": {
+      "data": [
+        "1eAF0WJFd1wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAb78L9pML5IBd0SRR4144Na8gDjx0hVRCldODlDx66u+GRNvUvJ9gHmQE+u/JXPcDe7FYM+KtT4Jy/L+W77KP0Et/bmWHklyqraVKwmog9fuYedGyaBVCq/DkmMpj+5QlmIddzK59gzHarEfafStBZqdgbKqxDTsqgIfKYMRCveLlfjyYbZsqTwj0/hcGwhoJxJG0Si1uwqq7VXEUHPdeXL3DoCHmtQAAhRJlyhMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFiHkxkrD0cFAAAAAAAAAACsfOIbAAAAAAABAAEDAQAAAAAAAAAAAADm2PRtAAAAAAAAAAAAAAAAD2ZO5wEAAADlavNqAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAABQAAAAAAAAAo7HbIV0AAACA/iEKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+        "base64"
+      ],
+      "executable": false,
+      "lamports": 2804160,
+      "owner": "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
+      "rentEpoch": 18446744073709552000,
+      "space": 424
+    }
+  }
+}

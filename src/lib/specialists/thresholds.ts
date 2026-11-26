@@ -22,6 +22,8 @@ export const GROUP_SHARE_MIN = 0.01;
 
 /** The creator's other tokens: this many dead, and at least half of them, is a pattern. */
 export const DEAD_LAUNCHES_MIN = 3;
+/** The creator's other launches, every pump.fun curve naming it counted: this many is a pattern. */
+export const SERIAL_LAUNCHES_MIN = 20;
 
 /** Trades per wallet holding the token today, over a day, above which trading is mostly back and forth. */
 export const TRADES_PER_HOLDER = 10;

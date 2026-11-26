@@ -47,6 +47,26 @@ export type SolanaMarketStateData = Omit<MarketStateData, 'pools'> & {
    * whose figures were the main pair's only.
    */
   pairsCounted?: number;
+  /**
+   * The 24 h volume per trade, USD, over the counted pairs that give both a
+   * volume and a trade count: never one pair's volume over every pair's
+   * trades. `null` when none gives both. Absent from older reports.
+   */
+  perTradeUsd24h?: number | null;
+  /**
+   * Liquidity as a share of the market cap (FDV when DexScreener gives no
+   * market cap), 0 to 1 and more: the main pair's liquidity, or the curve's
+   * when the token is still on it (`curveLiquidityUsd`). `null` when either
+   * is missing. Absent from older reports.
+   */
+  liquidityToMarketCap?: number | null;
+  /**
+   * What the token's bonding curve holds, in USD, when the main pair is that
+   * curve: its SOL (graduation `raised`) at the SOL price the pair implies
+   * (priceUsd / priceNative). DexScreener gives no liquidity for a curve.
+   * Absent otherwise.
+   */
+  curveLiquidityUsd?: number;
   /** The token's listed pools, the most liquid first, the main one among them. */
   pools: SolanaListedPool[];
 };

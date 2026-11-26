@@ -5,12 +5,17 @@ import { BudgetExhaustedError, requestJson } from '../http';
 import { addressSegment, type DexScreenerPair } from '../market/dexscreener';
 import { decodeBase58, encodeBase58, isOnCurve, isSolanaAddress, shortAddress } from './address';
 import { recordingKey } from './fake-rpc';
+import { decodeDbcPool, decodeLaunchLabPool } from './graduation';
+import { DBC_BASE_MINT_OFFSET, DBC_POOL_SIZE, launchLabPoolAddress } from './launchpads';
+import { liquidityAction } from './liquidity-ix';
 import {
   associatedTokenAddress,
   INCINERATOR,
   KNOWN_PROGRAMS,
   knownProgram,
+  METEORA_DBC_PROGRAM,
   NATIVE_MINT,
+  RAYDIUM_LAUNCHLAB_PROGRAM,
   metadataAddress,
   PUMP_FUN_PROGRAM,
   pumpBondingCurveAddress,
@@ -223,6 +228,8 @@ function toBigInt(value: string | undefined): bigint | null {
 
 /** The all-zero key, which the chain shows as the System Program's address. */
 const DEFAULT_KEY = SYSTEM_PROGRAM;
+/** USDC's mint (market/solana.ts USDC_MINT): LaunchLab pools against it have their own address. */
+const USDC_MINT_ADDRESS = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
 /** Six decimals, as the EVM reads round their shares. */
 export function share6(value: bigint, supply: bigint | null): number | null {
@@ -545,6 +552,14 @@ export type CreationRead = {
   /** The mint's first transaction was reached (its signatures were listed to the end). */
   reached: boolean;
   note?: string;
+  /** The creation transaction itself, when found: who got what in it. */
+  tx?: SolanaTransaction;
+  /**
+   * The mint's first transaction, when it does not initialise the mint but
+   * the mint's own key signed it: its fee payer holds that key (PCB
+   * PpYYE5…, 5ShYRK…: a launchpad wrapper preparing accounts, read 26/11/2026).
+   */
+  mintSigned?: { signature: string; feePayer: string; slot: number; blockTime: number | null };
 };
 
 /** Oldest transactions of a known signer read for the creation, before listing the mint's own. */
@@ -555,6 +570,14 @@ export type CreationHints = {
   accounts?: readonly string[];
   /** A signer of the creation (pump.fun's `user`, the curve's creator): its oldest transactions are read. */
   signer?: string;
+  /**
+   * A graduated pump.fun curve: born in the creation, it stops trading at
+   * graduation, so its history can be short when the mint's, traded on
+   * since, is too long to reach the creation (over 3,000 transactions: the
+   * audit of 26/11/2026 had launch facts missing for such tokens). Its
+   * oldest successful transaction is read, when its history fits in one page.
+   */
+  curve?: string;
 };
 
 /**
@@ -573,23 +596,32 @@ export async function findCreation(
 ): Promise<CreationRead> {
   const creates = async (signature: string) => {
     const tx = await rpc.getTransaction(signature);
-    return tx ? creationsIn(tx, signature).find((c) => c.mint === mint) : undefined;
+    const creation = tx ? creationsIn(tx, signature).find((c) => c.mint === mint) : undefined;
+    return creation && tx ? { creation, reached: true, tx } : undefined;
   };
   for (const account of hints.accounts ?? []) {
     const listed = await collectSignatures(rpc, account, { maxPages: 1 });
     if (!listed.complete) continue;
     const first = [...listed.signatures].reverse().find((s) => s.err === null);
-    const creation = first && (await creates(first.signature));
-    if (creation) return { creation, reached: true };
+    const found = first && (await creates(first.signature));
+    if (found) return found;
   }
   if (hints.signer) {
     const listed = await collectSignatures(rpc, hints.signer, { maxPages: 1 });
     if (listed.complete) {
       const oldest = [...listed.signatures].reverse().filter((s) => s.err === null);
       for (const s of oldest.slice(0, CREATION_SIGNER_TRANSACTIONS)) {
-        const creation = await creates(s.signature);
-        if (creation) return { creation, reached: true };
+        const found = await creates(s.signature);
+        if (found) return found;
       }
+    }
+  }
+  if (hints.curve) {
+    const listed = await collectSignatures(rpc, hints.curve, { maxPages: 1 });
+    if (listed.complete) {
+      const first = [...listed.signatures].reverse().find((s) => s.err === null);
+      const found = first && (await creates(first.signature));
+      if (found) return found;
     }
   }
   const listed = await collectSignatures(rpc, mint, { maxPages });
@@ -607,9 +639,163 @@ export async function findCreation(
   if (!tx)
     return { creation: null, reached: true, note: 'the node did not return the first transaction' };
   const creation = creationsIn(tx, first.signature).find((c) => c.mint === mint) ?? null;
-  return creation
-    ? { creation, reached: true }
-    : { creation: null, reached: true, note: 'the first transaction does not initialise the mint' };
+  if (creation) return { creation, reached: true, tx };
+  const signed = signersOf(tx).includes(mint);
+  return {
+    creation: null,
+    reached: true,
+    note: 'the first transaction does not initialise the mint',
+    ...(signed
+      ? {
+          mintSigned: {
+            signature: first.signature,
+            feePayer: tx.transaction.message.accountKeys[0] ?? '',
+            slot: tx.slot,
+            blockTime: tx.blockTime ?? null,
+          },
+        }
+      : {}),
+  };
+}
+
+/**
+ * The pump.fun launch whose curve names one address while another signed
+ * it: the signer that paid for the creation and got tokens in it, the named
+ * address none. On Gondola 5vQGwx… the curve names 3cZgqs… (over 1,000
+ * transactions, a launch service or fee recipient); the creation 5B86… was
+ * signed and paid by 3vxCYSy3… with the mint's key, and 3vxC got 21.5 % of
+ * the supply in it (read 26/11/2026). Reading the creator's history, sales
+ * and funding on 3cZgqs said "the creator bought none, sold none" of a token
+ * whose real launcher bought 21.5 % and sold. `null` when the curve's
+ * address is the launcher (it signed, or got tokens itself).
+ */
+export function launcherOverNamed(
+  tx: SolanaTransaction,
+  mint: string,
+  named: string,
+): { launcher: string; got: bigint; minted: bigint } | null {
+  const signers = signersOf(tx);
+  const payer = signers[0];
+  if (!payer || payer === named || signers.includes(named)) return null;
+  const deltas = ownerDeltas(tx, mint);
+  const got = deltas.get(payer) ?? 0n;
+  if (got <= 0n || (deltas.get(named) ?? 0n) > 0n) return null;
+  const minted = [...deltas.values()].reduce((n, d) => n + d, 0n);
+  return { launcher: payer, got, minted };
+}
+
+/** The note saying why the curve's address is not the creator read. */
+export function namedOverNote(named: string, launcher: string, share: number | null): string {
+  const pct =
+    share === null ? 'tokens' : `${(share * 100).toFixed(share >= 0.01 ? 1 : 2)}% of the supply`;
+  return `the pump.fun curve names ${named}, but ${launcher} signed and paid for the creation and got ${pct} in it, the named address none: ${launcher} is read as the creator`;
+}
+
+/**
+ * The creator read, squared with the creation the launch replay found when
+ * the creator's own read did not reach it: no creator named, or a pump.fun
+ * curve naming an address that did not launch the token. `null` when the
+ * creator read stands. The reads that depend on the creator are started
+ * after this answer (collect.ts), so they read the launcher.
+ */
+export function creatorFromLaunch(
+  creator: SolanaCreator,
+  found: { signature: string; payer: string; tx: SolanaTransaction } | null,
+): SolanaCreator | null {
+  if (!found || creator.data.creation) return null;
+  const [first, ...rest] = creator.sources;
+  const notes = first?.note ? first.note.split('; ') : [];
+  const named = creator.data.creator;
+  const short = shortAddress(found.signature);
+  if (named === null) {
+    if (creator.completeness === 'unavailable' && sourcesFailedNote(notes)) return null;
+    const kept = notes
+      .filter((n) => !CREATION_NOT_REACHED.test(n))
+      .filter((n) => n !== NOTHING_NAMES_A_CREATOR);
+    return {
+      completeness: 'partial',
+      sources: [
+        {
+          ...(first ?? source('solana-rpc', Date.now(), [])),
+          note: [
+            ...kept,
+            `no curve or metadata authority names a creator; ${found.payer} paid for the creation (transaction ${short}, found by the launch replay) and is read as the creator`,
+          ].join('; '),
+        },
+        ...rest,
+      ],
+      data: { ...creator.data, creator: found.payer, from: 'creation-transaction', account: null },
+    };
+  }
+  if (creator.data.from !== 'pump-curve') return null;
+  const over = launcherOverNamed(found.tx, creator.data.mint, named);
+  if (!over) return null;
+  const share = over.minted > 0n ? share6(over.got, over.minted) : null;
+  return {
+    ...creator,
+    sources: [
+      {
+        ...(first ?? source('solana-rpc', Date.now(), [])),
+        note: [
+          ...notes.filter((n) => !CREATION_NOT_REACHED.test(n)),
+          `${namedOverNote(named, over.launcher, share)} (transaction ${short}, found by the launch replay)`,
+        ].join('; '),
+      },
+      ...rest,
+    ],
+    data: {
+      ...creator.data,
+      creator: over.launcher,
+      from: 'creation-transaction',
+      account: null,
+      named: { address: named, from: 'pump-curve', signerShare: share },
+    },
+  };
+}
+
+/** A note that says a read failed (not "nothing found"). */
+function sourcesFailedNote(notes: readonly string[]): boolean {
+  return notes.some((n) => / not read: /.test(n));
+}
+
+/**
+ * The creator a Meteora DBC or Raydium LaunchLab pool names for `mint`
+ * (graduation.ts reads the same fields): LaunchLab's pool at its derived
+ * address (against SOL, then USDC), else DBC's by a program scan on the
+ * mint at 136. On SIDOOR zcRvzm…, Rings 65iH8k… and EMBER 5dvXTZ… the
+ * report said "no creator is named on the chain" while their DBC pools name
+ * A7HB4xzK…, A38XmbEV… and GZjYfGyU… at 104 (read 26/11/2026); LENDR's
+ * LaunchLab pool 9gPANe2j… names 5x4pPF8h… at 333. `null` when no such
+ * pool holds the mint.
+ */
+export async function launchpadCreator(
+  rpc: SolanaRpc,
+  mint: string,
+): Promise<{ creator: string; account: string } | null> {
+  const pdas = [launchLabPoolAddress(mint), launchLabPoolAddress(mint, USDC_MINT_ADDRESS)];
+  const infos = await rpc.getMultipleAccounts(pdas);
+  for (const [i, address] of pdas.entries()) {
+    const info = infos[i] ?? null;
+    const bytes = info && info.owner === RAYDIUM_LAUNCHLAB_PROGRAM ? accountBytes(info) : null;
+    const pool = bytes ? decodeLaunchLabPool(bytes) : null;
+    if (pool && pool.baseMint === mint && pool.creator !== DEFAULT_KEY) {
+      return { creator: pool.creator, account: address };
+    }
+  }
+  const found = await rpc.getProgramAccounts(METEORA_DBC_PROGRAM, {
+    filters: [
+      { dataSize: DBC_POOL_SIZE },
+      { memcmp: { offset: DBC_BASE_MINT_OFFSET, bytes: mint } },
+    ],
+  });
+  for (const { pubkey, account } of found) {
+    const bytes = account.owner === METEORA_DBC_PROGRAM ? accountBytes(account) : null;
+    const pool = bytes ? decodeDbcPool(bytes) : null;
+    if (pool && pool.baseMint === mint && pool.creator !== DEFAULT_KEY) {
+      return { creator: pool.creator, account: pubkey };
+    }
+  }
+  return null;
 }
 
 // ── findCreator ─────────────────────────────────────────────────────────────
@@ -683,12 +869,15 @@ export async function findCreator(
   const [curveInfo, metaInfo, mintInfo] = accounts.ok ? accounts.value : [null, null, null];
   const curve = decodePumpCurve(curveInfo ?? null);
   const tokenProgram = mintInfo && isTokenProgram(mintInfo.owner) ? mintInfo.owner : null;
-  const hints: CreationHints = curve?.creator
-    ? {
-        accounts: tokenProgram ? [associatedTokenAddress(curve.creator, mint, tokenProgram)] : [],
-        signer: curve.creator,
-      }
-    : {};
+  const hints: CreationHints = {
+    ...(curve?.creator
+      ? {
+          accounts: tokenProgram ? [associatedTokenAddress(curve.creator, mint, tokenProgram)] : [],
+          signer: curve.creator,
+        }
+      : {}),
+    ...(curve?.complete ? { curve: curveAddress } : {}),
+  };
 
   const created = await attempt(() => findCreation(r, mint, options.signaturePages, hints));
   if (!created.ok) notes.push(`creation not read: ${failureNote(created.error)}`);
@@ -700,6 +889,7 @@ export async function findCreator(
     creator: string | null,
     from: SolanaCreator['data']['from'],
     account: string | null,
+    named?: SolanaCreator['data']['named'],
   ): SolanaCreator => ({
     completeness:
       creator === null ? 'unavailable' : creation && notes.length === 0 ? 'full' : 'partial',
@@ -711,13 +901,39 @@ export async function findCreator(
       account,
       creation: creation ? publicCreation(creation) : null,
       pumpCurve,
+      ...(named ? { named } : {}),
     },
   });
 
-  if (curve?.creator) return done(curve.creator, 'pump-curve', curveAddress);
+  if (curve?.creator) {
+    const tx = created.ok ? created.value.tx : undefined;
+    const over = tx ? launcherOverNamed(tx, mint, curve.creator) : null;
+    if (over) {
+      const share = over.minted > 0n ? share6(over.got, over.minted) : null;
+      notes.push(namedOverNote(curve.creator, over.launcher, share));
+      return done(over.launcher, 'creation-transaction', null, {
+        address: curve.creator,
+        from: 'pump-curve',
+        signerShare: share,
+      });
+    }
+    return done(curve.creator, 'pump-curve', curveAddress);
+  }
   if (creation) return done(creation.feePayer, 'creation-transaction', null);
   // CzLSujWB… (launched 2024) has a curve whose bytes 49..81 are all zero (read 24/11/2026).
   if (curve) notes.push('its pump.fun curve names no creator');
+  else if (mintInfo) {
+    const pad = await attempt(() => launchpadCreator(r, mint));
+    if (!pad.ok) notes.push(`launchpad pools not read: ${failureNote(pad.error)}`);
+    else if (pad.value) return done(pad.value.creator, 'launchpad-account', pad.value.account);
+  }
+  const signed = created.ok ? created.value.mintSigned : undefined;
+  if (signed?.feePayer) {
+    notes.push(
+      `the mint's first transaction ${shortAddress(signed.signature)} was signed by the mint's own key and paid for by ${signed.feePayer}`,
+    );
+    return done(signed.feePayer, 'mint-key-signer', null);
+  }
 
   /**
    * An authority off the ed25519 curve has no private key: a program signs
@@ -1120,6 +1336,11 @@ export async function creatorHistory(
         launchedAt: d.blockTime,
         nowS,
       });
+      const caps = (pairs ?? [])
+        .filter((p) => p.baseToken?.address === d.mint)
+        .map((p) => (typeof p.marketCap === 'number' ? p.marketCap : p.fdv))
+        .filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+      const marketCapUsd = caps.length > 0 ? Math.max(...caps) : null;
       return {
         mint: d.mint,
         launchpad: d.launchpad,
@@ -1132,11 +1353,25 @@ export async function creatorHistory(
         outcome,
         trades24h: trades,
         foundBy: [...d.foundBy].sort(),
+        ...(marketCapUsd !== null ? { marketCapUsd } : {}),
       };
     })
     .sort((a, b) => (b.launchedAt ?? '').localeCompare(a.launchedAt ?? ''));
 
   const count = (o: SolanaTokenOutcome) => tokens.filter((t) => t.outcome === o).length;
+  // Every curve naming the creator is one launch, its mint found or not.
+  const pumpCurves = curveList.filter((c) => c.address !== excludedCurve).length;
+  const outsidePump = tokens.filter((t) => t.launchpad !== 'pump.fun').length;
+  const launchesAtLeast = Math.max(tokens.length, pumpCurves + outsidePump);
+  const checked = pairsByMint === null ? [] : tokens;
+  const lowCap =
+    checked.length > 0
+      ? {
+          checked: checked.length,
+          under: checked.filter((t) => (t.marketCapUsd ?? 0) < LOW_CAP_USD).length,
+          thresholdUsd: LOW_CAP_USD,
+        }
+      : null;
   const nothing = !curves.ok && !listed.ok;
   const whole =
     curves.ok &&
@@ -1169,10 +1404,16 @@ export async function creatorHistory(
         transactionsListed: successful.length,
         transactionsRead: read,
         readSince,
+        ...(curves.ok ? { pumpCurves } : {}),
       },
+      ...(launchesAtLeast > tokens.length ? { launchesAtLeast } : {}),
+      ...(lowCap ? { lowCap } : {}),
     },
   };
 }
+
+/** A launch whose largest market cap stays under this, or that has no pair, went nowhere. */
+export const LOW_CAP_USD = 5_000;
 
 // ── The creation the launch replay found ────────────────────────────────────
 
@@ -1222,6 +1463,45 @@ export function withLaunchCreation(
 /** Transactions of the creator's token accounts read, oldest first. */
 export const WALLET_TRANSACTIONS = 15;
 
+/**
+ * Net SOL (lamports and wrapped SOL, the fee given back) a wallet pays
+ * while its tokens leave for a market, or gets while tokens come back, from
+ * which the move is liquidity, not a trade: 0.1 SOL, above any tip or
+ * account rent a trade costs (a pump.fun trade's rent and tip stay under
+ * 0.01 SOL).
+ */
+export const LIQUIDITY_SOL_MOVED = 100_000_000n;
+
+/**
+ * A sale is minor under 0.5 % of the supply, or under 1 SOL on a token
+ * launched more than 7 days ago: a fact to state, never a signal.
+ */
+export const MINOR_SALE_SHARE = 0.005;
+export const MINOR_SALE_SOL = 1_000_000_000n;
+export const MINOR_SALE_AGE_DAYS = 7;
+
+/**
+ * The size of what `data` sold (SolanaWalletOnToken.saleSize): `undefined`
+ * when it sold nothing; `launchedAt` in Unix seconds, `null` when unknown
+ * (the SOL rule then does not apply).
+ */
+export function saleSize(
+  data: Pick<SolanaWalletOnToken, 'sold' | 'solReceived' | 'shareBase'> & {
+    supply?: string | null;
+  },
+  launchedAt: number | null,
+  nowS: number,
+): 'minor' | 'material' | undefined {
+  if (data.sold === '0') return undefined;
+  const baseRaw = data.shareBase ?? data.supply ?? null;
+  const base = baseRaw ? BigInt(baseRaw) : 0n;
+  const share = base > 0n ? Number((BigInt(data.sold) * 1_000_000n) / base) / 1_000_000 : null;
+  if (share !== null && share < MINOR_SALE_SHARE) return 'minor';
+  const old = launchedAt !== null && nowS - launchedAt > MINOR_SALE_AGE_DAYS * 86_400;
+  if (old && BigInt(data.solReceived) < MINOR_SALE_SOL) return 'minor';
+  return 'material';
+}
+
 /** One transaction's move for `wallet`, or `null` when its balance did not change. */
 export function moveIn(
   tx: SolanaTransaction,
@@ -1244,8 +1524,21 @@ export function moveIn(
     );
   let kind: SolanaTokenMove['kind'];
   const locks = locksIn(tx);
-  if (marketsIn(tx).length > 0) kind = delta > 0n ? 'buy' : 'sell';
-  else if (locks.length > 0) kind = delta > 0n ? 'unlocked' : 'locked';
+  const otherTokens = otherTokenChanges(tx, wallet, mint);
+  if (marketsIn(tx).length > 0) {
+    // A trade pays the other way: a buy costs SOL, a sale brings some. A
+    // wallet whose tokens and SOL both went into the market (or both came
+    // back) added liquidity (or took it out): GIGA's creator paid 15.73 SOL
+    // in the very transaction its 87.5 % left (Raydium `initialize2`).
+    const action = liquidityAction(tx);
+    const wrapped = BigInt(otherTokens.find((t) => t.mint === NATIVE_MINT)?.change ?? '0');
+    const solNet = solChange(tx, wallet) + wrapped;
+    if (delta > 0n) {
+      kind = action === 'remove' || solNet >= LIQUIDITY_SOL_MOVED ? 'withdrawn' : 'buy';
+    } else {
+      kind = action === 'add' || solNet <= -LIQUIDITY_SOL_MOVED ? 'provided' : 'sell';
+    }
+  } else if (locks.length > 0) kind = delta > 0n ? 'unlocked' : 'locked';
   else if (delta > 0n) kind = 'received';
   else {
     // Sent to the incinerator's token account, or to nobody: gone for good.
@@ -1264,7 +1557,7 @@ export function moveIn(
     amount: amount.toString(),
     share: share6(amount, supply),
     sol: solChange(tx, wallet).toString(),
-    otherTokens: otherTokenChanges(tx, wallet, mint),
+    otherTokens,
     counterparties: opposite,
     ...(lockProgram !== undefined ? { lockProgram } : {}),
   };
@@ -1346,8 +1639,11 @@ export async function readWalletOnToken(
     for (const s of got.value.signatures) if (s.err === null) seen.set(s.signature, s);
   }
   const ordered = [...seen.values()].sort((a, b) => a.slot - b.slot);
-  const moves: SolanaTokenMove[] = [];
+  const txs: { signature: string; tx: SolanaTransaction }[] = [];
   let read = 0;
+  // Tokens minted in the transactions read: when more than today's supply
+  // (burned since), the shares are of what was minted, never above 100 %.
+  let minted = 0n;
   for (const s of ordered.slice(0, maxTransactions)) {
     const got = await attempt(() => rpc.getTransaction(s.signature));
     if (!got.ok) {
@@ -1357,7 +1653,14 @@ export async function readWalletOnToken(
     read += 1;
     const tx = got.value;
     if (!tx || tx.meta?.err) continue;
-    const move = moveIn(tx, s.signature, wallet, mint, supply);
+    const created = [...ownerDeltas(tx, mint).values()].reduce((n, d) => n + d, 0n);
+    if (created > 0n) minted += created;
+    txs.push({ signature: s.signature, tx });
+  }
+  const base = supply !== null && supply >= minted ? supply : minted > 0n ? minted : supply;
+  const moves: SolanaTokenMove[] = [];
+  for (const { signature, tx } of txs) {
+    const move = moveIn(tx, signature, wallet, mint, base);
     if (move) moves.push(move);
   }
   if (read < ordered.length) {
@@ -1387,6 +1690,9 @@ export async function readWalletOnToken(
     burned: sum('burned').toString(),
     locked: sum('locked').toString(),
     unlocked: sum('unlocked').toString(),
+    provided: sum('provided').toString(),
+    withdrawn: sum('withdrawn').toString(),
+    ...(base !== null && base !== supply ? { shareBase: base.toString() } : {}),
     solSpent: sol('buy').toString(),
     ...(solBuys.length < buys.length
       ? { boughtForSol: solBuys.reduce((n, m) => n + BigInt(m.amount), 0n).toString() }

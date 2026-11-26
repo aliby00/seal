@@ -11767,5 +11767,47 @@
         "transactionIndex": 340
       }
     ]
+  },
+  {
+    "method": "getMultipleAccounts",
+    "params": [
+      [
+        "7Z9Mi87ZiWwjC6UgCp19o4NEPzY9bSLNUd6WHKwR9PM4",
+        "Gg4ppmbLxycWjUhkMSZs8g55pYeoZFx7mnajCAuJuK2h"
+      ],
+      {
+        "commitment": "confirmed",
+        "encoding": "base64"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 474138292
+      },
+      "value": [null, null]
+    }
+  },
+  {
+    "method": "getProgramAccounts",
+    "params": [
+      "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
+      {
+        "commitment": "confirmed",
+        "encoding": "base64",
+        "filters": [
+          {
+            "dataSize": 424
+          },
+          {
+            "memcmp": {
+              "offset": 136,
+              "bytes": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+            }
+          }
+        ]
+      }
+    ],
+    "result": []
   }
 ]

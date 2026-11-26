@@ -406,6 +406,7 @@ describe('creatorHistory', () => {
         outcome: 'graduated',
         trades24h: 303,
         foundBy: ['pump-curves'],
+        marketCapUsd: 2201,
       },
     ]);
     // Every mint matched to a curve is checked by deriving the curve back.
@@ -427,7 +428,11 @@ describe('creatorHistory', () => {
       transactionsListed: 62,
       transactionsRead: 12,
       readSince: 1795557107,
+      pumpCurves: 1,
     });
+    // Its one other launch has a market cap under $5k (26/11/2026 audit, item 7).
+    expect(history.data.lowCap).toEqual({ checked: 1, under: 1, thresholdUsd: 5000 });
+    expect(history.data.launchesAtLeast).toBeUndefined();
     expect(history.completeness).toBe('partial');
     expect(history.sources.map((s) => s.name)).toEqual(['solana-rpc', 'dexscreener-solana']);
     expect(history.sources[0]?.note).toBe(

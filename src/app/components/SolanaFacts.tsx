@@ -116,6 +116,8 @@ const MOVE_WORD: Record<MoveView['kind'], string> = {
   sent: 'Sent',
   received: 'Received',
   burned: 'Burned',
+  provided: 'Put into a pool as liquidity',
+  withdrawn: 'Taken out of a pool',
 };
 
 const ROLE_WORD: Record<string, string> = {

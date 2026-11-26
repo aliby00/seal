@@ -25,3 +25,11 @@ The report's top-level `completeness` of `pump-creator-sold` and `meteora-dbc`
 was set to `full` by hand on 25/11/2026, when a curve read on chain stopped
 counting DexScreener's missing liquidity figure as a gap (`marketCompleteness`
 in `src/lib/collect.ts`); every other field is as recorded.
+
+On 26/11/2026 the reports were regenerated from their own recordings (no new
+call to the chain) after fields were added: `creatorOnToken.data.provided`,
+`withdrawn`, `shareBase` and `saleSize`, `creatorHistory.data.scanned.pumpCurves`,
+`market.data.perTradeUsd24h`, `liquidityToMarketCap` and `curveLiquidityUsd`.
+The creator's moves on `meteora-dbc` are now shares of the 1e15 units minted
+(burned since), not of today's supply. `pyusd.json.gz` gained the two calls
+of `launchpadCreator` (LaunchLab pools, DBC scan), recorded on mainnet that day.
