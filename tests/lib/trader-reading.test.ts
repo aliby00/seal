@@ -208,3 +208,16 @@ describe('a pasted link', () => {
     expect(addressHint(link)).toBe(PAIR_HINT);
   });
 });
+
+describe('the closing line on what was not read', () => {
+  it('is SEAL’s own, and only for a read that failed', async () => {
+    const { withNotRead } = await import('../../src/lib/agent/trader-text');
+    const model =
+      'What stands out\n\nThe dev sold.\n\nNot read this time: the creator’s first funding.';
+    expect(withNotRead(model, base)).toBe('What stands out\n\nThe dev sold.');
+    const failed = solanaReport({ failedReads: [{ read: 'holders', note: 'rate-limit' }] });
+    expect(withNotRead(model, failed)).toBe(
+      'What stands out\n\nThe dev sold.\n\nNot read this time: who holds it. Try again in a minute.',
+    );
+  });
+});
