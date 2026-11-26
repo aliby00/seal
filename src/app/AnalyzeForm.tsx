@@ -110,7 +110,7 @@ function Loading({
       </div>
       <div className="loading-scale" aria-hidden="true">
         <span>0 s</span>
-        <span>usually 20 to 40 s</span>
+        <span>usually 10 to 20 s</span>
       </div>
       <ol className="loading-phases" aria-label="What happens during the wait, in its usual order">
         {PHASES.map((phase, i) => (
