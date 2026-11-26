@@ -65,7 +65,7 @@ export function TopRead({
   collectedAt: string;
   marketAt: string | null;
   /** The slot the live price was read at, when it was read on chain. */
-  chain?: { slot: number; at: string } | null;
+  chain?: { slot: number; readAt: string } | null;
   /** When DexScreener's figures (volume, trades) were last read. */
   dexAt?: string | null;
   holdersAt: string | null;
@@ -94,11 +94,11 @@ export function TopRead({
           <>
             <span className="live-badge">
               <span className="live-dot" aria-hidden="true" /> Price live from the chain · slot{' '}
-              {chain.slot.toLocaleString('en-US')} · <Since at={chain.at} />
+              {chain.slot.toLocaleString('en-US')} · <Since at={chain.readAt} />
             </span>
             <span>
               Volume and trades via DexScreener (~30 s behind) · read{' '}
-              <Since at={dexAt ?? chain.at} />
+              <Since at={dexAt ?? chain.readAt} />
             </span>
           </>
         ) : marketAt ? (
