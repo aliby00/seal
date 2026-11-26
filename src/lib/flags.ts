@@ -400,3 +400,11 @@ export function flagsOf(i: FlagInputs): Flag[] {
 export function flagLine(f: Flag): string {
   return f.text ? `${f.label}: ${f.text}` : f.label;
 }
+
+/**
+ * The flags of a reading, with live values laid over its numbers when there
+ * are some: the one call a page makes, whatever it refreshes.
+ */
+export function computeFlags(inputs: FlagInputs, live?: LiveValues | null): Flag[] {
+  return flagsOf(withLive(inputs, live));
+}

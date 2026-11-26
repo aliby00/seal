@@ -1,7 +1,7 @@
 'use client';
 
 import { figuresOf } from '@/lib/figures';
-import { flagLine, flagsOf, withLive } from '@/lib/flags';
+import { computeFlags, flagLine } from '@/lib/flags';
 import { buildGlance, partialNotice } from '@/lib/glance';
 import type { AnalyzeResponse } from '../api/analyze/route';
 import { AtAGlance } from './AtAGlance';
@@ -37,7 +37,7 @@ export function AnalysisReport({ result: served }: { result: AnalyzeResponse }) 
     : served;
   const glance = buildGlance(result);
   const flags = served.flagInputs
-    ? flagsOf(withLive(served.flagInputs, liveValues(live.market, live.holders)))
+    ? computeFlags(served.flagInputs, liveValues(live.market, live.holders))
     : [];
   const figures = figuresOf({
     ...result,

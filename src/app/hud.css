@@ -3016,3 +3016,23 @@ tr[data-kind='withdraw'] .launch-kind::before {
 .reading-layout[data-sources-only] {
   grid-template-columns: minmax(0, 1fr);
 }
+
+/* On a phone the flags come first: the four "Read" lines of the sources wait below. */
+@media (max-width: 540px) {
+  .report .coverage {
+    display: none;
+  }
+  .figures-row li {
+    flex-basis: 30%;
+    padding: 8px 10px 9px;
+  }
+  .figures-row .figure-value {
+    font-size: 16px;
+  }
+  .figures-row .figure-sub {
+    font-size: 11px;
+  }
+  .top-sentence {
+    font-size: 15.5px;
+  }
+}

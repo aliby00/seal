@@ -153,9 +153,6 @@ export function launchedAtOf(input: GlanceInput): string | null {
   return input.launch?.launchedAt ?? input.timeline?.find((l) => l.current)?.launchedAt ?? null;
 }
 
-const heldSub = (heldNow: number | null) =>
-  heldNow === null ? '' : heldNow === 0 ? ' · 0% left' : ` · ${share(heldNow)} left`;
-
 /** The row, in reading order. */
 export function figuresOf(input: FiguresInput): Figure[] {
   const facts = input.facts;
@@ -243,35 +240,7 @@ export function figuresOf(input: FiguresInput): Figure[] {
       ...(bought || sold ? { sub: [bought, sold].filter(Boolean).join(' · ') } : {}),
     });
   }
-  const bundle = bundleNumbers(input);
-  if (bundle) {
-    out.push({
-      id: 'bundle',
-      label: 'Bundle',
-      value: share(bundle.share),
-      sub: `${count(bundle.wallets)} wallets${bundle.where === 'dev-paid' ? ' · dev-paid' : bundle.where === 'creation slot' ? ' · creation slot' : ' · one tx'}${heldSub(bundle.heldNow)}`,
-    });
-  }
-  const snipers = sniperNumbers(input);
-  if (snipers) {
-    out.push({
-      id: 'snipers',
-      label: 'Snipers',
-      value: snipers.share >= 1 ? '100%+' : share(snipers.share),
-      sub: `${count(snipers.wallets)} ${snipers.wallets === 1 ? 'wallet' : 'wallets'} · first ${snipers.seconds <= 1 ? 'second' : `${snipers.seconds} s`}${heldSub(snipers.heldNow)}`,
-    });
-  }
-  const h = m.history;
-  const launches = facts.creator.measured ? facts.creator.launched : 0;
-  if (launches >= 2) {
-    const atLeast = h ? h.atLeast : !facts.creator.launchesListed;
-    out.push({
-      id: 'launches',
-      label: 'Dev launches',
-      value: `${count(launches)}${atLeast ? '+' : ''}`,
-      sub: 'this one included',
-    });
-  }
+  // The bundle, the snipers and the dev's other launches are the flags' to say.
   const curve = m.curve;
   if (curve && curve.graduated === false && curve.progress !== null) {
     out.push({ id: 'curve', label: 'Curve', value: share(curve.progress), sub: 'to graduation' });
