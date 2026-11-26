@@ -7,6 +7,8 @@ import { agoWords } from './useLive';
 export type LiveTimes = {
   collectedAt: string;
   marketAt: string | null;
+  /** The slot the live price was read at on chain; `null` or absent: DexScreener's. */
+  marketSlot?: number | null;
   holdersAt: string | null;
   paused: boolean;
 };

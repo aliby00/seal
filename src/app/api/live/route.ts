@@ -18,14 +18,15 @@ export const maxDuration = 15;
  * GET /api/live?token=<mint>[&holders=1&creator=<address>]
  *
  * The figures of a report that move by the second, for the page showing it:
- * the market every few seconds, the holders and what the dev holds every
- * twenty. Served from the shared cache when anyone asked in the last
- * seconds, free of charge then; a read that has to go upstream is counted
- * against the caller's own bucket.
+ * the price from the main pool on chain every 2 s (volume and trades from
+ * DexScreener), the holders and what the dev holds every twenty. Served from
+ * the shared cache when anyone asked in the last seconds, free of charge
+ * then; a read that has to go upstream is counted against the caller's own
+ * bucket.
  */
 
-/** Upstream reads per caller and minute: a page polls the market every 4 s, holders every 20 s. */
-const MARKET_LIMIT: RateLimit = { capacity: 30, perMinute: 30 };
+/** Upstream reads per caller and minute: a page polls the market every 2 s, holders every 20 s. */
+const MARKET_LIMIT: RateLimit = { capacity: 45, perMinute: 45 };
 const HOLDERS_LIMIT: RateLimit = { capacity: 6, perMinute: 6 };
 
 /** A token asked by many pages at once is read once. */

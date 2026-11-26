@@ -14,10 +14,10 @@ import { solanaReport } from '../helpers/solana-report';
 const AT = '2026-11-26T12:00:00.000Z';
 
 describe('live polling', () => {
-  it('polls every 4 s, doubles the wait after each failed poll, 60 s at most', () => {
+  it('polls every 2 s, doubles the wait after each failed poll, 60 s at most', () => {
     expect(nextDelay(0)).toBe(MARKET_EVERY_MS);
-    expect(nextDelay(1)).toBe(8_000);
-    expect(nextDelay(2)).toBe(16_000);
+    expect(nextDelay(1)).toBe(4_000);
+    expect(nextDelay(2)).toBe(8_000);
     expect(nextDelay(5)).toBe(MAX_BACKOFF_MS);
     expect(nextDelay(500)).toBe(MAX_BACKOFF_MS);
   });

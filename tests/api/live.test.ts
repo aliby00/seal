@@ -84,7 +84,7 @@ describe('GET /api/live', () => {
   it('stops reading upstream for a caller past its bucket, and says nothing rather than fail', async () => {
     reads.market.mockImplementation(async (token: string) => ({ ...market(3), token }));
     // Distinct valid mints, so each one misses the cache.
-    const tokens = Array.from({ length: 40 }, (_, i) =>
+    const tokens = Array.from({ length: 60 }, (_, i) =>
       encodeBase58(Uint8Array.from({ length: 32 }, (_, j) => (j === 0 ? i + 1 : 7))),
     );
     let served = 0;
@@ -93,8 +93,8 @@ describe('GET /api/live', () => {
       expect(res.status).toBe(200);
       if ((await res.json()).market) served += 1;
     }
-    expect(served).toBe(30);
-    expect(reads.market).toHaveBeenCalledTimes(30);
+    expect(served).toBe(45);
+    expect(reads.market).toHaveBeenCalledTimes(45);
   });
 
   it('reads the holders and the creator’s balance only when asked, kept per token and creator', async () => {
