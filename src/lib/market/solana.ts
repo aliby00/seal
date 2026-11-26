@@ -245,14 +245,20 @@ function countedPairs(
 export function perTrade(pairs: readonly DexScreenerPair[]): number | null {
   let volume = 0;
   let trades = 0;
+  let all = 0;
   for (const p of pairs) {
     const v = num(p.volume?.h24);
     const t = tradesOf(p);
+    all += t;
     if (v === null || t === 0) continue;
     volume += v;
     trades += t;
   }
-  return trades === 0 ? null : Math.round((volume / trades) * 100) / 100;
+  // Pairs giving no volume (LINK's PumpSwap pool against NEURALINK: 11,000
+  // trades, no dollar figure) leave the average to the others: it says
+  // something only when those hold most of the trades.
+  if (trades === 0 || trades * 2 < all) return null;
+  return Math.round((volume / trades) * 100) / 100;
 }
 
 /** `part / whole`, to 1e-4; `null` when either is missing or the whole is not positive. */

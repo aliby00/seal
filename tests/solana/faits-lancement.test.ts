@@ -352,8 +352,11 @@ describe('the main pair and its trades (audit items 5 and 6)', () => {
   it('volume per trade counts only pairs giving both figures', () => {
     const a = { volume: { h24: 1000 }, txns: { h24: { buys: 5, sells: 5 } } } as DexScreenerPair;
     const noVolume = { txns: { h24: { buys: 900, sells: 90 } } } as DexScreenerPair;
-    expect(perTrade([a, noVolume])).toBe(100);
+    const few = { txns: { h24: { buys: 2, sells: 1 } } } as DexScreenerPair;
+    expect(perTrade([a, few])).toBe(100);
     expect(perTrade([noVolume])).toBeNull();
+    // A pair with no volume holding most of the trades: no average.
+    expect(perTrade([a, { txns: { h24: { buys: 6, sells: 5 } } } as DexScreenerPair])).toBeNull();
     expect(ratio(65_000, 420_000)).toBe(0.1548);
     expect(ratio(1, 0)).toBeNull();
   });
