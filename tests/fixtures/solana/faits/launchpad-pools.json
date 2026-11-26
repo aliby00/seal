@@ -1,0 +1,176 @@
+[
+  {
+    "method": "getMultipleAccounts",
+    "params": [
+      [
+        "7Z9Mi87ZiWwjC6UgCp19o4NEPzY9bSLNUd6WHKwR9PM4",
+        "Gg4ppmbLxycWjUhkMSZs8g55pYeoZFx7mnajCAuJuK2h"
+      ],
+      {
+        "commitment": "confirmed",
+        "encoding": "base64"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 474138292
+      },
+      "value": [null, null]
+    }
+  },
+  {
+    "method": "getProgramAccounts",
+    "params": [
+      "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
+      {
+        "commitment": "confirmed",
+        "encoding": "base64",
+        "filters": [
+          {
+            "dataSize": 424
+          },
+          {
+            "memcmp": {
+              "offset": 136,
+              "bytes": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+            }
+          }
+        ]
+      }
+    ],
+    "result": []
+  },
+  {
+    "method": "getMultipleAccounts",
+    "params": [
+      [
+        "5nNPnsvxN4orrwTjwFmC4wHNFbGzRD2Qeh69RkeD7py5",
+        "HT6mNcrRNe9NechFdE8RAVVR8NJ9PNSD4LJxveYJKf8S"
+      ],
+      {
+        "commitment": "confirmed",
+        "encoding": "base64"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 474138302
+      },
+      "value": [null, null]
+    }
+  },
+  {
+    "method": "getProgramAccounts",
+    "params": [
+      "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
+      {
+        "commitment": "confirmed",
+        "encoding": "base64",
+        "filters": [
+          {
+            "dataSize": 424
+          },
+          {
+            "memcmp": {
+              "offset": 136,
+              "bytes": "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo"
+            }
+          }
+        ]
+      }
+    ],
+    "result": []
+  },
+  {
+    "method": "getMultipleAccounts",
+    "params": [
+      [
+        "9qTCn6wg86g1xox6zfTkYFQRaBjuYDTtFcwu8fSWz3tZ",
+        "GN7b1VfxYLoxxaEHzveRbhEd6Nkk8xF2Vt2gphq8pPQM"
+      ],
+      {
+        "commitment": "confirmed",
+        "encoding": "base64"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 474138311
+      },
+      "value": [null, null]
+    }
+  },
+  {
+    "method": "getProgramAccounts",
+    "params": [
+      "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
+      {
+        "commitment": "confirmed",
+        "encoding": "base64",
+        "filters": [
+          {
+            "dataSize": 424
+          },
+          {
+            "memcmp": {
+              "offset": 136,
+              "bytes": "zcRvzm7gAfYGde8gRwaSYxNryL47SjLVUQLAf1bdoor"
+            }
+          }
+        ]
+      }
+    ],
+    "result": [
+      {
+        "pubkey": "EgoyV4ctCJHBUC3RnCayXVUVzNS7WK8V65ZhWNj5kyCZ",
+        "account": {
+          "lamports": 2804160,
+          "data": [
+            "1eAF0WJFd1wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAdmvgk3jlmC0F8mUSJRA5ULTK6/YRJ8C7GvuSW6feAd+HVPRpQGiOhI4kLGF+7hR+DQVtesXoCXe7XqGYjQUXKQ7CKrFtXRmLEO7UANFoHUMsStsssxzllqxsUIR2CoHVs8/aAtMzLqURBmlmC1nQiNsqOrFUYYmxfmktua5vPt5WAbX6XEhmkzc5ElkRjc02iUQvcClAzPJWgoPGV6j0UxZQfGrysgAAA6K75xYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADP4lVn0bbkFAAAAAAAAAAAUXCYcAAAAAAABAAEDAAAAAAAAAAAAAABXNrqoAQAAAAAAAAAAAAAAMzLR4gYAAAAkAwJrAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAABQAAAAAAAAAb47unlsAAAAzO7oLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+            "base64"
+          ],
+          "owner": "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
+          "executable": false,
+          "rentEpoch": 18446744073709552000,
+          "space": 424
+        }
+      }
+    ]
+  },
+  {
+    "method": "getMultipleAccounts",
+    "params": [
+      [
+        "9gPANe2jmpH8mxJ9XC2F6pB9cKU3UpgGxpeTuqtGMVcf",
+        "BNyn1mT7keCYZJtRa8QX8YBFpvm2QBkTf3FvgCL3Emo3"
+      ],
+      {
+        "commitment": "confirmed",
+        "encoding": "base64"
+      }
+    ],
+    "result": {
+      "context": {
+        "apiVersion": "4.4.0",
+        "slot": 474138320
+      },
+      "value": [
+        {
+          "data": [
+            "9+3j9dfD3kZIBAAAAAAAAPoCBgkBAIDGpH6NAwAAeMX7UdECAN50Dj7pzwMA168w/AYAAAAAeMX7UdECAAASZcoTAAAAABJlyhMAAAB2idMMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVxqOAcjfeCD51ms8c2W40eSvqBt4VMwu91zvWL0Ihn5NF5467uId8T+hDkEHLNibXaPT5YpV3S7SudH4Btb6sYm3VF4viQoDXO958XdPF0MZylGSbUWTtBvbPawNGyhSBpuIV/6rgYT7aH9jRhjANdrEOdwa6ztVmKDwAAAAAAFY1DkI1FXMueTL8m3PZ+sh88+0rGN+EhdMAYSVPkQ1WZGaqdg1Z3wcwfmCOAndIPOolSHgcHMsIIhgHdRfpzEWSYoCD6zSKGnplq+6AL5qW0c4yzFHhWY3uP0tvX71UBkBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "base64"
+          ],
+          "executable": false,
+          "lamports": 2829560,
+          "owner": "LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj",
+          "rentEpoch": 18446744073709552000,
+          "space": 429
+        },
+        null
+      ]
+    }
+  }
+]

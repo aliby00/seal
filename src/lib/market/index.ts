@@ -131,8 +131,10 @@ export function usdShort(x: number): string {
  * l'agent d'en tirer une lecture, pas à nous.
  */
 export function volumePerTrade(state: {
-  data: Pick<MarketStateData, 'volumeUsd' | 'txns'>;
+  data: Pick<MarketStateData, 'volumeUsd' | 'txns'> & { perTradeUsd24h?: number | null };
 }): number | null {
+  // Solana: over the pairs giving both figures (market/solana.ts perTrade).
+  if (state.data.perTradeUsd24h !== undefined) return state.data.perTradeUsd24h;
   const volume = state.data.volumeUsd?.h24;
   const counts = state.data.txns?.h24;
   if (volume === undefined || !counts) return null;

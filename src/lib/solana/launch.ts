@@ -136,6 +136,15 @@ export type ReplayLaunchOptions = {
   earlySeconds?: number;
   /** Milliseconds clock; injectable for the tests. */
   now?: () => number;
+  /**
+   * Called once, as soon as the creation transaction is read (`null` when
+   * the replay ends without it). It may answer the creator whose moves are
+   * flagged instead of `creator`: the launcher the creation shows when the
+   * pump.fun curve names another address (collect.ts, creatorFromLaunch).
+   */
+  onCreation?: (
+    found: { signature: string; payer: string; tx: SolanaTransaction } | null,
+  ) => string | null | void;
 };
 
 /** The read ran out of calls or time. */
@@ -434,7 +443,13 @@ export async function replayLaunch(
   );
   const r = meter.rpc;
   const source: SolanaSourceName = 'solana-rpc';
-  const creator = options.creator && isSolanaAddress(options.creator) ? options.creator : null;
+  let creator = options.creator && isSolanaAddress(options.creator) ? options.creator : null;
+  let told = false;
+  const tell = (found: Parameters<NonNullable<ReplayLaunchOptions['onCreation']>>[0]) => {
+    if (told) return null;
+    told = true;
+    return options.onCreation?.(found) ?? null;
+  };
 
   const blank: SolanaLaunchReplayData = {
     chain: 'solana',
@@ -476,6 +491,7 @@ export async function replayLaunch(
     note: string,
     data: Partial<SolanaLaunchReplayData> = {},
   ): SolanaLaunchReplay => {
+    tell(null);
     const stop = stopNote();
     return {
       completeness: 'unavailable',
@@ -628,6 +644,12 @@ export async function replayLaunch(
     signers: creationFlows.signers,
     foundBy,
   };
+  const launchedBy = tell({
+    signature: creationInfo.signature,
+    payer: creationInfo.payer,
+    tx: creationTx,
+  });
+  if (launchedBy && isSolanaAddress(launchedBy)) creator = launchedBy;
 
   // ── 3. The window: the signatures after the creation, oldest first ──
   const failedParts: string[] = [];
@@ -788,7 +810,20 @@ export async function replayLaunch(
   const lastSlot = windowSlots;
   // Transactions after the window exist (or may): the window then ends the counts.
   const moreAfter = cutByCount || beyond > 0 || !wholeHistory;
-  const earlyCut = windowSeconds < earlySeconds && moreAfter;
+  // When trading opened: the first buy, or the first liquidity put into a
+  // pool. A launchpad token trades from its creation; GIGA's mint came 298 s
+  // before its Raydium pool, where one wallet bought 58.3 % in the first
+  // second (5DzmULTz…): counted from the mint, the first buyers were none.
+  // Only a supply minted to a wallet waits for its market: one minted to a
+  // curve or a pool trades from the creation.
+  const minted = moves.find((m) => m.kind === 'mint' && m.slot === creationSlot);
+  const opening = moves.filter((m) => m.kind === 'buy' || m.kind === 'provide');
+  const openedAt =
+    minted && kindOf(minted.actor) === 'wallet' && opening.length > 0
+      ? Math.min(...opening.map((m) => m.seconds))
+      : 0;
+  const earlyEnd = openedAt + earlySeconds;
+  const earlyCut = windowSeconds < earlyEnd && moreAfter;
 
   // ── 7. The totals ──
   const isActor = (owner: string) => {
@@ -803,7 +838,9 @@ export async function replayLaunch(
   // shares above 100 % (8xKZ…: 1e15 created, less today; mainnet, 25/11/2026).
   const created = sum(flows.map((f) => (f.minted > 0n ? f.minted : 0n)));
   const base = created > supply ? created : supply;
-  const share = (v: bigint) => shareOf(v, base);
+  // A sum of purchases can pass the supply (tokens sold back and bought
+  // again, a sale not read): GIGA's first buyers "bought 109 %". Never above 100 %.
+  const share = (v: bigint) => Math.min(1, shareOf(v, base));
 
   const creatorMoves = moves.filter(own);
   const creatorAtLaunch = sum(
@@ -822,7 +859,7 @@ export async function replayLaunch(
     return out;
   };
   const otherBuys = moves.filter((m) => m.kind === 'buy' && isActor(m.actor) && !own(m));
-  const earlyBuys = otherBuys.filter((m) => m.seconds <= earlySeconds);
+  const earlyBuys = otherBuys.filter((m) => m.seconds <= earlyEnd);
   const earlyBought = byActor(earlyBuys);
   const earlyWithin = Math.max(0, ...earlyBuys.map((m) => m.seconds));
 
@@ -1031,7 +1068,11 @@ export async function replayLaunch(
   const bundled = bundleBought ? new Set(bundleBought.keys()) : null;
   const summary: LaunchSummary = {
     moves: moves.length,
-    earlySeconds: Math.min(earlySeconds, earlyCut ? windowSeconds : earlySeconds),
+    earlySeconds: Math.min(
+      earlySeconds,
+      earlyCut ? Math.max(0, windowSeconds - openedAt) : earlySeconds,
+    ),
+    ...(openedAt > 0 ? { tradingOpenedAt: openedAt } : {}),
     creatorAtLaunch: share(creatorAtLaunch),
     creatorBought: share(sum(creatorBuys.map((m) => m.value))),
     creatorSold: share(sum(creatorSales.map((m) => m.value))),
@@ -1184,6 +1225,7 @@ export async function replayLaunch(
     earlySlot: Math.max(0, ...earlyBuys.map((m) => m.slot - creationSlot)),
     earlySeconds,
     earlyCut,
+    openedAt,
     windowSeconds,
     roundTrips,
     creatorSales,
@@ -1291,6 +1333,8 @@ type StoryInput = {
   earlySlot: number;
   earlySeconds: number;
   earlyCut: boolean;
+  /** Seconds from the creation to the market’s opening, when the supply waited for one (0 otherwise). */
+  openedAt?: number;
   /** Seconds of the last of the first buys. */
   earlyWithin: number;
   windowSeconds: number;
@@ -1476,7 +1520,9 @@ export function tellStory(input: StoryInput): SolanaLaunchStoryLine[] {
     );
     const when = input.earlyCut
       ? `In the window read (${plural(input.lastSlot, 'slot')})`
-      : `Within the first ${plural(input.earlySeconds, 'second')}`;
+      : input.openedAt
+        ? `Within the first ${plural(input.earlySeconds, 'second')} of trading, which opened ${plural(input.openedAt, 'second')} after the creation`
+        : `Within the first ${plural(input.earlySeconds, 'second')}`;
     add(
       input.earlyWithin,
       input.earlySlot,

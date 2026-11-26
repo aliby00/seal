@@ -1,0 +1,1779 @@
+[
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/2y6pcqa4fep3jlifdan9jvmw7lsk8f3gwstfy8p7trae",
+    "pairAddress": "2y6PCqa4fEp3jLiFdan9jVMw7LSK8F3gwsTfy8p7traE",
+    "labels": ["DYN2"],
+    "baseToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "quoteToken": {
+      "address": "METvsvVRapdj9cFLzq4Tr43xK4tAjQfwX76z3n6mWQL",
+      "name": "Meteora",
+      "symbol": "MET"
+    },
+    "priceNative": "0.002056",
+    "priceUsd": "0.0004329",
+    "txns": {
+      "m5": {
+        "buys": 3,
+        "sells": 1
+      },
+      "h1": {
+        "buys": 11,
+        "sells": 4
+      },
+      "h6": {
+        "buys": 29,
+        "sells": 17
+      },
+      "h24": {
+        "buys": 198,
+        "sells": 188
+      }
+    },
+    "volume": {
+      "h24": 17540.23,
+      "h6": 1663.57,
+      "h1": 671.29,
+      "m5": 217.27
+    },
+    "priceChange": {
+      "m5": -0.96,
+      "h1": -0.49,
+      "h6": 3.16,
+      "h24": 26.43
+    },
+    "liquidity": {
+      "base": 74604384,
+      "quote": 153443,
+      "usd": 64603.66
+    },
+    "fdv": 418600,
+    "marketCap": 418600,
+    "pairCreatedAt": 1788992701000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/uqcA4HstOEKTfyNV?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/lcJmyNqeWAa2rKWr?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6?timestamp=1795694100000",
+      "websites": [
+        {
+          "url": "https://embercurve.fun",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/embercurve",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/5tb9fnlkr2wdjrstnyru39kgtjnyvsewo2bgyngxnlhs",
+    "pairAddress": "5tb9fNLKr2wdJRSTNYRu39kGTjnYVseWo2bGyNgxnLHS",
+    "labels": ["DLMM"],
+    "baseToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.000006174",
+    "priceUsd": "0.0004366",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h1": {
+        "buys": 8,
+        "sells": 19
+      },
+      "h6": {
+        "buys": 34,
+        "sells": 60
+      },
+      "h24": {
+        "buys": 368,
+        "sells": 316
+      }
+    },
+    "volume": {
+      "h24": 3125.33,
+      "h6": 625.62,
+      "h1": 283.92,
+      "m5": 6.36
+    },
+    "priceChange": {
+      "m5": 0.01,
+      "h1": 0.73,
+      "h6": 3.58,
+      "h24": 25.75
+    },
+    "liquidity": {
+      "base": 4998903,
+      "quote": 5.9533,
+      "usd": 2603.78
+    },
+    "fdv": 436649,
+    "marketCap": 436649,
+    "pairCreatedAt": 1789174616000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/uqcA4HstOEKTfyNV?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/lcJmyNqeWAa2rKWr?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6?timestamp=1795694100000",
+      "websites": [
+        {
+          "url": "https://embercurve.fun",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/embercurve",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/ei2rlnuetq3tbnebuakvukneebx3yj8ddexfh8xz11fd",
+    "pairAddress": "Ei2RLNuetQ3TBnEBuaKvUknEebx3Yj8dDEXFH8xZ11FD",
+    "labels": ["DLMM"],
+    "baseToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "quoteToken": {
+      "address": "METvsvVRapdj9cFLzq4Tr43xK4tAjQfwX76z3n6mWQL",
+      "name": "Meteora",
+      "symbol": "MET"
+    },
+    "priceNative": "0.002092",
+    "priceUsd": "0.0004389",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 5,
+        "sells": 3
+      },
+      "h6": {
+        "buys": 24,
+        "sells": 12
+      },
+      "h24": {
+        "buys": 139,
+        "sells": 110
+      }
+    },
+    "volume": {
+      "h24": 1552.27,
+      "h6": 208.24,
+      "h1": 69.1
+    },
+    "priceChange": {
+      "h1": 1.58,
+      "h6": 4.2,
+      "h24": 27.62
+    },
+    "liquidity": {
+      "base": 573621,
+      "quote": 2295.4941,
+      "usd": 733.29
+    },
+    "fdv": 438966,
+    "marketCap": 438966,
+    "pairCreatedAt": 1795525115000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/uqcA4HstOEKTfyNV?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/lcJmyNqeWAa2rKWr?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6?timestamp=1795694100000",
+      "websites": [
+        {
+          "url": "https://embercurve.fun",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/embercurve",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/gbrdaq3rjcvwerolduwmnuq8n5xaakj2rk2djdg64cly",
+    "pairAddress": "GbrDAq3RjcVWeroLDUwmnuQ8N5xaaKj2Rk2dJDg64CLY",
+    "labels": ["DLMM"],
+    "baseToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.000006148",
+    "priceUsd": "0.0004345",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 1,
+        "sells": 1
+      },
+      "h6": {
+        "buys": 11,
+        "sells": 5
+      },
+      "h24": {
+        "buys": 42,
+        "sells": 36
+      }
+    },
+    "volume": {
+      "h24": 13.03,
+      "h6": 1.79,
+      "h1": 0.14
+    },
+    "priceChange": {
+      "h1": 0.31,
+      "h6": 3.46,
+      "h24": 27.07
+    },
+    "liquidity": {
+      "base": 1677860,
+      "quote": 7.8519,
+      "usd": 1284.09
+    },
+    "fdv": 434555,
+    "marketCap": 434555,
+    "pairCreatedAt": 1788995397000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/uqcA4HstOEKTfyNV?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/lcJmyNqeWAa2rKWr?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6?timestamp=1795694100000",
+      "websites": [
+        {
+          "url": "https://embercurve.fun",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/embercurve",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "url": "https://dexscreener.com/solana/d3p1nftww6ib5bw885xypnhtho1bmtyaq9safgfzjbyw",
+    "pairAddress": "D3P1NfTww6ib5bW885XypnHTho1BmtyAq9saFgfzjbyw",
+    "labels": ["wp"],
+    "baseToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.000006177",
+    "priceUsd": "0.0004364",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 1,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 3,
+        "sells": 2
+      },
+      "h24": {
+        "buys": 28,
+        "sells": 29
+      }
+    },
+    "volume": {
+      "h24": 4.81,
+      "h6": 0.24,
+      "h1": 0.09
+    },
+    "priceChange": {
+      "h1": 0.41,
+      "h6": 3.67,
+      "h24": 27.07
+    },
+    "liquidity": {
+      "base": 2879991,
+      "quote": 0.216,
+      "usd": 1272.1
+    },
+    "fdv": 436406,
+    "marketCap": 436406,
+    "pairCreatedAt": 1788996264000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/uqcA4HstOEKTfyNV?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/lcJmyNqeWAa2rKWr?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6?timestamp=1795694100000",
+      "websites": [
+        {
+          "url": "https://embercurve.fun",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/embercurve",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/dksrxpyqwksjpl24sdjc8yi7uavut872ua3kyzivrytl",
+    "pairAddress": "DKsrXpYQWKsjpL24SDJC8Yi7uAvUt872uA3kYzivRYtL",
+    "labels": ["DYN2"],
+    "baseToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "quoteToken": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USD Coin",
+      "symbol": "USDC"
+    },
+    "priceNative": "0.0004298",
+    "priceUsd": "0.0004298",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 1,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 2,
+        "sells": 1
+      },
+      "h24": {
+        "buys": 23,
+        "sells": 17
+      }
+    },
+    "volume": {
+      "h24": 7.29,
+      "h6": 0.38,
+      "h1": 0.07
+    },
+    "priceChange": {
+      "h1": 0.89,
+      "h6": -0.28,
+      "h24": 23.33
+    },
+    "liquidity": {
+      "base": 58713,
+      "quote": 25.3172,
+      "usd": 50.55
+    },
+    "fdv": 415637,
+    "marketCap": 415637,
+    "pairCreatedAt": 1794284810000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/uqcA4HstOEKTfyNV?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/lcJmyNqeWAa2rKWr?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6?timestamp=1795694100000",
+      "websites": [
+        {
+          "url": "https://embercurve.fun",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/embercurve",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/g6migxbrrtvvhwlqc1kyqxdt2xjvkjcgcydxswt3urxg",
+    "pairAddress": "G6migXbRRTvVhWLQC1KyqXDT2xjVkjcgcyDxSWt3URXG",
+    "labels": ["DLMM"],
+    "baseToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.000006007",
+    "priceUsd": "0.0004271",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 6,
+        "sells": 9
+      }
+    },
+    "volume": {
+      "h24": 61.52
+    },
+    "priceChange": {
+      "h24": 0.55
+    },
+    "liquidity": {
+      "base": 598057,
+      "quote": 0.521,
+      "usd": 292.48
+    },
+    "fdv": 427113,
+    "marketCap": 427113,
+    "pairCreatedAt": 1789125319000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/uqcA4HstOEKTfyNV?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/lcJmyNqeWAa2rKWr?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6?timestamp=1795694100000",
+      "websites": [
+        {
+          "url": "https://embercurve.fun",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/embercurve",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/b4etuvqyzeg7xywsbsavoqnn8gnjuhd4rgzrsobub1sc",
+    "pairAddress": "B4EtUVQyzEG7XywsbSAvoQNn8gnJUHd4rGZrsobub1sC",
+    "labels": ["DYN2"],
+    "baseToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.000006162",
+    "priceUsd": "0.0004388",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 12,
+        "sells": 4
+      }
+    },
+    "volume": {
+      "h24": 1.85
+    },
+    "priceChange": {
+      "h24": 20.37
+    },
+    "liquidity": {
+      "base": 39535,
+      "quote": 0.2462,
+      "usd": 34.88
+    },
+    "fdv": 424253,
+    "marketCap": 424253,
+    "pairCreatedAt": 1789326910000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/uqcA4HstOEKTfyNV?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/lcJmyNqeWAa2rKWr?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6?timestamp=1795694100000",
+      "websites": [
+        {
+          "url": "https://embercurve.fun",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/embercurve",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/6um2ew8a2qgtkpsn5t6eqgercdhuaw3xp3x53yzd5zm5",
+    "pairAddress": "6uM2Ew8A2QgTKPsn5T6eqgercDhuAW3xp3x53YZD5zm5",
+    "labels": ["DYN2"],
+    "baseToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.000005962",
+    "priceUsd": "0.0004230",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 1,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 7,
+        "sells": 4
+      }
+    },
+    "volume": {
+      "h24": 0.04
+    },
+    "priceChange": {
+      "h6": -3.4,
+      "h24": 25.31
+    },
+    "liquidity": {
+      "base": 390.7118,
+      "quote": 0.00236,
+      "usd": 0.33
+    },
+    "fdv": 408990,
+    "marketCap": 408990,
+    "pairCreatedAt": 1789042466000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/uqcA4HstOEKTfyNV?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/lcJmyNqeWAa2rKWr?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6?timestamp=1795694100000",
+      "websites": [
+        {
+          "url": "https://embercurve.fun",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/embercurve",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/2uh1qxzvghmjxvnteypguqdn1mw4abg1awpk4qu6yw5q",
+    "pairAddress": "2Uh1qxzvghmjXvntEyPguQDn1mW4ABG1awpk4qU6yw5q",
+    "labels": ["DYN2"],
+    "baseToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "quoteToken": {
+      "address": "So11111111111111111111111111111111111111112",
+      "name": "Wrapped SOL",
+      "symbol": "SOL"
+    },
+    "priceNative": "0.000005867",
+    "priceUsd": "0.0004178",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 8,
+        "sells": 4
+      }
+    },
+    "volume": {
+      "h24": 0.39
+    },
+    "priceChange": {
+      "h24": 10.04
+    },
+    "liquidity": {
+      "base": 14888,
+      "quote": 0.08818,
+      "usd": 12.5
+    },
+    "fdv": 403967,
+    "marketCap": 403967,
+    "pairCreatedAt": 1789039189000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/uqcA4HstOEKTfyNV?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/lcJmyNqeWAa2rKWr?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6?timestamp=1795694100000",
+      "websites": [
+        {
+          "url": "https://embercurve.fun",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/embercurve",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "url": "https://dexscreener.com/solana/7gqmemuytxhl1h5fk2yx79aww2jbzz5drss4iu7knlbd",
+    "pairAddress": "7GqmEmUYTxhL1h5fk2yx79AwW2JbZZ5DrSs4iU7KnLBd",
+    "labels": ["wp"],
+    "baseToken": {
+      "address": "5AYico85btxsizXgoYVKeWSubCEKKhKRiP4Ugmxcu1jm",
+      "name": "Lobster",
+      "symbol": "LBR"
+    },
+    "quoteToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "priceNative": "230.6711",
+    "priceUsd": "0.1002",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 4,
+        "sells": 4
+      },
+      "h6": {
+        "buys": 15,
+        "sells": 26
+      },
+      "h24": {
+        "buys": 226,
+        "sells": 165
+      }
+    },
+    "volume": {
+      "h24": 145.71,
+      "h6": 15.12,
+      "h1": 2.8
+    },
+    "priceChange": {
+      "h1": -0.7,
+      "h6": -0.38,
+      "h24": 16.39
+    },
+    "liquidity": {
+      "base": 1560.3337,
+      "quote": 48339,
+      "usd": 177.41
+    },
+    "fdv": 200479,
+    "marketCap": 200479,
+    "pairCreatedAt": 1789484892000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/23b6d3fvdu2eizxyblgwdm2w2vn1bdrwjtr6ncfqpxge",
+    "pairAddress": "23B6d3FvDu2eiZxyBLgWdm2W2vn1bdRwJTR6NCfQpxGE",
+    "labels": ["DYN2"],
+    "baseToken": {
+      "address": "9oXA1VWKNiYDYa6VKHBFFBBvZdvuhw1b2eD5Aka7YrVt",
+      "name": "Flame",
+      "symbol": "FLAME"
+    },
+    "quoteToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "priceNative": "0.04245",
+    "priceUsd": "0.00001848",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 1,
+        "sells": 2
+      },
+      "h6": {
+        "buys": 11,
+        "sells": 5
+      },
+      "h24": {
+        "buys": 47,
+        "sells": 46
+      }
+    },
+    "volume": {
+      "h24": 1047.02,
+      "h6": 166.31,
+      "h1": 109.93
+    },
+    "priceChange": {
+      "h1": -10.18,
+      "h6": 1.52,
+      "h24": -3.95
+    },
+    "liquidity": {
+      "base": 66419133,
+      "quote": 2879566,
+      "usd": 2481.62
+    },
+    "fdv": 18483,
+    "marketCap": 18483,
+    "pairCreatedAt": 1789122774000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/mtXqCAIqKr1LCRtX?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/kIBsLL8o8gvTQlPv?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/9oXA1VWKNiYDYa6VKHBFFBBvZdvuhw1b2eD5Aka7YrVt?timestamp=1795694100000",
+      "websites": [
+        {
+          "url": "https://www.flameonember.xyz/",
+          "label": "Website"
+        },
+        {
+          "url": "https://x.com/i/chat/group_join/g2100514240134250818/83vpLJpu13",
+          "label": "X Groupchat"
+        },
+        {
+          "url": "https://www.flameonember.xyz/burn-gallery",
+          "label": "Meme Gallery"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/FlameByEmber",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "orca",
+    "url": "https://dexscreener.com/solana/hmmvzxumqn3ysgjemfnysfwdhpzaer1wowp5bdzxtaww",
+    "pairAddress": "HmmVzXUMqn3ySgJeMFNySFwdhpZAEr1WoWP5BDzxtaWw",
+    "labels": ["wp"],
+    "baseToken": {
+      "address": "CPmJDz6NQQeoZdzcr1ajJNCPLVn24Esch7viGJu3bRdW",
+      "name": "EDS",
+      "symbol": "EDS"
+    },
+    "quoteToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "priceNative": "130.8868",
+    "priceUsd": "0.05687",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 1,
+        "sells": 6
+      },
+      "h6": {
+        "buys": 8,
+        "sells": 16
+      },
+      "h24": {
+        "buys": 116,
+        "sells": 85
+      }
+    },
+    "volume": {
+      "h24": 260.83,
+      "h6": 19.39,
+      "h1": 3.05
+    },
+    "priceChange": {
+      "h1": -0.19,
+      "h6": -0.38,
+      "h24": 15.92
+    },
+    "liquidity": {
+      "base": 8658.5736,
+      "quote": 196114,
+      "usd": 577.7
+    },
+    "fdv": 56878,
+    "marketCap": 56878,
+    "pairCreatedAt": 1789581790000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/7xp9mvzbdpkg62ekuple3aebrqctmu6ee1z3getkmdzp",
+    "pairAddress": "7XP9mvZbdPkg62EkUPLE3aEBrqCTMU6Ee1z3gEtkMDzp",
+    "labels": ["DYN2"],
+    "baseToken": {
+      "address": "4MjrGwD4SpjVN6JPZJfmHCUmnJynoTz56tbzCX71SxE9",
+      "name": "This is Fine",
+      "symbol": "FINE"
+    },
+    "quoteToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "priceNative": "0.002877",
+    "priceUsd": "0.000001253",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 1,
+        "sells": 1
+      },
+      "h6": {
+        "buys": 1,
+        "sells": 1
+      },
+      "h24": {
+        "buys": 1,
+        "sells": 1
+      }
+    },
+    "volume": {
+      "h24": 94.82,
+      "h6": 94.82,
+      "h1": 94.82
+    },
+    "priceChange": {
+      "h1": -14.04,
+      "h6": -14.04,
+      "h24": -14.04
+    },
+    "liquidity": {
+      "base": 152092240,
+      "quote": 505251,
+      "usd": 410.67
+    },
+    "fdv": 1253,
+    "marketCap": 1253,
+    "pairCreatedAt": 1789137705000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/Hxx5Q1VKUf2s55mX?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/7nVbO_9evFE6Qs5e?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/4MjrGwD4SpjVN6JPZJfmHCUmnJynoTz56tbzCX71SxE9?timestamp=1795694100000",
+      "websites": [
+        {
+          "url": "https://stillfine.fun",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/FineOnEmber",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/fehpj2vqvitqzncdu8pr5qamxmvyh5l8lnm91whswaqv",
+    "pairAddress": "FeHpJ2vqviTqznCdU8pr5QAmXMVYH5L8LNM91wHSwaQv",
+    "labels": ["DYN2"],
+    "baseToken": {
+      "address": "EGt44aEqH8V14wNTEaKnHQgei88ZirTi6Hvig719pkSB",
+      "name": "Ember Friends",
+      "symbol": "FRIENDS"
+    },
+    "quoteToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "priceNative": "0.001686",
+    "priceUsd": "0.0000007087",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 2,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 2,
+        "sells": 0
+      }
+    },
+    "volume": {
+      "h24": 6.97,
+      "h6": 6.97
+    },
+    "priceChange": {
+      "h6": 4.44,
+      "h24": 4.44
+    },
+    "liquidity": {
+      "base": 227042719,
+      "quote": 390106,
+      "usd": 324.83
+    },
+    "fdv": 708,
+    "marketCap": 708,
+    "pairCreatedAt": 1789216405000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/gckz5f4cMJfR3qpO?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/cRMmpNUSMY41DdkM?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/EGt44aEqH8V14wNTEaKnHQgei88ZirTi6Hvig719pkSB?timestamp=1795694100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/embercurve/status/2098749992747811319",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/6j1uu7qjbe2cqhmnxb4orin3vtow252wwtid9haprobk",
+    "pairAddress": "6J1uu7qjBE2CqHmNXB4oRiN3vToW252wwtid9hAProbk",
+    "labels": ["DYN2"],
+    "baseToken": {
+      "address": "AiohjEEYbqK7SpKnp58AfaTLUA9Sc1Ps4ixkAaZHURRD",
+      "name": "Ember Inu",
+      "symbol": "PIBBLE"
+    },
+    "quoteToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "priceNative": "0.0006565",
+    "priceUsd": "0.0000002665",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 1,
+        "sells": 0
+      }
+    },
+    "volume": {
+      "h24": 3.87
+    },
+    "priceChange": {},
+    "liquidity": {
+      "base": 310416043,
+      "quote": 213352,
+      "usd": 169.35
+    },
+    "fdv": 266,
+    "marketCap": 266,
+    "pairCreatedAt": 1789138072000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/PZ776EhvzUKS_eTc?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/Zr3cJLXNOP2QYh3x?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/AiohjEEYbqK7SpKnp58AfaTLUA9Sc1Ps4ixkAaZHURRD?timestamp=1795694100000",
+      "websites": [
+        {
+          "url": "https://emberinu.family/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/emberinu",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/PibbleTheEmberInuCTO",
+          "type": "telegram"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/bq7tcutojdvprqgzekuu66kayouaetu2syetcctycwh",
+    "pairAddress": "Bq7tCUtoJdVprQgZeKuU66KaYoUaetu2SYeTcCTyCwh",
+    "labels": ["DYN2"],
+    "baseToken": {
+      "address": "83LzJNgASvxLQaAyVg9YVGoAWKiHot7oj5UKjKtLFBZd",
+      "name": "LIT 🔥",
+      "symbol": "LIT"
+    },
+    "quoteToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "priceNative": "0.0003759",
+    "priceUsd": "0.0000001647",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 1,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 3,
+        "sells": 12
+      }
+    },
+    "volume": {
+      "h24": 126.68,
+      "h6": 0.07
+    },
+    "priceChange": {
+      "h6": -1.09,
+      "h24": -79.04
+    },
+    "liquidity": {
+      "base": 478704469,
+      "quote": 180112,
+      "usd": 157.77
+    },
+    "fdv": 165,
+    "marketCap": 165,
+    "pairCreatedAt": 1789136307000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/zWUiLyQ4o5FXe0mq?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/e2gvkeqgIV28DM1f?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/83LzJNgASvxLQaAyVg9YVGoAWKiHot7oj5UKjKtLFBZd?timestamp=1795694100000",
+      "websites": [
+        {
+          "url": "https://litwifember.com/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/litwifember?s=11",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/gjjruajfwqeea5up2rhyb6kdyrcbsjwrbdqavh7ywmji",
+    "pairAddress": "GjJRUAJfwQeEa5uP2rhYb6KDyrcbSjWRBDqAVH7YwMJi",
+    "labels": ["DYN2"],
+    "baseToken": {
+      "address": "3HSYyCe1xsueTUv9PGcAAsk4yav5H1jSGh3fT9uVZaCY",
+      "name": "THE EMBER GUY",
+      "symbol": "UNIPCS"
+    },
+    "quoteToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "priceNative": "0.0001566",
+    "priceUsd": "0.00000006575",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h24": {
+        "buys": 1,
+        "sells": 1
+      }
+    },
+    "volume": {
+      "h24": 1.32
+    },
+    "priceChange": {
+      "h6": 26.98,
+      "h24": 26.98
+    },
+    "liquidity": {
+      "base": 620241223,
+      "quote": 97181,
+      "usd": 81.56
+    },
+    "fdv": 66,
+    "marketCap": 66,
+    "pairCreatedAt": 1789309816000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/JfAPNtrQ4nkQWJoZ?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/SJ1XcxuAo8fdX4yb?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/3HSYyCe1xsueTUv9PGcAAsk4yav5H1jSGh3fT9uVZaCY?timestamp=1795694100000",
+      "websites": [
+        {
+          "url": "https://emberguy.family/",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/theunipcsgod",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/b8mntmr944aa4cbyqwwsbxpn8ndkqlhjpj9rpk3utfue",
+    "pairAddress": "B8mNTMR944Aa4cByqWWsbXPN8NDkqLHjpJ9rpk3utfUE",
+    "labels": ["DYN2"],
+    "baseToken": {
+      "address": "9oXA1VWKNiYDYa6VKHBFFBBvZdvuhw1b2eD5Aka7YrVt",
+      "name": "Flame",
+      "symbol": "FLAME"
+    },
+    "quoteToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "priceNative": "0.04203",
+    "priceUsd": "0.00001819",
+    "txns": {
+      "m5": {
+        "buys": 1,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 1,
+        "sells": 1
+      },
+      "h6": {
+        "buys": 3,
+        "sells": 2
+      },
+      "h24": {
+        "buys": 7,
+        "sells": 10
+      }
+    },
+    "volume": {
+      "h24": 0.66,
+      "h6": 0.17,
+      "h1": 0.09,
+      "m5": 0.02
+    },
+    "priceChange": {
+      "m5": -4.17,
+      "h1": -10.77,
+      "h6": -2.3,
+      "h24": -2.98
+    },
+    "liquidity": {
+      "base": 63703,
+      "quote": 2729.3084,
+      "usd": 2.34
+    },
+    "fdv": 18196,
+    "marketCap": 18196,
+    "pairCreatedAt": 1789764615000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/mtXqCAIqKr1LCRtX?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/kIBsLL8o8gvTQlPv?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/9oXA1VWKNiYDYa6VKHBFFBBvZdvuhw1b2eD5Aka7YrVt?timestamp=1795694100000",
+      "websites": [
+        {
+          "url": "https://www.flameonember.xyz/",
+          "label": "Website"
+        },
+        {
+          "url": "https://x.com/i/chat/group_join/g2100514240134250818/83vpLJpu13",
+          "label": "X Groupchat"
+        },
+        {
+          "url": "https://www.flameonember.xyz/burn-gallery",
+          "label": "Meme Gallery"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/FlameByEmber",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/3s7gdiwkwxtks7qeymzddsahfmpdyi7kbudl6pjxec5b",
+    "pairAddress": "3s7GdiwkwxTKs7QEYmzddsAHFMpdYi7KBUDL6pJXEc5B",
+    "labels": ["DYN2"],
+    "baseToken": {
+      "address": "9xzmB67zWX8PJiGpQFbWuNBXTqyPpu2qV3mxQfhqUREV",
+      "name": "Celestial SOL Router",
+      "symbol": "CSR"
+    },
+    "quoteToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "priceNative": "0.08514",
+    "priceUsd": "0.00003709",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h24": {
+        "buys": 14,
+        "sells": 19
+      }
+    },
+    "volume": {
+      "h24": 2.04,
+      "h6": 0.02,
+      "h1": 0.02
+    },
+    "priceChange": {
+      "h1": 4.47,
+      "h6": 4.47,
+      "h24": 12.72
+    },
+    "liquidity": {
+      "base": 237066,
+      "quote": 20121,
+      "usd": 17.56
+    },
+    "fdv": 37051,
+    "marketCap": 37051,
+    "pairCreatedAt": 1792093763000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/e3ddz45xhubh1pzh2gcpdxy1ui7v5jztypiw1xmkrees",
+    "pairAddress": "E3DDz45xhuBh1pzh2GCpDXy1Ui7V5jztYPiw1xmkrees",
+    "labels": ["DYN2"],
+    "baseToken": {
+      "address": "9xzmB67zWX8PJiGpQFbWuNBXTqyPpu2qV3mxQfhqUREV",
+      "name": "Celestial SOL Router",
+      "symbol": "CSR"
+    },
+    "quoteToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "priceNative": "0.08397",
+    "priceUsd": "0.00003671",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 2
+      },
+      "h24": {
+        "buys": 13,
+        "sells": 16
+      }
+    },
+    "volume": {
+      "h24": 1.29,
+      "h6": 0.09,
+      "h1": 0.05
+    },
+    "priceChange": {
+      "h1": -2.13,
+      "h6": 1.82,
+      "h24": 10.4
+    },
+    "liquidity": {
+      "base": 131352,
+      "quote": 10908,
+      "usd": 9.59
+    },
+    "fdv": 36662,
+    "marketCap": 36662,
+    "pairCreatedAt": 1795461867000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/wgp5j2fruxtyfrgidetwhcbhrnhod7fgpjabcjq2yeg",
+    "pairAddress": "Wgp5J2FRUXTYFRGiDetWHCBhRNHoD7fGpjAbCjq2yEG",
+    "labels": ["DYN2"],
+    "baseToken": {
+      "address": "CaNC8DjrRuY17zrqNyHKYD91pVofPsXchFr1kh2nsfUw",
+      "name": "USD2",
+      "symbol": "USD2"
+    },
+    "quoteToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "priceNative": "0.02618",
+    "priceUsd": "0.00001099",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 2,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 4,
+        "sells": 8
+      }
+    },
+    "volume": {
+      "h24": 0.38,
+      "h6": 0.05
+    },
+    "priceChange": {
+      "h6": -7.63,
+      "h24": 5.86
+    },
+    "liquidity": {
+      "base": 210706,
+      "quote": 5591.5936,
+      "usd": 4.66
+    },
+    "fdv": 6585,
+    "marketCap": 6585,
+    "pairCreatedAt": 1789527489000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/925V0nabP6ks7uRH?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/UCGHL2IGC6lbTwIG?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/CaNC8DjrRuY17zrqNyHKYD91pVofPsXchFr1kh2nsfUw?timestamp=1795694100000",
+      "websites": [
+        {
+          "url": "https://usd2sol.finance",
+          "label": "Website"
+        }
+      ],
+      "socials": [
+        {
+          "url": "https://x.com/USD2onSolana",
+          "type": "twitter"
+        },
+        {
+          "url": "https://t.me/USD2Solana",
+          "type": "telegram"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/h6fsywz5zbdqfzvyawqswc6ygk5gpf7jhnjucu2zga1f",
+    "pairAddress": "H6FsywZ5ZBDqFzVyAWqsWc6yGK5Gpf7jHnJUcu2Zga1f",
+    "labels": ["DYN2"],
+    "baseToken": {
+      "address": "8JQXg7t2CQS7QyjqS27dE2HcRyRpn8tVZyxEC7htbXNQ",
+      "name": "EVRUCREBME",
+      "symbol": "REBME"
+    },
+    "quoteToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "priceNative": "0.002282",
+    "priceUsd": "0.0000009845",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 0,
+        "sells": 1
+      }
+    },
+    "volume": {
+      "h24": 32.02
+    },
+    "priceChange": {},
+    "liquidity": {
+      "base": 330150711,
+      "quote": 679246,
+      "usd": 618.11
+    },
+    "fdv": 984,
+    "marketCap": 984,
+    "pairCreatedAt": 1789122034000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/gyr8vybu2clxgntjudtmsdm6githyep4mvvmaulawahe",
+    "pairAddress": "GYr8VyBU2cLXgnTJUdtmSdm6GithYEp4mVvMAULaWAhE",
+    "labels": ["DYN2"],
+    "baseToken": {
+      "address": "EGt44aEqH8V14wNTEaKnHQgei88ZirTi6Hvig719pkSB",
+      "name": "Ember Friends",
+      "symbol": "FRIENDS"
+    },
+    "quoteToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "priceNative": "0.001606",
+    "priceUsd": "0.0000006752",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 2,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 2,
+        "sells": 0
+      }
+    },
+    "volume": {
+      "h24": 0.82,
+      "h6": 0.82
+    },
+    "priceChange": {
+      "h6": 5.83,
+      "h24": 5.83
+    },
+    "liquidity": {
+      "base": 21843337,
+      "quote": 35854,
+      "usd": 29.81
+    },
+    "fdv": 675,
+    "marketCap": 675,
+    "pairCreatedAt": 1791222188000,
+    "info": {
+      "imageUrl": "https://cdn.dexscreener.com/cms/images/gckz5f4cMJfR3qpO?width=800&height=800&quality=95&format=auto",
+      "header": "https://cdn.dexscreener.com/cms/images/cRMmpNUSMY41DdkM?width=1500&height=500&quality=95&format=auto",
+      "openGraph": "https://cdn.dexscreener.com/token-images/og/solana/EGt44aEqH8V14wNTEaKnHQgei88ZirTi6Hvig719pkSB?timestamp=1795694100000",
+      "websites": [],
+      "socials": [
+        {
+          "url": "https://x.com/embercurve/status/2098749992747811319",
+          "type": "twitter"
+        }
+      ]
+    }
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/9irzsxwuaqci5tra5ti7rquzthimnm5nadpi4dkt3wdn",
+    "pairAddress": "9irZsXWuaqci5trA5ti7RQuZTHiMNM5Nadpi4dKT3Wdn",
+    "labels": ["DYN2"],
+    "baseToken": {
+      "address": "DKJ9xBaBn89iTFqU2D4RRcbAA55Pq2n61syf54gSiREV",
+      "name": "Revs Engine",
+      "symbol": "RevEng"
+    },
+    "quoteToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "priceNative": "0.005916",
+    "priceUsd": "0.000002486",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 1,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 4,
+        "sells": 6
+      }
+    },
+    "volume": {
+      "h24": 0.3,
+      "h6": 0.01
+    },
+    "priceChange": {
+      "h6": -10.59,
+      "h24": 5.4
+    },
+    "liquidity": {
+      "base": 727064,
+      "quote": 4333.7803,
+      "usd": 3.62
+    },
+    "fdv": 2479,
+    "marketCap": 2479,
+    "pairCreatedAt": 1789304833000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/8vl7c2jrzbsxelfh9dvdy8nelazj65jjx2uypip6onit",
+    "pairAddress": "8vL7c2jRzbSXELfh9DVdy8nELaZJ65jjX2uyPiP6oniT",
+    "labels": ["DYN2"],
+    "baseToken": {
+      "address": "Gy9nzAtHxPBrqCkJERqNqXHDyhSrRUH8uN9P87JExFjf",
+      "name": "SEPTEMBER",
+      "symbol": "SEPT"
+    },
+    "quoteToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "priceNative": "0.0002471",
+    "priceUsd": "0.00000009580",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h24": {
+        "buys": 0,
+        "sells": 1
+      }
+    },
+    "volume": {
+      "h24": 0.29
+    },
+    "priceChange": {},
+    "liquidity": {
+      "base": 938208317,
+      "quote": 231150,
+      "usd": 179.48
+    },
+    "fdv": 96,
+    "marketCap": 96,
+    "pairCreatedAt": 1789127715000
+  },
+  {
+    "chainId": "solana",
+    "dexId": "meteora",
+    "url": "https://dexscreener.com/solana/ccqifr4lrbxzculhhhv1gaypjaqn5sxyjhvz8z2mr9ds",
+    "pairAddress": "CCQifr4LrBXZcULHHhv1GAypjaqN5SxYJHvz8z2MR9DS",
+    "labels": ["DYN2"],
+    "baseToken": {
+      "address": "3TTVzTuFn3pnN5YMYoP11UbS4yt8ZiWr8BD7GmyQyhcU",
+      "name": "Ember Szn",
+      "symbol": "EMBERSZN"
+    },
+    "quoteToken": {
+      "address": "5dvXTZ5qwgafnHtwu3Ls3QrWx1U4LQsFeCuJgkk4QEC6",
+      "name": "embercurve",
+      "symbol": "EMBER"
+    },
+    "priceNative": "0.0001184",
+    "priceUsd": "0.00000005138",
+    "txns": {
+      "m5": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h1": {
+        "buys": 0,
+        "sells": 0
+      },
+      "h6": {
+        "buys": 0,
+        "sells": 1
+      },
+      "h24": {
+        "buys": 0,
+        "sells": 1
+      }
+    },
+    "volume": {
+      "h24": 0.93,
+      "h6": 0.93
+    },
+    "priceChange": {},
+    "liquidity": {
+      "base": 687079672,
+      "quote": 79250,
+      "usd": 69.67
+    },
+    "fdv": 51,
+    "marketCap": 51,
+    "pairCreatedAt": 1789922206000
+  }
+]

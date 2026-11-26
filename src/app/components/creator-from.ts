@@ -12,6 +12,10 @@ export function creatorFrom(from: SolanaView['creator']['data']['from']): string
       return 'Paid for the transaction that created the mint. A launch service can pay it: this does not prove who made the token.';
     case 'metadata-update-authority':
       return 'Can edit the token’s name and symbol. Often a team or a service: this does not prove who made the token.';
+    case 'launchpad-account':
+      return 'Named as creator by the token’s launchpad pool (Meteora DBC or Raydium LaunchLab).';
+    case 'mint-key-signer':
+      return 'Paid for the mint’s first transaction, which the mint’s own key signed.';
     default:
       return null;
   }

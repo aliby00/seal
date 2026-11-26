@@ -18,10 +18,26 @@ import type { CreatorSends } from '../contracts/creator';
  *   the mint (a launch contract or a relayer can pay it: not proof of authorship);
  * - `metadata-update-authority`: who may edit the token's metadata (Metaplex
  *   account, or Token-2022 `tokenMetadata`): the creator's choice at launch,
- *   often a team or a service, never proof of authorship.
+ *   often a team or a service, never proof of authorship;
+ * - `launchpad-account`: the `creator` field of the token's Meteora DBC
+ *   virtual pool (byte 104) or Raydium LaunchLab pool (byte 333), the
+ *   address that launched it there (graduation.ts decodes the same fields);
+ * - `mint-key-signer`: the fee payer of the mint's first transaction, which
+ *   the mint's own key signed without initialising it (a launchpad wrapper
+ *   preparing the launch: PCB PpYYE5…, 5ShYRK…, program DrAskgJ3…): whoever
+ *   paid holds the mint's key.
+ *
+ * When the pump.fun curve names one address but another signed the creation,
+ * paid for it and got tokens in it while the named one got none (Gondola
+ * 5vQGwx…, hoss EvTaKH…, 26/11/2026), that signer is the creator, read
+ * `creation-transaction`; the curve's address is kept in `named`.
  */
 export type SolanaCreatorSource =
-  'pump-curve' | 'creation-transaction' | 'metadata-update-authority';
+  | 'pump-curve'
+  | 'creation-transaction'
+  | 'metadata-update-authority'
+  | 'launchpad-account'
+  | 'mint-key-signer';
 
 /** How a creation was recognised in a transaction. */
 export type SolanaCreationInstruction =
@@ -54,6 +70,14 @@ export type SolanaCreatorData = {
   creation: SolanaCreation | null;
   /** The mint's pump.fun curve, when it has one: `complete` is its graduation. */
   pumpCurve: { address: string; complete: boolean } | null;
+  /**
+   * The address the launchpad names as creator when it is not the one read
+   * as the creator: the pump.fun curve names a launch service or a fee
+   * recipient while another wallet signed the creation, paid for it and
+   * bought in it. `share` is what that signer got in the creation, of the
+   * supply. Absent otherwise.
+   */
+  named?: { address: string; from: 'pump-curve'; signerShare: number | null };
 };
 
 export type SolanaCreator = Sourced<SolanaCreatorData>;
@@ -87,6 +111,12 @@ export type SolanaLaunchedToken = {
   trades24h: number | null;
   /** How the token was found: the curves naming the creator, the creator's own transactions. */
   foundBy: ('pump-curves' | 'creator-transactions')[];
+  /**
+   * The largest market cap (FDV when none) among its DexScreener pairs, USD;
+   * `null` when it has no pair or DexScreener was not read. Absent from
+   * older reports.
+   */
+  marketCapUsd?: number | null;
 };
 
 export type SolanaCreatorHistoryData = {
@@ -114,7 +144,28 @@ export type SolanaCreatorHistoryData = {
     transactionsRead: number;
     /** Unix seconds of the oldest transaction read; `null` when none. */
     readSince: number | null;
+    /**
+     * pump.fun curves naming the creator, the analysed token's left out,
+     * whether or not their mint was found. Absent from older reports.
+     */
+    pumpCurves?: number;
   };
+  /**
+   * Other tokens the creator launched, at least: every pump.fun curve naming
+   * it (`curvesWithoutMint` included) plus the launches found in its own
+   * transactions outside pump.fun. `counts.launched` covers only the tokens
+   * listed one by one: pode's creator had 6 listed and 1,382 curves more,
+   * and the report said "6 other tokens" (26/11/2026). Absent from older
+   * reports.
+   */
+  launchesAtLeast?: number;
+  /**
+   * Of the listed tokens whose market was read on DexScreener (`checked`),
+   * how many have no pair at all or a market cap under LOW_CAP_USD
+   * (`under`): launches that went nowhere, whatever their curve did. Absent
+   * when none was checked, and from older reports.
+   */
+  lowCap?: { checked: number; under: number; thresholdUsd: number };
 };
 
 export type SolanaCreatorHistory = Sourced<SolanaCreatorHistoryData>;
@@ -131,9 +182,25 @@ export type SolanaTokenMove = {
    *   (Streamflow, Jupiter Lock, Raydium Burn & Earn) ran and the balance
    *   fell / rose: the tokens went into / came out of that program's custody;
    * - `sent` / `received`: none of those, the token went to / came from others;
-   * - `burned`: none of those, the balance fell and nobody received it.
+   * - `burned`: none of those, the balance fell and nobody received it;
+   * - `provided` / `withdrawn`: the transaction added liquidity to a pool
+   *   (a pool created with its first tokens, a deposit, a position opened) /
+   *   took some out, by its instructions (liquidity-ix.ts), or the wallet's
+   *   SOL moved the same way as its tokens (paid SOL while its tokens left:
+   *   both sides went into a pool). Never a sale or a buy: GIGA's creator
+   *   seeding a Raydium pool with 87.5 % of the supply and 15 SOL read as
+   *   "sold 91.1 % for 15.73 SOL" (production, 26/11/2026).
    */
-  kind: 'buy' | 'sell' | 'locked' | 'unlocked' | 'sent' | 'received' | 'burned';
+  kind:
+    | 'buy'
+    | 'sell'
+    | 'locked'
+    | 'unlocked'
+    | 'sent'
+    | 'received'
+    | 'burned'
+    | 'provided'
+    | 'withdrawn';
   /** Raw units, positive. */
   amount: string;
   share: number | null;
@@ -161,6 +228,27 @@ export type SolanaWalletOnToken = {
   /** Put into / taken out of a lock or vesting program. */
   locked: string;
   unlocked: string;
+  /**
+   * Put into a pool as liquidity / taken out of one, raw units (`provided`
+   * and `withdrawn` moves): not sold, not bought. Absent from older reports.
+   */
+  provided?: string;
+  withdrawn?: string;
+  /**
+   * The supply this read's shares are measured against, raw units: today's,
+   * or what the transactions read minted when that is more (tokens burned
+   * since). GIGA minted 1e15 and has 9.6e14 today: of today's supply the
+   * creator "received 104.1 %". Absent from older reports (today's supply).
+   */
+  shareBase?: string;
+  /**
+   * How large its sales are: `minor` under MINOR_SALE_SHARE of the supply,
+   * or under MINOR_SALE_SOL on a token older than MINOR_SALE_AGE_DAYS
+   * (POPCAT's creator "sold 0.0191 SOL" of a two-year-old token);
+   * `material` otherwise. A minor sale is a fact, not a signal. Absent when
+   * it sold nothing, and from older reports.
+   */
+  saleSize?: 'minor' | 'material';
   /**
    * The native SOL its balance fell by in its buys and rose by in its sales,
    * lamports, the network fee given back (`sol` of each move): rent and tips

@@ -154,6 +154,7 @@ function groupLine(label: string, g: SolanaLaunchGroup): string {
 export function renderSolanaBlocks(report: TokenReport): string[] {
   const mint = report.mint.data;
   const supply = mint?.supply ?? report.holders.data.supply ?? null;
+  const mintSupply = supply;
   const creator = report.creator.data;
   // Found by the launch replay when the creator's read did not reach it.
   const launchCreation = report.launch.data.creation;
@@ -193,6 +194,11 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
       creator.creator
         ? [
             `Creator: ${creator.creator}, ${creator.from ? CREATOR_FROM[creator.from] : 'source not stated'}.`,
+            ...(creator.named
+              ? [
+                  `The pump.fun curve names ${creator.named.address} as its creator, but that address did not sign the creation and got none of it; ${creator.creator} signed and paid for it${creator.named.signerShare !== null ? ` and got ${pct(creator.named.signerShare)} of the supply in it` : ''}. Every creator figure here is ${creator.creator}'s.`,
+                ]
+              : []),
             ...(creator.creation
               ? [
                   `Created in transaction ${creator.creation.signature}, slot ${creator.creation.slot}${creator.creation.blockTime ? `, on ${new Date(creator.creation.blockTime * 1000).toISOString()}` : ''}, paid by ${who(creator.creation.feePayer, report)}${creator.creation.launchpad ? `, through ${creator.creation.launchpad}` : ''}.`,
@@ -210,9 +216,19 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
       const c = d.counts;
       return [
         `Found on pump.fun’s curves naming the creator${d.scanned.pumpCurvesListed ? '' : ' (not all listed)'} and in ${d.scanned.transactionsRead} of its ${d.scanned.transactionsListed} transactions listed.`,
-        c.launched === 0
+        c.launched === 0 && d.launchesAtLeast === undefined
           ? 'No other token found there (this is not proof that there is none elsewhere).'
           : `Other tokens: ${c.launched}; graduated from their curve ${c.graduated}; traded in the last 24 hours ${c.active}; launched over a day ago with no trade in the last 24 hours ${c.dead}; not determined ${c.unknown}.`,
+        ...(d.launchesAtLeast !== undefined
+          ? [
+              `Launches by this creator, at least: ${d.launchesAtLeast} other tokens (every pump.fun curve naming it counts, its mint found or not); the counts above are over the ${c.launched} listed one by one. Quote ${d.launchesAtLeast} as the number of its other launches.`,
+            ]
+          : []),
+        ...(d.lowCap
+          ? [
+              `Of the ${d.lowCap.checked} listed tokens whose market was read, ${d.lowCap.under} have no market or a market cap under ${d.lowCap.thresholdUsd} USD.`,
+            ]
+          : []),
         ...d.tokens
           .slice(0, 10)
           .map(
@@ -223,6 +239,8 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
     }),
     ...block('What the creator did with this token', onToken, () => {
       const d = onToken!.data;
+      // Tokens burned since: the shares are of what was minted (never above 100 %).
+      const supply = d.shareBase ?? mintSupply;
       const got = solOf(d.solReceived);
       // On a partial read a zero is what was seen, not an absence.
       const seen = (raw: string) =>
@@ -232,7 +250,15 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
             : 'none seen in the transactions read (not all of them)'
           : share(raw, supply);
       return [
-        `Bought ${seen(d.bought)}${d.bought === '0' ? '' : paidWords(d, (raw) => share(raw, supply))}; sold ${seen(d.sold)}${d.sold !== '0' && got ? ` for ${solWords(got)}` : ''}; received ${seen(d.received)}; put in a lock ${seen(d.locked)}; burned ${seen(d.burned)}.`,
+        `Bought ${seen(d.bought)}${d.bought === '0' ? '' : paidWords(d, (raw) => share(raw, supply))}; sold ${seen(d.sold)}${d.sold !== '0' && got ? ` for ${solWords(got)}` : ''}${d.saleSize === 'minor' ? ' (a minor sale: under 0.5% of the supply, or under 1 SOL on a token over a week old; not a signal)' : ''}; received ${seen(d.received)}; put in a lock ${seen(d.locked)}; burned ${seen(d.burned)}.`,
+        ...(d.provided && d.provided !== '0'
+          ? [
+              `Put ${share(d.provided, supply)} into pools as liquidity (a pool created or a deposit, paid with its own SOL or alone): this is not a sale.`,
+            ]
+          : []),
+        ...(d.withdrawn && d.withdrawn !== '0'
+          ? [`Took ${share(d.withdrawn, supply)} back out of pools’ liquidity: this is not a buy.`]
+          : []),
         `Holds today: ${d.holdsNow === null ? 'not read' : holding(d.holdsNow, supply)}. Sent ${d.sends.distinct === 0 ? (onToken!.completeness === 'full' ? 'nothing' : 'nothing seen') : `${d.sends.total ? share(d.sends.total, supply) : 'some'} to ${d.sends.distinct} other address${d.sends.distinct === 1 ? '' : 'es'}`} outside markets.`,
         `Transactions on its token accounts: ${d.transactions.read} read of ${d.transactions.listed}.`,
       ];
@@ -283,6 +309,13 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
                 `Of the whole supply, in these 20 accounts: on bonding curves ${seen(h.ofSupply.curves)}, in pools ${seen(h.ofSupply.pools)}, in locks ${seen(h.ofSupply.locked)}, with the incinerator ${seen(h.ofSupply.burned)}. Curves, pools and locks outside these 20 accounts are not counted: never write that nothing sits on curves, in pools or in locks, nor that all of it circulates.`
               : `Of the whole supply: on bonding curves ${fmt(h.ofSupply.curves)}, in pools ${fmt(h.ofSupply.pools)}, in locks ${fmt(h.ofSupply.locked)}, with the incinerator ${fmt(h.ofSupply.burned)}.`,
             `Of what circulates: largest holder ${pct(h.concentration.top1)}, top 10 ${pct(h.concentration.top10)}.`,
+            // One denominator for the headline figures: on a near-empty curve,
+            // "15% of what circulates" was 1.2% of the supply (fair 3C1f…, 26/11/2026).
+            ...(h.ofSupply.largestWallet !== null && h.ofSupply.top10Wallets !== null
+              ? [
+                  `Of the whole supply: largest wallet ${pct(h.ofSupply.largestWallet)}, top 10 wallets ${pct(h.ofSupply.top10Wallets)}${circulatingShare(h) !== null ? `; what circulates is ${pct(circulatingShare(h)!)} of the supply` : ''}. Prefer these whole-supply figures when the two differ much.`,
+                ]
+              : []),
             ...(h.creator
               ? [
                   `The creator holds ${holding(h.creator.balance, h.supply)}${h.creator.balance !== '0' ? ` (${h.creator.share > 0 ? pct(h.creator.share) : '<0.01%'} of what circulates)` : ''}.`,
@@ -304,7 +337,7 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
     ...block('Market (DexScreener)', report.market, () => [
       // The paired token's symbol is chosen by whoever made that token: quoted, as every name.
       `Main pair on ${m.dex ? dexName(m.dex) : 'an unnamed venue'}${m.pairedWith?.symbol ? `, against ${quoteName(m.pairedWith.symbol)}` : ''}${m.pairCreatedAt ? `, created ${m.pairCreatedAt}` : ''}.`,
-      `Price ${m.priceUsd ?? 'not given'} USD; liquidity ${m.liquidityUsd === null ? 'not given' : `${m.liquidityUsd} USD`}; FDV ${m.fdvUsd ?? 'not given'} USD (the main pair's).`,
+      `Price ${m.priceUsd ?? 'not given'} USD; liquidity ${m.liquidityUsd === null ? (m.curveLiquidityUsd !== undefined ? `not given by DexScreener; the bonding curve holds about ${m.curveLiquidityUsd} USD of SOL` : 'not given') : `${m.liquidityUsd} USD`}; market cap ${m.marketCapUsd ?? 'not given'} USD; FDV ${m.fdvUsd ?? 'not given'} USD (the main pair's).${m.liquidityToMarketCap != null ? ` Liquidity is ${pct(m.liquidityToMarketCap)} of the market cap.` : ''}`,
       ...((m.pairsCounted ?? 1) > 1
         ? [
             `Volume and trades below are added up ${pairsWords(m.pairsCounted)}: the main pair and its pairs against SOL, USDC or USDT. Say so when quoting them; never present them as the main pair's alone.`,
@@ -374,6 +407,12 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
 }
 
 const fmt = (x: number | null) => (x === null ? 'not read' : pct(x));
+
+/** What circulates, as a share of the whole supply; `null` when not known. */
+function circulatingShare(h: { supply: string; countedSupply: string }): number | null {
+  const s = shareOf(h.countedSupply, h.supply);
+  return s === null || h.countedSupply === '0' ? null : s;
+}
 /** A part read on the largest accounts only: `null` is "none among them", a floor otherwise. */
 const seen = (x: number | null) => (x === null ? 'none among them' : `at least ${pct(x)}`);
 
