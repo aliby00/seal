@@ -3,6 +3,8 @@ import { collect } from './collect';
 import type { TokenReport } from './contracts';
 import { launchView, toFacts, toTimeline, type ReportFacts, type TimelineLaunch } from './facts';
 import { buildGlance, type Glance } from './glance';
+import { flagsOf, type Flag } from './flags';
+import { flagInputsOf } from './agent/trader-text';
 import { requestJson } from './http';
 import { log } from './logger';
 import { solanaPairsUrl } from './market/dexscreener';
@@ -23,6 +25,8 @@ export type GlanceResponse = {
   name: string | null;
   symbol: string | null;
   glance: Glance;
+  /** SEAL's flags, as the report page opens on them; absent from older entries. */
+  flags?: Flag[];
   collectedAt: string;
   /** Where the full reading of this token opens on the site. */
   url: string;
@@ -95,6 +99,7 @@ export function fromAnalysis(analysis: CachedAnalysis): CachedGlance | null {
     name: analysis.name ?? null,
     symbol: analysis.symbol ?? null,
     glance,
+    ...(analysis.flagInputs ? { flags: flagsOf(analysis.flagInputs) } : {}),
     collectedAt: analysis.collectedAt,
   };
 }
@@ -152,11 +157,18 @@ async function compute(token: string): Promise<CachedGlance> {
     specialists,
   });
   if (!glance) throw new GlanceUnavailableError();
+  let flags: Flag[] | undefined;
+  try {
+    flags = flagsOf(flagInputsOf(report, specialists));
+  } catch {
+    flags = undefined;
+  }
   const body: CachedGlance = {
     token: report.token,
     name: meta.name,
     symbol: meta.symbol,
     glance,
+    ...(flags ? { flags } : {}),
     collectedAt: report.collectedAt,
   };
   await cardCache.set(token, body).catch(() => undefined);

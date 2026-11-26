@@ -4,6 +4,7 @@ import { ImageResponse } from 'next/og';
 import { isSolanaAddress, shortAddress } from '@/lib/solana/address';
 import { cachedGlance, cardCache, glanceOf } from '@/lib/glance-service';
 import type { GlanceItem, GlanceTone } from '@/lib/glance';
+import type { Flag } from '@/lib/flags';
 import { allowShared, clientKey, COLLECT_LIMIT, type RateLimit } from '@/lib/guard';
 import { log } from '@/lib/logger';
 import { SealError } from '@/lib/errors';
@@ -124,13 +125,45 @@ type CardData = {
   name: string | null;
   symbol: string | null;
   items: GlanceItem[];
+  /** SEAL's flags, the page's first lines: drawn instead of the summary when present. */
+  flags?: Flag[];
 };
+
+const FLAG_COLOR: Record<Flag['tone'], string> = { red: '#ff5c5c', orange: '#ffb347', green: '#4fd9a8' };
+
+/** The flags, one line each, as the page opens on them. */
+function FlagLines({ flags }: { flags: Flag[] }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 30, flexGrow: 1 }}>
+      {flags.slice(0, 5).map((f) => (
+        <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div
+            style={{
+              width: 16,
+              height: 16,
+              borderRadius: 16,
+              background: FLAG_COLOR[f.tone],
+              flexShrink: 0,
+            }}
+          />
+          <div style={{ display: 'flex', fontSize: 30, lineHeight: 1.2 }}>
+            <span style={{ color: FLAG_COLOR[f.tone], fontWeight: 700, marginRight: 12 }}>
+              {clip(f.label, 60)}
+            </span>
+            <span style={{ color: TEXT, fontWeight: 500 }}>{clip(f.text, 60)}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function Card({ data }: { data: CardData }) {
   const [lead, ...rest] = data.items;
+  const flagged = (data.flags?.length ?? 0) > 0;
   const title = data.name ?? data.symbol ?? 'A token on Solana';
   const nameSize = title.length > 18 ? 54 : 68;
-  const tone = lead ? TONE[lead.tone].color : ACCENT;
+  const tone = flagged ? FLAG_COLOR[data.flags![0]!.tone] : lead ? TONE[lead.tone].color : ACCENT;
   return (
     <div
       style={{
@@ -178,7 +211,9 @@ function Card({ data }: { data: CardData }) {
         {`${shortAddress(data.token)} · Solana`}
       </div>
 
-      {lead ? (
+      {flagged ? (
+        <FlagLines flags={data.flags!} />
+      ) : lead ? (
         <div
           style={{
             display: 'flex',
@@ -305,7 +340,16 @@ export async function GET(request: Request): Promise<Response> {
       ]));
     if (!glance) return render(plain, retry);
     const items = glance.glance.items.filter((item) => !item.unread);
-    return render({ token, name: glance.name, symbol: glance.symbol, items }, CARD_CACHE);
+    return render(
+      {
+        token,
+        name: glance.name,
+        symbol: glance.symbol,
+        items,
+        ...(glance.flags ? { flags: glance.flags } : {}),
+      },
+      CARD_CACHE,
+    );
   } catch (error) {
     // A wallet or any address that holds no token gets no SEAL card: nobody
     // can post one branded "read by SEAL" for it (audit, 26/11/2026).

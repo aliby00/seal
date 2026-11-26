@@ -89,6 +89,46 @@ describe('share card', () => {
     expect((await response.arrayBuffer()).byteLength).toBeGreaterThan(10_000);
   });
 
+  it('draws the flags the page opens on, when the reading has them', async () => {
+    setSharedRedis(null);
+    await rememberCard({
+      ...analysis(false),
+      flagInputs: {
+        launchpad: 'pump.fun',
+        livePowers: [],
+        mintFreezeOff: true,
+        dev: null,
+        bundle: { wallets: 3, share: 0.419, heldNow: 0, where: 'creation slot' },
+        snipers: null,
+        noBundle: false,
+        serial: null,
+        noOtherLaunch: false,
+        market: {
+          mcap: 2000,
+          liquidity: 11,
+          onCurve: true,
+          ratio: 0.0055,
+          volume24h: 38_500,
+          quietHours: null,
+        },
+        holders: null,
+        lp: null,
+        linkedBought: null,
+        nameClone: null,
+        freshWallet: null,
+      },
+    });
+    const card = await cardCache.get(TOKEN);
+    expect(card?.flags?.map((f) => f.label)).toEqual([
+      'Bundle',
+      'Chart dead',
+      'Mint and freeze revoked',
+    ]);
+    const response = await GET(new Request(`http://localhost/api/card?token=${TOKEN}`));
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('image/png');
+  });
+
   it('an empty card served to one caller past its limit is kept out of the shared cache', async () => {
     setSharedRedis(null);
     await rememberCard(analysis(false));
