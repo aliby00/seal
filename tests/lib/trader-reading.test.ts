@@ -11,11 +11,7 @@ import { renderReport } from '../../src/lib/agent/prompt';
 import { ageWords, figuresOf, share } from '../../src/lib/figures';
 import { toFacts, type TimelineLaunch } from '../../src/lib/facts';
 import { timelinePositions } from '../../src/app/components/timeline';
-import {
-  PAIR_HINT,
-  addressHint,
-  tokenFromInput,
-} from '../../src/app/components/analyze-request';
+import { PAIR_HINT, addressHint, tokenFromInput } from '../../src/app/components/analyze-request';
 import { buildGlance } from '../../src/lib/glance';
 import { solanaReport } from '../helpers/solana-report';
 
