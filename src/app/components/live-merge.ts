@@ -1,6 +1,7 @@
 import type { ReportFacts } from '@/lib/facts';
 import type { LiveValues } from '@/lib/flags';
 import type { LiveHolders, LiveMarket } from '@/lib/live';
+import type { SolanaView } from './solana-view';
 
 /**
  * The report's facts with the live reads laid over them: the market from the
@@ -43,6 +44,37 @@ export function liveFacts(
           top10OfSupply: keep(holders.top10OfSupply, facts.holders.top10OfSupply ?? null),
         }
       : facts.holders,
+  };
+}
+
+/**
+ * The Solana blocks with the last holders refresh laid over them: the holder
+ * count, the largest wallet and the ten largest, and what the creator holds
+ * today. The rest (the pools, the locks, the creator's moves) is the report's.
+ */
+export function liveSolanaView(view: SolanaView, holders: LiveHolders | null): SolanaView {
+  if (!holders) return view;
+  const h = view.holders.data;
+  const devHolds = holders.devHolds;
+  return {
+    ...view,
+    holders: {
+      ...view.holders,
+      data: {
+        ...h,
+        holderCount: holders.holderCount ?? h.holderCount,
+        ofSupply: {
+          ...h.ofSupply,
+          largestWallet: holders.top1OfSupply ?? h.ofSupply.largestWallet,
+          top10Wallets: holders.top10OfSupply ?? h.ofSupply.top10Wallets,
+        },
+        creator: h.creator && devHolds !== null ? { ...h.creator, ofSupply: devHolds } : h.creator,
+      },
+    },
+    onToken:
+      view.onToken && devHolds !== null
+        ? { ...view.onToken, data: { ...view.onToken.data, holdsNow: devHolds } }
+        : view.onToken,
   };
 }
 
