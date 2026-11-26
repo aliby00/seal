@@ -35,6 +35,12 @@ const byStatus: Record<number, RequestError> = {
     message: 'The request was not in the expected format. Reload the page, then try again.',
     retry: false,
   },
+  // An NFT mint: an address, but not of a token SEAL reads.
+  422: {
+    title: FAILED,
+    message: 'This is an NFT. SEAL reads fungible tokens: paste a token’s own address.',
+    retry: false,
+  },
   // The rate limit: nothing is wrong, the reader only has to wait.
   429: {
     title: 'A short pause.',
@@ -49,6 +55,12 @@ const byStatus: Record<number, RequestError> = {
   502: {
     title: FAILED,
     message: 'A data source or the explanation could not be reached. Please try again.',
+    retry: true,
+  },
+  // Another reader asked for the same token at the same moment, and its reading ran long.
+  503: {
+    title: 'Still reading.',
+    message: 'This token is being read right now. Try again in a moment.',
     retry: true,
   },
   // A token with a long history: the second try reuses what was already read.

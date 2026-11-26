@@ -50,15 +50,24 @@ export class SharedCache<T> {
     }
   }
 
-  /** Stores the value when `keep` accepts it; returns whether it was stored. */
-  async set(key: string, value: T): Promise<boolean> {
+  /**
+   * Stores the value when `keep` accepts it; returns whether it was stored.
+   * `ttlMs`: this entry's own lifetime, the cache's when omitted.
+   */
+  async set(key: string, value: T, ttlMs = this.ttlMs): Promise<boolean> {
     if (!this.keep(value)) return false;
-    this.memory.set(key, value);
+    this.memory.set(key, value, ttlMs);
     const redis = sharedRedis();
     if (!redis) return true;
     try {
       await redis.pipeline([
-        ['SET', `${this.prefix}:${key}`, JSON.stringify(value), 'PX', this.ttlMs],
+        [
+          'SET',
+          `${this.prefix}:${key}`,
+          JSON.stringify(value),
+          'PX',
+          Math.max(1, Math.round(ttlMs)),
+        ],
       ]);
     } catch (error) {
       log.warn('cache partagé non écrit', { prefix: this.prefix, error: String(error) });

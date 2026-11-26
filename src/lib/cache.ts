@@ -69,9 +69,10 @@ export class TtlCache<T> {
     return entry.value;
   }
 
-  set(key: string, value: T): void {
+  /** `ttlMs`: this entry's own lifetime, the cache's when omitted. */
+  set(key: string, value: T, ttlMs = this.ttlMs): void {
     if (this.store.has(key)) this.store.delete(key);
-    this.store.set(key, { value, expiresAt: this.now() + this.ttlMs });
+    this.store.set(key, { value, expiresAt: this.now() + ttlMs });
     while (this.store.size > this.maxEntries) {
       const oldest = this.store.keys().next().value;
       if (oldest === undefined) break;

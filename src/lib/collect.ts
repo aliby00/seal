@@ -1,6 +1,6 @@
 import { combineCompleteness, type Completeness, type SourceRef, type Sourced } from './contracts';
 import type { FailedRead, ReadId, TokenReport } from './contracts/report';
-import { NotFoundError, SealError, TimeoutError } from './errors';
+import { NotFoundError, NotFungibleError, SealError, TimeoutError } from './errors';
 import { failedReadOf, mergeFailedReads } from './failed-reads';
 import { BudgetExhaustedError, createBudget, requestJson } from './http';
 import { log } from './logger';
@@ -162,6 +162,13 @@ function listedSince(read: SolanaMarketRead): number | null {
   return seconds(read.market.data.pairCreatedAt);
 }
 
+/** An NFT's mint: no decimals and a supply of exactly one unit. */
+export function isNftMint(
+  data: { decimals: number | null; supply: string | null } | null | undefined,
+): boolean {
+  return data?.decimals === 0 && data.supply === '1';
+}
+
 /** Collects every block of facts for a Solana token. No aggregate: the agent crosses them. */
 export async function collect(token: string, options: CollectOptions = {}): Promise<TokenReport> {
   if (!isSolanaAddress(token)) {
@@ -254,6 +261,13 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
     if (mint.completeness === 'full' && mint.data === null) {
       cut.abort(new NotFoundError('solana-rpc', 'token mint'));
       throw new NotFoundError('solana-rpc', `token mint at ${token}`);
+    }
+    // An NFT is a mint too, of one indivisible unit: read as a token, its one
+    // holder "holds 100%" (FCXErX…, prod audit 26/11/2026). Refused before any
+    // other read, and before any model call.
+    if (isNftMint(mint.data)) {
+      cut.abort(new NotFungibleError('solana-rpc', token));
+      throw new NotFungibleError('solana-rpc', token);
     }
     const creator = await creatorRead;
     const creatorAddress = creator.data.creator;

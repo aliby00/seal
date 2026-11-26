@@ -120,6 +120,8 @@ export async function explain(
     costUsd: cost.costUsd,
     priced: cost.priced,
     stopReason: result.stopReason,
+    // Next to outputTokens, what was written: the rest went to thinking.
+    textChars: text.length,
     violations: violations.length,
   });
 

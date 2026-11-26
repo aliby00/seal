@@ -29,6 +29,26 @@ export const GLANCE_LIMIT: RateLimit = { capacity: 12, perMinute: 12 };
 /** /api/agent may call the largest model tier: stricter. */
 export const AGENT_LIMIT: RateLimit = { capacity: 3, perMinute: 3 };
 
+/**
+ * /api/agent is not used by the site nor by the extension, and each call may
+ * pay for a model call out of the daily ceiling every analysis shares: past
+ * it, every reading goes offline until midnight UTC. A deployment serves it
+ * only when `SEAL_AGENT_API=on` says so; development and tests always do.
+ */
+export function agentApiEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return env.SEAL_AGENT_API?.trim() === 'on' || env.NODE_ENV !== 'production';
+}
+/**
+ * Every full collection one address starts, whichever route asked for it
+ * (analyze, glance, card): one bucket for all three, charged only when the
+ * answer was not in a cache. Separate buckets let one address start about 40
+ * collections a minute, enough on its own to get the keyed node to refuse.
+ */
+export const COLLECT_LIMIT: RateLimit = { capacity: 12, perMinute: 12 };
+
+/** The 429 a public route answers past a limit; "network": a shared mobile address is common. */
+export const TOO_MANY_MESSAGE = 'Too many requests from your network. Try again in a minute.';
+
 type Bucket = { tokens: number; updatedAt: number };
 const buckets = new Map<string, Bucket>();
 const MAX_TRACKED = 10_000;
@@ -188,12 +208,32 @@ function refuse(status: number, error: string, headers?: Record<string, string>)
 }
 
 /**
+ * Spends one request in each bucket, in order, for the caller of `request`;
+ * the 429 to send back at the first one that is empty, `null` when all let it
+ * through.
+ */
+export async function overLimit(
+  request: Request,
+  limits: readonly (readonly [scope: string, limit: RateLimit])[],
+  message = TOO_MANY_MESSAGE,
+): Promise<Response | null> {
+  const caller = clientKey(request);
+  for (const [scope, limit] of limits) {
+    if (!(await allowShared(`${scope}:${caller}`, limit))) {
+      return refuse(429, message, { 'retry-after': '60' });
+    }
+  }
+  return null;
+}
+
+/**
  * Runs every check and reads the JSON body. Returns either the parsed body or
- * the response to send back as is.
+ * the response to send back as is. `limit: null` leaves the rate limit to the
+ * route, which charges it once it knows the answer is not cached.
  */
 export async function guardedJson(
   request: Request,
-  limit: RateLimit,
+  limit: RateLimit | null,
   scope: string,
 ): Promise<{ body: unknown } | { response: Response }> {
   if (crossSite(request)) return { response: refuse(403, 'Cross-site requests are not accepted') };
@@ -206,12 +246,9 @@ export async function guardedJson(
   const declared = Number(request.headers.get('content-length') ?? 0);
   if (declared > MAX_BODY_BYTES) return { response: refuse(413, 'Request body too large') };
 
-  if (!(await allowShared(`${scope}:${clientKey(request)}`, limit))) {
-    return {
-      response: refuse(429, 'Too many analyses from this address. Try again in a minute.', {
-        'retry-after': '60',
-      }),
-    };
+  if (limit) {
+    const limited = await overLimit(request, [[scope, limit]]);
+    if (limited) return { response: limited };
   }
 
   // content-length can be absent or wrong: the body itself is measured too.
