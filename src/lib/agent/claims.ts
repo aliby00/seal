@@ -50,7 +50,9 @@ export type ClaimKind =
   | 'power-denied'
   | 'count'
   | 'into-pools'
-  | 'misplaced-limit';
+  | 'misplaced-limit'
+  | 'internal'
+  | 'number';
 
 export type Claim = { kind: ClaimKind; sentence: string };
 
@@ -216,7 +218,10 @@ const INTO_POOLS: RegExp[] = [
 ];
 
 const PATTERNS: Record<
-  Exclude<ClaimKind, 'unread' | 'count' | 'misplaced-limit' | 'power-denied'>,
+  Exclude<
+    ClaimKind,
+    'unread' | 'count' | 'misplaced-limit' | 'power-denied' | 'internal' | 'number'
+  >,
   RegExp[]
 > = {
   'into-pools': INTO_POOLS,
@@ -322,7 +327,7 @@ const ABOUT: Partial<Record<ClaimKind, RegExp>> = {
 };
 
 /** The claims in `text` that the facts of `report` forbid. */
-export function findClaims(text: string, report: TokenReport): Claim[] {
+export function findClaims(text: string, report: TokenReport, source?: string): Claim[] {
   const kinds = forbiddenClaims(report);
   const unread = unreadPatterns(report);
   const denied = undeniable(report);
@@ -334,10 +339,19 @@ export function findClaims(text: string, report: TokenReport): Claim[] {
   const saleRead = soldOwn(report) === true || (report.launch.data.summary?.creatorSold ?? 0) > 0;
   const found: Claim[] = [];
   for (const paragraph of text.split(/\n{2,}/)) {
+    // A heading is not a claim: "What is clean" says nothing of the dev's record.
+    if (HEADING.test(paragraph.trim())) continue;
     for (const sentence of sentences(paragraph)) {
       let hit: ClaimKind | undefined;
       for (const kind of kinds) {
-        if (kind === 'unread' || kind === 'count' || kind === 'misplaced-limit') continue;
+        if (
+          kind === 'unread' ||
+          kind === 'count' ||
+          kind === 'misplaced-limit' ||
+          kind === 'internal' ||
+          kind === 'number'
+        )
+          continue;
         if (kind === 'power-denied') {
           if (denied.some((p) => p.test(sentence))) {
             hit = kind;
@@ -363,6 +377,8 @@ export function findClaims(text: string, report: TokenReport): Claim[] {
         hit = 'unread';
       }
       if (!hit && countMismatch(sentence, report)) hit = 'count';
+      if (!hit && INTERNAL.some((p) => p.test(outsideQuotes(sentence)))) hit = 'internal';
+      if (!hit && source !== undefined && unsupportedNumber(sentence, source)) hit = 'number';
       if (hit) found.push({ kind: hit, sentence });
     }
   }
@@ -462,7 +478,7 @@ function coherent(all: readonly string[], banned: ReadonlySet<string>): string[]
 
 /** The section headings the prompt asks for, numbered or not. */
 const HEADING =
-  /^(?:\d+[.)]\s*)?(?:What is reassuring|What deserves attention|Where the signals diverge)\b[^.!?]*$/i;
+  /^(?:\d+[.)]\s*)?(?:What is reassuring|What deserves attention|Where the signals diverge|What stands out|What is clean)\b[^.!?]*$/i;
 
 /** Words of emphasis from the prompt, copied into the text: dropped. */
 const EMPHASIS = /\b(?:EXACTLY|EXACTEMENT|PRECISELY|EXACT)\b\s*(\S?)/g;
@@ -505,12 +521,14 @@ export function withoutEmphasis(text: string): string {
 export function withoutClaims(
   text: string,
   report: TokenReport,
+  /** What the model was given: a number in the text that is not in it is cut. */
+  source?: string,
 ): { text: string | null; dropped: Claim[] } {
   const corrected = correctHeldShare(
     withRoundTripExclusions(withoutEmphasis(text), report),
     report,
   );
-  const dropped = [...findClaims(corrected, report), ...misplacedLimits(corrected)];
+  const dropped = [...findClaims(corrected, report, source), ...misplacedLimits(corrected)];
   const banned = new Set(dropped.map((c) => c.sentence));
   const original = corrected.split(/\n{2,}/);
   const paragraphs = withSectionOpeners(
@@ -559,7 +577,7 @@ const LIMIT_SENTENCE =
 const CONTRAST = /\b(?:but|yet|though|although|while|still)\b/i;
 
 const isHeading = (paragraph: string) => HEADING.test(paragraph.trim());
-const REASSURING = /^(?:\d+[.)]\s*)?What is reassuring\b/i;
+const REASSURING = /^(?:\d+[.)]\s*)?(?:What is reassuring|What is clean)\b/i;
 
 /** The limits said as sentences of their own in "What is reassuring": cut. */
 export function misplacedLimits(text: string): Claim[] {
@@ -656,5 +674,82 @@ export function withRoundTripExclusions(text: string, report: TokenReport): stri
     return /\bexclud|left\s+out|within\s+one\s+single\s+transaction|as\s+liquidity/i.test(rest)
       ? match
       : `${match}${words}`;
+  });
+}
+
+/**
+ * The pipeline talking about itself, which a trader has no use for: "These
+ * reads do not agree", "I cannot reconcile them from this data" (PCB, prod
+ * 26/11/2026), "completeness full", "the report is partial". A gap is said
+ * once, in the closing "Not read this time" line.
+ */
+const INTERNAL: RegExp[] = [
+  // Letters on both sides, accents included: "même" is not "me".
+  /(?<![\p{L}\d_])(?:I|I['’]m|I['’]ve|I['’]d|me|my|myself)(?![\p{L}\d_'’])/u,
+  /\b(?:these|the|both|two)\s+(?:\w+\s+)?reads?\s+(?:do|does|did)\s+not\s+(?:agree|match)\b/i,
+  /\breconcile\b/i,
+  /\bcompleteness\b/i,
+  /\breasoning\s+agent\b/i,
+  /\bthe\s+(?:report|reading|data)\s+is\s+(?:partial|incomplete)\b/i,
+  /^(?:The\s+same\s+limit|This\s+limit|That\s+limit)\b/i,
+];
+
+/** The sentence without what it quotes from the chain: a token named "ME" is not the model speaking. */
+const outsideQuotes = (sentence: string) => sentence.replace(/["“][^"”]*["”]/g, '""');
+
+/** Numbers of a text, by unit: "41.9%", "$2.9k", "1.29 SOL". */
+type Quantity = { unit: '%' | '$' | 'SOL'; value: number; precision: number };
+
+const SUFFIX: Record<string, number> = { k: 1e3, K: 1e3, m: 1e6, M: 1e6, b: 1e9, B: 1e9 };
+
+function decimals(digits: string): number {
+  const dot = digits.indexOf('.');
+  return dot === -1 ? 0 : digits.length - dot - 1;
+}
+
+/** Every percentage, dollar amount and SOL amount written in `text`. */
+export function quantities(text: string): Quantity[] {
+  const out: Quantity[] = [];
+  const clean = text.replace(/(\d),(?=\d{3}\b)/g, '$1');
+  for (const m of clean.matchAll(/(\d+(?:\.\d+)?)\s?%/g)) {
+    const digits = m[1]!;
+    out.push({ unit: '%', value: Number(digits), precision: 0.5 * 10 ** -decimals(digits) });
+  }
+  for (const m of clean.matchAll(/\$\s?(\d+(?:\.\d+)?)\s?([kKmMbB](?![a-z]))?/g)) {
+    const digits = m[1]!;
+    const k = m[2] ? (SUFFIX[m[2]] ?? 1) : 1;
+    out.push({
+      unit: '$',
+      value: Number(digits) * k,
+      precision: 0.5 * 10 ** -decimals(digits) * k,
+    });
+  }
+  for (const m of clean.matchAll(/(\d+(?:\.\d+)?)\s?(?:k\s)?USD\b/g)) {
+    const digits = m[1]!;
+    out.push({ unit: '$', value: Number(digits), precision: 0.5 * 10 ** -decimals(digits) });
+  }
+  for (const m of clean.matchAll(/(\d+(?:\.\d+)?)\s?SOL\b/g)) {
+    const digits = m[1]!;
+    out.push({ unit: 'SOL', value: Number(digits), precision: 0.5 * 10 ** -decimals(digits) });
+  }
+  return out;
+}
+
+/**
+ * A percentage, dollar or SOL amount in `sentence` that nothing in `source`
+ * (what the model was given) supports, within the rounding the sentence
+ * writes it at: "the top 10 hold 96.1%" when the data said 2.6% of the
+ * supply, or a figure made up by adding two others.
+ */
+export function unsupportedNumber(sentence: string, source: string): boolean {
+  const given = quantities(source);
+  return quantities(outsideQuotes(sentence)).some((q) => {
+    if (q.value === 0 || (q.unit === '%' && q.value === 100)) return false;
+    return !given.some(
+      (g) =>
+        g.unit === q.unit &&
+        Math.abs(g.value - q.value) <=
+          Math.max(q.precision, g.precision) + 1e-9 + Math.abs(q.value) * 0.005,
+    );
   });
 }

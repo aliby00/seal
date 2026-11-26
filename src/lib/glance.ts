@@ -283,6 +283,17 @@ function salesItem(
       : holds === 0
         ? ' and holds none of it today'
         : ` and holds ${pct(holds)} today`;
+  // A dust sale (POPCAT's creator sold 0.0191 SOL of a two-year-old token)
+  // is a fact, never the headline, and never "0.00%" beside a warning.
+  if (c.hasSold === true && creator.saleSize === 'minor' && !linkedAttention) {
+    return {
+      id: 'sales',
+      tone: 'neutral',
+      title: `The creator sold only a few tokens of it${holdsWords}.${linkedWords}`,
+      detail,
+      href: '#fact-creator',
+    };
+  }
   if (c.hasSold === true) {
     const all = c.sold !== null && c.bought !== null && c.bought > 0 && c.sold >= c.bought * 0.99;
     return {

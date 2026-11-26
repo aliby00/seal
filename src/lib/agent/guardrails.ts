@@ -45,9 +45,14 @@ const VERDICT_PATTERNS: RegExp[] = [
   /\b(?:safe|safer|safest|risky|riskier|unsafe)\b/gi,
   /\b(?:low|high|no|zero|minimal)\s+risk\b/gi,
   /\b(?:arnaque\w*|escroquerie\w*|fiable)\b/gi,
-  // Labels that assign an intent to a wallet: SEAL says "bought in the launch
-  // block", the reader decides what that makes the buyer.
-  /\b(?:snip(?:e|er|ers|ed|es|ing)|insiders?|bundl(?:e|es|ed|er|ers|ing))\b/gi,
+  // Labels that assign an intent or an allegiance to a wallet: "insider" says
+  // who is behind it, which the chain does not show. "Bundle" and "snipers"
+  // are allowed since 26/11/2026: traders use them for what SEAL measures
+  // (wallets that got tokens together in the creation slot or in one
+  // transaction; the first seconds' buyers), and SEAL always says them with
+  // that measure — a description, not a verdict. "Bundler" names an actor
+  // and stays out.
+  /\b(?:insiders?|bundlers?)\b/gi,
   /[★☆⭐]/g,
   // A guarantee said of the token or the people behind it: SEAL reads the
   // chain, it never vouches. "was not verified" says a limit and passes.

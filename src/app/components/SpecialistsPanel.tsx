@@ -161,10 +161,11 @@ export function SpecialistsPanel({
               <span className="check-icon" data-signal="quiet">
                 <SignalIcon signal="quiet" />
               </span>
-              <span className="check-name">Does not apply to this token</span>
-              <span className="check-answer">
+              {/* The checks are the name; what became of them is the answer. */}
+              <span className="check-name">
                 {notApplicable.map((a) => PLAIN_LABEL[a.specialist]).join(' · ')}
               </span>
+              <span className="check-answer">Does not apply to this token</span>
             </summary>
             <div className="check-sublist">
               {notApplicable.map((answer) => (
@@ -189,10 +190,10 @@ export function SpecialistsPanel({
               <span className="check-icon" data-signal="unknown">
                 <SignalIcon signal="unknown" />
               </span>
-              <span className="check-name">Not measured for this token</span>
-              <span className="check-answer">
+              <span className="check-name">
                 {unmeasured.map((a) => PLAIN_LABEL[a.specialist]).join(' · ')}
               </span>
+              <span className="check-answer">Not measured for this token</span>
             </summary>
             <div className="check-sublist">
               {unmeasured.map((answer) => (

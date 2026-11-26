@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { creatorFrom } from './creator-from';
 import { plainNote } from './FactsBoard';
-import { addressUrl, short, txUrl } from './explorer';
+import { addressUrl, extensionWords, short, txUrl } from './explorer';
 import type {
   FundedView,
   GroupView,
@@ -223,7 +223,9 @@ function MintCard({ view }: { view: SolanaView }) {
           {mint.extensions.length > 0 && (
             <ul className="sol-chips" aria-label="Token-2022 extensions">
               {mint.extensions.map((name, i) => (
-                <li key={`${name}-${i}`}>{name}</li>
+                <li key={`${name}-${i}`} title={name}>
+                  {extensionWords(name)}
+                </li>
               ))}
             </ul>
           )}
@@ -572,7 +574,9 @@ function CreatorTokenCard({ view }: { view: SolanaView }) {
           <p className="fact-mono">
             <Address address={creator.address} label={creator.address} />
           </p>
-          {creatorFrom(creator.from) && <p className="fact-line">{creatorFrom(creator.from)}</p>}
+          {creatorFrom(creator.from, view.powers) && (
+            <p className="fact-line">{creatorFrom(creator.from, view.powers)}</p>
+          )}
           {on && on.read !== 'unavailable' ? (
             <>
               <dl className="fact-pairs">

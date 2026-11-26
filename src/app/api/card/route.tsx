@@ -6,6 +6,7 @@ import { cachedGlance, cardCache, glanceOf } from '@/lib/glance-service';
 import type { GlanceItem, GlanceTone } from '@/lib/glance';
 import { allowShared, clientKey, COLLECT_LIMIT, type RateLimit } from '@/lib/guard';
 import { log } from '@/lib/logger';
+import { SealError } from '@/lib/errors';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -27,6 +28,11 @@ const SIZE = { width: 1200, height: 630 };
 const CARD_WAIT_MS = 8_000;
 /** Crawlers of several apps fetch the same card; a person never needs more. */
 const CARD_LIMIT: RateLimit = { capacity: 20, perMinute: 20 };
+/**
+ * As long as a young token's reading is kept (analysis-cache.ts): the card a
+ * crawler keeps longer showed other numbers than the page (POPCAT, 26/11/2026).
+ */
+const CARD_CACHE = 'public, max-age=180, s-maxage=180';
 
 const INK = '#05080b';
 const TEXT = '#eef2f4';
@@ -173,11 +179,19 @@ function Card({ data }: { data: CardData }) {
       </div>
 
       {lead ? (
-        <div style={{ display: 'flex', flexDirection: 'column', marginTop: 30, flexGrow: 1 }}>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            marginTop: 28,
+            marginBottom: 18,
+            flexGrow: 1,
+          }}
+        >
           <div style={{ display: 'flex' }}>
             <Pill tone={lead.tone} />
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 30, marginTop: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 30, marginTop: 20 }}>
             {lead.figure && (
               <div
                 style={{
@@ -194,10 +208,11 @@ function Card({ data }: { data: CardData }) {
             <div
               style={{ display: 'flex', flex: 1, fontSize: 34, lineHeight: 1.22, fontWeight: 500 }}
             >
-              {clip(lead.title, lead.figure ? 120 : 160)}
+              {clip(lead.title, lead.figure ? 100 : 140)}
             </div>
           </div>
-          {rest.slice(0, 2).map((item) => (
+          {/* A long first line leaves room for one more, not two. */}
+          {rest.slice(0, lead.title.length > 90 ? 1 : 2).map((item) => (
             <div
               key={item.id}
               style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginTop: 14 }}
@@ -213,7 +228,7 @@ function Card({ data }: { data: CardData }) {
                 }}
               />
               <div style={{ display: 'flex', fontSize: 23, color: DIM, lineHeight: 1.3 }}>
-                {clip(item.title, 95)}
+                {clip(item.title, 85)}
               </div>
             </div>
           ))}
@@ -273,9 +288,11 @@ export async function GET(request: Request): Promise<Response> {
   try {
     // The card of the analysis just served, then any cached reading of the
     // token (its analysis, its glance): no collection for those.
+    // The freshest first: a reading still in the analysis cache is the one
+    // the page shows; the card cache keeps the last one served for longer.
     const known =
-      (await cardCache.get(token).catch(() => null)) ??
-      (await cachedGlance(token).catch(() => null));
+      (await cachedGlance(token).catch(() => null)) ??
+      (await cardCache.get(token).catch(() => null));
     // Not in a cache: a full collection, counted with the address's others (analyze, glance).
     if (!known && !(await allowShared(`collect:${caller}`, COLLECT_LIMIT))) {
       return render(plain, limited);
@@ -288,11 +305,19 @@ export async function GET(request: Request): Promise<Response> {
       ]));
     if (!glance) return render(plain, retry);
     const items = glance.glance.items.filter((item) => !item.unread);
-    return render(
-      { token, name: glance.name, symbol: glance.symbol, items },
-      'public, max-age=600, s-maxage=600',
-    );
+    return render({ token, name: glance.name, symbol: glance.symbol, items }, CARD_CACHE);
   } catch (error) {
+    // A wallet or any address that holds no token gets no SEAL card: nobody
+    // can post one branded "read by SEAL" for it (audit, 26/11/2026).
+    if (
+      error instanceof SealError &&
+      (error.kind === 'not-found' || error.kind === 'not-fungible')
+    ) {
+      return new Response('No token at this address', {
+        status: 404,
+        headers: { 'Cache-Control': 'public, max-age=300, s-maxage=300' },
+      });
+    }
     log.warn('carte de partage sans lecture', { error: String(error) });
     return render(plain, retry);
   }

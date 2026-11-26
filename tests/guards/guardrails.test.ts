@@ -76,12 +76,22 @@ describe('assertCompliant', () => {
 });
 
 describe('mots qui prêtent une intention', () => {
+  it.each(['An insider wallet received 5%.', 'Insiders got 30% at launch.', 'A bundler took 12%.'])(
+    'refuse « %s »',
+    (text) => {
+      expect(findViolations(text).map((v) => v.kind)).toContain('verdict');
+    },
+  );
+
+  // Trader words for what SEAL measures, said with the measure (26/11/2026):
+  // a description, not a verdict.
   it.each([
-    'Two snipers bought early.',
-    'An insider wallet received 5%.',
-    'The launch was bundled.',
-  ])('refuse « %s »', (text) => {
-    expect(findViolations(text).map((v) => v.kind)).toContain('verdict');
+    'Bundled launch: 3 wallets other than the dev took 41.9% of the supply in the creation slot.',
+    'Snipers: 7 wallets bought 43.8% in the first second; they hold none of it today.',
+    'Serial launcher: the dev has at least 1,382 other launches.',
+    'The dev bought 1.8% of the supply, then sold all of it within 4 minutes.',
+  ])('laisse passer « %s »', (text) => {
+    expect(findViolations(text)).toEqual([]);
   });
 });
 

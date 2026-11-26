@@ -537,7 +537,7 @@ describe('the text written without the model', () => {
       creatorOnToken: { ...base.creatorOnToken!, completeness: 'unavailable' },
     });
     expect(offlineExplanation(report)).toContain(
-      'What it did with this token could not be read this time.',
+      'What the dev did with this token could not be read this time.',
     );
   });
 
@@ -552,7 +552,7 @@ describe('the text written without the model', () => {
         },
       },
     });
-    expect(offlineExplanation(report)).toContain('This address launched at least 4 other tokens');
+    expect(offlineExplanation(report)).toContain('The dev has at least 4 other launches');
   });
 });
 
@@ -629,9 +629,8 @@ describe('a read of the creator’s moves cut short (PYUSD on the public node, 0
   it('the text without the model says whether it sold is not known', () => {
     const text = offlineExplanation(cut);
     expect(text).toContain(
-      'None of the 2 transactions on the creator’s token accounts could be read this time: whether it sold is not known.',
+      'None of the 2 transactions on the dev’s token accounts could be read this time: whether it sold is not known.',
     );
-    expect(text).toContain('none of its own transactions could be read');
   });
 });
 

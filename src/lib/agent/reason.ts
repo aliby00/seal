@@ -85,10 +85,11 @@ export async function explain(
   const model = options.model ?? resolved.model;
   // A provider that fails (wrong model id, quota, timeout) must not turn an
   // analysis whose facts are ready into an error page: the facts are served.
+  const request = buildRequest(report, model, maxTokens, options.specialists);
   let result;
   try {
     result = await provider.complete({
-      ...buildRequest(report, model, maxTokens, options.specialists),
+      ...request,
       ...(options.signal ? { signal: options.signal } : {}),
     });
   } catch (error) {
@@ -145,7 +146,7 @@ export async function explain(
   // A claim the facts contradict ("only this one token", "a clean record"
   // with a sale measured) is cut, sentence by sentence; a section left empty
   // is not served, the facts are.
-  const checked = withoutClaims(text, report);
+  const checked = withoutClaims(text, report, request.user);
   if (checked.dropped.length > 0) {
     log.warn('affirmations contredites par les faits retirées', {
       provider: provider.name,
