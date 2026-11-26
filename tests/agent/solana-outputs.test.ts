@@ -40,11 +40,11 @@ describe('the system prompt describes Solana', () => {
 
   it('still forbids scores, advice and intent labels', () => {
     expect(SYSTEM_PROMPT).toMatch(/NEVER assign a score/);
-    expect(SYSTEM_PROMPT).toMatch(
-      /good or bad investment, safe, or something to buy, sell or avoid/,
-    );
-    expect(SYSTEM_PROMPT).toMatch(/no "sniper", "insider", "bundle"/);
-    expect(SYSTEM_PROMPT).toMatch(/never write that the creator controls them/);
+    expect(SYSTEM_PROMPT).toMatch(/safe, risky, a scam, a rug, a honeypot/);
+    expect(SYSTEM_PROMPT).toMatch(/a good or bad investment, or something to buy, sell or avoid/);
+    // Trader words name measured facts; an allegiance is never said.
+    expect(SYSTEM_PROMPT).toMatch(/Never "insider"/);
+    expect(SYSTEM_PROMPT).toMatch(/never say the dev controls wallets it funded/);
   });
 });
 
@@ -58,8 +58,8 @@ describe('the guardrails, on Solana wording', () => {
     ['a rating', 'Token-2022 risk score: 7'],
     ['advice', 'You should sell before the permanent delegate acts.'],
     ['a risk level', 'No freeze authority and no transfer hook: low risk.'],
-    ['an intent label', 'Two snipers bought in the creation slot.'],
-    ['an intent label', 'The bundle in the creation slot got 39% of the supply.'],
+    ['an intent label', 'Two insiders bought in the creation slot.'],
+    ['an intent label', 'An insider wallet got 39% of the supply.'],
   ])('blocks %s', (_, text) => {
     expect(isCompliant(text)).toBe(false);
   });
@@ -144,7 +144,7 @@ describe('every text SEAL writes, on the tokens recorded on mainnet', () => {
       ['supply', 'neutral'],
     ]);
     expect(glance.items[1]!.title).toBe(
-      'The creator sold 12% of the supply, all it had bought, and holds none of it today.',
+      'The creator sold 11.9% of the supply, all it had bought, and holds none of it today.',
     );
   });
 

@@ -78,6 +78,32 @@ export class NotFoundError extends SealError {
   }
 }
 
+/**
+ * The address is a mint, but of an NFT (no decimals, a supply of one): SEAL
+ * reads fungible tokens. Asking again will not change it.
+ */
+export class NotFungibleError extends SealError {
+  readonly kind = 'not-fungible';
+  readonly retryable = false;
+  constructor(
+    source: SourceName,
+    readonly mint: string,
+  ) {
+    super(source, `${source} : ${mint} is an NFT mint (0 decimals, supply 1)`);
+  }
+}
+
+/** What a public route says of an NFT mint, with a 422. */
+export const NOT_FUNGIBLE_MESSAGE = 'This is an NFT; SEAL reads fungible tokens.';
+
+/** HTTP status of a failure a public route reports. */
+export function failureStatus(kind: string): number {
+  if (kind === 'rate-limit') return 429;
+  if (kind === 'not-found') return 404;
+  if (kind === 'not-fungible') return 422;
+  return 502;
+}
+
 /** Réponse inattendue : statut inconnu, corps illisible, schéma inattendu. */
 export class UpstreamError extends SealError {
   readonly kind = 'upstream';

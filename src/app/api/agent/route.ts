@@ -3,7 +3,7 @@ import { investigate } from '@/lib/agent/investigate';
 import { collect } from '@/lib/collect';
 import type { TokenReport } from '@/lib/contracts';
 import { SealError } from '@/lib/errors';
-import { AGENT_LIMIT, guardedJson } from '@/lib/guard';
+import { AGENT_LIMIT, agentApiEnabled, guardedJson } from '@/lib/guard';
 import { log } from '@/lib/logger';
 import { overBudget, recordSpend } from '@/lib/spend';
 import { isSolanaAddress } from '@/lib/solana/address';
@@ -24,6 +24,7 @@ const MIN_MODEL_MS = 5_000;
 /** Gathering gets its own share, so a slow source leaves time to word the findings. */
 const GATHER_TIMEOUT_MS = 35_000;
 
+/** What the caller is served: never what the call cost, nor which model tier wrote it. */
 export type AgentResponse = {
   token: string;
   agent: string;
@@ -31,9 +32,7 @@ export type AgentResponse = {
   findings: Finding[];
   /** Spécialistes que l'enquête a ajoutés hors de la sélection. */
   leads: string[];
-  tier: string;
   explanation: string;
-  costUsd: number;
   offline: boolean;
 };
 
@@ -43,6 +42,7 @@ function errorResponse(status: number, message: string, detail?: string | string
 
 export async function POST(request: Request): Promise<Response> {
   const started = Date.now();
+  if (!agentApiEnabled()) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const guarded = await guardedJson(request, AGENT_LIMIT, 'agent');
   if ('response' in guarded) return guarded.response;
@@ -59,6 +59,7 @@ export async function POST(request: Request): Promise<Response> {
     checklist = compileAgent(body.agent);
   } catch (error) {
     if (error instanceof InvalidAgentSpecError) {
+      // The validator's wording: only served where the route is (see agentApiEnabled).
       return errorResponse(400, 'Invalid agent', error.issues);
     }
     throw error;
@@ -99,9 +100,7 @@ export async function POST(request: Request): Promise<Response> {
       fingerprint: checklist.fingerprint,
       findings: result.findings,
       leads: result.leads,
-      tier: result.tier,
       explanation: result.text,
-      costUsd: result.totalCostUsd,
       offline: result.offline,
     };
     log.info('agent servi', {

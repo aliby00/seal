@@ -8,49 +8,66 @@ import { CREATOR, HOLDER, solanaReport } from '../helpers/solana-report';
 const AT = '2026-11-25T00:00:00.000Z';
 const base = solanaReport();
 
+/** The text's blocks, as the page splits them. */
+const blocks = (text: string) => text.split(/\n{2,}/);
+
 describe('offlineExplanation', () => {
   const report = solanaReport();
   const text = offlineExplanation(report);
 
-  it("annonce d'emblée qu'elle ne croise pas les signaux", () => {
-    expect(text.split('\n')[0]).toMatch(/without the reasoning agent/);
+  it('has the shape of the reading: what stands out, then what is clean', () => {
+    const b = blocks(text);
+    expect(b[0]).toBe('What stands out');
+    expect(b[1]!.length).toBeGreaterThan(20);
+    // No pipeline talk: the reader is a trader, not the one who built it.
+    expect(text).not.toMatch(/reasoning agent|cross-examin|This account|in the first 1 seconds/);
   });
 
   it("respecte les mêmes garde-fous que l'agent", () => {
     expect(findViolations(text)).toEqual([]);
   });
 
-  it('names the creator, where it was read, and what it did with this token', () => {
-    expect(text).toContain(`Creator: ${CREATOR.slice(0, 4)}…${CREATOR.slice(-4)}`);
-    expect(text).toContain('named by its pump.fun bonding curve');
-    // Every move was read, and there was none: no sale is a fact here.
-    expect(text).toMatch(/The creator has no move on this token: it did not sell any\./);
+  it('stays short: a trader reads it in ten seconds', () => {
+    expect(text.split(/\s+/).length).toBeLessThan(190);
   });
 
-  it('says the creator sold when its moves show a sale', () => {
+  it('says the dev sold when its moves show a sale, in trader words', () => {
     const sold = solanaReport({
       creatorOnToken: base.creatorOnToken && {
         ...base.creatorOnToken,
-        data: { ...base.creatorOnToken.data, sold: '5000' },
+        data: {
+          ...base.creatorOnToken.data,
+          bought: '30000000000000',
+          sold: '30000000000000',
+          solSpent: '1290000000',
+          holdsNow: '0',
+          saleSize: 'material',
+        },
       },
     });
-    expect(offlineExplanation(sold)).toMatch(/the creator sold <0\.01% of the supply/);
+    const out = offlineExplanation(sold);
+    expect(out).toMatch(/The dev bought 3% of the supply for 1\.29 SOL/);
+    expect(out).toMatch(/sold all of it/);
+    expect(out).toMatch(/it holds none of it today/);
   });
 
-  it('never says "did not sell" when not every move was read', () => {
+  it('never says "has not sold" when not every move was read', () => {
     const partial = solanaReport({
       creatorOnToken: base.creatorOnToken && {
         ...base.creatorOnToken,
         completeness: 'partial',
-        data: { ...base.creatorOnToken.data, transactions: { listed: 16, read: 15 } },
+        data: {
+          ...base.creatorOnToken.data,
+          bought: '30000000000000',
+          transactions: { listed: 16, read: 15 },
+        },
       },
     });
     const out = offlineExplanation(partial);
-    expect(out).toMatch(/No sale by the creator was seen in the 15 of 16 transactions read/);
-    expect(out).not.toMatch(/did not sell/);
+    expect(out).not.toMatch(/has not sold|did not sell/);
   });
 
-  it('says what the mint lets someone do, and who holds it', () => {
+  it('a power someone still holds over holders comes first', () => {
     const held = solanaReport({
       powers: [
         {
@@ -61,34 +78,25 @@ describe('offlineExplanation', () => {
             "Someone can freeze any holder's tokens so they cannot be moved (freeze authority).",
           from: 'mint',
         },
-        {
-          power: 'mint',
-          status: 'none',
-          holder: null,
-          sentence: 'No one can create new tokens.',
-          from: 'mint',
-        },
       ],
     });
-    expect(offlineExplanation(held)).toContain(
-      `Mint (Token-2022): No one can create new tokens. Someone can freeze any holder's tokens so they cannot be moved (freeze authority). Held by ${CREATOR.slice(0, 4)}…${CREATOR.slice(-4)}, the creator.`,
-    );
-    expect(text).toContain('Mint (Token-2022): No one can create new tokens.');
+    const out = offlineExplanation(held);
+    expect(blocks(out)[1]).toMatch(/^(?:The creator|Someone) can still freeze any holder’s tokens/);
   });
 
-  it('says what wallets got together at launch, and what they hold today', () => {
+  it('names a bundle with its number, and what the wallets hold today', () => {
     const grouped = solanaReport({
       launch: {
         ...base.launch,
         data: {
           ...base.launch.data,
           sameSlot: {
-            wallets: 2,
-            share: 0.395,
+            wallets: 3,
+            share: 0.419,
             transactions: 2,
             heldNow: 0,
             unread: 0,
-            soldInWindow: 0,
+            soldInWindow: 3,
             solSpent: 24.2,
             addresses: [],
           },
@@ -96,11 +104,33 @@ describe('offlineExplanation', () => {
       },
     });
     expect(offlineExplanation(grouped)).toContain(
-      'Launch: in the creation slot, 2 wallets other than the creator got 39.5 % of the supply and hold none of it today.',
+      'Bundled launch: 3 wallets other than the dev took 41.9% of the supply in the creation slot',
     );
   });
 
-  it('says what the wallets the creator funded did, without saying who controls them', () => {
+  it('one wallet in the creation slot is no bundle', () => {
+    const one = solanaReport({
+      launch: {
+        ...base.launch,
+        data: {
+          ...base.launch.data,
+          sameSlot: {
+            wallets: 1,
+            share: 0.025,
+            transactions: 1,
+            heldNow: 0,
+            unread: 0,
+            soldInWindow: 1,
+            solSpent: 2.9,
+            addresses: [],
+          },
+        },
+      },
+    });
+    expect(offlineExplanation(one)).not.toMatch(/[Bb]undle/);
+  });
+
+  it('says what the wallets the dev funded did, without saying who controls them', () => {
     const funded = solanaReport({
       linkedWallets: base.linkedWallets && {
         ...base.linkedWallets,
@@ -124,13 +154,12 @@ describe('offlineExplanation', () => {
         },
       },
     });
-    const out = offlineExplanation(funded);
-    expect(out).toContain(
-      'Around the launch it sent SOL to 1 wallet; 1 of them traded this token, selling 3.0% of the supply. A transfer links the addresses; it does not show who controls them.',
+    expect(offlineExplanation(funded)).toContain(
+      '1 wallet the dev sent SOL to around the launch bought 4% of the supply; a transfer links them, it does not show who controls them.',
     );
   });
 
-  it('says nothing names a creator, rather than "could not be read"', () => {
+  it('says nothing names a dev, rather than "could not be read"', () => {
     const none = solanaReport({
       creator: { ...base.creator, data: { ...base.creator.data, creator: null, from: null } },
       creatorHistory: null,
@@ -138,11 +167,11 @@ describe('offlineExplanation', () => {
       linkedWallets: null,
     });
     expect(offlineExplanation(none)).toMatch(
-      /no curve, creation transaction or metadata authority/,
+      /No curve, creation transaction or metadata authority names a dev\./,
     );
   });
 
-  it("dit pourquoi une source manque au lieu de l'omettre", () => {
+  it('says when who holds it could not be read', () => {
     const missing = solanaReport({
       holders: {
         ...base.holders,
@@ -152,41 +181,19 @@ describe('offlineExplanation', () => {
         ],
       },
     });
-    expect(offlineExplanation(missing)).toMatch(/Holder concentration: not measured/);
+    expect(offlineExplanation(missing)).toMatch(/Who holds it could not be read\./);
   });
 
-  it("donne le volume rapporté au nombre d'échanges", () => {
-    expect(text).toMatch(/across 70 trades/);
-  });
-
-  it('says where the market figures were read: the main pair, or the pairs added up', () => {
-    expect(text).toContain('Over 24 hours on its main pair: ');
-    const summed = solanaReport({
-      market: {
-        ...base.market,
-        data: { ...base.market.data, pairsCounted: 28, quiet: { hours: 1 } },
-      },
-    });
-    const said = offlineExplanation(summed);
-    expect(said).toContain('Over 24 hours on 28 of its listed pairs: ');
-    expect(said).toContain('no trade on any of its listed pairs in the last hour');
-    expect(findViolations(said)).toEqual([]);
-    // A report from before the pairs were added up: its figures are the main pair's.
-    const older = solanaReport({
-      market: { ...base.market, data: { ...base.market.data, quiet: { hours: 3 } } },
-    });
-    expect(offlineExplanation(older)).toContain('no trade on its main pair in the last 3 hours');
-  });
-
-  it('says a failed read once, at the top', () => {
+  it('says a failed read once, in the last line', () => {
     const failed: TokenReport = {
       ...report,
       completeness: 'partial',
       failedReads: [{ read: 'holders', note: 'rate-limit : solana-rpc : request limit reached' }],
     };
     const out = offlineExplanation(failed);
-    expect(out).toMatch(/Partial report: some reads failed this time \(who holds it\)/);
-    expect(out).not.toMatch(/Some reads cover only part of the data/);
+    expect(blocks(out).at(-1)).toMatch(/^Not read this time: who holds it\./);
+    expect(out.match(/who holds it/g)).toHaveLength(1);
+    expect(out).not.toMatch(/Partial report|The report is partial/);
   });
 });
 

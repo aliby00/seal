@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
+import { share } from '@/lib/figures';
 import { creatorFrom } from './creator-from';
-import { plainNote } from './FactsBoard';
-import { addressUrl, short, txUrl } from './explorer';
+import { NamedLine, plainNote } from './FactsBoard';
+import { addressUrl, extensionWords, short, txUrl } from './explorer';
+import { clockOf, Flash, LiveStamp, type LiveTimes } from './LiveStamp';
 import type {
   FundedView,
   GroupView,
@@ -21,13 +23,14 @@ import type {
  * and links to it; what was not read is said, never drawn as zero.
  */
 
+/**
+ * One rounding rule for every share on the page, the figures row's
+ * (lib/figures.ts): POPCAT's largest holder read 18 %, 17.5 % and 17 % in
+ * three places (26/11/2026).
+ */
 export function pct(value: number | null): string {
   if (value === null) return 'not read';
-  if (value === 0) return '0%';
-  if (value > 0 && value < 0.001) return '<0.1%';
-  if (value > 0.999 && value < 1) return '>99.9%';
-  // Above 99 %, one decimal: 99.79 % is not the whole supply.
-  return `${(value * 100).toFixed(value < 0.1 || (value > 0.99 && value < 1) ? 1 : 0)}%`;
+  return share(value);
 }
 
 /** A raw amount in whole tokens, compact: "1B", "983.99M". */
@@ -116,6 +119,8 @@ const MOVE_WORD: Record<MoveView['kind'], string> = {
   sent: 'Sent',
   received: 'Received',
   burned: 'Burned',
+  provided: 'Put into a pool as liquidity',
+  withdrawn: 'Taken out of a pool',
 };
 
 const ROLE_WORD: Record<string, string> = {
@@ -221,7 +226,9 @@ function MintCard({ view }: { view: SolanaView }) {
           {mint.extensions.length > 0 && (
             <ul className="sol-chips" aria-label="Token-2022 extensions">
               {mint.extensions.map((name, i) => (
-                <li key={`${name}-${i}`}>{name}</li>
+                <li key={`${name}-${i}`} title={name}>
+                  {extensionWords(name)}
+                </li>
               ))}
             </ul>
           )}
@@ -276,7 +283,13 @@ function MintCard({ view }: { view: SolanaView }) {
   );
 }
 
-function SupplyCard({ view }: { view: SolanaView }) {
+function HoldersStamp({ live }: { live?: LiveTimes }) {
+  return live ? (
+    <LiveStamp at={live.holdersAt} collectedAt={live.collectedAt} paused={live.paused} />
+  ) : null;
+}
+
+function SupplyCard({ view, live }: { view: SolanaView; live?: LiveTimes }) {
   const h = view.holders;
   const of = h.data.ofSupply;
   const rows: { label: string; value: number | null }[] = [
@@ -294,18 +307,24 @@ function SupplyCard({ view }: { view: SolanaView }) {
         <ReadNote block={h} />
       ) : (
         <>
+          <HoldersStamp live={live} />
           <p className="fact-line">
             {h.data.holderCount !== null ? (
               <>
-                <strong>{h.data.holderCount.toLocaleString('en-US')}</strong> holders
+                <strong>
+                  <Flash value={h.data.holderCount.toLocaleString('en-US')} />
+                </strong>{' '}
+                holders outside curves, pools, locks and burn addresses.
               </>
+            ) : h.data.method === 'largest-accounts' ? (
+              // "At least 19 holders" read as a fact about POPCAT, which has tens of thousands.
+              <>Holder count not known: only the largest token accounts were read.</>
             ) : (
               <>
                 At least <strong>{h.data.holdersAtLeast.toLocaleString('en-US')}</strong> holders
+                outside curves, pools, locks and burn addresses.
               </>
-            )}{' '}
-            outside curves, pools, locks and burn addresses
-            {h.data.method === 'largest-accounts' ? ', from the largest accounts only' : ''}.
+            )}
           </p>
           {shown.length > 0 && (
             <ol className="holder-bars" aria-label="Parts of the whole supply">
@@ -318,7 +337,9 @@ function SupplyCard({ view }: { view: SolanaView }) {
                       style={{ width: `${Math.min(1, r.value ?? 0) * 100}%` }}
                     />
                   </span>
-                  <span className="holder-share">{pct(r.value)}</span>
+                  <span className="holder-share">
+                    <Flash value={pct(r.value)} />
+                  </span>
                 </li>
               ))}
             </ol>
@@ -327,7 +348,7 @@ function SupplyCard({ view }: { view: SolanaView }) {
           {h.data.creator && (
             <p className="fact-line">
               The creator, <Address address={h.data.creator.address} />, holds{' '}
-              {pct(h.data.creator.ofSupply)} of the supply today.
+              <Flash value={pct(h.data.creator.ofSupply)} /> of the supply today.
             </p>
           )}
           {h.data.setAside.length > 0 && (
@@ -550,12 +571,12 @@ function Amount({ label, value }: { label: string; value: number | null }) {
   return (
     <div>
       <dt>{label}</dt>
-      <dd>{value === null ? <span>not read</span> : pct(value)}</dd>
+      <dd>{value === null ? <span>not read</span> : <Flash value={pct(value)} />}</dd>
     </div>
   );
 }
 
-function CreatorTokenCard({ view }: { view: SolanaView }) {
+function CreatorTokenCard({ view, live }: { view: SolanaView; live?: LiveTimes }) {
   const creator = view.creator.data;
   const on = view.onToken;
   return (
@@ -570,9 +591,13 @@ function CreatorTokenCard({ view }: { view: SolanaView }) {
           <p className="fact-mono">
             <Address address={creator.address} label={creator.address} />
           </p>
-          {creatorFrom(creator.from) && <p className="fact-line">{creatorFrom(creator.from)}</p>}
+          {creatorFrom(creator.from, view.powers) && (
+            <p className="fact-line">{creatorFrom(creator.from, view.powers)}</p>
+          )}
+          {creator.named && <NamedLine named={creator.named} creator={creator.address} />}
           {on && on.read !== 'unavailable' ? (
             <>
+              <HoldersStamp live={live} />
               <dl className="fact-pairs">
                 <Amount label="Bought" value={on.data.bought} />
                 <Amount label="Sold" value={on.data.sold} />
@@ -581,6 +606,11 @@ function CreatorTokenCard({ view }: { view: SolanaView }) {
                 {(on.data.locked ?? 0) > 0 && <Amount label="Locked" value={on.data.locked} />}
                 {(on.data.burned ?? 0) > 0 && <Amount label="Burned" value={on.data.burned} />}
               </dl>
+              {on.data.saleSize === 'minor' && (
+                <p className="fact-line">
+                  A minor sale: under 0.5% of the supply, or under 1 SOL on a token over a week old.
+                </p>
+              )}
               <p className="fact-note">
                 Shares of the whole supply. {on.data.transactions.read} of{' '}
                 {on.data.transactions.listed} transaction
@@ -659,7 +689,8 @@ function OtherTokensCard({ view }: { view: SolanaView }) {
               {d.tokens.map((t) => (
                 <li key={t.mint}>
                   <span>
-                    {t.name ?? t.symbol ?? short(t.mint)}
+                    {/* The address is the link beside it: not said twice. */}
+                    {t.name ?? t.symbol ?? 'Unnamed token'}
                     {t.launchpad ? ` · ${t.launchpad}` : ''}
                     {t.launchedAt ? ` · ${t.launchedAt.slice(0, 10)}` : ''}
                   </span>
@@ -755,7 +786,16 @@ function LinkedCard({ view }: { view: SolanaView }) {
   );
 }
 
-export function SolanaFacts({ view, index }: { view: SolanaView; index: string }) {
+export function SolanaFacts({
+  view,
+  index,
+  live,
+}: {
+  view: SolanaView;
+  index: string;
+  /** When the live reads last landed: the holders and the creator's balance follow them. */
+  live?: LiveTimes;
+}) {
   return (
     <section className="facts-section sol-facts" aria-labelledby="solana-facts-title">
       <div className="report-section-head">
@@ -763,14 +803,16 @@ export function SolanaFacts({ view, index }: { view: SolanaView; index: string }
         <h3 id="solana-facts-title">The mint, the launch and the creator, account by account.</h3>
         <p className="questions-intro">
           Every address and transaction links to the Solana Explorer.
+          {live &&
+            ` Holders and what the creator holds are refreshed live; the rest is as of ${clockOf(live.collectedAt)}.`}
         </p>
       </div>
       <div className="facts-board sol-board" role="region" aria-label="Facts read on Solana">
         <MintCard view={view} />
-        <SupplyCard view={view} />
+        <SupplyCard view={view} live={live} />
         <LiquidityCard view={view} />
         <LaunchCard view={view} />
-        <CreatorTokenCard view={view} />
+        <CreatorTokenCard view={view} live={live} />
         <OtherTokensCard view={view} />
         <LinkedCard view={view} />
       </div>

@@ -2,10 +2,12 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ImageResponse } from 'next/og';
 import { isSolanaAddress, shortAddress } from '@/lib/solana/address';
-import { cardCache, glanceOf } from '@/lib/glance-service';
+import { analysisCache } from '@/lib/analysis-cache';
+import { cachedGlance, cardCache, fromAnalysis, glanceOf } from '@/lib/glance-service';
 import type { GlanceItem, GlanceTone } from '@/lib/glance';
-import { allowShared, clientKey, type RateLimit } from '@/lib/guard';
+import { allowShared, clientKey, COLLECT_LIMIT, type RateLimit } from '@/lib/guard';
 import { log } from '@/lib/logger';
+import { SealError } from '@/lib/errors';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -27,6 +29,11 @@ const SIZE = { width: 1200, height: 630 };
 const CARD_WAIT_MS = 8_000;
 /** Crawlers of several apps fetch the same card; a person never needs more. */
 const CARD_LIMIT: RateLimit = { capacity: 20, perMinute: 20 };
+/**
+ * As long as a young token's reading is kept (analysis-cache.ts): the card a
+ * crawler keeps longer showed other numbers than the page (POPCAT, 26/11/2026).
+ */
+const CARD_CACHE = 'public, max-age=180, s-maxage=180';
 
 const INK = '#05080b';
 const TEXT = '#eef2f4';
@@ -114,7 +121,8 @@ function Pill({ tone }: { tone: GlanceTone }) {
 }
 
 type CardData = {
-  token: string;
+  /** `null`: the site's own card, for an address that holds no token. */
+  token: string | null;
   name: string | null;
   symbol: string | null;
   items: GlanceItem[];
@@ -122,9 +130,13 @@ type CardData = {
 
 function Card({ data }: { data: CardData }) {
   const [lead, ...rest] = data.items;
-  const title = data.name ?? data.symbol ?? 'A token on Solana';
+  const title = data.token
+    ? (data.name ?? data.symbol ?? 'A token on Solana')
+    : 'Paste a token. Read its story.';
   const nameSize = title.length > 18 ? 54 : 68;
   const tone = lead ? TONE[lead.tone].color : ACCENT;
+  // A wide figure ("0.4990 SOL") goes above its sentence, which keeps the full width.
+  const stacked = Boolean(lead?.figure && lead.figure.length > 6);
   return (
     <div
       style={{
@@ -169,19 +181,35 @@ function Card({ data }: { data: CardData }) {
         )}
       </div>
       <div style={{ fontFamily: 'Mono', fontSize: 20, color: FAINT, marginTop: 12 }}>
-        {`${shortAddress(data.token)} · Solana`}
+        {data.token ? `${shortAddress(data.token)} · Solana` : 'Token research on Solana'}
       </div>
 
       {lead ? (
-        <div style={{ display: 'flex', flexDirection: 'column', marginTop: 30, flexGrow: 1 }}>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            marginTop: 34,
+            marginBottom: 24,
+            flexGrow: 1,
+          }}
+        >
           <div style={{ display: 'flex' }}>
             <Pill tone={lead.tone} />
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 30, marginTop: 16 }}>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: stacked ? 'column' : 'row',
+              alignItems: stacked ? 'flex-start' : 'center',
+              gap: stacked ? 8 : 30,
+              marginTop: 20,
+            }}
+          >
             {lead.figure && (
               <div
                 style={{
-                  fontSize: 104,
+                  fontSize: stacked ? 76 : 104,
                   fontWeight: 700,
                   letterSpacing: -4,
                   lineHeight: 1,
@@ -192,12 +220,20 @@ function Card({ data }: { data: CardData }) {
               </div>
             )}
             <div
-              style={{ display: 'flex', flex: 1, fontSize: 34, lineHeight: 1.22, fontWeight: 500 }}
+              style={{
+                display: 'flex',
+                flex: 1,
+                fontSize: stacked ? 30 : 34,
+                lineHeight: 1.22,
+                fontWeight: 500,
+              }}
             >
-              {clip(lead.title, lead.figure ? 120 : 160)}
+              {/* Two lines at most: the card is a summary, the page has the rest. */}
+              {clip(lead.title, stacked ? 110 : lead.figure ? 90 : 120)}
             </div>
           </div>
-          {rest.slice(0, 2).map((item) => (
+          {/* A long or stacked first line leaves room for one more, not two. */}
+          {rest.slice(0, stacked || lead.title.length > 80 ? 1 : 2).map((item) => (
             <div
               key={item.id}
               style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginTop: 14 }}
@@ -213,7 +249,7 @@ function Card({ data }: { data: CardData }) {
                 }}
               />
               <div style={{ display: 'flex', fontSize: 23, color: DIM, lineHeight: 1.3 }}>
-                {clip(item.title, 95)}
+                {clip(item.title, 80)}
               </div>
             </div>
           ))}
@@ -251,6 +287,9 @@ function Card({ data }: { data: CardData }) {
   );
 }
 
+/** The site's card: no address, no finding. */
+const SITE_CARD: CardData = { token: null, name: null, symbol: null, items: [] };
+
 async function render(data: CardData, cache: string): Promise<Response> {
   const image = new ImageResponse(<Card data={data} />, { ...SIZE, fonts: await loadFonts() });
   image.headers.set('Cache-Control', cache);
@@ -267,22 +306,42 @@ export async function GET(request: Request): Promise<Response> {
   // One caller past its limit: the CDN must not serve that empty card to everyone.
   const limited = 'private, no-store';
 
-  if (!(await allowShared(`card:${clientKey(request)}`, CARD_LIMIT))) return render(plain, limited);
+  const caller = clientKey(request);
+  if (!(await allowShared(`card:${caller}`, CARD_LIMIT))) return render(plain, limited);
 
   try {
-    const glance =
+    // The analysis the page shows first, so the card and the page give the
+    // same numbers (POPCAT: $590.8k on the card, $596.2k on the page,
+    // 26/11/2026); then the card of the last analysis served, kept longer;
+    // then a glance. No collection for those.
+    const analysis = await analysisCache.get(token).catch(() => null);
+    const known =
+      (analysis ? fromAnalysis(analysis) : null) ??
       (await cardCache.get(token).catch(() => null)) ??
+      (await cachedGlance(token).catch(() => null));
+    // Not in a cache: a full collection, counted with the address's others (analyze, glance).
+    if (!known && !(await allowShared(`collect:${caller}`, COLLECT_LIMIT))) {
+      return render(plain, limited);
+    }
+    const glance =
+      known ??
       (await Promise.race([
         glanceOf(token),
         new Promise<null>((resolve) => setTimeout(() => resolve(null), CARD_WAIT_MS)),
       ]));
     if (!glance) return render(plain, retry);
     const items = glance.glance.items.filter((item) => !item.unread);
-    return render(
-      { token, name: glance.name, symbol: glance.symbol, items },
-      'public, max-age=600, s-maxage=600',
-    );
+    return render({ token, name: glance.name, symbol: glance.symbol, items }, CARD_CACHE);
   } catch (error) {
+    // A wallet or any address that holds no token gets the site's own card,
+    // never one naming the address: nobody can post a "read by SEAL" card
+    // for it (audit, 26/11/2026).
+    if (
+      error instanceof SealError &&
+      (error.kind === 'not-found' || error.kind === 'not-fungible')
+    ) {
+      return render(SITE_CARD, 'public, max-age=300, s-maxage=300');
+    }
     log.warn('carte de partage sans lecture', { error: String(error) });
     return render(plain, retry);
   }

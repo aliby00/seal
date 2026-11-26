@@ -18,6 +18,7 @@ import {
   LOCKED_FOR_GOOD,
   MOSTLY_SET_ASIDE,
   RECENT_WALLET_SECONDS,
+  SERIAL_LAUNCHES_MIN,
   ROUND_TRIPS_MIN,
   TRADES_MIN,
   TRADES_PER_HOLDER,
@@ -412,6 +413,9 @@ export const CREATOR_FROM: Record<NonNullable<TokenReport['creator']['data']['fr
   'creation-transaction': 'the fee payer of the transaction that created the mint',
   'metadata-update-authority':
     'the address that can update its metadata (the creator’s choice at launch, not proof of authorship)',
+  'launchpad-account': 'named as creator by its launchpad pool (Meteora DBC or Raydium LaunchLab)',
+  'mint-key-signer':
+    'the fee payer of the mint’s first transaction, which the mint’s own key signed (it holds that key)',
 };
 
 const NO_CREATOR =
@@ -464,7 +468,12 @@ const creatorHistory: Specialist = {
       const c = history.data.counts;
       const s = history.data.scanned;
       const atLeast = history.completeness !== 'full' || !s.pumpCurvesListed;
-      if (c.launched === 0) {
+      if (c.launched === 0 && (history.data.launchesAtLeast ?? 0) > 0) {
+        facts.push(
+          `Counting every pump.fun curve that names it, it launched at least ${count(history.data.launchesAtLeast ?? 0, 'other token')}; none of their mints could be listed, so what became of them is not known.`,
+        );
+        if ((history.data.launchesAtLeast ?? 0) >= SERIAL_LAUNCHES_MIN) signals.push('concern');
+      } else if (c.launched === 0) {
         facts.push(
           s.transactionsRead > 0
             ? `No other token by this creator was found on pump.fun’s curves or in the ${count(s.transactionsRead, 'transaction')} of its own read.`
@@ -474,7 +483,22 @@ const creatorHistory: Specialist = {
         facts.push(
           `It launched ${atLeast ? 'at least ' : ''}${count(c.launched, 'other token')}: ${c.graduated} graduated from their curve, ${c.active} traded in the last 24 hours, ${c.dead} launched over a day ago with no trade in the last 24 hours, ${c.unknown} not determined.`,
         );
-        const pattern = c.dead >= DEAD_LAUNCHES_MIN && c.dead * 2 >= c.launched;
+        // Every curve naming it is a launch, its mint found or not (pode: 1,382 more).
+        const more = history.data.launchesAtLeast;
+        if (more !== undefined && more > c.launched) {
+          facts.push(
+            `Counting every pump.fun curve that names it, it launched at least ${count(more, 'other token')}; the outcomes above are over the ${c.launched} listed one by one.`,
+          );
+        }
+        const low = history.data.lowCap;
+        if (low) {
+          facts.push(
+            `Of the ${count(low.checked, 'listed token')} whose market was read, ${low.under} ${low.under === 1 ? 'has' : 'have'} no market or a market cap under ${low.thresholdUsd.toLocaleString('en-US')}.`,
+          );
+        }
+        const pattern =
+          (c.dead >= DEAD_LAUNCHES_MIN && c.dead * 2 >= c.launched) ||
+          (history.data.launchesAtLeast ?? 0) >= SERIAL_LAUNCHES_MIN;
         signals.push(pattern ? 'concern' : 'observation');
       }
       if (history.completeness !== 'full' && noteOf(history)) limits.push(noteOf(history)!);
@@ -484,7 +508,8 @@ const creatorHistory: Specialist = {
     }
 
     const onToken = report.creatorOnToken;
-    const supply = supplyOf(report);
+    // Tokens burned since: the shares are of what was minted (never above 100 %).
+    const supply = onToken?.data.shareBase ?? supplyOf(report);
     if (!onToken || onToken.completeness === 'unavailable') {
       limits.push(unread('what the creator did with this token', onToken));
     } else {
@@ -518,6 +543,8 @@ const creatorHistory: Specialist = {
         );
       }
       if (d.locked !== '0') parts.push(`put ${part(d.locked)} into a lock`);
+      if (d.provided && d.provided !== '0')
+        parts.push(`put ${part(d.provided)} into pools as liquidity (not a sale)`);
       if (d.burned !== '0') parts.push(`burned ${part(d.burned)}`);
       const read = `${d.transactions.read} of ${count(d.transactions.listed, 'transaction')} on its token accounts read`;
       const all = onToken.completeness === 'full';
@@ -543,12 +570,15 @@ const creatorHistory: Specialist = {
             : 'It holds none of it today.',
         );
       }
-      if (sold === true) signals.push('concern');
+      // A minor sale (MINOR_SALE_*) is a fact, not a signal: POPCAT's creator
+      // "sold 0.0191 SOL" of a two-year-old token led its attention points.
+      if (sold === true) signals.push(d.saleSize === 'minor' ? 'observation' : 'concern');
       measures.creator = {
         bought,
         sold: sold === true ? soldShare : sold === false ? 0 : null,
         hasSold: sold,
         holdsNow: holds,
+        ...(sold === true && d.saleSize === 'minor' ? { minorSale: true } : {}),
       };
     }
     const nothingRead = !measures.history && !measures.creator;

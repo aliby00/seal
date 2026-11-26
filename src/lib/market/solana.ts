@@ -118,13 +118,55 @@ export function pickSolanaPair(
 ): DexScreenerPair | undefined {
   const own = pairs.filter((p) => p.baseToken?.address === mint && p.pairAddress);
   const liquid = own.filter((p) => num(p.liquidity?.usd) !== null);
-  const reference = liquid.filter(
-    (p) =>
-      REFERENCE_QUOTES.has(p.quoteToken?.address ?? '') &&
-      (num(p.liquidity?.usd) ?? 0) >= MEANINGFUL_POOL_USD,
-  );
-  if (reference.length > 0) return pickPrimaryPair(reference);
-  return pickPrimaryPair(liquid.length > 0 ? liquid : own.slice(0, 1));
+  const isReference = (p: DexScreenerPair) => REFERENCE_QUOTES.has(p.quoteToken?.address ?? '');
+  const meaningful = (p: DexScreenerPair) => (num(p.liquidity?.usd) ?? 0) >= MEANINGFUL_POOL_USD;
+  const reference = liquid.filter((p) => isReference(p) && meaningful(p));
+  // A pair against another token holds as much as a reference pair: EMBER's
+  // main market was its $65k DAMM v2 pool against MET, beside a $2.5k pool
+  // against SOL (26/11/2026). It counts only when its price agrees with the
+  // reference pairs': FIONA's $4.5M pair against MM priced it 10,000 times
+  // above every other pair (25/11/2026).
+  const referencePrice = num(pickPrimaryPair(reference)?.priceUsd);
+  const agrees = (p: DexScreenerPair) => {
+    if (isReference(p) || referencePrice === null) return true;
+    const price = num(p.priceUsd);
+    return (
+      price !== null &&
+      price > 0 &&
+      price <= referencePrice * PRICE_AGREEMENT &&
+      price >= referencePrice / PRICE_AGREEMENT
+    );
+  };
+  const candidates = liquid.filter((p) => meaningful(p) && agrees(p));
+  if (reference.length > 0 || candidates.length > 0) {
+    return pickPrimaryPair(candidates.length > 0 ? candidates : reference);
+  }
+  // No pair holds a meaningful liquidity figure: the most traded one is the
+  // market. LINK DMhmzw…'s main pair was an $8 pool against CSR (522 trades
+  // in 24 h) while its PumpSwap pool against NEURALINK, which DexScreener
+  // cannot price in dollars, had 10,867 (26/11/2026). A curve, listed with
+  // no liquidity figure, is its token's most traded pair. Between pairs of
+  // like activity, the most liquid one stays the market.
+  const fallback = pickPrimaryPair(liquid.length > 0 ? liquid : own.slice(0, 1));
+  const traded = [...own].sort((a, b) => tradesOf(b) - tradesOf(a))[0];
+  if (
+    traded &&
+    tradesOf(traded) > 0 &&
+    tradesOf(traded) >= MOST_TRADED_FACTOR * (fallback ? tradesOf(fallback) : 0)
+  ) {
+    return traded;
+  }
+  return fallback;
+}
+
+/** How far (a factor) a pair's price may stand from the reference pairs' and still be the market. */
+export const PRICE_AGREEMENT = 3;
+/** With no pair holding a meaningful liquidity, the most traded one is the market when it trades this many times more. */
+export const MOST_TRADED_FACTOR = 5;
+
+function tradesOf(p: DexScreenerPair): number {
+  const t = p.txns?.h24;
+  return (num(t?.buys) ?? 0) + (num(t?.sells) ?? 0);
 }
 
 function txns(source: DexScreenerPair['txns'], window: string) {
@@ -193,6 +235,36 @@ function countedPairs(
       (p) => p.baseToken?.address === mint && REFERENCE_QUOTES.has(p.quoteToken?.address ?? ''),
     ),
   ]);
+}
+
+/**
+ * Volume per trade over 24 h, USD, over the pairs giving both figures. On
+ * EMBER the $3,058 of one pair was divided by the 1,018 trades of eight:
+ * "$3 per trade" (production, 26/11/2026).
+ */
+export function perTrade(pairs: readonly DexScreenerPair[]): number | null {
+  let volume = 0;
+  let trades = 0;
+  let all = 0;
+  for (const p of pairs) {
+    const v = num(p.volume?.h24);
+    const t = tradesOf(p);
+    all += t;
+    if (v === null || t === 0) continue;
+    volume += v;
+    trades += t;
+  }
+  // Pairs giving no volume (LINK's PumpSwap pool against NEURALINK: 11,000
+  // trades, no dollar figure) leave the average to the others: it says
+  // something only when those hold most of the trades.
+  if (trades === 0 || trades * 2 < all) return null;
+  return Math.round((volume / trades) * 100) / 100;
+}
+
+/** `part / whole`, to 1e-4; `null` when either is missing or the whole is not positive. */
+export function ratio(part: number | null, whole: number | null): number | null {
+  if (part === null || whole === null || whole <= 0) return null;
+  return Math.round((part / whole) * 10_000) / 10_000;
 }
 
 export function toSolanaMarketState(
@@ -267,6 +339,8 @@ export function toSolanaMarketState(
       : null,
     txns: withTxns ? { h1: txns(sums.txns, 'h1'), h24: txns(sums.txns, 'h24') } : null,
     pairsCounted: counted.length,
+    perTradeUsd24h: perTrade(counted),
+    liquidityToMarketCap: ratio(num(pair.liquidity?.usd), num(pair.marketCap) ?? num(pair.fdv)),
     fdvUsd: num(pair.fdv),
     marketCapUsd: num(pair.marketCap),
     pairCreatedAt: pair.pairCreatedAt ? new Date(pair.pairCreatedAt).toISOString() : null,
@@ -381,6 +455,45 @@ function failed<T>(
       ? error.message
       : 'unexpected error');
   return { completeness: 'unavailable', sources: [{ name, fetchedAt, note: reason }], data };
+}
+
+/**
+ * The curve's SOL in dollars, when the main pair is the token's curve, still
+ * on it and quoted in SOL: pode 8VWH6n… said "DexScreener gives no liquidity
+ * figure" beside a $15k market cap while its curve held about $8k of SOL
+ * (26/11/2026). The SOL price is the pair's own: priceUsd / priceNative.
+ */
+export function withCurveLiquidity(
+  market: SolanaMarketState,
+  graduation: SolanaGraduation | null,
+): SolanaMarketState {
+  const d = market.data;
+  const g = graduation?.data;
+  if (
+    !g ||
+    graduation?.completeness === 'unavailable' ||
+    g.graduated !== false ||
+    g.account !== d.pair ||
+    d.liquidityUsd !== null ||
+    !g.raised ||
+    g.raised.mint !== null ||
+    d.pairedWith?.address !== NATIVE_MINT ||
+    !d.priceUsd ||
+    !d.priceNative
+  ) {
+    return market;
+  }
+  const lamports = Number(g.raised.raw);
+  if (!Number.isFinite(lamports)) return market;
+  const usd = Math.round((lamports / 1e9) * (d.priceUsd / d.priceNative) * 100) / 100;
+  return {
+    ...market,
+    data: {
+      ...d,
+      curveLiquidityUsd: usd,
+      liquidityToMarketCap: ratio(usd, d.marketCapUsd ?? d.fdvUsd),
+    },
+  };
 }
 
 export type ReadSolanaMarketOptions = {
@@ -516,6 +629,8 @@ async function readZone(
       });
     }
   }
+
+  market = withCurveLiquidity(market, graduation);
 
   // The pool the token graduated to first, then the most liquid listed pools
   // where it is the base; the launch curve is not a pool, and a pair where the

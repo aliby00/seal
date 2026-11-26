@@ -1,12 +1,15 @@
 import { readableNote } from '@/lib/plain-note';
 import type { CSSProperties } from 'react';
+import { share } from '@/lib/figures';
 import type { ReportFacts, TimelineLaunch } from '@/lib/facts';
 import { dexName } from '@/lib/market';
 import { whereSetAside } from '@/lib/set-aside';
 import { displayName } from '@/lib/specialists/names';
 import { creatorFrom } from './creator-from';
 import { addressUrl, short } from './explorer';
+import { Flash, LiveStamp, type LiveTimes } from './LiveStamp';
 import type { SolanaView } from './solana-view';
+import { timelinePositions } from './timeline';
 
 /**
  * The measured numbers, drawn. Three cards — creator, holders, market — each
@@ -14,12 +17,41 @@ import type { SolanaView } from './solana-view';
  * cards sit side by side and the reader weighs them.
  */
 
-function pct(value: number): string {
-  if (value > 0 && value < 0.001) return '<0.1%';
-  // 99.96% rounded would read as the whole supply.
-  if (value > 0.999 && value < 1) return '>99.9%';
-  // Above 99 %, one decimal: 99.79 % rounded to "100%" would sit next to "the other 0.2%".
-  return `${(value * 100).toFixed(value < 0.1 || (value > 0.99 && value < 1) ? 1 : 0)}%`;
+/** One rounding rule for every share on the page, the figures row's (lib/figures.ts). */
+const pct = share;
+
+/**
+ * Shares rounded to a tenth of a percent so that they add up to the whole:
+ * POPCAT's donut read 18 + 23 + 60 = 101 % (26/11/2026). The largest
+ * remainders get the tenths left over.
+ */
+export function wholeParts(values: readonly number[]): number[] {
+  const tenths = values.map((v) => Math.max(0, v) * 1000);
+  const floors = tenths.map((v) => Math.floor(v));
+  let left = 1000 - floors.reduce((s, v) => s + v, 0);
+  const order = tenths
+    .map((v, i) => ({ i, rest: v - Math.floor(v) }))
+    .sort((a, b) => b.rest - a.rest);
+  for (const { i } of order) {
+    if (left <= 0) break;
+    floors[i] = (floors[i] ?? 0) + 1;
+    left -= 1;
+  }
+  return floors.map((v) => v / 1000);
+}
+
+/**
+ * The pump.fun curve names one address, another signed and paid for the
+ * creation: the creator figures are the signer's (Gondola, hoss, 26/11/2026).
+ */
+export function NamedLine({ named, creator }: { named: string; creator: string }) {
+  return (
+    <p className="fact-note">
+      The pump.fun curve names <Address address={named} /> as creator, but that address neither
+      signed the creation nor got tokens in it. <Address address={creator} /> signed and paid for
+      it: the creator figures here are its.
+    </p>
+  );
 }
 
 /**
@@ -125,16 +157,36 @@ function Ring({
  * Where the counted supply sits: the largest holder, the next nine, everyone
  * else. Three plain shares of one whole — no threshold is drawn on it.
  */
-function Donut({ top1, top10, count }: { top1: number; top10: number; count: number | null }) {
+function Donut({
+  top1,
+  top10,
+  setAside,
+  count,
+  countWord,
+}: {
+  top1: number;
+  top10: number;
+  /** Of the whole supply, in curves, pools, locks and burn addresses: drawn as its own part. */
+  setAside?: number;
+  count: number | null;
+  /** Said in the centre when there is no count. */
+  countWord?: string;
+}) {
   const clamp = (x: number) => Math.max(0, Math.min(1, x));
   const first = clamp(top1);
   const next = clamp(top10 - top1);
-  const rest = clamp(1 - first - next);
-  const parts = [
-    { name: 'Largest holder', share: first, tone: 'accent' },
-    { name: 'Holders 2 to 10', share: next, tone: 'soft' },
-    { name: 'Everyone else', share: rest, tone: 'faint' },
+  const aside = setAside === undefined ? 0 : clamp(Math.min(setAside, 1 - first - next));
+  const rest = clamp(1 - first - next - aside);
+  const shares = wholeParts(
+    setAside === undefined ? [first, next, rest] : [first, next, aside, rest],
+  );
+  const named = [
+    { name: 'Largest holder', tone: 'accent' },
+    { name: 'Holders 2 to 10', tone: 'soft' },
+    ...(setAside === undefined ? [] : [{ name: 'Curves, pools, locks, burned', tone: 'aside' }]),
+    { name: 'Everyone else', tone: 'faint' },
   ];
+  const parts = named.map((p, i) => ({ ...p, share: shares[i] ?? 0 }));
   let offset = 0;
   const label = parts.map((p) => `${p.name} ${pct(p.share)}`).join(', ');
   return (
@@ -164,7 +216,7 @@ function Donut({ top1, top10, count }: { top1: number; top10: number; count: num
           })}
         </svg>
         <span className="donut-center" aria-hidden="true">
-          <strong>{count === null ? '—' : count.toLocaleString('en-US')}</strong>
+          <strong>{count === null ? (countWord ?? '—') : count.toLocaleString('en-US')}</strong>
           <span>holders</span>
         </span>
       </div>
@@ -200,22 +252,21 @@ const OUTCOME_LABEL: Record<TimelineLaunch['outcome'], string> = {
  * launch it happened to. The token being read is ringed.
  */
 function Timeline({ launches }: { launches: TimelineLaunch[] }) {
-  if (launches.length < 2) return null;
-  const first = launches[0]!.block;
-  const last = launches.at(-1)!.block;
-  const span = Math.max(1, last - first);
+  const marks = timelinePositions(launches);
+  if (marks.length < 2) return null;
   const date = (iso: string | null) =>
     iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null;
-  const from = date(launches[0]!.launchedAt);
-  const to = date(launches.at(-1)!.launchedAt);
+  const from = date(marks[0]!.launch.launchedAt);
+  const to = date(marks.at(-1)!.launch.launchedAt);
+  const undated = launches.length - marks.length;
   return (
     <figure className="timeline">
       <figcaption className="timeline-caption">
         Launches read in detail, in time order{from && to ? ` · ${from} → ${to}` : ''}
+        {undated > 0 ? ` · ${undated} with no date not drawn` : ''}
       </figcaption>
       <ol className="timeline-track">
-        {launches.map((l, i) => {
-          const x = 2 + ((l.block - first) / span) * 96;
+        {marks.map(({ launch: l, x }, i) => {
           const events = [l.sold ? 'the creator sold' : '', l.pulled ? 'liquidity removed' : '']
             .filter(Boolean)
             .join(', ');
@@ -359,19 +410,24 @@ function CreatorCard({
   creator,
   timeline,
   solana,
+  live,
 }: {
   creator: ReportFacts['creator'];
   timeline?: TimelineLaunch[];
   solana?: SolanaView;
+  live?: LiveTimes;
 }) {
   const wide = creator.measured && (timeline?.length ?? 0) >= 2;
   // The analysed token is in the counts only when its own curve is complete.
   const ownCounted = solana?.graduation?.data.graduated === true;
   // The facts do not name every origin (the metadata's update authority): the Solana creator does.
-  const origin = creatorOrigin(creator) ?? (solana ? creatorFrom(solana.creator.data.from) : null);
+  const origin =
+    creatorOrigin(creator) ??
+    (solana ? creatorFrom(solana.creator.data.from, solana.powers) : null);
   return (
     <section className="fact-card" data-wide={wide || undefined} aria-labelledby="fact-creator">
       <h3 id="fact-creator">Creator</h3>
+      {live && <LiveStamp at={null} collectedAt={live.collectedAt} />}
       {!creator.measured ? (
         <Missing note={creator.note} />
       ) : !creator.address ? (
@@ -395,6 +451,7 @@ function CreatorCard({
             </p>
           )}
           {origin && <p className="fact-line">{origin}</p>}
+          {creator.named && <NamedLine named={creator.named} creator={creator.address} />}
           {(creator.graduation ?? 'measured') === 'measured' ? (
             <Split
               label={`Outcomes of the ${creator.detailed} other tokens read in detail${solana && !ownCounted ? '' : ', and this one'}`}
@@ -412,7 +469,9 @@ function CreatorCard({
           {creator.salesChecked > 0 && (
             <p className="fact-line">
               {creator.soldIntoPool > 0
-                ? 'The creator sold some of this token.'
+                ? creator.saleSize === 'minor'
+                  ? 'The creator sold only a few tokens of it: a minor sale, under 0.5% of the supply or under 1 SOL on a token over a week old.'
+                  : 'The creator sold some of this token.'
                 : 'The creator sold none of this token, in every move read.'}
             </p>
           )}
@@ -438,7 +497,10 @@ function HoldersCard({
   creator,
   names,
   listRead = true,
+  live,
+  largestOnly = false,
 }: {
+  live?: LiveTimes;
   holders: ReportFacts['holders'];
   creator: string | null;
   /** What the chain names an address, by address (case kept). */
@@ -449,11 +511,24 @@ function HoldersCard({
    * draw: its zeros would read as a fact about the token.
    */
   listRead?: boolean;
+  /** Only the largest token accounts were read: no holder count. */
+  largestOnly?: boolean;
 }) {
-  const largest = holders.top[0]?.share ?? 0;
+  // One denominator per figure, the whole supply, when the facts carry it:
+  // CAT's holder list read "creator 22%" (of the 1.7 % that circulates) next
+  // to "holds 0.4% of the supply" (26/11/2026).
+  const circulating = holders.circulating ?? null;
+  const top1Whole = holders.top1OfSupply ?? null;
+  const top10Whole = holders.top10OfSupply ?? null;
+  const whole = top1Whole !== null && top10Whole !== null && circulating !== null;
+  const ofSupply = (s: number) => (circulating !== null && whole ? s * circulating : s);
+  const largest = ofSupply(holders.top[0]?.share ?? 0);
   return (
     <section className="fact-card" aria-labelledby="fact-holders">
       <h3 id="fact-holders">Holders</h3>
+      {live && (
+        <LiveStamp at={live.holdersAt} collectedAt={live.collectedAt} paused={live.paused} />
+      )}
       {!holders.measured || !listRead ? (
         <Missing note={holders.note} />
       ) : (
@@ -461,16 +536,44 @@ function HoldersCard({
           {holders.pooled != null && holders.pooled > 0 && (
             <p className="fact-pooled">
               <strong>{pct(holders.pooled)}</strong> of the supply sits in{' '}
-              {whereSetAside(holders.setAside)}. The shares below split the other{' '}
-              {pct(1 - holders.pooled)}, held in wallets and other accounts.
+              {whereSetAside(holders.setAside)}.{' '}
+              {whole
+                ? 'Every share here is of the whole supply.'
+                : `The shares below split the other ${pct(1 - holders.pooled)}, held in wallets and other accounts.`}
             </p>
           )}
-          <Donut top1={holders.top1} top10={holders.top10} count={holders.holderCount} />
-          <p className="sr-only">{`Concentration: largest ${pct(holders.top1)} · top 10 ${pct(holders.top10)}`}</p>
+          {whole ? (
+            <Donut
+              top1={top1Whole}
+              top10={top10Whole}
+              setAside={Math.max(0, 1 - circulating)}
+              count={holders.holderCount}
+              countWord={largestOnly ? 'Many' : undefined}
+            />
+          ) : (
+            <Donut
+              top1={holders.top1}
+              top10={holders.top10}
+              count={holders.holderCount}
+              countWord={largestOnly ? 'Many' : undefined}
+            />
+          )}
+          <p className="sr-only">
+            {whole
+              ? `Of the whole supply: largest ${pct(top1Whole)} · top 10 ${pct(top10Whole)}`
+              : `Concentration: largest ${pct(holders.top1)} · top 10 ${pct(holders.top10)}`}
+          </p>
           {holders.holderCount !== null && (
             <p className="fact-line">
-              <strong>{holders.holderCount.toLocaleString('en-US')}</strong> holders outside curves,
-              pools, locks and burn addresses
+              <strong>
+                <Flash value={holders.holderCount.toLocaleString('en-US')} />
+              </strong>{' '}
+              holders outside curves, pools, locks and burn addresses
+            </p>
+          )}
+          {holders.holderCount === null && largestOnly && (
+            <p className="fact-line">
+              Only the largest token accounts were read: the exact holder count is not known.
             </p>
           )}
           {holders.note && <p className="fact-note">{plainNote(holders.note)}</p>}
@@ -491,10 +594,12 @@ function HoldersCard({
                   <span className="holder-track" aria-hidden="true">
                     <span
                       className="holder-fill"
-                      style={{ width: `${largest > 0 ? (h.share / largest) * 100 : 0}%` }}
+                      style={{
+                        width: `${largest > 0 ? (ofSupply(h.share) / largest) * 100 : 0}%`,
+                      }}
                     />
                   </span>
-                  <span className="holder-share">{pct(h.share)}</span>
+                  <span className="holder-share">{pct(ofSupply(h.share))}</span>
                 </li>
               ))}
             </ol>
@@ -510,13 +615,22 @@ const BASIS_WORD = {
   'quote-raised': 'of the target raised',
 } as const;
 
-function MarketCard({ market, solana }: { market: ReportFacts['market']; solana?: SolanaView }) {
+function MarketCard({
+  market,
+  solana,
+  live,
+}: {
+  market: ReportFacts['market'];
+  solana?: SolanaView;
+  live?: LiveTimes;
+}) {
   const trades = (market.buys24h ?? 0) + (market.sells24h ?? 0);
   const graduation = solana?.graduation?.data;
   const listed = solana?.market.data;
   return (
     <section className="fact-card" aria-labelledby="fact-market">
       <h3 id="fact-market">Market</h3>
+      {live && <LiveStamp at={live.marketAt} collectedAt={live.collectedAt} paused={live.paused} />}
       {graduation && (graduation.graduated || graduation.progress !== null) && (
         <Ring
           value={graduation.graduated ? 1 : (graduation.progress ?? 0)}
@@ -536,19 +650,27 @@ function MarketCard({ market, solana }: { market: ReportFacts['market']; solana?
           <dl className="fact-pairs">
             <div>
               <dt>Price</dt>
-              <dd>{usd(market.priceUsd)}</dd>
+              <dd>
+                <Flash value={usd(market.priceUsd)} />
+              </dd>
             </div>
             <div>
               <dt>Liquidity</dt>
-              <dd>{market.staleLiquidity ? 'not current' : usd(market.liquidityUsd)}</dd>
+              <dd>
+                <Flash value={market.staleLiquidity ? 'not current' : usd(market.liquidityUsd)} />
+              </dd>
             </div>
             <div>
               <dt>Volume 24h</dt>
-              <dd>{usd(market.volume24hUsd)}</dd>
+              <dd>
+                <Flash value={usd(market.volume24hUsd)} />
+              </dd>
             </div>
             <div>
               <dt>FDV</dt>
-              <dd>{usd(market.fdvUsd)}</dd>
+              <dd>
+                <Flash value={usd(market.fdvUsd)} />
+              </dd>
             </div>
           </dl>
           {listed?.pair && (
@@ -604,7 +726,10 @@ export function FactsBoard({
   timeline,
   solana,
   index = '02',
+  live,
 }: {
+  /** When the live reads last landed: each card says how fresh it is. */
+  live?: LiveTimes;
   facts: ReportFacts;
   timeline?: TimelineLaunch[];
   /** The Solana blocks, when the response carries them. */
@@ -619,8 +744,9 @@ export function FactsBoard({
         <h3 id="facts-title">What the chain and the market show.</h3>
       </div>
       <div className="facts-board" role="region" aria-label="Measured facts">
-        <CreatorCard creator={facts.creator} timeline={timeline} solana={solana} />
+        <CreatorCard creator={facts.creator} timeline={timeline} solana={solana} live={live} />
         <HoldersCard
+          live={live}
           holders={facts.holders}
           creator={facts.creator.address}
           names={namesOf(solana)}
@@ -629,8 +755,9 @@ export function FactsBoard({
               ? solana.holders.data.method !== 'none'
               : facts.holders.top.length > 0 || facts.holders.holderCount !== null
           }
+          largestOnly={solana?.holders.data.method === 'largest-accounts'}
         />
-        <MarketCard market={facts.market} solana={solana} />
+        <MarketCard market={facts.market} solana={solana} live={live} />
       </div>
     </section>
   );

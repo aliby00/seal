@@ -1,6 +1,6 @@
 import { combineCompleteness, type Completeness, type SourceRef, type Sourced } from './contracts';
 import type { FailedRead, ReadId, TokenReport } from './contracts/report';
-import { NotFoundError, SealError, TimeoutError } from './errors';
+import { NotFoundError, NotFungibleError, SealError, TimeoutError } from './errors';
 import { failedReadOf, mergeFailedReads } from './failed-reads';
 import { BudgetExhaustedError, createBudget, requestJson } from './http';
 import { log } from './logger';
@@ -8,9 +8,11 @@ import { readSolanaMarket, SOLANA_MARKET_DEADLINE_MS } from './market/solana';
 import type { SolanaMarketRead } from './market/solana-types';
 import { isSolanaAddress } from './solana/address';
 import {
+  creatorFromLaunch,
   creatorHistory,
   creatorOnToken,
   findCreator,
+  saleSize,
   withLaunchCreation,
   type DexFetch,
 } from './solana/creator';
@@ -65,6 +67,11 @@ export const HOLDERS_TIMEOUT_MS = 12_000;
 /** The launch replay. */
 export const LAUNCH_CALLS = 90;
 export const LAUNCH_TIMEOUT_MS = 20_000;
+/**
+ * At most this long, the reads of the creator wait for the creation the
+ * launch replay finds, when the creator's own read did not reach it.
+ */
+export const CREATOR_LAUNCH_WAIT_MS = 9_000;
 /** Kept before the collection's deadline, for the reads to wind up and the report to be built. */
 const WIND_UP_MS = 1_000;
 
@@ -162,6 +169,13 @@ function listedSince(read: SolanaMarketRead): number | null {
   return seconds(read.market.data.pairCreatedAt);
 }
 
+/** An NFT's mint: no decimals and a supply of exactly one unit. */
+export function isNftMint(
+  data: { decimals: number | null; supply: string | null } | null | undefined,
+): boolean {
+  return data?.decimals === 0 && data.supply === '1';
+}
+
 /** Collects every block of facts for a Solana token. No aggregate: the agent crosses them. */
 export async function collect(token: string, options: CollectOptions = {}): Promise<TokenReport> {
   if (!isSolanaAddress(token)) {
@@ -255,11 +269,72 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
       cut.abort(new NotFoundError('solana-rpc', 'token mint'));
       throw new NotFoundError('solana-rpc', `token mint at ${token}`);
     }
-    const creator = await creatorRead;
-    const creatorAddress = creator.data.creator;
-    const creation = creator.data.creation;
+    // An NFT is a mint too, of one indivisible unit: read as a token, its one
+    // holder "holds 100%" (FCXErX…, prod audit 26/11/2026). Refused before any
+    // other read, and before any model call.
+    if (isNftMint(mint.data)) {
+      cut.abort(new NotFungibleError('solana-rpc', token));
+      throw new NotFungibleError('solana-rpc', token);
+    }
+    const named = await creatorRead;
+    const creation = named.data.creation;
 
-    // ── 2. What needs the creator ─────────────────────────────────────────
+    // ── 2. The launch replay, then what needs the creator ─────────────────
+    // When the creator's read did not reach the creation, and either named
+    // nobody or took the address a pump.fun curve names, the creation the
+    // replay finds says who launched the token: the reads of the creator
+    // wait for it (CREATOR_LAUNCH_WAIT_MS at most), so that they read the
+    // launcher. Gondola 5vQGwx… (production, 26/11/2026): the curve named
+    // 3cZgqs…, a service, while 3vxCYSy3… signed the creation and bought
+    // 21.5 %; "the creator bought none, sold none" was read on 3cZgqs.
+    const waits =
+      creation === null && (named.data.creator === null || named.data.from === 'pump-curve');
+    let decided = false;
+    let fromLaunch: (c: SolanaCreator | null) => void = () => undefined;
+    const launchCreator = new Promise<SolanaCreator | null>((resolve) => {
+      fromLaunch = resolve;
+    });
+    const launchRead: Promise<SolanaLaunchReplay> = (async () => {
+      // The creation time says where to look when the creation itself was
+      // not reached: the creator's read gives it, else DexScreener's pools.
+      const createdAt = creation?.blockTime ?? listedSince(await marketRead);
+      return replayLaunch(token, rpc, {
+        creator: named.data.creator,
+        ...(creation ? { creationSignature: creation.signature } : {}),
+        ...(createdAt !== null ? { createdAt } : {}),
+        maxCalls: LAUNCH_CALLS,
+        deadlineMs: left(timeouts.launch),
+        now: nowMs,
+        ...(waits
+          ? {
+              onCreation: (found) => {
+                if (decided) return null;
+                const resolved = found ? creatorFromLaunch(named, found) : null;
+                fromLaunch(resolved);
+                return resolved?.data.creator ?? null;
+              },
+            }
+          : {}),
+      });
+    })();
+    const launch = settled(launchRead, (error) =>
+      unavailable('solana-rpc', collectedAt, error, emptyLaunch(token)),
+    ).finally(() => stage('launch'));
+    let waitTimer: ReturnType<typeof setTimeout> | undefined;
+    const creator: SolanaCreator = waits
+      ? ((await Promise.race([
+          launchCreator,
+          launch.then(() => null),
+          new Promise<null>((resolve) => {
+            waitTimer = setTimeout(() => resolve(null), left(CREATOR_LAUNCH_WAIT_MS));
+          }),
+        ])) ?? named)
+      : named;
+    clearTimeout(waitTimer);
+    decided = true;
+    if (waits) stage('creator-from-launch');
+    const creatorAddress = creator.data.creator;
+
     const holdersRead: Promise<SolanaHolders> = settled(
       readHolders(token, rpc, {
         ...(mint.data
@@ -278,23 +353,6 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
       }),
       (error) => unavailable('solana-rpc', collectedAt, error, emptyHolders(token)),
     ).finally(() => stage('holders'));
-
-    const launchRead: Promise<SolanaLaunchReplay> = (async () => {
-      // The creation time says where to look when the creation itself was
-      // not reached: the creator's read gives it, else DexScreener's pools.
-      const createdAt = creation?.blockTime ?? listedSince(await marketRead);
-      return replayLaunch(token, rpc, {
-        creator: creatorAddress,
-        ...(creation ? { creationSignature: creation.signature } : {}),
-        ...(createdAt !== null ? { createdAt } : {}),
-        maxCalls: LAUNCH_CALLS,
-        deadlineMs: left(timeouts.launch),
-        now: nowMs,
-      });
-    })();
-    const launch = settled(launchRead, (error) =>
-      unavailable('solana-rpc', collectedAt, error, emptyLaunch(token)),
-    ).finally(() => stage('launch'));
 
     const limits = () => ({
       maxCalls: CREATOR_READ_CALLS,
@@ -336,7 +394,7 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
         ).finally(() => stage('linked-wallets'))
       : Promise.resolve(null);
 
-    const [market, holders, launchReplay, history, onToken, linked] = await Promise.all([
+    const [market, holders, launchReplay, history, onTokenRead2, linked] = await Promise.all([
       marketRead,
       holdersRead,
       launch,
@@ -344,6 +402,15 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
       onTokenRead,
       linkedRead,
     ]);
+    // How large the creator's sales are, by the token's age (MINOR_SALE_*).
+    const launchedAt =
+      creation?.blockTime ??
+      unixTime(launchReplay.data.creation?.launchedAt) ??
+      listedSince(market);
+    const onToken =
+      onTokenRead2 && onTokenRead2.completeness !== 'unavailable'
+        ? withSaleSize(onTokenRead2, launchedAt, Math.floor(nowMs() / 1000))
+        : onTokenRead2;
     // The creation the launch replay found, when the creator's read did not
     // reach it: the creator block says so wherever it is read (the facts,
     // "Sources & limitations", the questions), no longer "not reached".
@@ -415,6 +482,16 @@ export async function collect(token: string, options: CollectOptions = {}): Prom
       cut.abort(new TimeoutError('solana-rpc', Date.now() - startedAt));
     }
   }
+}
+
+/** The creator's sales on this token, sized (SolanaWalletOnToken.saleSize). */
+function withSaleSize(
+  onToken: SolanaCreatorOnToken,
+  launchedAt: number | null,
+  nowS: number,
+): SolanaCreatorOnToken {
+  const size = saleSize(onToken.data, launchedAt, nowS);
+  return size ? { ...onToken, data: { ...onToken.data, saleSize: size } } : onToken;
 }
 
 /** Unix seconds of an ISO time; `null` when there is none. */

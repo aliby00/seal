@@ -66,6 +66,13 @@ export type LaunchSummary = {
   moves: number;
   /** Seconds that make "the first buyers". */
   earlySeconds: number;
+  /**
+   * Seconds from the creation to the opening of trading, when the supply was
+   * minted to a wallet that opened a pool later (GIGA: mint at 0, Raydium
+   * pool at +298 s). The first buyers are then those of the `earlySeconds`
+   * after it. Solana replays; absent when trading opened with the creation.
+   */
+  tradingOpenedAt?: number;
   /** What the creator received or bought in the launch block itself, share of supply. */
   creatorAtLaunch: number;
   /** What the creator bought in the window, share of supply. */

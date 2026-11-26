@@ -431,7 +431,7 @@
 }
 .source-signatures {
   gap: 10px;
-  font-size: 10px;
+  font-size: 11px;
 }
 .source-signatures span {
   display: inline-flex;
@@ -1298,6 +1298,11 @@ tr[data-kind='withdraw'] .launch-kind::before {
   color: var(--tone);
   filter: drop-shadow(0 0 4px color-mix(in srgb, var(--tone) 60%, transparent));
 }
+/* A whole-supply donut: what sits in curves, pools, locks and burn addresses. */
+.donut-aside {
+  stroke: rgb(255 255 255 / 0.22);
+  background: rgb(255 255 255 / 0.22);
+}
 .check-icon[data-signal='quiet'],
 .check-icon[data-signal='unknown'] {
   color: var(--hud-dim);
@@ -1628,7 +1633,7 @@ tr[data-kind='withdraw'] .launch-kind::before {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .entrance-copy .scene-eyebrow {
-    font-size: 9.5px;
+    font-size: 11px;
     letter-spacing: 0.16em;
   }
   .entrance-copy .scene-eyebrow::before,
@@ -2777,5 +2782,277 @@ tr[data-kind='withdraw'] .launch-kind::before {
   .example-token {
     flex: 1 1 100%;
     justify-content: space-between;
+  }
+}
+
+/* ── The figures row: what a trader reads first, measured, never written by the model. ── */
+.figures-row {
+  /* Wrapping cells that grow: the last row fills the width, no empty block. */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--hud-line);
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--hud-line);
+}
+.figures-row li {
+  flex: 1 1 8.6rem;
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  min-width: 0;
+  padding: 11px 14px 12px;
+  background: rgb(6 10 12 / 0.92);
+}
+.figure-label {
+  font: 500 11px/1.3 var(--font-data);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hud-dim);
+}
+.figure-value {
+  font: 600 20px/1.15 var(--font-display);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--hud-text);
+  overflow-wrap: anywhere;
+}
+.figure-sub {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--hud-dim);
+}
+@media (max-width: 540px) {
+  .figures-row li {
+    flex-basis: 40%;
+    padding: 9px 12px 10px;
+  }
+  .figure-value {
+    font-size: 18px;
+  }
+}
+
+/* The closing line on what was not read: quiet, apart from the findings. */
+.prose-block.prose-limits {
+  padding: 4px 0 0;
+  border: 0;
+  background: none;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--hud-dim);
+}
+
+/* The form's message reads on the dark card, as the entrance's does (contrast over 4.5:1). */
+.analysis-world .validation-message,
+.validation-message {
+  border-color: var(--hud-amber);
+  color: var(--hud-amber);
+  font-weight: 500;
+}
+.analysis-world input[aria-invalid='true'] {
+  border-color: var(--hud-amber);
+}
+
+/* The error card's way back to the field. */
+.error-retry {
+  margin-top: 14px;
+}
+
+/* Legal pages and the 404 in the product's dark colours, not the cream of the old site. */
+.legal {
+  --background: #05080b;
+  --foreground: #e6ebee;
+  --muted-foreground: #9aa6ae;
+  --border: rgb(255 255 255 / 0.12);
+  --primary: #ff9d4a;
+}
+
+/* "What stands out": one fact per line, marked, so a trader scans them. */
+.stands-list {
+  display: grid;
+  gap: 10px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.stands-list li {
+  position: relative;
+  padding-left: 18px;
+}
+.stands-list li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0.72em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal-concern);
+}
+
+/* ── The first screen: flags, one fact each, then the figures, live. ── */
+.top-read {
+  display: grid;
+  gap: 14px;
+  margin-block: 8px 4px;
+}
+.flag-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--hud-line);
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgb(0 0 0 / 0.24);
+}
+.flag {
+  --flag: var(--signal-concern);
+  display: grid;
+  grid-template-columns: 14px auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 13px 18px;
+  border-left: 3px solid var(--flag);
+  font-size: 16.5px;
+  line-height: 1.4;
+  color: var(--hud-text);
+}
+.flag + .flag {
+  border-top: 1px solid var(--hud-line);
+}
+.flag[data-tone='red'] {
+  --flag: #ff5c5c;
+  background: linear-gradient(90deg, rgb(255 92 92 / 0.1), transparent 55%);
+}
+.flag[data-tone='orange'] {
+  --flag: #ffb347;
+  background: linear-gradient(90deg, rgb(255 179 71 / 0.08), transparent 55%);
+}
+.flag[data-tone='green'] {
+  --flag: #4fd9a8;
+}
+.flag-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--flag);
+  box-shadow: 0 0 10px var(--flag);
+  align-self: center;
+}
+.flag-label {
+  font-weight: 650;
+  color: var(--flag);
+  white-space: nowrap;
+}
+.flag[data-tone='green'] .flag-label {
+  white-space: normal;
+  font-weight: 550;
+}
+.flag-text {
+  min-width: 0;
+  color: var(--hud-text);
+}
+@media (max-width: 540px) {
+  .flag {
+    grid-template-columns: 12px minmax(0, 1fr);
+    padding: 11px 14px;
+    font-size: 15px;
+  }
+  .flag-text {
+    grid-column: 2;
+  }
+  .flag-label {
+    white-space: normal;
+  }
+}
+.top-sentence {
+  margin: 0;
+  padding: 2px 4px;
+  font: 400 17px/1.6 var(--font-body);
+  color: #dfe5e9;
+}
+.freshness {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--hud-dim);
+}
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #4fd9a8;
+}
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4fd9a8;
+  animation: live-pulse 1.6s ease-in-out infinite;
+}
+@keyframes live-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+.figure-value[data-flash] {
+  animation: figure-flash 0.9s ease-out;
+}
+@keyframes figure-flash {
+  from {
+    color: #ffd27a;
+    text-shadow: 0 0 12px rgb(255 210 122 / 0.6);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-dot,
+  .figure-value[data-flash] {
+    animation: none;
+  }
+}
+.reading-layout[data-sources-only] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* On a phone: a denser figures row, so the flags and the figures fit one screen. */
+@media (max-width: 540px) {
+  .figures-row li {
+    flex-basis: 30%;
+    padding: 8px 10px 9px;
+  }
+  .figures-row .figure-value {
+    font-size: 16px;
+  }
+  .figures-row .figure-sub {
+    font-size: 11px;
+  }
+  .top-sentence {
+    font-size: 15.5px;
+  }
+}
+
+/* ── Live cards: how fresh each card is, and a flash on a value that moved. ── */
+.card-stamp {
+  margin: -4px 0 10px;
+  font-size: 12px;
+  color: var(--hud-dim);
+}
+.card-stamp.live-badge {
+  display: flex;
+}
+.live-value[data-flash] {
+  animation: figure-flash 0.9s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-value[data-flash] {
+    animation: none;
   }
 }

@@ -71,6 +71,17 @@ export type ReportFacts = {
       hooks?: string[];
       payers?: FeePayer[];
     };
+    /**
+     * How large the creator's sales on this token are: `minor` under 0.5 %
+     * of the supply, or under 1 SOL on a token over a week old (a fact, not
+     * a signal). Absent when it sold nothing.
+     */
+    saleSize?: 'minor' | 'material';
+    /**
+     * The address the pump.fun curve names, when another one signed and
+     * paid for the creation and bought in it: `address` is that signer.
+     */
+    named?: string;
     /** Launches where each signal was actually measured (the other may not be). */
     salesChecked: number;
     liquidityChecked: number;
@@ -134,6 +145,14 @@ export type ReportFacts = {
     top1: number;
     top10: number;
     /**
+     * The same, of the whole supply, and what circulates of it: on a
+     * near-empty curve "15 % of what circulates" is 1.2 % of the supply
+     * (fair 3C1f…, 26/11/2026). `null` when not read.
+     */
+    top1OfSupply?: number | null;
+    top10OfSupply?: number | null;
+    circulating?: number | null;
+    /**
      * Largest holders, pools and burn addresses excluded. `fromCreator`: what
      * the holder received from the creator, as a share of the whole supply,
      * directly or `via` a contract the creator sent tokens to.
@@ -173,6 +192,14 @@ export type ReportFacts = {
     buys24h: number | null;
     sells24h: number | null;
     fdvUsd: number | null;
+    /** DexScreener's market cap of the main pair; absent from older facts. */
+    marketCapUsd?: number | null;
+    /** Liquidity over the market cap (FDV when none), 0 to 1; the curve's when still on it. */
+    liquidityToMarketCap?: number | null;
+    /** USD on the bonding curve, when the main pair is the curve (DexScreener gives none). */
+    curveLiquidityUsd?: number;
+    /** Volume per trade over 24 h, over the pairs giving both figures. */
+    perTradeUsd24h?: number | null;
     graduation: { progress: number; thresholdEth: number; graduated: boolean } | null;
     /**
      * The liquidity DexScreener lists while the token's pools hold under 1 %
@@ -261,7 +288,10 @@ function creatorFacts(report: TokenReport): ReportFacts['creator'] {
     note: noteOf(creator.sources),
     address: creator.data.creator,
     // The analysed token counts as one of its launches: the history leaves it out.
-    launched: (history?.data.counts.launched ?? 0) + (creator.data.creator ? 1 : 0),
+    // Every pump.fun curve naming it counts, its mint found or not (launchesAtLeast).
+    launched:
+      (history?.data.launchesAtLeast ?? history?.data.counts.launched ?? 0) +
+      (creator.data.creator ? 1 : 0),
     detailed: tokens.length,
     graduated: count('graduated') + ownGraduation,
     // TODO-SOLANA: Solana's `dead` (launched over a day ago, no trade in 24 h)
@@ -271,6 +301,8 @@ function creatorFacts(report: TokenReport): ReportFacts['creator'] {
     active: count('active'),
     checked: sold === null ? 0 : 1,
     soldIntoPool: sold === true ? 1 : 0,
+    ...(onToken?.data.saleSize ? { saleSize: onToken.data.saleSize } : {}),
+    ...(creator.data.named ? { named: creator.data.named.address } : {}),
     liquidityPulled: 0,
     salesChecked: sold === null ? 0 : 1,
     liquidityChecked: 0,
@@ -302,6 +334,18 @@ function creatorFacts(report: TokenReport): ReportFacts['creator'] {
   };
 }
 
+/** What circulates, share of the whole supply; `null` when no list was read. */
+function circulatingOf(h: {
+  supply: string;
+  countedSupply: string;
+  method: string;
+}): number | null {
+  if (h.method === 'none' || h.countedSupply === '0') return null;
+  const supply = BigInt(h.supply);
+  if (supply <= 0n) return null;
+  return Number((BigInt(h.countedSupply) * 1_000_000n) / supply) / 1_000_000;
+}
+
 export function toFacts(report: TokenReport, options: { funder?: string } = {}): ReportFacts {
   void options;
   const { holders, market } = report;
@@ -327,6 +371,9 @@ export function toFacts(report: TokenReport, options: { funder?: string } = {}):
       pooled: holders.data.pooledShare ?? null,
       top1: holders.data.concentration.top1,
       top10: holders.data.concentration.top10,
+      top1OfSupply: holders.data.ofSupply.largestWallet,
+      top10OfSupply: holders.data.ofSupply.top10Wallets,
+      circulating: circulatingOf(holders.data),
       top: holders.data.top
         .filter(
           (h): h is typeof h & { kind: 'wallet' | 'contract' } =>
@@ -356,6 +403,16 @@ export function toFacts(report: TokenReport, options: { funder?: string } = {}):
       buys24h: market.data.txns?.h24.buys ?? null,
       sells24h: market.data.txns?.h24.sells ?? null,
       fdvUsd: market.data.fdvUsd,
+      marketCapUsd: market.data.marketCapUsd,
+      ...(market.data.liquidityToMarketCap !== undefined
+        ? { liquidityToMarketCap: market.data.liquidityToMarketCap }
+        : {}),
+      ...(market.data.curveLiquidityUsd !== undefined
+        ? { curveLiquidityUsd: market.data.curveLiquidityUsd }
+        : {}),
+      ...(market.data.perTradeUsd24h !== undefined
+        ? { perTradeUsd24h: market.data.perTradeUsd24h }
+        : {}),
       // TODO-SOLANA: the screen's graduation bar is in ETH; a Solana curve's
       // progress is in `report.graduation` (tokens sold or quote raised).
       graduation: null,

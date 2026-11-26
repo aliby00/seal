@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { corsHeaders, foreignOrigin } from '@/lib/cors';
-import { SealError } from '@/lib/errors';
-import { allowShared, clientKey, GLANCE_LIMIT } from '@/lib/guard';
+import { failureStatus, NOT_FUNGIBLE_MESSAGE, SealError } from '@/lib/errors';
+import { allowShared, clientKey, COLLECT_LIMIT, GLANCE_LIMIT, TOO_MANY_MESSAGE } from '@/lib/guard';
 import {
+  cachedGlance,
   deepLink,
   glanceOf,
   GlanceUnavailableError,
@@ -31,6 +32,7 @@ export const maxDuration = 60;
 const PUBLIC_MESSAGE: Record<string, string> = {
   'rate-limit': 'A data source is rate-limiting requests. Try again in a minute.',
   'not-found': 'Nothing was found for this address',
+  'not-fungible': NOT_FUNGIBLE_MESSAGE,
   timeout: 'A data source did not answer in time',
 };
 
@@ -68,11 +70,9 @@ export async function GET(request: Request): Promise<Response> {
     return fail(request, 400, 'Invalid token address');
   }
 
-  if (!(await allowShared(`glance:${clientKey(request)}`, GLANCE_LIMIT))) {
-    return fail(request, 429, 'Too many requests from this address. Try again in a minute.', {
-      'retry-after': '60',
-    });
-  }
+  const caller = clientKey(request);
+  const tooMany = () => fail(request, 429, TOO_MANY_MESSAGE, { 'retry-after': '60' });
+  if (!(await allowShared(`glance:${caller}`, GLANCE_LIMIT))) return tooMany();
 
   try {
     let token = tokenParam;
@@ -83,6 +83,10 @@ export async function GET(request: Request): Promise<Response> {
       token = traded ?? pairParam;
     }
     const started = Date.now();
+    // Not in a cache: a full collection, counted with the address's others (analyze, card).
+    if (!(await cachedGlance(token)) && !(await allowShared(`collect:${caller}`, COLLECT_LIMIT))) {
+      return tooMany();
+    }
     const { cached, ...glance } = await glanceOf(token);
     log.info('aperçu servi', { token, cached, ms: Date.now() - started });
     return reply(request, {
@@ -92,7 +96,7 @@ export async function GET(request: Request): Promise<Response> {
     } satisfies GlanceResponse);
   } catch (error) {
     if (error instanceof SealError) {
-      const status = error.kind === 'rate-limit' ? 429 : error.kind === 'not-found' ? 404 : 502;
+      const status = failureStatus(error.kind);
       log.warn('aperçu en échec', { kind: error.kind, message: error.message });
       return fail(request, status, PUBLIC_MESSAGE[error.kind] ?? 'A data source failed');
     }

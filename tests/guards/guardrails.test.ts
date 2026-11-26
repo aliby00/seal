@@ -76,12 +76,22 @@ describe('assertCompliant', () => {
 });
 
 describe('mots qui prêtent une intention', () => {
+  it.each(['An insider wallet received 5%.', 'Insiders got 30% at launch.', 'A bundler took 12%.'])(
+    'refuse « %s »',
+    (text) => {
+      expect(findViolations(text).map((v) => v.kind)).toContain('verdict');
+    },
+  );
+
+  // Trader words for what SEAL measures, said with the measure (26/11/2026):
+  // a description, not a verdict.
   it.each([
-    'Two snipers bought early.',
-    'An insider wallet received 5%.',
-    'The launch was bundled.',
-  ])('refuse « %s »', (text) => {
-    expect(findViolations(text).map((v) => v.kind)).toContain('verdict');
+    'Bundled launch: 3 wallets other than the dev took 41.9% of the supply in the creation slot.',
+    'Snipers: 7 wallets bought 43.8% in the first second; they hold none of it today.',
+    'Serial launcher: the dev has at least 1,382 other launches.',
+    'The dev bought 1.8% of the supply, then sold all of it within 4 minutes.',
+  ])('laisse passer « %s »', (text) => {
+    expect(findViolations(text)).toEqual([]);
   });
 });
 
@@ -127,6 +137,25 @@ describe('links and claims of a guarantee', () => {
     'Each address can be checked on the Solana Explorer.',
     'The largest holder is a Meteora DLMM pool, e.g. a program account.',
   ])('accepte « %s »', (text) => {
+    expect(findViolations(text)).toEqual([]);
+  });
+});
+
+describe('trader advice, now that the flags speak trader', () => {
+  it.each([
+    'Avoid this token.',
+    'Ape in now.',
+    'Buy now before it runs.',
+    'Stay away from this coin.',
+  ])('refuse « %s »', (text) => {
+    expect(findViolations(text).map((v) => v.kind)).toContain('advice');
+  });
+
+  it.each([
+    'Chart dead: mcap $2.0k after $38.5k traded in 24 h',
+    'Dev sold everything: bought 21.5%, sold it all within 4 minutes',
+    '16 buys and 3 sells in the last hour.',
+  ])('laisse passer « %s »', (text) => {
     expect(findViolations(text)).toEqual([]);
   });
 });

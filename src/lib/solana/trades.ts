@@ -1,5 +1,6 @@
 import type { LaunchMove, LaunchMoveKind } from '../contracts/launch';
 import { isOnCurve } from './address';
+import { liquidityAction, type LiquidityAction } from './liquidity-ix';
 import { INCINERATOR, KNOWN_PROGRAMS, NATIVE_MINT } from './programs';
 import { transactionKeys, type SolanaTransaction } from './rpc';
 
@@ -49,6 +50,11 @@ export type TransactionFlows = {
   others: ReadonlyMap<string, ReadonlyMap<string, AssetChange>>;
   /** Every program the transaction ran, its inner instructions included. */
   programs: string[];
+  /**
+   * Liquidity added to a pool or taken out of one, by the instructions run
+   * (liquidity-ix.ts); `null` or absent when none.
+   */
+  liquidity?: LiquidityAction | null;
 };
 
 type Side = { owner: string | undefined; amount: bigint };
@@ -140,6 +146,7 @@ export function readFlows(tx: SolanaTransaction, mint: string): TransactionFlows
     lamports,
     others,
     programs,
+    liquidity: liquidityAction(tx),
   };
 }
 
@@ -251,6 +258,39 @@ export function movesOf(
   }
 
   const moved = [...deltas].filter(([, d]) => d !== 0n);
+
+  // Liquidity added or taken out, by the instructions run: whatever the
+  // balances look like, the tokens a wallet put into the pool were not sold,
+  // nor were those it took back bought. GIGA's creator seeded its Raydium
+  // AMM v4 pool with 87.5 % of the supply (`initialize2`, 5Td2rKaX…); with
+  // no wrapped SOL left in its accounts after the transaction, the move read
+  // as a transfer "with no payment read in return".
+  if (flows.liquidity) {
+    const add = flows.liquidity === 'add';
+    const isMarket = (o: string) => {
+      const k = kind.get(o);
+      return k === 'pool' || k === 'contract';
+    };
+    const pools = moved.filter(([o, d]) => isMarket(o) && (add ? d > 0n : d < 0n));
+    const pool = largest(pools, ([, d]) => abs(d))?.[0];
+    const out: DraftMove[] = [];
+    if (pool !== undefined) {
+      for (const [owner, delta] of moved) {
+        if (owner === pool || kind.get(owner) === 'pool') continue;
+        if (add ? delta >= 0n : delta <= 0n) continue;
+        out.push({
+          ...base,
+          kind: add ? 'provide' : 'withdraw',
+          actor: owner,
+          counterparty: pool,
+          value: abs(delta),
+          quote: null,
+        });
+      }
+    }
+    if (out.length > 0) return [...moves, ...out];
+  }
+
   const pooled = moved.some(([o]) => kind.get(o) === 'pool');
   const side: ActorKind = pooled ? 'pool' : 'contract';
   const markets = moved.filter(([o]) => kind.get(o) === side);

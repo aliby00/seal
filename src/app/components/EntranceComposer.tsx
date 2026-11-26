@@ -1,7 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { addressHint, EXAMPLE_TOKEN, isTokenAddress, requestAnalysis } from './analyze-request';
+import {
+  addressHint,
+  EXAMPLE_TOKEN,
+  isTokenAddress,
+  PAIR_HINT,
+  pairFromInput,
+  requestAnalysis,
+  resolveInput,
+  tokenFromInput,
+} from './analyze-request';
 
 /**
  * The address field, on the first screen. It does not run the analysis
@@ -30,7 +39,21 @@ export function EntranceComposer() {
       noValidate
       onSubmit={(event) => {
         event.preventDefault();
-        start(value.trim());
+        if (!pairFromInput(value)) {
+          const address = tokenFromInput(value);
+          if (address !== value) setValue(address);
+          start(address);
+          return;
+        }
+        // A pair link (DexScreener, Photon): the token its pool trades, looked up.
+        void resolveInput(value).then((address) => {
+          if (address === null) {
+            setError(PAIR_HINT);
+            return;
+          }
+          setValue(address);
+          start(address);
+        });
       }}
     >
       <label htmlFor="entrance-token" className="sr-only">

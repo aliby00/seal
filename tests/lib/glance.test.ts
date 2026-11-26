@@ -215,7 +215,7 @@ describe('In short: the creator’s part and its sales', () => {
     const sales = glance.items.find((i) => i.id === 'sales');
     expect(sales?.tone).toBe('attention');
     expect(sales?.title).toBe(
-      'The creator has not sold this token; it holds none of it today. 1 wallet the creator sent SOL to around the launch bought 4.0% of the supply and sold 3.0%; the wallets it funded hold 1.0% today.',
+      'The creator has not sold this token; it holds none of it today. 1 wallet the creator sent SOL to around the launch bought 4% of the supply and sold 3%; the wallets it funded hold 1% today.',
     );
   });
 
@@ -224,7 +224,7 @@ describe('In short: the creator’s part and its sales', () => {
       glanceOf(
         solanaReport({ creatorOnToken: onToken({ holdsNow: raw(share), holdsNowShare: share }) }),
       ).items.find((i) => i.id === 'sales');
-    expect(holding(CREATOR_HOLDS_SHARE)).toMatchObject({ tone: 'attention', figure: '5.0%' });
+    expect(holding(CREATOR_HOLDS_SHARE)).toMatchObject({ tone: 'attention', figure: '5%' });
     expect(holding(0.049)?.tone).toBe('reassuring');
   });
 
@@ -267,9 +267,9 @@ describe('In short: wallets that got tokens together at launch', () => {
       );
     expect(item(0.258)).toMatchObject({
       tone: 'attention',
-      figure: '26%',
+      figure: '25.8%',
       title:
-        'In the creation slot, 3 wallets other than the creator got 26% of the supply; they hold none of it today.',
+        'In the creation slot, 3 wallets other than the creator got 25.8% of the supply; they hold none of it today.',
     });
     expect(item(GROUP_SHARE)?.tone).toBe('attention');
     expect(item(0.049)?.tone).toBe('neutral');

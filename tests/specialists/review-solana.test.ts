@@ -408,8 +408,10 @@ describe('Volume Reality, one line', () => {
           },
         },
       });
-    expect(answer(0.3, 0.02)).toBe('2 wallets got 30.0% in the creation slot');
-    expect(answer(0.02, 0.3)).toBe('3 wallets got 30.0% in transactions the creator paid for');
+    expect(answer(0.3, 0.02)).toBe('At launch, 2 wallets got 30% in the creation slot');
+    expect(answer(0.02, 0.3)).toBe(
+      'At launch, 3 wallets got 30% in transactions the creator paid for',
+    );
   });
 });
 
@@ -457,7 +459,7 @@ describe('In short', () => {
       },
     });
     const sales = glanceOf(report).items.find((i) => i.id === 'sales');
-    expect(sales?.title).toMatch(/bought at least 4\.0% of the supply/);
+    expect(sales?.title).toMatch(/bought at least 4% of the supply/);
   });
 
   it('says burned supply without "still" or "so far"', () => {
@@ -473,7 +475,7 @@ describe('In short', () => {
     });
     const supply = glanceOf(report).items.find((i) => i.id === 'supply');
     expect(supply?.title).toBe(
-      '95% of the supply is in the incinerator: only 5.0% is held outside it.',
+      '95% of the supply is in the incinerator: only 5% is held outside it.',
     );
   });
 });
@@ -537,7 +539,7 @@ describe('the text written without the model', () => {
       creatorOnToken: { ...base.creatorOnToken!, completeness: 'unavailable' },
     });
     expect(offlineExplanation(report)).toContain(
-      'What it did with this token could not be read this time.',
+      'What the dev did with this token could not be read this time.',
     );
   });
 
@@ -552,7 +554,7 @@ describe('the text written without the model', () => {
         },
       },
     });
-    expect(offlineExplanation(report)).toContain('This address launched at least 4 other tokens');
+    expect(offlineExplanation(report)).toContain('The dev has at least 4 other launches');
   });
 });
 
@@ -629,9 +631,8 @@ describe('a read of the creator’s moves cut short (PYUSD on the public node, 0
   it('the text without the model says whether it sold is not known', () => {
     const text = offlineExplanation(cut);
     expect(text).toContain(
-      'None of the 2 transactions on the creator’s token accounts could be read this time: whether it sold is not known.',
+      'None of the 2 transactions on the dev’s token accounts could be read this time: whether it sold is not known.',
     );
-    expect(text).toContain('none of its own transactions could be read');
   });
 });
 
@@ -661,7 +662,7 @@ describe('In short, after a launch replay that failed', () => {
     });
     const item = glanceOf(report).items.find((i) => i.id === 'launch-buys');
     expect(item?.title).toBe(
-      'In the creation slot, 2 wallets other than the creator got at least 40% of the supply.',
+      'In the creation slot, 2 wallets other than the creator got at least 39.5% of the supply.',
     );
   });
 });

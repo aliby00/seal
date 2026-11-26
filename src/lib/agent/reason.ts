@@ -6,6 +6,7 @@ import { resolveProvider, type Provider } from './providers';
 import { withoutClaims } from './claims';
 import { findViolations } from './guardrails';
 import { offlineExplanation } from './offline';
+import { twoSentences, withoutNotRead } from './trader-text';
 import { SYSTEM_PROMPT, renderReport } from './prompt';
 import type { SpecialistAnswer } from '../specialists/brief';
 
@@ -85,10 +86,11 @@ export async function explain(
   const model = options.model ?? resolved.model;
   // A provider that fails (wrong model id, quota, timeout) must not turn an
   // analysis whose facts are ready into an error page: the facts are served.
+  const request = buildRequest(report, model, maxTokens, options.specialists);
   let result;
   try {
     result = await provider.complete({
-      ...buildRequest(report, model, maxTokens, options.specialists),
+      ...request,
       ...(options.signal ? { signal: options.signal } : {}),
     });
   } catch (error) {
@@ -120,6 +122,8 @@ export async function explain(
     costUsd: cost.costUsd,
     priced: cost.priced,
     stopReason: result.stopReason,
+    // Next to outputTokens, what was written: the rest went to thinking.
+    textChars: text.length,
     violations: violations.length,
   });
 
@@ -143,7 +147,7 @@ export async function explain(
   // A claim the facts contradict ("only this one token", "a clean record"
   // with a sale measured) is cut, sentence by sentence; a section left empty
   // is not served, the facts are.
-  const checked = withoutClaims(text, report);
+  const checked = withoutClaims(text, report, request.user);
   if (checked.dropped.length > 0) {
     log.warn('affirmations contredites par les faits retirées', {
       provider: provider.name,
@@ -157,5 +161,11 @@ export async function explain(
     return { ...served(offlineExplanation(report, options.specialists), cost), rejected: true };
   }
 
-  return { text: checked.text, cost, violations, offline: false, provider: provider.name };
+  return {
+    text: twoSentences(withoutNotRead(checked.text)),
+    cost,
+    violations,
+    offline: false,
+    provider: provider.name,
+  };
 }

@@ -10,7 +10,7 @@ vi.mock('@/lib/specialists', async (original) => ({
   gatherContext,
 }));
 
-const { resetRateLimits } = await import('../../src/lib/guard');
+const { resetRateLimits, agentApiEnabled } = await import('../../src/lib/guard');
 const { POST } = await import('../../src/app/api/agent/route');
 
 const TOKEN = MINT;
@@ -62,9 +62,10 @@ describe('POST /api/agent', () => {
       token: TOKEN,
       agent: 'fresh wallets',
       offline: true,
-      tier: 'offline',
-      costUsd: 0,
     });
+    // What the call cost, and which tier wrote it, stay in the logs.
+    expect(body).not.toHaveProperty('costUsd');
+    expect(body).not.toHaveProperty('tier');
     expect((body.findings as { specialist: string }[]).map((f) => f.specialist)).toEqual([
       'wallet-age',
       'funding-trace',
@@ -72,5 +73,23 @@ describe('POST /api/agent', () => {
     // Le rapport absent est transmis comme tel, pas remplacé par un rapport vide.
     expect(gatherContext.mock.calls[0]?.[1]).toBeUndefined();
     vi.unstubAllEnvs();
+  });
+
+  // Prod audit 26/11/2026: the route answered curl, unused by the site, and
+  // spent from the daily model ceiling every analysis shares.
+  it('answers 404 on a deployment, before reading anything, unless SEAL_AGENT_API=on', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SEAL_AGENT_API', '');
+    try {
+      const before = collect.mock.calls.length;
+      const res = await POST(post({ token: TOKEN, agent: AGENT }));
+      expect(res.status).toBe(404);
+      expect(collect.mock.calls.length).toBe(before);
+      expect(agentApiEnabled({ NODE_ENV: 'production', SEAL_AGENT_API: 'on' })).toBe(true);
+      expect(agentApiEnabled({ NODE_ENV: 'production' })).toBe(false);
+      expect(agentApiEnabled({ NODE_ENV: 'test' })).toBe(true);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });

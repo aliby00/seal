@@ -84,11 +84,18 @@ export type GlanceInput = {
 const MAX_ITEMS = 4;
 const DAY_MS = 86_400_000;
 
+/**
+ * One rule with the figures row and the text (figures.ts): "41.9%", never
+ * "42%" beside it (POPCAT showed 18%, 17.5% and 17% for one holder).
+ */
 function pct(value: number): string {
-  if (value > 0 && value < 0.001) return '<0.1%';
+  if (value === 0) return '0%';
+  if (value === 1) return '100%';
+  if (value > 0 && value < 0.0001) return '<0.01%';
   if (value > 0.999 && value < 1) return '>99.9%';
-  // 99.7% rounded to "100%" would say nothing is left: one decimal near the top.
-  return `${(value * 100).toFixed(value < 0.1 || (value >= 0.995 && value < 1) ? 1 : 0)}%`;
+  const x = value * 100;
+  // "12%", not "12.0%"; "0.2%", not "0.20%".
+  return `${x.toFixed(x < 1 ? 2 : 1).replace(/\.?0+$/, '')}%`;
 }
 
 /** "1 launch", "9 launches" (not "launchs"), "141,028 trades". */
@@ -283,6 +290,17 @@ function salesItem(
       : holds === 0
         ? ' and holds none of it today'
         : ` and holds ${pct(holds)} today`;
+  // A dust sale (POPCAT's creator sold 0.0191 SOL of a two-year-old token)
+  // is a fact, never the headline, and never "0.00%" beside a warning.
+  if (c.hasSold === true && creator.saleSize === 'minor' && !linkedAttention) {
+    return {
+      id: 'sales',
+      tone: 'neutral',
+      title: `The creator sold only a few tokens of it${holdsWords}.${linkedWords}`,
+      detail,
+      href: '#fact-creator',
+    };
+  }
   if (c.hasSold === true) {
     const all = c.sold !== null && c.bought !== null && c.bought > 0 && c.sold >= c.bought * 0.99;
     return {
