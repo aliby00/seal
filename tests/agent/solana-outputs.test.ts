@@ -144,7 +144,7 @@ describe('every text SEAL writes, on the tokens recorded on mainnet', () => {
       ['supply', 'neutral'],
     ]);
     expect(glance.items[1]!.title).toBe(
-      'The creator sold 12% of the supply, all it had bought, and holds none of it today.',
+      'The creator sold 11.9% of the supply, all it had bought, and holds none of it today.',
     );
   });
 

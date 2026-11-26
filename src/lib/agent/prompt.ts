@@ -11,7 +11,7 @@ import { dayOf, paidWords, pct, shareOf, solOf, solWords } from '../specialists/
 import { READ_WORDS, readFailed } from '../failed-reads';
 import { withLaunchCreation } from '../solana/creator';
 import { figuresLine } from '../figures';
-import { joinAnd, traderReading } from './trader-text';
+import { traderReading } from './trader-text';
 import type { SolanaHolder } from '../solana/holders';
 import type { SolanaLaunchGroup } from '../solana/launch-types';
 
@@ -46,21 +46,21 @@ Absolute rules:
 - A token "with no trade in the last 24 hours" is just that: never call it dead or abandoned. Give the market cap and the volume instead.
 - When the data lists reads that failed, never state an absence one of them would have settled.
 - Quote counts as the data gives them (wallets, buyers, launches, holders).
-- Write about the token, never about the data or yourself: no "I", no "the reads", no "the report", no "these reads do not agree", no "completeness", no "partial", no "floor". A gap is said once, in the last line, and only when it changes what a trader would conclude.
+- Write about the token, never about the data or yourself: no "I", no "the reads", no "the report", no "these reads do not agree", no "completeness", no "partial", no "floor", no count of transactions read.
 
 Write exactly this, with the two headings alone on their own lines and a blank line between blocks:
 
 What stands out
 
-Two to four short sentences, the strongest first, about what tells THIS token apart: what the dev did with it (bought, sold, when, what it holds), the bundle and the snipers and whether they still hold, a serial launcher and what became of its other launches, the market cap against the volume and the liquidity, the largest holders of the supply, a power over holders someone still holds, a lock and when it ends. The lines under "SEAL's reading" are SEAL's own facts in this order: use them, connect them when one explains another, and never open with a fact that is true of every launchpad token.
+Two to four short sentences, one fact each, the strongest first, about what tells THIS token apart: what the dev did with it (bought, sold, when, what it holds), the bundle and the snipers and whether they still hold, a serial launcher and what became of its other launches, the market cap against the volume and the liquidity, the largest holders of the supply, a power over holders someone still holds, a lock and when it ends. The lines under "SEAL's reading" are SEAL's own facts, strongest first: say the first three in your words (a serial launcher, a dev sale or a bundle is never left out), connect them when one explains another, and never open with a fact that is true of every launchpad token. Leave out what changes nothing for a trader: a few round trips, dust pools, a holder share under 1%, pair names, how many transactions were read.
 
 What is clean
 
 One sentence, only with facts that tell this token apart in its favour (the clean clauses the data lists). Leave out mint and freeze authority and the LP burn of a launchpad token. When nothing is listed, write "Nothing beyond what every launchpad token has."
 
-Then, only when the data lists reads that failed, one last line starting "Not read this time:" with what was not read, in a few words.
+Write nothing after it: SEAL adds the line on reads that failed itself.
 
-The reader sees the figures row above your text: do not list it again, use its figures where they say something. Keep the whole answer between 90 and 170 words. Plain text: no bold, no bullet lists, no tables, no word in capitals for emphasis. Always write in English.`;
+The reader sees the figures row above your text: do not list it again, use its figures where they say something. Keep the whole answer between 70 and 140 words. Plain text: no bold, no bullet lists, no tables, no word in capitals for emphasis. Always write in English.`;
 
 /**
  * The report as the model reads it, every gap named. In English throughout,
@@ -248,6 +248,13 @@ export function renderSolanaBlocks(report: TokenReport): string[] {
           : share(raw, supply);
       return [
         `Bought ${seen(d.bought)}${d.bought === '0' ? '' : paidWords(d, (raw) => share(raw, supply))}; sold ${seen(d.sold)}${d.sold !== '0' && got ? ` for ${solWords(got)}` : ''}${d.saleSize === 'minor' ? ' (a minor sale: under 0.5% of the supply, or under 1 SOL on a token over a week old; not a signal)' : ''}; received ${seen(d.received)}; put in a lock ${seen(d.locked)}; burned ${seen(d.burned)}.`,
+        // A partial read that saw a little sold while the dev holds none: the
+        // sales read are not all it sold (100x: 0.92% read of a 53.3% launch buy).
+        ...(onToken!.completeness !== 'full' && d.holdsNow === '0' && d.sold !== '0'
+          ? [
+              `Only ${d.transactions.read} of the ${d.transactions.listed} transactions on its token accounts were read: the sale above is what they show, and the dev holds none of what it got. Never quote that share as all it sold; say it holds none today.`,
+            ]
+          : []),
         ...(d.provided && d.provided !== '0'
           ? [
               `Put ${share(d.provided, supply)} into pools as liquidity (a pool created or a deposit, paid with its own SOL or alone): this is not a sale.`,
@@ -667,12 +674,6 @@ export function renderReading(report: TokenReport, specialists?: SpecialistAnswe
       ? `- ${reading.clean.join('; ')}.`
       : '- None: write "Nothing beyond what every launchpad token has."',
   );
-  if (reading.notRead.length > 0) {
-    lines.push(
-      '',
-      `## Not read this time (the last line, "Not read this time: …"): ${joinAnd(reading.notRead)}.`,
-    );
-  }
   lines.push('');
   return lines;
 }

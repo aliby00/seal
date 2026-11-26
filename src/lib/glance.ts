@@ -84,11 +84,18 @@ export type GlanceInput = {
 const MAX_ITEMS = 4;
 const DAY_MS = 86_400_000;
 
+/**
+ * One rule with the figures row and the text (figures.ts): "41.9%", never
+ * "42%" beside it (POPCAT showed 18%, 17.5% and 17% for one holder).
+ */
 function pct(value: number): string {
-  if (value > 0 && value < 0.001) return '<0.1%';
+  if (value === 0) return '0%';
+  if (value === 1) return '100%';
+  if (value > 0 && value < 0.0001) return '<0.01%';
   if (value > 0.999 && value < 1) return '>99.9%';
-  // 99.7% rounded to "100%" would say nothing is left: one decimal near the top.
-  return `${(value * 100).toFixed(value < 0.1 || (value >= 0.995 && value < 1) ? 1 : 0)}%`;
+  const x = value * 100;
+  // "12%", not "12.0%"; "0.2%", not "0.20%".
+  return `${x.toFixed(x < 1 ? 2 : 1).replace(/\.?0+$/, '')}%`;
 }
 
 /** "1 launch", "9 launches" (not "launchs"), "141,028 trades". */

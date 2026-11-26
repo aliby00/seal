@@ -2782,8 +2782,9 @@ tr[data-kind='withdraw'] .launch-kind::before {
 
 /* ── The figures row: what a trader reads first, measured, never written by the model. ── */
 .figures-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 8.6rem), 1fr));
+  /* Wrapping cells that grow: the last row fills the width, no empty block. */
+  display: flex;
+  flex-wrap: wrap;
   gap: 1px;
   margin: 0;
   padding: 0;
@@ -2794,6 +2795,7 @@ tr[data-kind='withdraw'] .launch-kind::before {
   background: var(--hud-line);
 }
 .figures-row li {
+  flex: 1 1 8.6rem;
   display: grid;
   align-content: start;
   gap: 3px;
@@ -2820,8 +2822,9 @@ tr[data-kind='withdraw'] .launch-kind::before {
   color: var(--hud-dim);
 }
 @media (max-width: 540px) {
-  .figures-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .figures-row li {
+    flex-basis: 40%;
+    padding: 9px 12px 10px;
   }
   .figure-value {
     font-size: 18px;
@@ -2861,4 +2864,27 @@ tr[data-kind='withdraw'] .launch-kind::before {
   --muted-foreground: #9aa6ae;
   --border: rgb(255 255 255 / 0.12);
   --primary: #ff9d4a;
+}
+
+/* "What stands out": one fact per line, marked, so a trader scans them. */
+.stands-list {
+  display: grid;
+  gap: 10px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.stands-list li {
+  position: relative;
+  padding-left: 18px;
+}
+.stands-list li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0.72em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal-concern);
 }

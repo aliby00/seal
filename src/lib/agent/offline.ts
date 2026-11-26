@@ -2,7 +2,7 @@ import type { TokenReport } from '../contracts';
 import { readFailed } from '../failed-reads';
 import { shortAddress } from '../solana/address';
 import type { SpecialistAnswer } from '../specialists/brief';
-import { joinAnd, traderReading, type TraderLine } from './trader-text';
+import { notReadLine, traderReading, type TraderLine } from './trader-text';
 
 /** "$73.80", "$0.0012", "$0.0₉2303" — never "2.303e-10 USD". */
 export function usdWords(value: number): string {
@@ -94,8 +94,7 @@ export function offlineExplanation(report: TokenReport, specialists?: Specialist
     const clean = reading.clean.join('; ');
     parts.push('What is clean', `${clean.charAt(0).toUpperCase()}${clean.slice(1)}.`);
   }
-  if (reading.notRead.length > 0) {
-    parts.push(`Not read this time: ${joinAnd(reading.notRead)}. Try again in a minute.`);
-  }
+  const notRead = notReadLine(report);
+  if (notRead) parts.push(notRead);
   return parts.join('\n\n');
 }

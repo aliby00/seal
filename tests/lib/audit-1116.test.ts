@@ -92,9 +92,9 @@ describe('glance: a token deployed on its own', () => {
     const glance = buildGlance({ facts: facts({ supplyFlow: deployedAlone(0.294871) }) })!;
     const flow = glance.items.find((i) => i.id === 'flow')!;
     expect(flow.title).toBe(
-      'The creator minted the whole supply to itself and still holds 29% of it.',
+      'The creator minted the whole supply to itself and still holds 29.5% of it.',
     );
-    expect(flow.figure).toBe('29%');
+    expect(flow.figure).toBe('29.5%');
     expect(flow.tone).toBe('attention');
     expect(glance.headline).not.toMatch(/100% to the creator/);
   });
