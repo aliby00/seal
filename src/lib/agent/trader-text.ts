@@ -16,6 +16,8 @@ import { durationWords, paidWords, shareOf, short, solOf, solWords } from '../sp
 import type { FlowNode } from '../supply-flow';
 import { flowDate, flowSentence } from '../supply-flow';
 import type { SolanaHolder } from '../solana/holders';
+import { FLAG_RULES } from '../flag-rules';
+import type { FlagInputs } from '../flags';
 
 /**
  * What a memecoin trader reads first, worded from the facts alone: the
@@ -607,4 +609,208 @@ export function withNotRead(text: string, report: TokenReport): string {
   const kept = text.split(/\n{2,}/).filter((p) => !/^not read this time\b/i.test(p.trim()));
   const line = notReadLine(report);
   return [...kept, ...(line ? [line] : [])].join('\n\n');
+}
+
+/** What the mint still lets someone do to holders, as verb phrases for a flag. */
+const POWER_WORDS: Partial<Record<string, string>> = {
+  mint: 'mint more',
+  freeze: 'freeze holders',
+  'permanent-delegate': 'move or burn anyone’s tokens',
+  'transfer-hook': 'run a program on every transfer',
+  'transfer-fee-change': 'set a transfer fee',
+  pause: 'pause transfers',
+  'default-account-state': 'freeze new accounts',
+};
+
+/**
+ * The plain numbers the flags are drawn from (flags.ts), worked out from the
+ * collected report once, on the server: the page draws the flags again from
+ * them when its live market or holders change.
+ */
+export function flagInputsOf(report: TokenReport, specialists?: SpecialistAnswer[]): FlagInputs {
+  const input = figuresInput(report, specialists);
+  const answers = input.specialists ?? [];
+  // Dev.
+  const dev = devNumbers(input);
+  const onToken = report.creatorOnToken;
+  const d = onToken && onToken.completeness !== 'unavailable' ? onToken.data : null;
+  const base = d?.shareBase ?? report.mint.data?.supply ?? report.holders.data.supply ?? null;
+  const sm = report.launch.data.summary;
+  let devInputs: FlagInputs['dev'] = null;
+  if (dev && report.creator.data.creator) {
+    const got = dev.bought ?? 0;
+    const ownBought = d ? (shareOf(d.bought, base) ?? 0) : 0;
+    const times = (kind: 'buy' | 'sell') =>
+      (d?.moves ?? [])
+        .filter((m) => m.kind === kind && m.blockTime !== null)
+        .map((m) => m.blockTime!);
+    const buys = times('buy');
+    const sells = times('sell');
+    let span: number | null = null;
+    if (buys.length > 0 && sells.length > 0) span = Math.max(...sells) - Math.min(...buys);
+    else if (sm?.creatorFirstBuyAt != null && sm.creatorLastSaleAt != null)
+      span = sm.creatorLastSaleAt - sm.creatorFirstBuyAt;
+    devInputs = {
+      got: dev.bought,
+      verb: ownBought >= got * 0.95 || (sm?.creatorBought ?? 0) >= got * 0.95 ? 'bought' : 'got',
+      sold: dev.sold,
+      hasSold: dev.hasSold,
+      minorSale: dev.minorSale,
+      holds: dev.holds,
+      within: span !== null && span >= 0 ? `within ${durationWords(span)}` : null,
+      locked: d ? shareOf(d.locked, base) : null,
+      lockProgram: d?.moves.find((m) => m.kind === 'locked' && m.lockProgram)?.lockProgram ?? null,
+      unlocks: unlockDate(input.facts?.supplyFlow),
+      provided: d?.provided && d.provided !== '0' ? shareOf(d.provided, base) : null,
+      complete: onToken?.completeness === 'full',
+    };
+  }
+  // Launch.
+  const bundle = bundleNumbers(input);
+  const snipers = sniperNumbers(input);
+  const replayFailed = readFailed(report.failedReads, 'launch-replay');
+  // Other launches.
+  const history = report.creatorHistory;
+  let serial: FlagInputs['serial'] = null;
+  let noOtherLaunch = false;
+  if (history && history.completeness !== 'unavailable' && report.creator.data.creator) {
+    const h = history.data;
+    const others = h.launchesAtLeast ?? h.counts.launched;
+    const failed = readFailed(report.failedReads, 'creator-launches');
+    if (others > 0) {
+      serial = {
+        others,
+        atLeast:
+          failed ||
+          history.completeness !== 'full' ||
+          !h.scanned.pumpCurvesListed ||
+          h.launchesAtLeast !== undefined,
+        checked: h.lowCap?.checked ?? 0,
+        dead: h.lowCap?.under ?? 0,
+        deadUnderUsd: h.lowCap?.thresholdUsd ?? null,
+      };
+    } else if (history.completeness === 'full' && !failed) {
+      noOtherLaunch = true;
+    }
+  }
+  // Market.
+  const m = report.market.data;
+  const marketRead = report.market.completeness !== 'unavailable';
+  const onCurve = report.graduation?.data.graduated === false;
+  const liquidity = m.liquidityUsd ?? m.curveLiquidityUsd ?? null;
+  const mcap = m.marketCapUsd ?? m.fdvUsd ?? null;
+  // Holders, of the whole supply.
+  const hd = report.holders.data;
+  let holders: FlagInputs['holders'] = null;
+  if (report.holders.completeness !== 'unavailable' && hd.method !== 'none') {
+    const wallets = (hd.top as readonly SolanaHolder[]).filter(
+      (x) => x.kind === 'wallet' || x.kind === 'contract',
+    );
+    const ten = wallets.slice(0, 10).map((x) => x.ofSupply);
+    const top10 = hd.ofSupply.top10Wallets;
+    const largest = wallets[0];
+    holders = {
+      top10,
+      top1: hd.ofSupply.largestWallet,
+      top1Name:
+        largest && largest.owner.kind !== 'wallet' && largest.owner.name
+          ? largest.owner.name
+          : null,
+      holders: hd.holderCount,
+      floor: hd.method === 'largest-accounts',
+      equalBags:
+        ten.length >= 10 &&
+        top10 !== null &&
+        top10 >= FLAG_RULES.equalBagsMin &&
+        Math.min(...ten) >= Math.max(...ten) * FLAG_RULES.equalBagsRatio
+          ? { min: Math.min(...ten), max: Math.max(...ten) }
+          : null,
+    };
+  }
+  // LP of the main pool.
+  const pool = report.liquidity.data.pools.find((p) => p.known);
+  const lp = pool
+    ? {
+        gone: (pool.burnedShare ?? 0) + (pool.lockedShare ?? 0),
+        burned: (pool.burnedShare ?? 0) >= FLAG_RULES.lpGreen,
+        withdrawable: pool.withdrawableShare,
+      }
+    : null;
+  // Wallets the dev funded that bought.
+  const linked = report.linkedWallets;
+  const supply = report.mint.data?.supply ?? null;
+  const linkedBought =
+    linked && linked.completeness !== 'unavailable'
+      ? linked.data.funded.reduce((n, f) => n + (shareOf(f.onToken?.bought, supply) ?? 0), 0)
+      : null;
+  const concern = (id: SpecialistAnswer['specialist']) =>
+    answers.find((a) => a.specialist === id && a.signal === 'concern')?.facts[0] ?? null;
+  const held = report.powers.filter(
+    (p) => p.status === 'held' || (p.power === 'transfer-fee' && p.status === 'fixed'),
+  );
+  const livePowers = [
+    ...new Set(
+      held
+        .map((p) =>
+          p.power === 'transfer-fee' ? 'charge a transfer fee' : (POWER_WORDS[p.power] ?? null),
+        )
+        .filter((w): w is string => w !== null),
+    ),
+  ];
+  const off = (power: string) =>
+    report.powers.some((p) => p.power === power && p.status === 'none');
+  return {
+    launchpad: report.launchpad.data.launchpad?.name ?? null,
+    livePowers,
+    mintFreezeOff: off('mint') && off('freeze'),
+    dev: devInputs,
+    bundle,
+    snipers: snipers
+      ? {
+          wallets: snipers.wallets,
+          share: snipers.share,
+          heldNow: snipers.heldNow,
+          seconds: snipers.seconds,
+          afterOpen: snipers.openedAt !== null,
+        }
+      : null,
+    noBundle:
+      !replayFailed &&
+      report.launch.completeness === 'full' &&
+      Boolean(report.launch.data.creation) &&
+      !bundle &&
+      !snipers,
+    serial,
+    noOtherLaunch,
+    market: {
+      mcap: marketRead ? mcap : null,
+      liquidity: marketRead ? liquidity : null,
+      onCurve,
+      ratio: m.liquidityToMarketCap ?? (mcap && liquidity !== null ? liquidity / mcap : null),
+      volume24h: marketRead ? (m.volumeUsd?.h24 ?? null) : null,
+      quietHours: m.quiet ? m.quiet.hours : null,
+    },
+    holders,
+    lp,
+    linkedBought,
+    nameClone: concern('name-clone'),
+    freshWallet: freshWords(concern('wallet-age')),
+  };
+}
+
+/** The text without any "Not read this time" line: the page says a failed read itself. */
+export function withoutNotRead(text: string): string {
+  return text
+    .split(/\n{2,}/)
+    .filter((p) => !/^not read this time\b/i.test(p.trim()))
+    .join('\n\n');
+}
+
+/** "funded 113 seconds before launch", from the wallet-age answer; the answer as it is otherwise. */
+function freshWords(fact: string | null): string | null {
+  if (!fact) return null;
+  const m = /(\d[\d,.]*\s+(?:seconds?|minutes?|hours?|days?))\s+before the token was created/.exec(
+    fact,
+  );
+  return m ? `first funded ${m[1]} before launch` : fact.replace(/\.$/, '');
 }

@@ -1,5 +1,8 @@
+'use client';
+
 import { figuresOf } from '@/lib/figures';
-import { buildGlance } from '@/lib/glance';
+import { flagLine, flagsOf, withLive } from '@/lib/flags';
+import { buildGlance, partialNotice } from '@/lib/glance';
 import type { AnalyzeResponse } from '../api/analyze/route';
 import { AtAGlance } from './AtAGlance';
 import { Explanation } from './Explanation';
@@ -10,6 +13,9 @@ import { ReportHeader } from './ReportHeader';
 import { SolanaFacts } from './SolanaFacts';
 import { SpecialistsPanel } from './SpecialistsPanel';
 import { SupplyFlow } from './SupplyFlow';
+import { liveFacts, liveValues } from './live-merge';
+import { TopRead } from './TopRead';
+import { useLive } from './useLive';
 
 const labels: Record<string, string> = {
   full: 'All sources responded.',
@@ -22,8 +28,25 @@ const labels: Record<string, string> = {
  * seconds, the written reading, then every measure in full. Nothing is scored
  * and nothing is summed: every block reads on its own.
  */
-export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
+export function AnalysisReport({ result: served }: { result: AnalyzeResponse }) {
+  // The flags and the live market: answers cached before them keep the old layout.
+  const flagged = Boolean(served.flagInputs && served.facts);
+  const live = useLive(served.token, served.facts?.creator.address ?? null, flagged);
+  const result: AnalyzeResponse = served.facts
+    ? { ...served, facts: liveFacts(served.facts, live.market, live.holders) }
+    : served;
   const glance = buildGlance(result);
+  const flags = served.flagInputs
+    ? flagsOf(withLive(served.flagInputs, liveValues(live.market, live.holders)))
+    : [];
+  const figures = figuresOf({
+    ...result,
+    ...(live.holders?.devHolds != null ? { liveDevHolds: live.holders.devHolds } : {}),
+  });
+  // The model's sentence or two, under the flags; offline, the flags say it all.
+  const sentence =
+    flagged && !served.offline && served.explanation.trim() ? served.explanation.trim() : null;
+  const headline = flagged && flags[0] ? flagLine(flags[0]) : glance?.items[0]?.title;
   const replay = Boolean(result.launch && result.launch.moves.length > 0);
   // Said once: the note above the text says it was written offline, the summary
   // says which reads failed. The text itself keeps both for the API.
@@ -50,8 +73,20 @@ export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
   const questionsIndex = number('questions');
   return (
     <article className="report" aria-labelledby="report-title">
-      <ReportHeader result={result} headline={glance?.items[0]?.title} />
-      {glance && <AtAGlance glance={glance} figures={figuresOf(result)} />}
+      <ReportHeader result={result} headline={headline} />
+      {flagged ? (
+        <TopRead
+          flags={flags}
+          figures={figures}
+          sentence={sentence}
+          collectedAt={result.collectedAt}
+          marketAt={live.market?.at ?? null}
+          holdersAt={live.holders?.at ?? null}
+          partial={glance?.partial?.length ? partialNotice(glance.partial) : null}
+        />
+      ) : (
+        glance && <AtAGlance glance={glance} figures={figures} />
+      )}
       {/* Where the supply went comes right after the summary: what the rest is read against. */}
       {result.facts?.supplyFlow && (
         <SupplyFlow flow={result.facts.supplyFlow} creator={result.facts.creator.address} />
@@ -85,20 +120,22 @@ export function AnalysisReport({ result }: { result: AnalyzeResponse }) {
       )}
       <section className="reading-section" aria-labelledby="reading-title">
         <div className="report-section-head">
-          <p className="report-kicker">01 — Reading</p>
-          <h3 id="reading-title">How the facts fit together.</h3>
+          <p className="report-kicker">01 — {flagged ? 'Sources' : 'Reading'}</p>
+          <h3 id="reading-title">
+            {flagged ? 'Where every figure comes from.' : 'How the facts fit together.'}
+          </h3>
         </div>
         {/* A note on how the text was made, kept with the text rather than at the top. */}
-        {result.offline && (
+        {result.offline && !flagged && (
           <section className="offline-note" aria-label="Facts only">
             <h3>Facts only</h3>
             <p>Written from the facts alone: the explanation model was not used this time.</p>
           </section>
         )}
-        <div className="reading-layout">
-          <Explanation text={reading} offline={result.offline} />
+        <div className="reading-layout" data-sources-only={flagged || undefined}>
+          {!flagged && <Explanation text={reading} offline={result.offline} />}
           <aside className="sources" aria-label="Report sources">
-            <details open>
+            <details open={!flagged}>
               <summary>
                 Sources & limitations{' '}
                 <span aria-hidden="true" className="details-symbol">

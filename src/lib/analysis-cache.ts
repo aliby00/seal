@@ -1,3 +1,4 @@
+import type { FlagInputs } from './flags';
 import { resolveProvider } from './agent/providers';
 import type { LaunchReplayData } from './contracts';
 import type { ReportFacts, TimelineLaunch } from './facts';
@@ -29,6 +30,11 @@ export type CachedAnalysis = {
   specialists?: SpecialistAnswer[];
   /** The first minutes after the launch, move by move, when they could be read. */
   launch?: LaunchReplayData;
+  /**
+   * The numbers SEAL's flags are drawn from (flags.ts): the page draws them
+   * again with its live market and holders. Absent from older answers.
+   */
+  flagInputs?: FlagInputs;
 };
 
 /**

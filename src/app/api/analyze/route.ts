@@ -15,6 +15,7 @@ import { ANALYZE_LIMIT, COLLECT_LIMIT, guardedJson, overLimit } from '@/lib/guar
 import { log } from '@/lib/logger';
 import { overBudget, recordSpend } from '@/lib/spend';
 import { funderOf } from '@/lib/agent/prompt';
+import { flagInputsOf } from '@/lib/agent/trader-text';
 import {
   analysisCache,
   analysisTtlMs,
@@ -171,6 +172,19 @@ async function specialists(
   }
 }
 
+/** The flags' numbers: never a reason for the answer to fail. */
+function flagInputsOrNothing(
+  report: Parameters<typeof flagInputsOf>[0],
+  answers: Parameters<typeof flagInputsOf>[1],
+) {
+  try {
+    return { flagInputs: flagInputsOf(report, answers) };
+  } catch (error) {
+    log.warn('drapeaux non calculés', { error: String(error) });
+    return {};
+  }
+}
+
 function errorResponse(status: number, message: string, detail?: string) {
   return NextResponse.json({ error: message, ...(detail ? { detail } : {}) }, { status });
 }
@@ -317,6 +331,7 @@ async function read(token: string, started: number): Promise<Response> {
       ...(launch ? { launch } : {}),
       ...(solana ? { solana } : {}),
       ...(brief ? { name: brief.name, symbol: brief.symbol, specialists: brief.answers } : {}),
+      ...flagInputsOrNothing(report, brief?.answers),
     };
 
     // A report a failed read left partial is worth asking again, never repeating.
