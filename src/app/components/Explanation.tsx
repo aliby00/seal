@@ -17,6 +17,17 @@ function kindOf(heading: string): Kind {
 const KNOWN_HEADING =
   /^(what stands out|what is clean|what is reassuring|what deserves attention|where the signals diverge(?:\s*[—–-].*)?|ce qui (?:est rassurant|rassure|mérite attention)|là où les signaux divergent(?:\s*[—–-].*)?)$/i;
 
+/** One fact per line under "What stands out": a trader scans lines, a paragraph is read. */
+const STANDS_OUT = /^what stands out$/i;
+
+/** Sentences, keeping their end ("0.68%" or "$2.0k." is not cut inside). */
+export function sentencesOf(paragraph: string): string[] {
+  return paragraph
+    .split(/(?<=[.!?])\s+(?=[A-Z"“(\d])/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 /** The closing line on what could not be read: said quietly, apart from the findings. */
 const NOT_READ = /^not read this time\b/i;
 
@@ -67,10 +78,20 @@ export function Explanation({ text, offline }: { text: string; offline: boolean 
           data-kind={section.kind}
         >
           {section.heading && <h3>{section.heading}</h3>}
-          {section.paragraphs.map((paragraph, paragraphIndex) => (
-            // Emphasis markers are not rendered as emphasis: they would only show as asterisks.
-            <p key={paragraphIndex}>{paragraph.replace(/\*\*/g, '')}</p>
-          ))}
+          {section.heading && STANDS_OUT.test(section.heading) ? (
+            <ul className="stands-list">
+              {section.paragraphs
+                .flatMap((paragraph) => sentencesOf(paragraph.replace(/\*\*/g, '')))
+                .map((sentence, i) => (
+                  <li key={i}>{sentence}</li>
+                ))}
+            </ul>
+          ) : (
+            section.paragraphs.map((paragraph, paragraphIndex) => (
+              // Emphasis markers are not rendered as emphasis: they would only show as asterisks.
+              <p key={paragraphIndex}>{paragraph.replace(/\*\*/g, '')}</p>
+            ))
+          )}
         </div>
       ))}
     </div>

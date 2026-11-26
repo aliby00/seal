@@ -457,7 +457,7 @@ describe('In short', () => {
       },
     });
     const sales = glanceOf(report).items.find((i) => i.id === 'sales');
-    expect(sales?.title).toMatch(/bought at least 4\.0% of the supply/);
+    expect(sales?.title).toMatch(/bought at least 4% of the supply/);
   });
 
   it('says burned supply without "still" or "so far"', () => {
@@ -473,7 +473,7 @@ describe('In short', () => {
     });
     const supply = glanceOf(report).items.find((i) => i.id === 'supply');
     expect(supply?.title).toBe(
-      '95% of the supply is in the incinerator: only 5.0% is held outside it.',
+      '95% of the supply is in the incinerator: only 5% is held outside it.',
     );
   });
 });
@@ -660,7 +660,7 @@ describe('In short, after a launch replay that failed', () => {
     });
     const item = glanceOf(report).items.find((i) => i.id === 'launch-buys');
     expect(item?.title).toBe(
-      'In the creation slot, 2 wallets other than the creator got at least 40% of the supply.',
+      'In the creation slot, 2 wallets other than the creator got at least 39.5% of the supply.',
     );
   });
 });

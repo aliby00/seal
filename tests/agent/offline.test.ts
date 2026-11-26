@@ -46,7 +46,7 @@ describe('offlineExplanation', () => {
       },
     });
     const out = offlineExplanation(sold);
-    expect(out).toMatch(/The dev bought 3\.0% of the supply for 1\.29 SOL/);
+    expect(out).toMatch(/The dev bought 3% of the supply for 1\.29 SOL/);
     expect(out).toMatch(/sold all of it/);
     expect(out).toMatch(/it holds none of it today/);
   });
@@ -155,7 +155,7 @@ describe('offlineExplanation', () => {
       },
     });
     expect(offlineExplanation(funded)).toContain(
-      '1 wallet the dev sent SOL to around the launch bought 4.0% of the supply; a transfer links them, it does not show who controls them.',
+      '1 wallet the dev sent SOL to around the launch bought 4% of the supply; a transfer links them, it does not show who controls them.',
     );
   });
 

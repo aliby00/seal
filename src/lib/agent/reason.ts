@@ -6,6 +6,7 @@ import { resolveProvider, type Provider } from './providers';
 import { withoutClaims } from './claims';
 import { findViolations } from './guardrails';
 import { offlineExplanation } from './offline';
+import { withNotRead } from './trader-text';
 import { SYSTEM_PROMPT, renderReport } from './prompt';
 import type { SpecialistAnswer } from '../specialists/brief';
 
@@ -160,5 +161,11 @@ export async function explain(
     return { ...served(offlineExplanation(report, options.specialists), cost), rejected: true };
   }
 
-  return { text: checked.text, cost, violations, offline: false, provider: provider.name };
+  return {
+    text: withNotRead(checked.text, report),
+    cost,
+    violations,
+    offline: false,
+    provider: provider.name,
+  };
 }

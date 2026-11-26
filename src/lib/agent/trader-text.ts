@@ -545,7 +545,7 @@ function cleanParts(report: TokenReport, input: FiguresInput, lines: TraderLine[
     !(report.failedReads ?? []).some((f) => f.read === 'creator-launches')
   ) {
     out.push(
-      'no other launch by this dev was found on pump.fun’s curves or in its transactions read',
+      'no other launch was found for this dev on pump.fun’s curves or in its transactions read',
     );
   }
   return out.slice(0, 3);
@@ -562,10 +562,12 @@ export function traderReading(
 ): TraderReading {
   const input = figuresInput(report, specialists);
   specialists = input.specialists;
+  const dev = devLines(report, input);
   const lines = [
     powersLine(input),
-    flowLine(report, input),
-    ...devLines(report, input),
+    // The dev line already says where the supply it got went (GIGA): not twice.
+    ...(dev.length > 0 ? [] : [flowLine(report, input)]),
+    ...dev,
     launchLine(input),
     serialLine(report, input),
     ...marketLines(report, input),
@@ -587,4 +589,22 @@ export function joinAnd(items: readonly string[]): string {
   return items.length <= 1
     ? (items[0] ?? '')
     : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
+
+/** The closing line on the reads that failed this time; `null` when every read answered. */
+export function notReadLine(report: TokenReport): string | null {
+  const parts = notReadParts(report);
+  return parts.length > 0 ? `Not read this time: ${joinAnd(parts)}. Try again in a minute.` : null;
+}
+
+/**
+ * The text with SEAL's own closing line: the model's "Not read this time"
+ * listed whatever it found missing ("the creator's first funding, part of its
+ * transactions", staging 26/11/2026) on reports where every read answered.
+ * The line is said only for a read that failed, the same words every time.
+ */
+export function withNotRead(text: string, report: TokenReport): string {
+  const kept = text.split(/\n{2,}/).filter((p) => !/^not read this time\b/i.test(p.trim()));
+  const line = notReadLine(report);
+  return [...kept, ...(line ? [line] : [])].join('\n\n');
 }

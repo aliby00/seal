@@ -42,7 +42,8 @@ export function share(value: number): string {
   if (value > 0 && value < 0.0001) return '<0.01%';
   const x = value * 100;
   if (x >= 99.95 && value < 1) return '>99.9%';
-  return `${x.toFixed(x < 1 ? 2 : 1)}%`;
+  // "12%", not "12.0%"; "0.2%", not "0.20%".
+  return `${x.toFixed(x < 1 ? 2 : 1).replace(/\.?0+$/, '')}%`;
 }
 
 const count = (n: number) => n.toLocaleString('en-US');
