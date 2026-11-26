@@ -673,6 +673,13 @@ function MarketCard({
               </dd>
             </div>
           </dl>
+          {live && (
+            <p className="fact-note">
+              {live.marketAt && live.marketSlot != null
+                ? `Price, liquidity and FDV read from the main pool on chain (slot ${live.marketSlot.toLocaleString('en-US')}); volume and trades from DexScreener, about 30 s behind the chain.`
+                : 'Price, liquidity, volume and trades from DexScreener, which runs 10 to 60 s behind the chain.'}
+            </p>
+          )}
           {listed?.pair && (
             <p className="fact-mono">
               Main pair{listed.dex ? ` on ${dexName(listed.dex)}` : ''}

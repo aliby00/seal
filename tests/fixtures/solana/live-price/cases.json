@@ -1,0 +1,114 @@
+[
+  {
+    "slug": "pump-curve",
+    "mint": "6ppi7LfHkAhHkQwS3kT1zjCsGYQyK4uvpp3pE6Xmpump",
+    "pool": "7a9EXZ1TAqB6oEsyRZCp46eEJNwSrVYuAwasaHiZ3f5u",
+    "dex": "pumpfun",
+    "now": "2026-11-26T15:07:31.703Z",
+    "kind": "pump-curve",
+    "dexscreener": {
+      "priceUsd": 0.00001676,
+      "priceNative": 2.379e-7,
+      "liquidityUsd": null,
+      "marketCapUsd": 16764.48
+    }
+  },
+  {
+    "slug": "pumpswap-young",
+    "mint": "8XefdyFEBBLwvEWpGZqLmBDR9TmDeon1aLy16x2ipump",
+    "pool": "E8HxKawM6HMkkzLicFYKL686qtFB5CTBJoQ3KNHTJ6Ee",
+    "dex": "pumpswap",
+    "now": "2026-11-26T15:07:31.946Z",
+    "kind": "pumpswap",
+    "dexscreener": {
+      "priceUsd": 0.0001718,
+      "priceNative": 0.000002439,
+      "liquidityUsd": 31595.52,
+      "marketCapUsd": 171855
+    }
+  },
+  {
+    "slug": "pumpswap-ansem",
+    "mint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+    "pool": "FnzKY6x7entQ1eR3D225dQyT7ybfka4PskBMQhb8L3CC",
+    "dex": "pumpswap",
+    "now": "2026-11-26T15:07:32.134Z",
+    "kind": "pumpswap",
+    "dexscreener": {
+      "priceUsd": 0.01908,
+      "priceNative": 0.0002709,
+      "liquidityUsd": 761645.33,
+      "marketCapUsd": 19038940
+    }
+  },
+  {
+    "slug": "raydium-amm-v4",
+    "mint": "63LfDmNb3MQ8mw9MtZ2To9bEA2M71kZUUGq5tiJxcqj9",
+    "pool": "4xxM4cdb6MEsCxM52xvYqkNbzvdeWWsPDZrBcTqVGUar",
+    "dex": "raydium",
+    "now": "2026-11-26T15:07:32.432Z",
+    "kind": null,
+    "dexscreener": {
+      "priceUsd": 0.001383,
+      "priceNative": 0.00001964,
+      "liquidityUsd": 1088738.42,
+      "marketCapUsd": 13290558
+    }
+  },
+  {
+    "slug": "raydium-cpmm",
+    "mint": "GPiHbgbvWbZHKQiVf1v8AupAuST3mqSv3zb2SBJULGND",
+    "pool": "czewDLamSPb89EqxWU37M1ddK7kGeAcDwVWKHAkmwtM",
+    "dex": "raydium",
+    "now": "2026-11-26T15:07:33.096Z",
+    "kind": null,
+    "dexscreener": {
+      "priceUsd": 8.739e-7,
+      "priceNative": 1.24e-8,
+      "liquidityUsd": 24494.21,
+      "marketCapUsd": 87397
+    }
+  },
+  {
+    "slug": "damm-v2-sol",
+    "mint": "65iH8k736QNhuUHm1tt8X7yJXpJ517HPPq8BrVdwring",
+    "pool": "8fSUYVnTy4r5fZUksjzKexLq2Tx96K3UPdYRvW5XWJ9t",
+    "dex": "meteora",
+    "now": "2026-11-26T15:07:33.741Z",
+    "kind": null,
+    "dexscreener": {
+      "priceUsd": 0.002067,
+      "priceNative": 0.00002934,
+      "liquidityUsd": 141079.42,
+      "marketCapUsd": 1987542
+    }
+  },
+  {
+    "slug": "damm-v2-usdc",
+    "mint": "PpYYE5KdVWc2r5W7RsvVA3Lcs4PLBkASxGVZGbmNX6r",
+    "pool": "3NojBkGcbYxYY7YZexxSPPcd3cYTNamQ4pjKsTVQk8sZ",
+    "dex": "meteora",
+    "now": "2026-11-26T15:07:34.223Z",
+    "kind": null,
+    "dexscreener": {
+      "priceUsd": 0.002155,
+      "priceNative": 0.002155,
+      "liquidityUsd": 16239.09,
+      "marketCapUsd": 2155780
+    }
+  },
+  {
+    "slug": "dlmm",
+    "mint": "6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN",
+    "pool": "3C5YE97HADPDxZehYq9Cis8AXr9aNyrUsczKzE1nDbW9",
+    "dex": "meteora",
+    "now": "2026-11-26T15:07:34.412Z",
+    "kind": null,
+    "dexscreener": {
+      "priceUsd": 0.8624,
+      "priceNative": 0.8624,
+      "liquidityUsd": 3779967.27,
+      "marketCapUsd": 243107566
+    }
+  }
+]

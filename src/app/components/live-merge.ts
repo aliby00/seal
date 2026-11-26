@@ -34,6 +34,10 @@ export function liveFacts(
           ),
           // The same pairs as the volume: never a stale average beside a fresh volume.
           perTradeUsd24h: market.perTradeUsd24h,
+          // The curve's quote, read on chain with the price, when the main pair is the curve.
+          ...(market.curveLiquidityUsd != null && facts.market.curveLiquidityUsd !== undefined
+            ? { curveLiquidityUsd: market.curveLiquidityUsd }
+            : {}),
         }
       : facts.market,
     holders: holders

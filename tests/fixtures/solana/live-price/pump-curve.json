@@ -1,0 +1,56 @@
+[
+  {
+    "method": "getMultipleAccounts",
+    "params": [
+      [
+        "7a9EXZ1TAqB6oEsyRZCp46eEJNwSrVYuAwasaHiZ3f5u",
+        "6ppi7LfHkAhHkQwS3kT1zjCsGYQyK4uvpp3pE6Xmpump",
+        "7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE"
+      ],
+      {
+        "encoding": "base64",
+        "commitment": "confirmed"
+      }
+    ],
+    "result": {
+      "context": {
+        "slot": 474192590
+      },
+      "value": [
+        {
+          "lamports": 59027023190,
+          "data": [
+            "F7f4N2DYrGAO/dzhCEsBAFnna5cUAAAADmXKlXdMAABZO0ibDQAAAACAxqR+jQMAAMSxXbCnIttzg/hDZ4iBOWkcrwB4Rw05mflGcHInsRcBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACb0oMNAAAAAFINZhUAAAAAAACsI/wGAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+            "base64"
+          ],
+          "owner": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+          "executable": false,
+          "rentEpoch": 18446744073709552000,
+          "space": 166
+        },
+        {
+          "lamports": 2758440,
+          "data": [
+            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANHGO9Eh2AwAGAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARIAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFaKrVmgTjJuBYl0E8Eq+w+ro0Mmnq0bcneww4itIJkPEwCxAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVoqtWaBOMm4FiXQTwSr7D6ujQyaerRtyd7DDiK0gmQ8NAAAAV2hhdCBUaGUgQ3JhYgQAAABDUkFCUAAAAGh0dHBzOi8vaXBmcy5pby9pcGZzL2JhZmtyZWlleDZiaDJ1NXV5amRjYmNlNGlpM2N6aGI2cnp4ZDd6cmJ6NG80cGRsNTY0aWI1eHo1a2ttAAAAAA==",
+            "base64"
+          ],
+          "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "executable": false,
+          "rentEpoch": 18446744073709552000,
+          "space": 415
+        },
+        {
+          "lamports": 1825031,
+          "data": [
+            "IvEjY51+9M1gMUcENA3t3zcf1CRyFI8kjp0abRpesqw6zYt/1dayQwHvDYtv2izrpB2hXUCV0do5Kg0vjtDGx7wPTPrIwoC1bWCmCKIBAAAArwwnAAAAAAD4////H0sIawAAAAAeSwhrAAAAABSFSqcBAAAAzJglAAAAAAC1mkMcAAAAAAA=",
+            "base64"
+          ],
+          "owner": "rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ",
+          "executable": false,
+          "rentEpoch": 18446744073709552000,
+          "space": 134
+        }
+      ]
+    }
+  }
+]
